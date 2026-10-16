@@ -92,6 +92,63 @@
         });
     }
 
+    async function loadTemplate(raw) {
+        try {
+            var workflow = (typeof raw === "string") ? JSON.parse(raw) : raw;
+            if (!workflow || typeof workflow !== "object") {
+                log("loadTemplate: invalid workflow payload");
+                if (bridge && typeof bridge.notifyTemplateLoaded === "function") {
+                    bridge.notifyTemplateLoaded(false);
+                }
+                return false;
+            }
+
+            expectedTemplate = workflow;
+            var app = window.app || moduleApp;
+            // Use ComfyUI's loader so node registration and links stay consistent.
+            if (app && typeof app.loadApiJson === "function") {
+                await app.loadApiJson(workflow);
+            } else if (app && typeof app.loadGraphData === "function" && workflow.nodes) {
+                await app.loadGraphData(workflow);
+            } else {
+                throw new Error("ComfyUI workflow loader is unavailable");
+            }
+            if (!matchesTemplate(getGraph())) {
+                throw new Error("Loaded graph does not match the requested template");
+            }
+
+            var g = getGraph();
+            var c = getCanvas();
+            if (g) {
+                initGraphHooks();
+                if (typeof g.setDirtyCanvas === "function") {
+                    g.setDirtyCanvas(true, true);
+                }
+            }
+            if (c) {
+                if (typeof c.setDirty === "function") {
+                    c.setDirty(true, true);
+                }
+                if (typeof c.draw === "function") {
+                    c.draw(true, true);
+                }
+            }
+
+            bindTemplate(typeof raw === "string" ? raw : JSON.stringify(workflow));
+            log("Loaded template into canvas (" + Object.keys(workflow).length + " nodes)");
+            if (bridge && typeof bridge.notifyTemplateLoaded === "function") {
+                bridge.notifyTemplateLoaded(true);
+            }
+            return true;
+        } catch (err) {
+            log("Error loading template: " + err);
+            if (bridge && typeof bridge.notifyTemplateLoaded === "function") {
+                bridge.notifyTemplateLoaded(false);
+            }
+            return false;
+        }
+    }
+
     function highlightNode(nodeId) {
         try {
             var graph = getGraph();
@@ -329,6 +386,9 @@
                 if (bridge.bind_template_requested) {
                     bridge.bind_template_requested.connect(bindTemplate);
                 }
+                if (bridge.load_template_requested) {
+                    bridge.load_template_requested.connect(loadTemplate);
+                }
                 if (bridge.highlight_node_requested) {
                     bridge.highlight_node_requested.connect(function(nodeId) {
                         highlightNode(nodeId);
@@ -362,7 +422,8 @@
         getGraph: getGraph,
         getCanvas: getCanvas,
         bindTemplate: bindTemplate,
-        matchesTemplate: matchesTemplate
+        matchesTemplate: matchesTemplate,
+        loadTemplate: loadTemplate
     };
 
     if (document.readyState === "complete" || document.readyState === "interactive") {

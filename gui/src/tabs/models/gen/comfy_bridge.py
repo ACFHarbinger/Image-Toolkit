@@ -62,12 +62,14 @@ class ComfyBridge(QObject):
 
     # Python -> JS signals
     bind_template_requested = Signal(str)
+    load_template_requested = Signal(str)
     highlight_node_requested = Signal(str)
     sync_param_requested = Signal(str, str, str)  # (node_id, widget_name, value_json)
     set_image_requested = Signal(str, str)        # (node_id, image_filename)
 
     # JS -> Python notifications
     bridge_ready = Signal()
+    template_loaded = Signal(bool)
     node_highlighted = Signal(str)
     node_highlight_failed = Signal(str, str)
     param_changed_in_graph = Signal(str, str, str)  # (node_id, widget_name, raw_value)
@@ -88,6 +90,11 @@ class ComfyBridge(QObject):
     def notifyBridgeReady(self) -> None:
         self._is_ready = True
         self.bridge_ready.emit()
+
+    @Slot(bool)
+    def notifyTemplateLoaded(self, success: bool) -> None:
+        if self._origin_check():
+            self.template_loaded.emit(success)
 
     @Slot(str)
     def notifyNodeHighlighted(self, node_id: str) -> None:
@@ -122,6 +129,11 @@ class ComfyBridge(QObject):
     def bind_template(self, workflow: dict) -> None:
         if self._origin_check():
             self.bind_template_requested.emit(json.dumps(workflow))
+
+    def load_template(self, workflow: dict) -> None:
+        """Request the embedded canvas to load the workflow template into LiteGraph."""
+        if self._origin_check():
+            self.load_template_requested.emit(json.dumps(workflow))
 
     def set_image_node(self, node_id: str | int, image_filename: str) -> None:
         """Set the image parameter on a LoadImage node."""
