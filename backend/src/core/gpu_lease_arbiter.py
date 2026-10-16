@@ -152,6 +152,7 @@ class GpuLeaseArbiter:
         self._kind: str | None = None
         self._last_kind: str | None = None
         self._estimated_gb: float | None = None
+        self._estimate_scale = 1.0
         self._measured_peak_gb: float | None = None
         self._external_browser = False
         self._last_refusal: str | None = None
@@ -279,6 +280,9 @@ class GpuLeaseArbiter:
         self._owner = owner
         self._kind = next_kind
         self._estimated_gb = estimate
+        from backend.src.core.gpu_vram_calibration import owner_scale
+
+        self._estimate_scale = owner_scale(owner)
         return True
 
     def release(self, owner: str, *, measured_peak_gb: float | None = None) -> None:
@@ -294,7 +298,13 @@ class GpuLeaseArbiter:
                 peak = _finite_gb(self._peak_reader())
             except Exception:
                 peak = None
+        estimate = self._estimated_gb
         self._measured_peak_gb = peak
+        if peak is not None and estimate is not None and owner not in COMFY_OWNERS:
+            from backend.src.core.gpu_vram_calibration import record_peak
+
+            # Admission already applied this scale; compare against the raw prior.
+            record_peak(owner, peak, estimate / self._estimate_scale)
         self._last_kind = self._kind
         self._owner = None
         self._kind = None
