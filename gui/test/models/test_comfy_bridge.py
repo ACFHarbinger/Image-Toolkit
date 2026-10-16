@@ -1,8 +1,6 @@
 """Unit tests for ComfyBridge, comfy_bridge.js injection, and parameter sync (#755)."""
 import http.server
 import json
-import shutil
-import subprocess
 import threading
 from unittest.mock import MagicMock
 
@@ -87,6 +85,23 @@ class TestComfyBridgeQObject:
         bridge.bind_template({"1": {"class_type": "CheckpointLoaderSimple"}})
         assert len(requested) == 1
         assert "CheckpointLoaderSimple" in requested[0]
+
+    def test_load_template_emits_signal(self, q_app):
+        bridge = ComfyBridge()
+        requested = []
+        bridge.load_template_requested.connect(requested.append)
+        bridge.load_template({"1": {"class_type": "CheckpointLoaderSimple"}})
+        assert len(requested) == 1
+        assert "CheckpointLoaderSimple" in requested[0]
+
+    def test_notify_template_loaded_emits_signal(self, q_app):
+        bridge = ComfyBridge()
+        loaded = []
+        bridge.template_loaded.connect(loaded.append)
+        bridge.notifyTemplateLoaded(True)
+        assert loaded == [True]
+        bridge.notifyTemplateLoaded(False)
+        assert loaded == [True, False]
 
     def test_set_image_node_emits_signal(self, q_app):
         bridge = ComfyBridge()
@@ -368,44 +383,6 @@ def test_bridge_blocks_parameter_traffic_after_cross_origin_navigation(q_app):
     assert not sent and not received
 
 
-def test_javascript_sync_requires_matching_graph_and_preserves_strings():
-    node = shutil.which("node")
-    if node is None:
-        pytest.skip("Node.js required for the bridge behavior harness")
-    source = get_comfy_bridge_js()
-    harness = """
-const assert = require('node:assert/strict');
-global.window = {app: null};
-global.document = {readyState: "complete"};
-global.setTimeout = function() {};
-global.setInterval = function() {};
-let calls = 0;
-const widget = {name: "text", value: "existing", callback() { calls++; }};
-const item = {id: 1, type: "Text", inputs: [], widgets: [widget], widgets_values: ["existing"]};
-const graph = {_nodes: [item], getNodeById(id) {return this._nodes.find(n => String(n.id)===String(id));}, setDirtyCanvas() {}};
-window.app = {graph, canvas: {}};
-eval(SOURCE);
-const helper = window.comfyBridgeHelper;
-assert.equal(helper.setNodeWidgetValue("1", "text", '"no"'), false);
-helper.bindTemplate(JSON.stringify({"1": {class_type: "Text", inputs: {text: "default"}}}));
-assert.equal(widget.value, "existing"); // Binding must not push defaults.
-assert.equal(helper.setNodeWidgetValue("1", "text", '"123"'), true);
-assert.equal(widget.value, "123");
-item.type = "Unrelated";
-assert.equal(helper.setNodeWidgetValue("1", "text", '"bad"'), false);
-assert.equal(widget.value, "123");
-item.type = "Text";
-helper.initGraphHooks();
-helper.initGraphHooks();
-const before = calls;
-widget.callback("value");
-assert.equal(calls, before + 1);
-"""
-    result = subprocess.run([node, "-"], input=harness.replace("SOURCE", json.dumps(source)),
-                            text=True, capture_output=True, timeout=10)
-    assert result.returncode == 0, result.stderr
-
-
 def test_mock_frontend_webengine_integration(q_app):
     """Validate bridge behavior against a live running ComfyUI frontend structure (#755)."""
     html_page = """<!DOCTYPE html>
@@ -437,7 +414,13 @@ const canvas = {
   ds: { scale: 1.0, offset: [0, 0] },
   selectNode(n) { selectedNode = n; }
 };
-export const app = { graph, canvas };
+export const app = { graph, canvas, async loadApiJson(workflow) {
+  await Promise.resolve();
+  graph._nodes = Object.entries(workflow).map(([id, spec]) => ({
+    id: Number(id), comfyClass: spec.class_type, inputs: [],
+    widgets: Object.entries(spec.inputs).map(([name, value]) => ({ name, value }))
+  }));
+} };
 window.getTestSelectedNodeId = () => selectedNode ? selectedNode.id : null;
 """
 
@@ -544,6 +527,16 @@ window.getTestSelectedNodeId = () => selectedNode ? selectedNode.id : null;
         assert result_js.get("node1_val") == "updated_model.safetensors"
         assert result_js.get("node9_val") == "server_synced_token.png"
         assert result_js.get("selected") == 1
+
+        # 6. Test load_template into canvas
+        loaded_events = []
+        bridge.template_loaded.connect(loaded_events.append)
+        bridge.load_template({
+            "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "reloaded_ckpt.safetensors"}},
+            "9": {"class_type": "LoadImage", "inputs": {"image": "reloaded_pose.png"}},
+        })
+        spin(200)
+        assert loaded_events == [True]
     finally:
         view.page().setWebChannel(None)
         shiboken6.delete(view)

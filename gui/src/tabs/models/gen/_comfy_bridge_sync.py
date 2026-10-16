@@ -61,6 +61,19 @@ class ComfyBridgeSyncMixin:
             self._bridge.set_image_node(node_id, image_path)
 
 
+    def load_mode_template_into_canvas(self, mode: str | None = None) -> bool:
+        """Load curated workflow template into embedded ComfyUI canvas (#755)."""
+        if self._bridge is None or not self._bridge.is_ready:
+            return False
+        selected_mode = mode or self._mode_combo.currentData()
+        cfg = WORKFLOW_MODES.get(selected_mode)
+        if not cfg:
+            return False
+        template = _load_workflow_template(cfg["template"])
+        self._bridge.load_template(template)
+        self._append_log(f"[bridge] Loading '{cfg['label']}' template into canvas…\n")
+        return True
+
     def _sync_all_guided_params(self) -> None:
         if self._bridge is None or not self._bridge.is_ready:
             return
@@ -91,6 +104,7 @@ class ComfyBridgeSyncMixin:
             self._web_channel, self._bridge = setup_comfy_web_channel(view, allowed_url=self._manager.url)
             self._bridge.param_changed_in_graph.connect(self._on_param_changed_from_graph)
             self._bridge.bridge_ready.connect(self._sync_all_guided_params)
+            self._bridge.template_loaded.connect(self._on_template_loaded)
             self._bridge.log_message.connect(lambda msg: self._append_log(f"[bridge] {msg}\n"))
         except Exception as exc:
             self._append_log(f"[bridge] Channel setup error: {exc}\n")
