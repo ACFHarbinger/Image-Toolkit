@@ -92,7 +92,7 @@
         });
     }
 
-    function loadTemplate(raw) {
+    async function loadTemplate(raw) {
         try {
             var workflow = (typeof raw === "string") ? JSON.parse(raw) : raw;
             if (!workflow || typeof workflow !== "object") {
@@ -105,123 +105,16 @@
 
             expectedTemplate = workflow;
             var app = window.app || moduleApp;
-            var loaded = false;
-
+            // Use ComfyUI's loader so node registration and links stay consistent.
             if (app && typeof app.loadApiJson === "function") {
-                try {
-                    app.loadApiJson(workflow);
-                    loaded = true;
-                } catch (e) {
-                    log("app.loadApiJson error: " + e);
-                }
+                await app.loadApiJson(workflow);
             } else if (app && typeof app.loadGraphData === "function" && workflow.nodes) {
-                try {
-                    app.loadGraphData(workflow);
-                    loaded = true;
-                } catch (e) {
-                    log("app.loadGraphData error: " + e);
-                }
+                await app.loadGraphData(workflow);
+            } else {
+                throw new Error("ComfyUI workflow loader is unavailable");
             }
-
-            if (!loaded) {
-                var graph = getGraph();
-                if (graph) {
-                    if (typeof graph.clear === "function") {
-                        graph.clear();
-                    } else if (Array.isArray(graph._nodes)) {
-                        graph._nodes = [];
-                    }
-                    if (typeof graph.getNodeById !== "function") {
-                        graph.getNodeById = function(id) {
-                            return (this._nodes || []).find(function(n) { return n && String(n.id) === String(id); });
-                        };
-                    }
-                    var linkId = 1;
-                    var links = {};
-                    var createdNodes = {};
-                    var ids = Object.keys(workflow);
-                    ids.forEach(function(id) {
-                        var spec = workflow[id];
-                        if (!spec || typeof spec !== "object") return;
-                        var numId = Number(id);
-                        var nodeId = isNaN(numId) ? id : numId;
-                        var node = null;
-                        if (window.LiteGraph && typeof window.LiteGraph.createNode === "function") {
-                            try {
-                                node = window.LiteGraph.createNode(spec.class_type);
-                            } catch (e) {}
-                        }
-                        if (!node) {
-                            node = {
-                                id: nodeId,
-                                type: spec.class_type,
-                                comfyClass: spec.class_type,
-                                title: (spec._meta && spec._meta.title) ? spec._meta.title : spec.class_type,
-                                inputs: [],
-                                widgets: [],
-                                widgets_values: []
-                            };
-                        } else {
-                            node.id = nodeId;
-                            if (spec._meta && spec._meta.title) node.title = spec._meta.title;
-                        }
-                        createdNodes[id] = node;
-                        if (typeof graph.add === "function") {
-                            graph.add(node);
-                        } else if (Array.isArray(graph._nodes)) {
-                            graph._nodes.push(node);
-                        }
-                    });
-
-                    ids.forEach(function(id) {
-                        var spec = workflow[id];
-                        var node = createdNodes[id];
-                        if (!node || !spec) return;
-                        var inputs = spec.inputs || {};
-                        Object.keys(inputs).forEach(function(name) {
-                            var val = inputs[name];
-                            if (Array.isArray(val)) {
-                                var link = {
-                                    id: linkId++,
-                                    origin_id: val[0],
-                                    origin_slot: val[1],
-                                    target_id: node.id,
-                                    target_slot: node.inputs ? node.inputs.length : 0
-                                };
-                                links[link.id] = link;
-                                if (!node.inputs) node.inputs = [];
-                                var existingInput = node.inputs.find(function(inp) { return inp && inp.name === name; });
-                                if (existingInput) {
-                                    existingInput.link = link.id;
-                                } else {
-                                    node.inputs.push({ name: name, link: link.id });
-                                }
-                            } else {
-                                if (!node.widgets) node.widgets = [];
-                                var w = node.widgets.find(function(widget) { return widget && widget.name === name; });
-                                if (w) {
-                                    w.value = val;
-                                } else {
-                                    node.widgets.push({ name: name, value: val });
-                                }
-                                if (Array.isArray(node.widgets_values)) {
-                                    node.widgets_values.push(val);
-                                }
-                            }
-                        });
-                    });
-
-                    if (typeof graph.links === "object" && graph.links !== null) {
-                        if (typeof graph.links.set === "function") {
-                            Object.keys(links).forEach(function(k) { graph.links.set(Number(k), links[k]); });
-                        } else {
-                            Object.assign(graph.links, links);
-                        }
-                    } else {
-                        graph.links = links;
-                    }
-                    loaded = true;
-                }
+            if (!matchesTemplate(getGraph())) {
+                throw new Error("Loaded graph does not match the requested template");
             }
 
             var g = getGraph();

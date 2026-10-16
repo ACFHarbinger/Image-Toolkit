@@ -414,7 +414,13 @@ const canvas = {
   ds: { scale: 1.0, offset: [0, 0] },
   selectNode(n) { selectedNode = n; }
 };
-export const app = { graph, canvas };
+export const app = { graph, canvas, async loadApiJson(workflow) {
+  await Promise.resolve();
+  graph._nodes = Object.entries(workflow).map(([id, spec]) => ({
+    id: Number(id), comfyClass: spec.class_type, inputs: [],
+    widgets: Object.entries(spec.inputs).map(([name, value]) => ({ name, value }))
+  }));
+} };
 window.getTestSelectedNodeId = () => selectedNode ? selectedNode.id : null;
 """
 
