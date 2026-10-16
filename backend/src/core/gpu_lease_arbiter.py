@@ -294,7 +294,12 @@ class GpuLeaseArbiter:
                 peak = _finite_gb(self._peak_reader())
             except Exception:
                 peak = None
+        estimate = self._estimated_gb
         self._measured_peak_gb = peak
+        if peak is not None and estimate is not None and owner not in COMFY_OWNERS:
+            from backend.src.core.gpu_vram_calibration import record_peak
+
+            record_peak(owner, peak, estimate)
         self._last_kind = self._kind
         self._owner = None
         self._kind = None

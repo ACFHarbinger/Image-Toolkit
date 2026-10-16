@@ -16,6 +16,14 @@ from backend.src.core.gpu_lease_arbiter import (
     profile_from_env,
     release_unused_cuda_blocks,
 )
+from backend.src.core.gpu_vram_calibration import clear, owner_scale
+
+
+@pytest.fixture(autouse=True)
+def _reset_calibration():
+    clear()
+    yield
+    clear()
 
 
 def test_infer_kind_from_owner():
@@ -100,6 +108,20 @@ def test_release_records_measured_peak():
     assert snap.owner is None
     assert snap.measured_peak_gb == 3.25
     assert snap.estimated_gb is None
+
+
+def test_release_raises_owner_scale_when_peak_exceeds_estimate():
+    lease = GpuLeaseArbiter(peak_reader=lambda: 6.0)
+    assert lease.try_acquire("lora-generate", estimated_gb=4.0)
+    lease.release("lora-generate")
+    assert owner_scale("lora-generate") == pytest.approx(1.5)
+
+
+def test_comfy_release_does_not_calibrate_from_this_process_peak():
+    lease = GpuLeaseArbiter(peak_reader=lambda: 9.9)
+    assert lease.try_acquire("guided", estimated_gb=4.0)
+    lease.release("guided")
+    assert owner_scale("guided") == 1.0
 
 
 def test_release_prefers_explicit_measured_peak():

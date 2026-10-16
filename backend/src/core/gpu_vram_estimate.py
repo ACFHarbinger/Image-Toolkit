@@ -1,8 +1,9 @@
 """Job-parameter VRAM estimates for GpuLeaseArbiter admission (#758).
 
-These uncalibrated heuristics are not memory-fit guarantees. Rounded fp16
-weight assumptions do not cover all loader dtypes, model families, or custom
-workflow nodes. After a local run the arbiter records measured peak separately.
+Parametric heuristics, then a per-owner scale from measured peaks
+(``gpu_vram_calibration``). Not a memory-fit guarantee: custom nodes,
+ControlNet, and Comfy HTTP occupancy are still out of band. After a local
+run the arbiter records measured peak and can only raise that scale.
 """
 from __future__ import annotations
 
@@ -132,6 +133,12 @@ def image_size(path: str | None) -> tuple[int, int] | None:
 
 def estimate_job_gb(owner: str, **job: Any) -> float:
     """Positive VRAM estimate for a production lease owner."""
+    from backend.src.core.gpu_vram_calibration import apply_scale
+
+    return apply_scale(owner, _formula_job_gb(owner, **job))
+
+
+def _formula_job_gb(owner: str, **job: Any) -> float:
     family = model_family(job.get("model_id") or job.get("checkpoint"))
     if owner in {"guided", "graph", "promoted", "matrix", "guidance"}:
         width = job.get("width")
@@ -172,11 +179,14 @@ def estimate_job_gb(owner: str, **job: Any) -> float:
     return diffusion_gb(family=family, width=job.get("width", 512), height=job.get("height", 512))
 
 
+formula_job_gb = _formula_job_gb
+
 __all__ = [
     "DEFAULT_TILE",
     "WEIGHT_GB",
     "diffusion_gb",
     "estimate_job_gb",
+    "formula_job_gb",
     "image_size",
     "model_family",
     "workflow_family",

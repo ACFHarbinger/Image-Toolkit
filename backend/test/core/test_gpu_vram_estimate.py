@@ -1,14 +1,25 @@
 """Job-parameter VRAM estimates used at production admit sites (#758)."""
 from __future__ import annotations
 
+import pytest
+
 from backend.src.core.gpu_lease_arbiter import PROFILE_CONSERVATIVE, GpuLeaseArbiter
+from backend.src.core.gpu_vram_calibration import clear, record_peak
 from backend.src.core.gpu_vram_estimate import (
     diffusion_gb,
     estimate_job_gb,
+    formula_job_gb,
     model_family,
     workflow_family,
     workflow_latent_size,
 )
+
+
+@pytest.fixture(autouse=True)
+def _reset_calibration():
+    clear()
+    yield
+    clear()
 
 
 def test_family_from_model_id():
@@ -60,6 +71,13 @@ def test_upscale_estimate_accounts_for_resident_full_image():
     huge = estimate_job_gb("upscale", width=8000, height=4000, tile_size=400)
     assert 0.8 <= tile <= 2.5
     assert huge > tile
+    assert tile == round(formula_job_gb("upscale", tile_size=400) * 1.43, 2)
+
+
+def test_gan_train_seed_matches_measured_peak():
+    assert estimate_job_gb("gan-train", batch_size=1) == round(
+        formula_job_gb("gan-train", batch_size=1) * 2.24, 2
+    )
 
 
 def test_every_production_owner_returns_a_positive_estimate():
@@ -101,6 +119,28 @@ def test_conservative_admission_uses_the_job_estimate():
 def test_diffusion_gb_is_deterministic():
     assert diffusion_gb(family="sd15", width=512, height=512) == diffusion_gb(
         family="sd15", width=512, height=512
+    )
+
+
+def test_measured_peak_raises_future_estimates():
+    formula = formula_job_gb("upscale", tile_size=400)
+    record_peak("upscale", formula * 2, formula)
+    assert estimate_job_gb("upscale", tile_size=400) == pytest.approx(round(formula * 2, 2))
+
+
+def test_smaller_peak_does_not_lower_estimate():
+    before = estimate_job_gb("gan-train", batch_size=1)
+    formula = formula_job_gb("gan-train", batch_size=1)
+    record_peak("gan-train", formula * 0.25, formula)
+    assert estimate_job_gb("gan-train", batch_size=1) == before
+
+
+def test_comfy_formula_is_unchanged_without_a_seed():
+    workflow = {
+        "5": {"class_type": "EmptyLatentImage", "inputs": {"width": 512, "height": 512, "batch_size": 1}},
+    }
+    assert estimate_job_gb("guided", workflow=workflow) == estimate_job_gb(
+        "guided", workflow=workflow
     )
 
 
