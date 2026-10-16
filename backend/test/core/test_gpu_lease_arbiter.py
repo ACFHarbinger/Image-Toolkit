@@ -308,3 +308,15 @@ def test_concurrent_duplicate_release_reads_peak_once():
     assert not failures and len(calls) == 1
     assert lease.try_acquire("next")
     lease.release("next")
+
+
+def test_release_calibration_accounts_for_seed_and_live_scales():
+    from backend.src.core.gpu_vram_estimate import estimate_job_gb, formula_job_gb
+
+    formula = formula_job_gb("upscale", tile_size=400)
+    lease = GpuLeaseArbiter()
+    for multiplier in (2.0, 3.0):
+        estimate = estimate_job_gb("upscale", tile_size=400)
+        assert lease.try_acquire("upscale", estimated_gb=estimate)
+        lease.release("upscale", measured_peak_gb=formula * multiplier)
+        assert estimate_job_gb("upscale", tile_size=400) >= round(formula * multiplier, 2)

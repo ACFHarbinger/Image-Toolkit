@@ -10,6 +10,7 @@ here: their occupancy is another process.
 """
 from __future__ import annotations
 
+import math
 import threading
 
 # Measured/formula from one RTX 4080 Laptop run per in-process job type
@@ -28,7 +29,7 @@ def _finite_positive(value: float) -> float | None:
         number = float(value)
     except (TypeError, ValueError):
         return None
-    if number <= 0:
+    if not math.isfinite(number) or number <= 0:
         return None
     return number
 
@@ -40,7 +41,7 @@ def record_peak(owner: str, measured_gb: float, formula_gb: float) -> None:
     if not owner or peak is None or formula is None:
         return
     scale = peak / formula
-    if scale <= 1.0:
+    if not math.isfinite(scale) or scale <= 1.0:
         return
     with _lock:
         previous = _live_scale.get(owner, 0.0)

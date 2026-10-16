@@ -139,7 +139,7 @@ def test_comfy_formula_is_unchanged_without_a_seed():
     workflow = {
         "5": {"class_type": "EmptyLatentImage", "inputs": {"width": 512, "height": 512, "batch_size": 1}},
     }
-    assert estimate_job_gb("guided", workflow=workflow) == estimate_job_gb(
+    assert estimate_job_gb("guided", workflow=workflow) == formula_job_gb(
         "guided", workflow=workflow
     )
 
@@ -149,3 +149,11 @@ def test_workflow_batch_size_affects_admission_estimate():
     single = estimate_job_gb("graph", workflow=workflow)
     workflow["1"]["inputs"]["batch_size"] = 8
     assert estimate_job_gb("graph", workflow=workflow) > single
+
+
+@pytest.mark.parametrize("value", [float("inf"), float("nan"), -1.0, 0.0])
+def test_invalid_peak_cannot_poison_estimates(value):
+    before = estimate_job_gb("upscale", tile_size=400)
+    record_peak("upscale", value, 1.0)
+    record_peak("upscale", 3.0, value)
+    assert estimate_job_gb("upscale", tile_size=400) == before
