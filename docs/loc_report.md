@@ -12,6 +12,7 @@
 | `gui/src/tabs/core/image_extractor_subtab.py` | 487 | 31 | 40 | 558 |
 | `gui/src/helpers/web/cloud/local_dir_sync_worker.py` | 475 | 58 | 69 | 602 |
 | `gui/src/windows/image_compare_window.py` | 473 | 18 | 8 | 499 |
+| `gui/src/tabs/models/gen/comfy_generate_tab.py` | 471 | 27 | 3 | 501 |
 | `gui/src/classes/base/gallery_base.py` | 470 | 115 | 100 | 685 |
 | `gui/src/components/virtual_gallery/virtual_gallery_view.py` | 468 | 60 | 44 | 572 |
 | `gui/src/windows/authentication/login_window.py` | 467 | 112 | 30 | 609 |
@@ -19,7 +20,6 @@
 | `backend/src/models/tuning/lo_ra_tuner.py` | 462 | 50 | 21 | 533 |
 | `gui/src/tabs/core/wallpaper_tab/graph/wallpaper_graph_scene.py` | 456 | 22 | 29 | 507 |
 | `gui/src/tabs/models/review_tools_page.py` | 455 | 1 | 8 | 464 |
-| `gui/src/tabs/models/gen/comfy_generate_tab.py` | 453 | 27 | 3 | 483 |
 | `gui/src/tabs/core/extractor_tab/_media_player.py` | 439 | 114 | 29 | 582 |
 | `gui/src/components/dialogs/asp_advanced_config_dialog.py` | 437 | 21 | 8 | 466 |
 | `gui/src/tabs/web/reverse_search_tab.py` | 434 | 45 | 21 | 500 |
@@ -56,4 +56,4 @@
 | `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
 | `gui/src/windows/settings/settings_window.py` | 345 | 28 | 10 | 383 |
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
-| **TOTALS** | **101949** | **6548** | **10464** | **118961** |
+| **TOTALS** | **102053** | **6551** | **10479** | **119083** |
