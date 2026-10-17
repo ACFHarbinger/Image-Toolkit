@@ -40,7 +40,7 @@
 | `gui/src/components/dialogs/thumbnail_file_picker.py` | 386 | 4 | 7 | 397 |
 | `gui/src/tabs/core/extractor_tab/_directory_scanning.py` | 385 | 35 | 24 | 444 |
 | `gui/src/windows/settings/_relaunch_settings.py` | 382 | 33 | 9 | 424 |
-| `backend/src/core/wallpaper/_kde.py` | 379 | 105 | 31 | 515 |
+| `backend/src/core/wallpaper/_kde.py` | 381 | 106 | 31 | 518 |
 | `gui/src/tabs/web/web_requests_tab.py` | 377 | 39 | 6 | 422 |
 | `gui/src/components/dialogs/dataset_advisor_panel.py` | 371 | 12 | 16 | 399 |
 | `gui/src/windows/settings/_profile_management.py` | 371 | 34 | 18 | 423 |
@@ -56,4 +56,4 @@
 | `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
 | `gui/src/windows/settings/settings_window.py` | 345 | 28 | 10 | 383 |
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
-| **TOTALS** | **102053** | **6551** | **10479** | **119083** |
+| **TOTALS** | **102103** | **6559** | **10482** | **119144** |
