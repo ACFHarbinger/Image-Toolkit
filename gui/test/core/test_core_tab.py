@@ -116,6 +116,20 @@ class TestWallpaperTab:
         assert sd.background_color_hex == "#AABBCC"
         sd.set_config({"background_color_hex": "not-a-color"})
         assert sd.background_color_hex == "#000000"
+
+        sd.background_fill_combo.setCurrentText("Blur")
+        assert sd._background_color_for_apply() == "blur"
+        assert not sd.background_color_preview.isVisible()
+        assert not sd.background_color_btn.isVisible()
+        assert sd.collect()["background_fill"] == "Blur"
+        sd.background_type_combo.setCurrentText("Solid Color")
+        assert sd._background_color_for_apply() is None
+        sd.background_type_combo.setCurrentText("Image")
+        sd.set_config({"background_fill": "Color"})
+        assert sd._background_color_for_apply() == "#000000"
+        assert sd.background_color_btn.isVisible()
+        sd.set_config({"background_fill": "bogus"})
+        assert sd.background_fill == "Color"
         tab.close()
 
     def test_forwards_search_and_tray_apis_to_system_display(self, q_app, mock_deps):

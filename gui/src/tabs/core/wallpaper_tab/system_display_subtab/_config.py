@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
 
-from ._style_selectors import DEFAULT_BACKGROUND_COLOR
+from ._style_selectors import BACKGROUND_FILL_COLOR, BACKGROUND_FILLS, DEFAULT_BACKGROUND_COLOR
 
 
 class SystemDisplayConfigController(TabBoundController):
@@ -55,6 +55,7 @@ class SystemDisplayConfigController(TabBoundController):
             "background_type": self.background_type,
             "solid_color_hex": self.solid_color_hex,
             "background_color_hex": self.background_color_hex,
+            "background_fill": self.background_fill,
             "playback_order": self.playback_order_combo.currentText(),
             "monitor_order": monitor_order,
             "monitor_layout": monitor_layout,
@@ -75,6 +76,7 @@ class SystemDisplayConfigController(TabBoundController):
             "background_type": "Image",
             "solid_color_hex": color("window_bg"),
             "background_color_hex": DEFAULT_BACKGROUND_COLOR,
+            "background_fill": BACKGROUND_FILL_COLOR,
             "monitor_order": [],
             "monitor_layout": [],
         }
@@ -147,6 +149,9 @@ class SystemDisplayConfigController(TabBoundController):
                 self.background_color_preview.setStyleSheet(
                     qss("dynamic_color_preview", BG_COLOR=self.background_color_hex)
                 )
+            if "background_fill" in config:
+                fill = str(config.get("background_fill") or BACKGROUND_FILL_COLOR)
+                self.background_fill_combo.setCurrentText(fill if fill in BACKGROUND_FILLS else BACKGROUND_FILL_COLOR)
             if "background_type" in config:
                 self.background_type_combo.setCurrentText(config.get("background_type", "Image"))
             if "playback_order" in config:

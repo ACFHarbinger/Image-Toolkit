@@ -14,7 +14,7 @@ from typing import Dict, List, Mapping, Optional, Union
 import base  # Native extension
 from screeninfo import Monitor
 
-from backend.src.constants import WALLPAPER_STYLES
+from backend.src.constants import WALLPAPER_BACKGROUND_BLUR, WALLPAPER_STYLES
 
 from ._dbus import evaluate_kde_script_with_fallback
 from ._gnome import _GNOMEWallpaperMixin
@@ -79,15 +79,24 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
         """Apply *path_map* to the monitors.
 
         ``background_color`` ("#RRGGBB") fills whatever the image does not
-        cover (e.g. "Scaled, Keep Proportions" or "Center"). ``None`` leaves
-        the desktop's current background color unchanged. It does not apply
-        to video wallpapers or the SolidColor style.
+        cover (e.g. "Scaled, Keep Proportions" or "Center").
+        ``WALLPAPER_BACKGROUND_BLUR`` fills it with a blurred copy of the
+        image instead; only KDE Plasma supports that, so GNOME and Windows
+        keep their current background. ``None`` leaves the desktop's current
+        background unchanged. It does not apply to video wallpapers or the
+        SolidColor style.
         """
         system = platform.system()
-        if background_color is not None and not re.fullmatch(r"#[0-9A-Fa-f]{6}", background_color):
-            raise ValueError(f"background_color must be '#RRGGBB', got {background_color!r}")
+        if background_color not in (None, WALLPAPER_BACKGROUND_BLUR) and not re.fullmatch(
+            r"#[0-9A-Fa-f]{6}", background_color
+        ):
+            raise ValueError(
+                f"background_color must be '#RRGGBB' or {WALLPAPER_BACKGROUND_BLUR!r}, got {background_color!r}"
+            )
         if style_name.startswith("SmartVideoWallpaper"):
             background_color = None
+        # Blur is a KDE image-plugin option; other desktops have no equivalent.
+        solid_background = background_color if background_color != WALLPAPER_BACKGROUND_BLUR else None
         if style_name == "SolidColor":
             color_hex = path_map.get(str(0), "#000000")
             if system == "Windows":
@@ -111,8 +120,8 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
             return
 
         if system == "Windows":
-            if background_color:
-                WallpaperManager._set_background_color_windows(background_color)
+            if solid_background:
+                WallpaperManager._set_background_color_windows(solid_background)
             if WallpaperManager.COM_AVAILABLE and isinstance(monitors, list):
                 WallpaperManager._set_wallpaper_windows_multi(
                     path_map, monitors, style_name
@@ -199,8 +208,8 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
                 ):
                     return
 
-                if background_color:
-                    WallpaperManager._set_background_color_gnome(background_color)
+                if solid_background:
+                    WallpaperManager._set_background_color_gnome(solid_background)
                 if style_name == "Spanned" and isinstance(monitors, list):
                     WallpaperManager._set_wallpaper_gnome_spanned(
                         path_map, monitors, style_name

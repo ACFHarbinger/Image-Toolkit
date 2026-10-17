@@ -9,7 +9,7 @@ from __future__ import annotations
 import platform
 from typing import TYPE_CHECKING, Mapping, Optional, Tuple, Union, cast
 
-from backend.src.constants import WALLPAPER_STYLES
+from backend.src.constants import WALLPAPER_BACKGROUND_BLUR, WALLPAPER_STYLES
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QColorDialog
@@ -20,6 +20,11 @@ from ._tab_bound import TabBoundController
 # Background types whose images can leave part of the screen uncovered.
 BACKGROUND_COLOR_TYPES = ("Image", "Slideshow")
 DEFAULT_BACKGROUND_COLOR = "#000000"
+# How uncovered areas are filled: the chosen color, or (KDE Plasma only) a
+# blurred copy of the image.
+BACKGROUND_FILL_COLOR = "Color"
+BACKGROUND_FILL_BLUR = "Blur"
+BACKGROUND_FILLS = (BACKGROUND_FILL_COLOR, BACKGROUND_FILL_BLUR)
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
@@ -145,9 +150,21 @@ class SystemDisplayStyleSelectorsController(TabBoundController):
             )
             self._sync_daemon_config()
 
+    @Slot(str)
+    def _update_background_fill(self: "SystemDisplaySubTabHostProtocol", fill: str):
+        self.background_fill = fill if fill in BACKGROUND_FILLS else BACKGROUND_FILL_COLOR
+        is_color = self.background_fill == BACKGROUND_FILL_COLOR
+        self.background_color_preview.setVisible(is_color)
+        self.background_color_btn.setVisible(is_color)
+        self._sync_daemon_config()
+
     def _background_color_for_apply(self: "SystemDisplaySubTabHostProtocol") -> Optional[str]:
-        """The background color to send with an apply, or None for types it does not affect."""
-        return self.background_color_hex if self.background_type in BACKGROUND_COLOR_TYPES else None
+        """The background to send with an apply, or None for types it does not affect."""
+        if self.background_type not in BACKGROUND_COLOR_TYPES:
+            return None
+        if self.background_fill == BACKGROUND_FILL_BLUR:
+            return WALLPAPER_BACKGROUND_BLUR
+        return self.background_color_hex
 
 
 __all__ = ["SystemDisplayStyleSelectorsController"]
