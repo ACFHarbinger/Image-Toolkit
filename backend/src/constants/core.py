@@ -55,6 +55,11 @@ SIMILARITY__SCHEMA = '\nCREATE TABLE IF NOT EXISTS file_index (\n    filepath   
 # --- from backend/src/core/wallpaper/_dbus.py ---
 _QDBUS_CANDIDATES = ['qdbus6', 'qdbus-qt6', 'qdbus', 'qdbus-qt5']
 
+# --- from backend/src/core/wallpaper/manager.py ---
+# ``background_color`` value that fills uncovered screen areas with a blurred
+# copy of the image instead of a solid color (KDE Plasma only).
+WALLPAPER_BACKGROUND_BLUR = 'blur'
+
 # --- from backend/src/core/wallpaper/_windows.py ---
 IDESKTOPWALLPAPER_IID = '{B92B56A9-8B55-4E14-9A89-0199BBB6F93B}'
 DESKTOPWALLPAPER_CLSID = '{C2CF3110-460E-4fc1-B9D0-8A1C0C9CC4BD}'

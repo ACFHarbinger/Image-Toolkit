@@ -131,6 +131,33 @@ class TestWallpaperManager:
         _KDEWallpaperMixin._set_wallpaper_kde({"0": "/path/to/img.jpg"}, "Fill", "qdbus")
         assert 'writeConfig("Color"' not in mock_base.evaluate_kde_script.call_args[0][1]
 
+    def test_set_wallpaper_kde_blur_background(self, mock_base):
+        """Blur fills uncovered areas with a blurred copy of the image and
+        leaves the stored Color alone."""
+        from src.core.wallpaper._kde import _KDEWallpaperMixin
+
+        mock_base.evaluate_kde_script.return_value = ""
+        _KDEWallpaperMixin._set_wallpaper_kde(
+            {"0": "/path/to/img.jpg"}, "Scaled, Keep Proportions", "qdbus", background_color="blur"
+        )
+        script = mock_base.evaluate_kde_script.call_args[0][1]
+        assert 'd.writeConfig("Blur", true)' in script
+        assert 'writeConfig("Color"' not in script
+
+    def test_apply_wallpaper_blur_leaves_windows_background_color(self):
+        """Windows has no blur fill, so its background color stays as it is."""
+        with (
+            patch("src.core.wallpaper.manager.platform.system", return_value="Windows"),
+            patch.object(WallpaperManager, "COM_AVAILABLE", False),
+            patch.object(WallpaperManager, "_set_background_color_windows") as set_color,
+            patch.object(WallpaperManager, "_set_wallpaper_windows_single"),
+            patch.object(WallpaperManager, "_first_valid_path", return_value="/x.jpg"),
+        ):
+            WallpaperManager.apply_wallpaper({"0": "/x.jpg"}, 1, "Fill", None, background_color="blur")
+            set_color.assert_not_called()
+            WallpaperManager.apply_wallpaper({"0": "/x.jpg"}, 1, "Fill", None, background_color="#102030")
+            set_color.assert_called_once_with("#102030")
+
     def test_apply_wallpaper_rejects_malformed_background_color(self):
         with pytest.raises(ValueError, match="RRGGBB"):
             WallpaperManager.apply_wallpaper({"0": "/x.jpg"}, [], "Fill", "qdbus", background_color="red")

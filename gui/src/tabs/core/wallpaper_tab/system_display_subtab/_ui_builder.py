@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 from .....components.tag_chip_widget import FlowLayout
 from .....styles import apply_shadow_effect, set_button_role
 from .....theming.theme_api import color, qss
+from ._style_selectors import BACKGROUND_FILL_BLUR, BACKGROUND_FILLS
 from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
@@ -249,22 +250,34 @@ class SystemDisplayUIBuilder(TabBoundController):
         style_layout.addWidget(self.video_style_label)
         style_layout.addWidget(self.video_style_combo)
 
-        # Color for screen areas the image leaves uncovered (e.g. "Scaled,
-        # Keep Proportions" or "Center"); shown for Image and Slideshow.
+        # Fill for screen areas the image leaves uncovered (e.g. "Scaled,
+        # Keep Proportions" or "Center"): a solid color, or a blur of the
+        # image (KDE Plasma only); shown for Image and Slideshow.
         self.background_color_widget = QWidget()
         bg_layout = QHBoxLayout(self.background_color_widget)
         bg_layout.setContentsMargins(0, 0, 0, 0)
         bg_layout.addWidget(QLabel("Background:"))
+        self.background_fill_combo = QComboBox()
+        self.background_fill_combo.setObjectName("wallpaper_background_fill_combo")
+        self.background_fill_combo.addItems(list(BACKGROUND_FILLS))
+        self.background_fill_combo.setItemData(
+            BACKGROUND_FILLS.index(BACKGROUND_FILL_BLUR),
+            "Fill with a blurred copy of the image (KDE Plasma only; other desktops keep their current background).",
+            Qt.ItemDataRole.ToolTipRole,
+        )
+        bg_layout.addWidget(self.background_fill_combo)
         self.background_color_preview = QLabel(" ")
         self.background_color_preview.setObjectName("wallpaper_background_color_preview")
         self.background_color_preview.setFixedSize(20, 20)
         self.background_color_preview.setStyleSheet(qss("dynamic_color_preview", BG_COLOR=self.background_color_hex))
         self.background_color_preview.setToolTip("Fills any part of the screen the wallpaper does not cover.")
         bg_layout.addWidget(self.background_color_preview)
-        btn_background_color = QPushButton("Select Color...")
-        btn_background_color.setObjectName("wallpaper_background_color_btn")
-        btn_background_color.clicked.connect(self.select_background_color)
-        bg_layout.addWidget(btn_background_color)
+        self.background_color_btn = QPushButton("Select Color...")
+        self.background_color_btn.setObjectName("wallpaper_background_color_btn")
+        self.background_color_btn.clicked.connect(self.select_background_color)
+        bg_layout.addWidget(self.background_color_btn)
+        self.background_fill_combo.setCurrentText(self.background_fill)
+        self.background_fill_combo.currentTextChanged.connect(self._update_background_fill)
         style_layout.addWidget(self.background_color_widget)
 
         self.playback_order_label = QLabel("Order:")

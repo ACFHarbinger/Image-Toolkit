@@ -16,6 +16,7 @@ from screeninfo import Monitor
 from backend.src.constants import (
     SUPPORTED_VIDEO_FORMATS,
     USE_OS_DISPLAY_MAPPING,
+    WALLPAPER_BACKGROUND_BLUR,
     WALLPAPER_STYLES,
 )
 
@@ -229,12 +230,14 @@ class _KDEWallpaperMixin:
         screen_check = "d.screen >= 0" if USE_OS_DISPLAY_MAPPING else "true"
 
         # org.kde.image paints "Color" wherever the image leaves the screen
-        # uncovered; "Blur" (a blurred copy of the image) would hide it.
-        background_js = (
-            f'd.writeConfig("Color", "{background_color}"); d.writeConfig("Blur", false); '
-            if background_color
-            else ""
-        )
+        # uncovered, unless "Blur" is on: then a blurred copy of the image
+        # fills it (Plasma only blurs the fit and center fill modes).
+        if background_color == WALLPAPER_BACKGROUND_BLUR:
+            background_js = 'd.writeConfig("Blur", true); '
+        elif background_color:
+            background_js = f'd.writeConfig("Color", "{background_color}"); d.writeConfig("Blur", false); '
+        else:
+            background_js = ""
 
         script_parts = []
         video_config_parts = []
