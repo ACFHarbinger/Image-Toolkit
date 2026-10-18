@@ -11,6 +11,7 @@ import logging
 import platform
 import subprocess
 import sys
+import time
 from typing import TYPE_CHECKING, Optional
 
 from backend.src.constants import MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH, ROOT_DIR
@@ -177,6 +178,21 @@ class MonitorDisplaySlideshowDaemonController(TabBoundController):
         self._daemon_active_monitor_id = monitor_id
         self._update_slideshow_buttons()
         self._update_queue_status_label()
+
+    def _request_daemon_timer_reset(self: "MonitorDisplaySubTabHostProtocol") -> bool:
+        """Ask the running daemon to restart the current entry's duration."""
+        config = self._read_daemon_status()
+        if not _monitor_slideshow.daemon_is_live(config):
+            return False
+        # The daemon restarts its scheduler whenever this token changes.
+        config["timer_reset_token"] = time.time_ns()
+        try:
+            with open(MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH, "w") as f:
+                json.dump(config, f, indent=2)
+        except Exception:
+            logger.debug("Suppressed Exception in _request_daemon_timer_reset", exc_info=True)
+            return False
+        return True
 
     def _stop_daemon_slideshow(self: "MonitorDisplaySubTabHostProtocol"):
         try:

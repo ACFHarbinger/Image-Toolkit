@@ -38,6 +38,10 @@ class MonitorDisplaySlideshowStatusController(TabBoundController):
         set_button_role(self._btn_daemon_slideshow, "danger" if daemon_running else "success")
         self._btn_daemon_slideshow.blockSignals(False)
 
+        reset_btn = getattr(self, "_btn_reset_slideshow_timer", None)
+        if reset_btn is not None:
+            reset_btn.setEnabled(inapp_running or daemon_running)
+
     def _update_queue_status_label(self: "MonitorDisplaySubTabHostProtocol"):
         monitor_id = self._current_monitor_id
         if monitor_id is None:

@@ -304,6 +304,7 @@ def run() -> None:  # noqa: C901
     _update_config_paths(monitor_state, interval, use_video_runtime)
 
     elapsed = 0.0
+    reset_token = config.get("timer_reset_token")
     last_config_mtime = DAEMON_CONFIG_PATH.stat().st_mtime
 
     try:
@@ -350,6 +351,7 @@ def run() -> None:  # noqa: C901
                     interval=interval,
                     style=raw_style,
                     use_video_runtime=use_video_runtime,
+                    reset_token=reset_token,
                 )
                 if decision["stop"]:
                     logging.info("Stop requested via config file.")
@@ -362,6 +364,12 @@ def run() -> None:  # noqa: C901
                     )
                     elapsed = 0.0
                 interval = decision["interval"]
+                reset_token = decision.get("reset_token", reset_token)
+                if decision.get("timer_reset"):
+                    logging.info("Timer reset requested; restarting the interval.")
+                    elapsed = 0.0
+                    # Restamp so the GUI countdown restarts from the full period.
+                    _update_config_paths(monitor_state, interval, use_video_runtime)
                 use_video_runtime = decision["use_video_runtime"]
                 raw_style = decision["style"]
                 background_color = gui_cfg.get("background_color")
@@ -461,6 +469,7 @@ def apply_runtime_config(
     interval: int,
     style: str,
     use_video_runtime: bool,
+    reset_token=None,
 ) -> dict:
     """Apply a GUI config rewrite without touching the locked start-time queue.
 
@@ -476,12 +485,18 @@ def apply_runtime_config(
         new_interval = interval
     new_style = gui_cfg.get("style", style) or style
     new_video = bool(gui_cfg.get("use_video_runtime_interval", use_video_runtime))
+    # "Reset Timer" bumps timer_reset_token; a rewrite that leaves it out
+    # (or unchanged) is not a reset.
+    new_token = gui_cfg.get("timer_reset_token")
+    timer_reset = new_token is not None and new_token != reset_token
     return {
         "stop": False,
         "interval": new_interval,
         "style": new_style,
         "use_video_runtime": new_video,
         "reset_elapsed": (not new_video and new_interval != interval),
+        "timer_reset": timer_reset,
+        "reset_token": new_token if new_token is not None else reset_token,
     }
 
 

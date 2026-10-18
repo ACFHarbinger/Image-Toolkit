@@ -49,7 +49,12 @@ class MonitorDisplaySlideshowInAppController(TabBoundController):
         else:
             self._start_inapp_slideshow(monitor_id)
 
-    def _start_inapp_slideshow(self: "MonitorDisplaySubTabHostProtocol", monitor_id: str):
+    def _start_inapp_slideshow(
+        self: "MonitorDisplaySubTabHostProtocol",
+        monitor_id: str,
+        start_index: Optional[int] = None,
+        skip_first_apply: bool = False,
+    ):
         queue = self.monitor_slideshow_queues.get(monitor_id, [])
         if not queue:
             QMessageBox.information(
@@ -94,7 +99,7 @@ class MonitorDisplaySlideshowInAppController(TabBoundController):
 
         # Start from the currently active entry so the slideshow resumes
         # where the user left off rather than always jumping to index 0.
-        current_idx = self.monitor_current_index.get(monitor_id, -1)
+        current_idx = self.monitor_current_index.get(monitor_id, -1) if start_index is None else start_index
         if current_idx < 0 or current_idx >= len(queue):
             # Fall back to the position of the active path in the queue.
             active_path = self.monitor_image_paths.get(monitor_id)
@@ -111,6 +116,7 @@ class MonitorDisplaySlideshowInAppController(TabBoundController):
                 other_paths=other_paths,
                 start_index=current_idx,
                 transition_delay=transition_delay_for(self),
+                skip_first_apply=skip_first_apply,
             )
         except Exception as e:
             QMessageBox.critical(self.tab, "Error", f"Failed to start in-app slideshow: {e}")
@@ -119,6 +125,27 @@ class MonitorDisplaySlideshowInAppController(TabBoundController):
 
         self._inapp_active_monitor_id = monitor_id
         self._update_slideshow_buttons()
+        self._update_queue_status_label()
+
+    @Slot()
+    def _reset_slideshow_timer(self: "MonitorDisplaySubTabHostProtocol"):
+        """Restart the current entry's full duration on this display's running
+        slideshow (in-app or daemon) without changing the wallpaper."""
+        monitor_id = self._current_monitor_id
+        if monitor_id is None:
+            return
+        if self._inapp_active_monitor_id == monitor_id:
+            # The native scheduler has no reset: restart it at the current
+            # entry and skip the immediate re-apply of what is on screen.
+            idx = (_monitor_slideshow.status() or {}).get("current_index", -1)
+            with contextlib.suppress(Exception):
+                _monitor_slideshow.stop()
+            self._inapp_active_monitor_id = None
+            self._start_inapp_slideshow(
+                monitor_id, start_index=idx if isinstance(idx, int) else None, skip_first_apply=True
+            )
+        elif self._daemon_active_monitor_id == monitor_id:
+            self._request_daemon_timer_reset()
         self._update_queue_status_label()
 
     def _stop_inapp_slideshow(self: "MonitorDisplaySubTabHostProtocol"):

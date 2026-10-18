@@ -193,6 +193,8 @@ class MonitorDisplaySubTab(WallpaperCommonBase):
     _stop_daemon_slideshow = _delegate("slideshow_daemon_controller", "_stop_daemon_slideshow")
 
     _toggle_inapp_slideshow = _delegate("slideshow_inapp_controller", "_toggle_inapp_slideshow")
+    _reset_slideshow_timer = _delegate("slideshow_inapp_controller", "_reset_slideshow_timer")
+    _request_daemon_timer_reset = _delegate("slideshow_daemon_controller", "_request_daemon_timer_reset")
     _start_inapp_slideshow = _delegate("slideshow_inapp_controller", "_start_inapp_slideshow")
     _stop_inapp_slideshow = _delegate("slideshow_inapp_controller", "_stop_inapp_slideshow")
     _sync_inapp_state_from_native = _delegate("slideshow_inapp_controller", "_sync_inapp_state_from_native")

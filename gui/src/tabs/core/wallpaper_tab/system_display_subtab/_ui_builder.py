@@ -209,6 +209,15 @@ class SystemDisplayUIBuilder(TabBoundController):
         self.btn_skip_wallpapers.clicked.connect(self.skip_current_wallpapers)
         slideshow_layout.addWidget(self.btn_skip_wallpapers)
 
+        self.btn_reset_timer = QPushButton("Reset Timer")
+        self.btn_reset_timer.setObjectName("wallpaper_reset_timer_btn")
+        self.btn_reset_timer.setToolTip(
+            "Restart the running slideshow's countdown from the full interval "
+            "(plus transition delay) without changing the current wallpaper."
+        )
+        self.btn_reset_timer.clicked.connect(self.slideshow_controller.reset_slideshow_timer)
+        slideshow_layout.addWidget(self.btn_reset_timer)
+
         if self._reconcile_daemon_liveness_on_startup():
             self.btn_daemon_toggle.setText("Stop Background Daemon")
             self.btn_daemon_toggle.setChecked(True)

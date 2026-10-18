@@ -262,6 +262,33 @@ class SystemDisplaySlideshowController(TabBoundController):
                 self.update_countdown()
 
     @Slot()
+    def reset_slideshow_timer(self: "SystemDisplaySubTabHostProtocol"):
+        """Restart the running slideshow's countdown from the full interval
+        (plus transition delay) without changing the wallpaper."""
+        period = self._slideshow_period_sec()
+        if self._is_daemon_running_config():
+            try:
+                with open(DAEMON_CONFIG_PATH, "r") as f:
+                    config = json.load(f)
+                # The daemon restarts its own interval when this token changes.
+                config["timer_reset_token"] = time.time_ns()
+                config["last_change_timestamp"] = int(time.time())
+                _write_daemon_config_atomic(config)
+            except Exception:
+                logger.debug("Suppressed Exception in reset_slideshow_timer", exc_info=True)
+                return
+            self.time_remaining_sec = transition_delay_from(config) + int(
+                config.get("interval_seconds", self.interval_sec) or self.interval_sec
+            )
+        elif self.slideshow_timer and self.slideshow_timer.isActive():
+            self.slideshow_timer.start(period * 1000)
+            self.time_remaining_sec = period
+        else:
+            return
+        m, s = divmod(self.time_remaining_sec, 60)
+        self.countdown_label.setText(f"Timer: {m:02}:{s:02}")
+
+    @Slot()
     def _cycle_slideshow_wallpaper(self: "SystemDisplaySubTabHostProtocol", increment: bool = True):  # noqa: C901
         monitor_ids = list(self.monitor_widgets.keys())
         if not monitor_ids:
