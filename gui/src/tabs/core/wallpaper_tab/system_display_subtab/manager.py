@@ -41,6 +41,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
     interval_container: Any
     interval_min_spinbox: Any
     interval_sec_spinbox: Any
+    transition_delay_spinbox: Any
     chk_video_runtime_interval: Any
     playback_order_combo: Any
     playback_order_label: Any

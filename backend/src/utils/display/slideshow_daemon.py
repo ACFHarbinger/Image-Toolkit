@@ -31,7 +31,11 @@ if str(_ROOT) not in sys.path:
 
 from screeninfo import Monitor  # noqa: E402
 
-from backend.src.constants import SUPPORTED_VIDEO_FORMATS  # noqa: E402
+from backend.src.constants import (  # noqa: E402
+    DEFAULT_TRANSITION_DELAY_SECONDS,
+    MAX_TRANSITION_DELAY_SECONDS,
+    SUPPORTED_VIDEO_FORMATS,
+)
 from backend.src.constants.paths import DAEMON_CONFIG_PATH  # noqa: E402
 from backend.src.constants.utils import _VIDEO_DURATION_CACHE, DISPLAY_LOG_PATH, PID_PATH  # noqa: E402
 from backend.src.core.wallpaper import WallpaperManager  # noqa: E402
@@ -237,6 +241,9 @@ def run() -> None:  # noqa: C901
     raw_style: str = config.get("style", "Scaled, Keep Proportions")
     background_color: str | None = config.get("background_color")
     use_video_runtime: bool = bool(config.get("use_video_runtime_interval", False))
+    # Kept apart from ``interval`` (which _update_config_paths writes back to
+    # the config) so the delay is never folded into the stored interval.
+    transition_delay: int = transition_delay_seconds(config)
 
     current_paths: dict = config.get("current_paths", {})
     monitor_indices: dict = config.get("monitor_current_indices", {})
@@ -280,7 +287,7 @@ def run() -> None:  # noqa: C901
         return
 
     logging.info(
-        f"Starting slideshow: interval={interval}s, style={raw_style!r}, "
+        f"Starting slideshow: interval={interval}s (+{transition_delay}s transition), style={raw_style!r}, "
         f"monitors={list(monitor_state.keys())}"
     )
 
@@ -358,10 +365,11 @@ def run() -> None:  # noqa: C901
                 use_video_runtime = decision["use_video_runtime"]
                 raw_style = decision["style"]
                 background_color = gui_cfg.get("background_color")
+                transition_delay = transition_delay_seconds(gui_cfg)
                 # monitor_queues / playback_order stay locked at start time.
 
             # ---- Advance wallpapers when timer fires ----------------------
-            if elapsed >= interval:
+            if elapsed >= interval + transition_delay:
                 elapsed = 0.0
                 _advance_all(monitor_state)
                 _apply_all(monitor_state, de, qdbus, raw_style, monitors, background_color=background_color)
@@ -436,6 +444,15 @@ def _apply_all(
         )
     except Exception as exc:
         logging.error(f"Failed to apply wallpaper: {exc}")
+
+
+def transition_delay_seconds(cfg: dict) -> int:
+    """Seconds added to every interval for the wallpaper transition itself."""
+    try:
+        delay = int(cfg.get("transition_delay_seconds", DEFAULT_TRANSITION_DELAY_SECONDS))
+    except (TypeError, ValueError):
+        return DEFAULT_TRANSITION_DELAY_SECONDS
+    return max(0, min(delay, MAX_TRANSITION_DELAY_SECONDS))
 
 
 def apply_runtime_config(

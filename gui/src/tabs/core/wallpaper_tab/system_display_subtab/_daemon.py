@@ -17,7 +17,12 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
-from backend.src.constants import DAEMON_CONFIG_PATH, ROOT_DIR
+from backend.src.constants import (
+    DAEMON_CONFIG_PATH,
+    DEFAULT_TRANSITION_DELAY_SECONDS,
+    MAX_TRANSITION_DELAY_SECONDS,
+    ROOT_DIR,
+)
 from backend.src.constants.utils import PID_PATH
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QMessageBox
@@ -47,6 +52,15 @@ def _write_daemon_config_atomic(data: dict) -> None:
     os.replace(tmp_path, DAEMON_CONFIG_PATH)
 
 
+def transition_delay_from(config: dict) -> int:
+    """The transition delay a slideshow config asks for (default when absent)."""
+    try:
+        delay = int(config.get("transition_delay_seconds", DEFAULT_TRANSITION_DELAY_SECONDS))
+    except (TypeError, ValueError):
+        return DEFAULT_TRANSITION_DELAY_SECONDS
+    return max(0, min(delay, MAX_TRANSITION_DELAY_SECONDS))
+
+
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
@@ -67,11 +81,12 @@ class SystemDisplayDaemonController(TabBoundController):
                 data = json.load(f)
             self.interval_sec = int(data.get("interval_seconds", 300) or 300)
             last_change = int(data.get("last_change_timestamp", 0) or 0)
+            period = self.interval_sec + transition_delay_from(data)
             if last_change > 0:
                 elapsed = int(time.time()) - last_change
-                self.time_remaining_sec = max(0, self.interval_sec - elapsed)
+                self.time_remaining_sec = max(0, period - elapsed)
             else:
-                self.time_remaining_sec = self.interval_sec
+                self.time_remaining_sec = period
 
             timer = getattr(self, "countdown_timer", None)
             try:
@@ -207,6 +222,7 @@ class SystemDisplayDaemonController(TabBoundController):
         config = {
             "running": True,
             "interval_seconds": (self.interval_min_spinbox.value() * 60) + self.interval_sec_spinbox.value(),
+            "transition_delay_seconds": self.transition_delay_spinbox.value(),
             "use_video_runtime_interval": (
                 self.background_type == "Smart Video Slideshow" and self.chk_video_runtime_interval.isChecked()
             ),
@@ -266,6 +282,7 @@ class SystemDisplayDaemonController(TabBoundController):
         config = {
             "running": start,
             "interval_seconds": (self.interval_min_spinbox.value() * 60) + self.interval_sec_spinbox.value(),
+            "transition_delay_seconds": self.transition_delay_spinbox.value(),
             "use_video_runtime_interval": (
                 self.background_type == "Smart Video Slideshow" and self.chk_video_runtime_interval.isChecked()
             ),

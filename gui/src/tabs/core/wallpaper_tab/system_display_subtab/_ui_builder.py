@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
+from backend.src.constants import DEFAULT_TRANSITION_DELAY_SECONDS, MAX_TRANSITION_DELAY_SECONDS
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -86,6 +87,7 @@ class SystemDisplayUIBuilder(TabBoundController):
         self.playback_order_combo.currentTextChanged.connect(self.daemon_controller._sync_daemon_config)
         self.interval_min_spinbox.valueChanged.connect(self.daemon_controller._sync_daemon_config)
         self.interval_sec_spinbox.valueChanged.connect(self.daemon_controller._sync_daemon_config)
+        self.transition_delay_spinbox.valueChanged.connect(self.daemon_controller._sync_daemon_config)
         self.style_combo.currentTextChanged.connect(self.daemon_controller._sync_daemon_config)
         self.video_style_combo.currentTextChanged.connect(self.daemon_controller._sync_daemon_config)
         self.background_type_combo.currentTextChanged.connect(self.daemon_controller._sync_daemon_config)
@@ -144,6 +146,25 @@ class SystemDisplayUIBuilder(TabBoundController):
         interval_layout.addWidget(QLabel("sec"))
 
         slideshow_layout.addWidget(self.interval_container)
+
+        self.transition_delay_container = QWidget()
+        delay_layout = QHBoxLayout(self.transition_delay_container)
+        delay_layout.setContentsMargins(0, 0, 0, 0)
+        delay_layout.setSpacing(6)
+        delay_layout.addWidget(QLabel("Transition delay:"))
+        self.transition_delay_spinbox = QSpinBox()
+        self.transition_delay_spinbox.setObjectName("wallpaper_transition_delay_spinbox")
+        self.transition_delay_spinbox.setRange(0, MAX_TRANSITION_DELAY_SECONDS)
+        self.transition_delay_spinbox.setValue(DEFAULT_TRANSITION_DELAY_SECONDS)
+        self.transition_delay_spinbox.setSuffix(" s")
+        self.transition_delay_spinbox.setFixedWidth(60)
+        self.transition_delay_spinbox.setToolTip(
+            "Extra seconds added to every slideshow interval to cover the transition "
+            "between wallpapers (e.g. 1 min 30 s + 3 s = a change every 1 min 33 s). "
+            "Applies to the slideshows and daemons on both Wallpaper sub-tabs."
+        )
+        delay_layout.addWidget(self.transition_delay_spinbox)
+        slideshow_layout.addWidget(self.transition_delay_container)
 
         self.chk_video_runtime_interval = QCheckBox("Use Video Runtime as Interval")
         self.chk_video_runtime_interval.setToolTip(

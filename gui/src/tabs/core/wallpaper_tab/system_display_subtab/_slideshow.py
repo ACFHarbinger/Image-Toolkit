@@ -19,7 +19,7 @@ from PySide6.QtWidgets import QMessageBox
 
 from .....styles import set_button_role
 from .....theming.theme_api import qss
-from ._daemon import _write_daemon_config_atomic
+from ._daemon import _write_daemon_config_atomic, transition_delay_from
 from ._tab_bound import TabBoundController
 from ._video_duration import _get_video_duration, _is_video
 
@@ -73,6 +73,10 @@ class SystemDisplaySlideshowController(TabBoundController):
         if not durations:
             return None
         return max(1, round(max(durations)))
+
+    def _slideshow_period_sec(self: "SystemDisplaySubTabHostProtocol") -> int:
+        """Seconds between wallpaper changes: the interval plus the transition delay."""
+        return self.interval_sec + self.transition_delay_spinbox.value()
 
     @Slot()
     def start_slideshow(self: "SystemDisplaySubTabHostProtocol"):
@@ -130,8 +134,8 @@ class SystemDisplaySlideshowController(TabBoundController):
             # Placeholder until the first cycle below determines the actual
             # video's runtime and corrects the timer.
             self.interval_sec = max(self.interval_sec, 1)
-        interval_ms = self.interval_sec * 1000
-        self.time_remaining_sec = self.interval_sec
+        interval_ms = self._slideshow_period_sec() * 1000
+        self.time_remaining_sec = self._slideshow_period_sec()
         slideshow_timer = QTimer(self.tab)
         self.slideshow_timer = slideshow_timer
         slideshow_timer.timeout.connect(self._cycle_slideshow_wallpaper)
@@ -150,7 +154,8 @@ class SystemDisplaySlideshowController(TabBoundController):
             QMessageBox.information(
                 self.tab,
                 "Slideshow Started",
-                f"Per-monitor slideshow started with {total_images} total items, cycling every {interval_minutes} minutes and {interval_seconds} seconds.",
+                f"Per-monitor slideshow started with {total_images} total items, cycling every {interval_minutes} minutes and {interval_seconds} seconds"
+                f" (+{self.transition_delay_spinbox.value()} s transition delay).",
             )
         self._cycle_slideshow_wallpaper(increment=False)
         self.set_wallpaper_btn.setText("Slideshow Running (Stop)")
@@ -164,7 +169,7 @@ class SystemDisplaySlideshowController(TabBoundController):
                     with open(DAEMON_CONFIG_PATH, "r") as f:
                         config = json.load(f)
                         last_change = config.get("last_change_timestamp", 0)
-                        interval = config.get("interval_seconds", self.interval_sec)
+                        interval = config.get("interval_seconds", self.interval_sec) + transition_delay_from(config)
                         last_error = config.get("last_error")
 
                         if last_error:
@@ -202,11 +207,11 @@ class SystemDisplaySlideshowController(TabBoundController):
             if local_slideshow_active:
                 # Normal local-slideshow reset: slideshow_timer handles the actual
                 # cycling; here we just restart the countdown for the next interval.
-                self.time_remaining_sec = self.interval_sec
+                self.time_remaining_sec = self._slideshow_period_sec()
             elif not self._reconcile_daemon_liveness_on_startup():
                 # No local slideshow and no live daemon — the daemon must have died
                 # without cleaning up (crash/OOM/kill).  Tear down the countdown.
-                self.time_remaining_sec = self.interval_sec
+                self.time_remaining_sec = self._slideshow_period_sec()
                 if hasattr(self, "countdown_timer") and self.countdown_timer:
                     self.countdown_timer.stop()
                 if hasattr(self, "btn_daemon_toggle"):
@@ -246,13 +251,13 @@ class SystemDisplaySlideshowController(TabBoundController):
                         config = json.load(f)
                     config["last_change_timestamp"] = int(time.time())
                     _write_daemon_config_atomic(config)
-                    self.time_remaining_sec = self.interval_sec
+                    self.time_remaining_sec = self._slideshow_period_sec()
                     self.update_countdown()
             except Exception:
                 logger.debug("Suppressed Exception in _SlideshowMixin.skip_current_wallpapers", exc_info=True)
         elif self.slideshow_timer and self.slideshow_timer.isActive():
-            self.slideshow_timer.start(self.interval_sec * 1000)
-            self.time_remaining_sec = self.interval_sec
+            self.slideshow_timer.start(self._slideshow_period_sec() * 1000)
+            self.time_remaining_sec = self._slideshow_period_sec()
             if self.countdown_timer and self.countdown_timer.isActive():
                 self.update_countdown()
 
@@ -342,8 +347,8 @@ class SystemDisplaySlideshowController(TabBoundController):
                 if computed:
                     self.interval_sec = computed
                 if self.slideshow_timer and self.slideshow_timer.isActive():
-                    self.slideshow_timer.start(self.interval_sec * 1000)
-            self.time_remaining_sec = self.interval_sec
+                    self.slideshow_timer.start(self._slideshow_period_sec() * 1000)
+            self.time_remaining_sec = self._slideshow_period_sec()
         except Exception as e:
             QMessageBox.critical(self.tab, "Slideshow Cycle Error", f"Failed to cycle wallpaper: {str(e)}")
             self.stop_slideshow()

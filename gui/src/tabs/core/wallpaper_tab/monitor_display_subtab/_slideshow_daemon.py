@@ -18,6 +18,7 @@ from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slide
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox
 
+from ._slideshow_inapp import transition_delay_for
 from ._tab_bound import TabBoundController
 
 logger = logging.getLogger(__name__)
@@ -124,6 +125,7 @@ class MonitorDisplaySlideshowDaemonController(TabBoundController):
             "other_current_paths": other_paths,
             "current_index": start_index,
             "last_change_timestamp": 0,
+            "transition_delay_seconds": transition_delay_for(self),
         }
         try:
             MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
