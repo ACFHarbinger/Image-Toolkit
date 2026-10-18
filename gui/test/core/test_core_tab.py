@@ -411,8 +411,9 @@ class TestWallpaperTab:
             with patch("builtins.open", mock_open(read_data=json.dumps(mock_config))):
                 # pyrefly: ignore [bad-argument-type]
                 tab.system_display._start_daemon_countdown_if_active()
-                # 300 interval - 100 elapsed = 200 remaining (give or take a second due to timing)
-                assert 195 <= tab.system_display.time_remaining_sec <= 200
+                # 300 interval + 3 s default transition delay - 100 elapsed
+                # = 203 remaining (give or take a second due to timing)
+                assert 198 <= tab.system_display.time_remaining_sec <= 203
 
     def test_monitor_display_selection_signal_once(self, q_app, mock_deps):
         tab = WallpaperTab(db_tab_ref=MagicMock())

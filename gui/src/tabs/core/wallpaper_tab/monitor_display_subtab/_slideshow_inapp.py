@@ -16,6 +16,7 @@ from __future__ import annotations
 import contextlib
 from typing import TYPE_CHECKING, List, Optional, cast
 
+from backend.src.constants import DEFAULT_TRANSITION_DELAY_SECONDS
 from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox
@@ -24,6 +25,12 @@ from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
+
+
+def transition_delay_for(host) -> int:
+    """The transition delay set on the System Display sub-tab (one shared setting)."""
+    spin = getattr(getattr(host, "_system_display_ref", None), "transition_delay_spinbox", None)
+    return spin.value() if spin is not None else DEFAULT_TRANSITION_DELAY_SECONDS
 
 
 class MonitorDisplaySlideshowInAppController(TabBoundController):
@@ -103,6 +110,7 @@ class MonitorDisplaySlideshowInAppController(TabBoundController):
                 video_style=video_style,
                 other_paths=other_paths,
                 start_index=current_idx,
+                transition_delay=transition_delay_for(self),
             )
         except Exception as e:
             QMessageBox.critical(self.tab, "Error", f"Failed to start in-app slideshow: {e}")

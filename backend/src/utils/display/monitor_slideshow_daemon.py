@@ -40,7 +40,10 @@ from backend.src.constants import (  # noqa: E402
 from backend.src.constants.utils import DEFAULT_ENTRY_DURATION_SEC, LOG_PATH  # noqa: E402
 from backend.src.core import WallpaperManager  # noqa: E402
 from backend.src.core.wallpaper import find_qdbus_binary  # noqa: E402
-from backend.src.utils.display.slideshow_daemon import _is_session_locked  # noqa: E402
+from backend.src.utils.display.slideshow_daemon import (  # noqa: E402
+    _is_session_locked,
+    transition_delay_seconds,
+)
 
 
 # Safety net: the native scheduler holds a reference to the Python
@@ -152,8 +155,12 @@ def start(
     qdbus: Optional[str] = None,
     callback: Optional[Callable[[str, str, int], None]] = None,
     start_index: int = 0,
+    transition_delay: float = 0,
 ) -> str:
-    resolved = [resolve_duration(p, d) for p, d in zip(queue, durations, strict=False)]
+    # The transition delay extends every entry's on-screen time (see
+    # DEFAULT_TRANSITION_DELAY_SECONDS); the GUI and run() pass the setting.
+    delay = max(0.0, float(transition_delay))
+    resolved = [resolve_duration(p, d) + delay for p, d in zip(queue, durations, strict=False)]
     config = {
         "monitor_id": monitor_id,
         "queue": list(queue),
@@ -290,6 +297,7 @@ def run():
         other_paths=config.get("other_current_paths", {}),
         callback=apply_cb,
         start_index=config.get("current_index", 0),
+        transition_delay=transition_delay_seconds(config),
     )
 
     _was_locked = _is_session_locked()

@@ -60,6 +60,12 @@ _QDBUS_CANDIDATES = ['qdbus6', 'qdbus-qt6', 'qdbus', 'qdbus-qt5']
 # copy of the image instead of a solid color (KDE Plasma only).
 WALLPAPER_BACKGROUND_BLUR = 'blur'
 
+# --- wallpaper slideshows (in-app and daemons) ---
+# Seconds added to every slideshow interval to cover the wallpaper
+# transition itself: a 1 min 30 s interval actually advances every 1 min 33 s.
+DEFAULT_TRANSITION_DELAY_SECONDS = 3
+MAX_TRANSITION_DELAY_SECONDS = 60
+
 # --- from backend/src/core/wallpaper/_windows.py ---
 IDESKTOPWALLPAPER_IID = '{B92B56A9-8B55-4E14-9A89-0199BBB6F93B}'
 DESKTOPWALLPAPER_CLSID = '{C2CF3110-460E-4fc1-B9D0-8A1C0C9CC4BD}'

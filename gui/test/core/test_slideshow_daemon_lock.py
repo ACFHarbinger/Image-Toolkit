@@ -92,6 +92,8 @@ def test_sync_daemon_config_keeps_locked_queues(q_app, tmp_path, monkeypatch):
             self.interval_min_spinbox.value.return_value = 0
             self.interval_sec_spinbox = MagicMock()
             self.interval_sec_spinbox.value.return_value = 30
+            self.transition_delay_spinbox = MagicMock()
+            self.transition_delay_spinbox.value.return_value = 3
             self.chk_video_runtime_interval = MagicMock()
             self.chk_video_runtime_interval.isChecked.return_value = False
             self.playback_order_combo = MagicMock()
@@ -108,6 +110,7 @@ def test_sync_daemon_config_keeps_locked_queues(q_app, tmp_path, monkeypatch):
     saved = json.loads(path.read_text())
     assert saved["monitor_queues"] == {"0": ["/locked.jpg"]}
     assert saved["interval_seconds"] == 30
+    assert saved["transition_delay_seconds"] == 3
     assert saved["background_color"] == "#123456"
 
 

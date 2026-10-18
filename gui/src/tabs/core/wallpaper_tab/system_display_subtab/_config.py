@@ -17,6 +17,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict
 
+from backend.src.constants import DEFAULT_TRANSITION_DELAY_SECONDS
 from backend.src.core import telemetry
 from PySide6.QtWidgets import QMessageBox
 
@@ -51,6 +52,7 @@ class SystemDisplayConfigController(TabBoundController):
             "slideshow_enabled": (self.background_type == "Slideshow"),
             "interval_minutes": self.interval_min_spinbox.value(),
             "interval_seconds": self.interval_sec_spinbox.value(),
+            "transition_delay_seconds": self.transition_delay_spinbox.value(),
             "use_video_runtime_interval": self.chk_video_runtime_interval.isChecked(),
             "background_type": self.background_type,
             "solid_color_hex": self.solid_color_hex,
@@ -72,6 +74,7 @@ class SystemDisplayConfigController(TabBoundController):
             "slideshow_enabled": False,
             "interval_minutes": 5,
             "interval_seconds": 0,
+            "transition_delay_seconds": DEFAULT_TRANSITION_DELAY_SECONDS,
             "use_video_runtime_interval": False,
             "background_type": "Image",
             "solid_color_hex": color("window_bg"),
@@ -136,6 +139,11 @@ class SystemDisplayConfigController(TabBoundController):
                 self.interval_min_spinbox.setValue(config.get("interval_minutes", 5))
             if "interval_seconds" in config:
                 self.interval_sec_spinbox.setValue(config.get("interval_seconds", 0))
+            if "transition_delay_seconds" in config:
+                delay = config.get("transition_delay_seconds")
+                self.transition_delay_spinbox.setValue(
+                    delay if isinstance(delay, int) and delay >= 0 else DEFAULT_TRANSITION_DELAY_SECONDS
+                )
             if "use_video_runtime_interval" in config:
                 self.chk_video_runtime_interval.setChecked(config.get("use_video_runtime_interval", False))
             if "solid_color_hex" in config:
