@@ -72,8 +72,9 @@ class SystemDisplayStyleSelectorsController(TabBoundController):
         is_any_slideshow = is_slideshow or is_video_slideshow
 
         self.slideshow_group.setVisible(True)
-        if hasattr(self, "interval_container"):
-            self.interval_container.setVisible(is_any_slideshow)
+        for name in ("interval_container", "transition_delay_container", "btn_reset_timer"):
+            if hasattr(self, name):
+                getattr(self, name).setVisible(is_any_slideshow)
         if hasattr(self, "countdown_label"):
             self.countdown_label.setVisible(is_any_slideshow)
         if hasattr(self, "btn_daemon_toggle"):

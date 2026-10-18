@@ -199,9 +199,9 @@ class MonitorDisplayUIGraphCanvas(TabBoundController):
         set_button_role(self._btn_daemon_slideshow, "success")
         self._btn_daemon_slideshow.clicked.connect(self._toggle_daemon_slideshow)
 
-        self._btn_reset_slideshow_timer = QPushButton("⟲ Reset Timer")
+        self._btn_reset_slideshow_timer = QPushButton("⟲ Reset")
         self._btn_reset_slideshow_timer.setToolTip(
-            "Restart the running slideshow's timer for the current wallpaper from its\n"
+            "Reset Timer: restart the running slideshow's timer for the current wallpaper from its\n"
             "full duration (plus transition delay) without changing the wallpaper."
         )
         self._btn_reset_slideshow_timer.setEnabled(False)
@@ -212,7 +212,6 @@ class MonitorDisplayUIGraphCanvas(TabBoundController):
             self._btn_preview,
             self._btn_inapp_slideshow,
             self._btn_daemon_slideshow,
-            self._btn_reset_slideshow_timer,
         ]:
             btn.setFixedHeight(36)
             bottom_tb.addWidget(btn)
@@ -230,6 +229,9 @@ class MonitorDisplayUIGraphCanvas(TabBoundController):
         self._queue_timer_label.setStyleSheet(qss("wallpaper_queue_timer"))
         self._queue_timer_label.setFixedWidth(110)
         bottom_tb.addWidget(self._queue_timer_label)
+        # Sits beside the timer it resets.
+        self._btn_reset_slideshow_timer.setFixedHeight(36)
+        bottom_tb.addWidget(self._btn_reset_slideshow_timer)
 
         graph_lyt.addLayout(bottom_tb)
 
