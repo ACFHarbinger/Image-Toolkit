@@ -143,6 +143,24 @@ def make_apply_callback(
     return _apply
 
 
+def skip_first_call(callback: Callable[[str, str, int], None]) -> Callable[[str, str, int], None]:
+    """Wrap *callback* so its first invocation does nothing.
+
+    Restarting the native scheduler at the current entry (a timer reset) makes
+    it apply that entry again straight away; skipping that call keeps the
+    wallpaper already on screen instead of re-applying it.
+    """
+    state = {"skipped": False}
+
+    def _wrapped(monitor_id: str, path: str, index: int) -> None:
+        if not state["skipped"]:
+            state["skipped"] = True
+            return
+        callback(monitor_id, path, index)
+
+    return _wrapped
+
+
 def start(
     monitor_id: str,
     queue: List[str],
@@ -156,6 +174,7 @@ def start(
     callback: Optional[Callable[[str, str, int], None]] = None,
     start_index: int = 0,
     transition_delay: float = 0,
+    skip_first_apply: bool = False,
 ) -> str:
     # The transition delay extends every entry's on-screen time (see
     # DEFAULT_TRANSITION_DELAY_SECONDS); the GUI and run() pass the setting.
@@ -168,6 +187,8 @@ def start(
         "start_index": max(0, min(start_index, len(queue) - 1)) if queue else 0,
     }
     cb = callback if callback is not None else make_apply_callback(monitors, style, video_style, other_paths, qdbus)
+    if skip_first_apply:
+        cb = skip_first_call(cb)
     return base.run_monitor_slideshow("start", json.dumps(config), cb) # pyrefly: ignore [missing-attribute]
 
 
@@ -287,18 +308,23 @@ def run():
         video_style=config.get("video_style", "Scaled and Cropped"),
         other_paths=config.get("other_current_paths", {}),
     )
-    start(
-        config["monitor_id"],
-        config.get("queue", []),
-        config.get("durations", []),
-        monitors=monitors,
-        style=config.get("style", "Fill"),
-        video_style=config.get("video_style", "Scaled and Cropped"),
-        other_paths=config.get("other_current_paths", {}),
-        callback=apply_cb,
-        start_index=config.get("current_index", 0),
-        transition_delay=transition_delay_seconds(config),
-    )
+    def _start_scheduler(start_index: int, skip_first_apply: bool = False) -> None:
+        start(
+            config["monitor_id"],
+            config.get("queue", []),
+            config.get("durations", []),
+            monitors=monitors,
+            style=config.get("style", "Fill"),
+            video_style=config.get("video_style", "Scaled and Cropped"),
+            other_paths=config.get("other_current_paths", {}),
+            callback=apply_cb,
+            start_index=start_index,
+            transition_delay=transition_delay_seconds(config),
+            skip_first_apply=skip_first_apply,
+        )
+
+    _start_scheduler(config.get("current_index", 0))
+    reset_token = config.get("timer_reset_token")
 
     _was_locked = _is_session_locked()
     if _was_locked:
@@ -324,6 +350,15 @@ def run():
                 if not gui_cfg or not gui_cfg.get("running"):
                     logging.info("Stop requested.")
                     break
+
+                # ---- Timer reset: restart the current entry's full duration
+                token = gui_cfg.get("timer_reset_token")
+                if token is not None and token != reset_token:
+                    reset_token = token
+                    current = (status() or {}).get("current_index", gui_cfg.get("current_index", 0))
+                    logging.info(f"Timer reset requested; restarting entry {current}.")
+                    stop()
+                    _start_scheduler(max(0, int(current or 0)), skip_first_apply=True)
 
                 native_status = status() or {}
                 gui_cfg.update(

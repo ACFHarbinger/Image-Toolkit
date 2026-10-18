@@ -158,6 +158,7 @@ class SystemDisplaySubTab(WallpaperCommonBase):
     view_daemon_logs = _delegate("daemon_controller", "view_daemon_logs")
 
     handle_set_wallpaper_click = _delegate("slideshow_controller", "handle_set_wallpaper_click")
+    reset_slideshow_timer = _delegate("slideshow_controller", "reset_slideshow_timer")
     _compute_video_runtime_interval_sec = _delegate("slideshow_controller", "_compute_video_runtime_interval_sec")
     start_slideshow = _delegate("slideshow_controller", "start_slideshow")
     update_countdown = _delegate("slideshow_controller", "update_countdown")
