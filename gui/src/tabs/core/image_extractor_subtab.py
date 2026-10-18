@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -38,6 +39,7 @@ from gui.src.styles import set_button_role
 
 from ...theming.theme_api import qss
 from .image_extractor_canvas import FrameSliceCanvas
+from .image_extractor_gallery import ImageSourceGallery
 
 
 class _CutWorkerSignals(QObject):
@@ -105,7 +107,22 @@ class ImageExtractorSubTab(QWidget):
         self.extraction_dir = Path(LOCAL_SOURCE_PATH) / "Frames"
         self._active_workers: Set[ImageFrameCutWorker] = set()
 
-        layout = QVBoxLayout(self)
+        # Scrollable like the Video sub-tab: the source gallery plus the
+        # canvas do not fit a short window.
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        self.tab_scroll_area = QScrollArea()
+        self.tab_scroll_area.setWidgetResizable(True)
+        self.tab_scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+        outer.addWidget(self.tab_scroll_area)
+        content = QWidget()
+        self.tab_scroll_area.setWidget(content)
+        layout = QVBoxLayout(content)
+
+        # --- Source folder + thumbnail gallery (images and GIFs) ---
+        self.source_gallery = ImageSourceGallery(content)
+        self.source_gallery.image_chosen.connect(self.load_image)
+        layout.addWidget(self.source_gallery)
 
         # --- Source image ---
         src_group = QGroupBox("Source Image")
@@ -307,6 +324,7 @@ class ImageExtractorSubTab(QWidget):
         self.image_path = path
         self.image_size = (image.width(), image.height())
         self.line_edit_image.setText(path)
+        self.source_gallery.mark_current(path)
         self.canvas.set_image(image)
 
         # A fresh image usually means fresh geometry: default the frame
@@ -465,6 +483,8 @@ class ImageExtractorSubTab(QWidget):
     # --- Lifecycle / session recovery ---
 
     def cancel_loading(self):
+        if hasattr(self, "source_gallery"):
+            self.source_gallery.cancel_loading()
         for worker in list(self._active_workers):
             worker.cancel()
         self._active_workers.clear()
@@ -479,6 +499,7 @@ class ImageExtractorSubTab(QWidget):
     def collect(self) -> Dict[str, Any]:
         return {
             "image_path": self.image_path or "",
+            "source_directory": self.source_gallery.source_dir,
             "output_directory": str(self.extraction_dir),
             "arrangement": self.combo_arrangement.currentText(),
             "frame_width": self.spin_frame_w.value(),
@@ -509,6 +530,10 @@ class ImageExtractorSubTab(QWidget):
         if out_dir and os.path.isdir(out_dir):
             self.extraction_dir = Path(out_dir)
             self.line_edit_output.setText(out_dir)
+
+        source_dir = config.get("source_directory", "")
+        if source_dir and os.path.isdir(source_dir):
+            self.source_gallery.scan_directory(source_dir)
 
         image_path = config.get("image_path", "")
         if image_path and os.path.isfile(image_path):
