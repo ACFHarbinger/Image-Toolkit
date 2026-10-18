@@ -9,11 +9,10 @@
 | `gui/src/windows/settings/_credentials.py` | 500 | 32 | 14 | 546 |
 | `backend/src/models/tuning/lo_ra_tuner_v2.py` | 493 | 51 | 29 | 573 |
 | `gui/src/tabs/models/delta/lora_train_tab.py` | 489 | 13 | 6 | 508 |
-| `gui/src/tabs/core/image_extractor_subtab.py` | 487 | 31 | 40 | 558 |
 | `gui/src/helpers/web/cloud/local_dir_sync_worker.py` | 475 | 58 | 69 | 602 |
 | `gui/src/windows/image_compare_window.py` | 473 | 18 | 8 | 499 |
+| `gui/src/classes/base/gallery_base.py` | 472 | 116 | 100 | 688 |
 | `gui/src/tabs/models/gen/comfy_generate_tab.py` | 471 | 27 | 3 | 501 |
-| `gui/src/classes/base/gallery_base.py` | 470 | 115 | 100 | 685 |
 | `gui/src/components/virtual_gallery/virtual_gallery_view.py` | 468 | 60 | 44 | 572 |
 | `gui/src/windows/authentication/login_window.py` | 467 | 112 | 30 | 609 |
 | `backend/src/database/unified/search_repo.py` | 464 | 30 | 72 | 566 |
@@ -26,6 +25,7 @@
 | `gui/src/tabs/models/dl_workspace_host.py` | 434 | 5 | 24 | 463 |
 | `gui/src/windows/settings/_reset_state.py` | 432 | 16 | 17 | 465 |
 | `gui/src/helpers/core/_queue_extraction_process.py` | 429 | 7 | 29 | 465 |
+| `gui/src/tabs/core/image_extractor_subtab.py` | 418 | 27 | 20 | 465 |
 | `gui/src/windows/image_preview_window.py` | 417 | 68 | 42 | 527 |
 | `backend/src/core/guidance_schema.py` | 415 | 20 | 58 | 493 |
 | `backend/src/models/core/comfy_manager.py` | 413 | 65 | 46 | 524 |
@@ -56,4 +56,4 @@
 | `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
 | `gui/src/windows/settings/settings_window.py` | 345 | 28 | 10 | 383 |
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
-| **TOTALS** | **102103** | **6559** | **10482** | **119144** |
+| **TOTALS** | **102394** | **6570** | **10517** | **119481** |
