@@ -38,6 +38,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.components.containers.height_resize_grip import watch_gallery_host
 from gui.src.components.gallery.presentation_mode import (
     GalleryPresentationMode,
 )
@@ -79,6 +80,8 @@ class AbstractGalleryBase(_GalleryPresentationMixin, QWidget, metaclass=MetaAbst
 
     def __init__(self) -> None:
         super().__init__()
+        # Draggable top/bottom borders on every gallery this tab builds.
+        watch_gallery_host(self)
 
         # --- UI configuration --------------------------------------------------
         self.thumbnail_size: int = self._load_thumbnail_size(default=180)
