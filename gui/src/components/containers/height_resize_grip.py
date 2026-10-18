@@ -11,7 +11,8 @@ remembered across sessions.
 ``watch_gallery_host(host)`` does this automatically for every gallery
 inside a gallery tab: on each show it finds the ``VirtualDualGallery``,
 ``VirtualGallery`` and ``MarqueeScrollArea`` widgets under *host* and
-attaches grips to any that do not have them yet. A ``VirtualGallery`` inside
+attaches grips to any that do not have them yet. A plain ``QScrollArea``
+thumbnail grid opts in with ``mark_resizable_gallery()``. A ``VirtualGallery`` inside
 a ``VirtualDualGallery`` is left alone, because the dual gallery's own
 splitter already divides the space between its two panels.
 """
@@ -29,8 +30,8 @@ from ...theming.theme_api import color
 GRIP_THICKNESS = 6
 MIN_GALLERY_HEIGHT = 120
 MAX_GALLERY_HEIGHT = 10000
-# Qt's QWIDGETSIZE_MAX: the "no maximum" value of maximumHeight().
-_QWIDGETSIZE_MAX = (1 << 24) - 1
+# Dynamic property a plain scroll-area gallery sets to opt in to grips.
+RESIZABLE_GALLERY_PROPERTY = "resizableGallery"
 
 
 class _EdgeGrip(QWidget):
@@ -224,6 +225,7 @@ def install_gallery_height_grips(host: QWidget) -> list[GalleryHeightResizer]:
     targets: list[QWidget] = list(duals)
     targets += [g for g in host.findChildren(VirtualGallery) if not any(d.isAncestorOf(g) for d in duals)]
     targets += host.findChildren(MarqueeScrollArea)
+    targets += [w for w in host.findChildren(QWidget) if w.property(RESIZABLE_GALLERY_PROPERTY) and w not in targets]
 
     scope = type(host).__name__
     counts: dict[str, int] = {}
@@ -235,6 +237,11 @@ def install_gallery_height_grips(host: QWidget) -> list[GalleryHeightResizer]:
         name = widget.objectName() or f"{kind}_{index}"
         resizers.append(enable_height_resize(widget, settings_scope=scope, settings_key=f"gallery_height/{name}"))
     return resizers
+
+
+def mark_resizable_gallery(widget: QWidget) -> None:
+    """Have the enclosing gallery tab give *widget* draggable borders."""
+    widget.setProperty(RESIZABLE_GALLERY_PROPERTY, True)
 
 
 class _GalleryHostWatcher(QObject):
@@ -255,5 +262,6 @@ __all__ = [
     "GalleryHeightResizer",
     "enable_height_resize",
     "install_gallery_height_grips",
+    "mark_resizable_gallery",
     "watch_gallery_host",
 ]

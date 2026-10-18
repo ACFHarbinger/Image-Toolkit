@@ -7,12 +7,13 @@ from gui.src.components.containers.height_resize_grip import (
     MIN_GALLERY_HEIGHT,
     enable_height_resize,
     install_gallery_height_grips,
+    mark_resizable_gallery,
     watch_gallery_host,
 )
 from gui.src.components.virtual_gallery import VirtualDualGallery, VirtualGallery
 from PySide6.QtCore import QEvent, QPointF, Qt
 from PySide6.QtGui import QMouseEvent
-from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QScrollArea, QVBoxLayout, QWidget
 
 
 def _mouse(widget, kind, y, buttons=Qt.MouseButton.LeftButton):
@@ -119,16 +120,20 @@ def test_host_watcher_finds_galleries_but_not_dual_internals(q_app):
     dual = VirtualDualGallery(host)
     single = VirtualGallery(host)
     scroll = MarqueeScrollArea(host)
-    for w in (dual, single, scroll):
+    plain = QScrollArea(host)  # a page scroller: no grips unless marked
+    marked = QScrollArea(host)
+    mark_resizable_gallery(marked)
+    for w in (dual, single, scroll, plain, marked):
         layout.addWidget(w)
     watch_gallery_host(host)
     host.show()
 
-    for w in (dual, single, scroll):
+    for w in (dual, single, scroll, marked):
         assert getattr(w, "_height_resizer", None) is not None, type(w).__name__
+    assert getattr(plain, "_height_resizer", None) is None
     assert getattr(dual.found_gallery, "_height_resizer", None) is None
     assert getattr(dual.selected_gallery, "_height_resizer", None) is None
     # A second pass (another show) adds nothing new.
-    assert len(install_gallery_height_grips(host)) == 3
-    assert len(host.findChildren(QWidget, "gallery_height_grip_bottom")) == 3
+    assert len(install_gallery_height_grips(host)) == 4
+    assert len(host.findChildren(QWidget, "gallery_height_grip_bottom")) == 4
     host.close()
