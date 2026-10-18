@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.components.containers.height_resize_grip import mark_resizable_gallery
 from gui.src.components.containers.merge_canvas import MergeCanvas
 
 from ....components import VirtualGallery
@@ -137,6 +138,8 @@ class _UIGalleryCanvasMixin:
         self.queue_gallery_scroll = QScrollArea()
         self.queue_gallery_scroll.setWidgetResizable(True)
         self.queue_gallery_scroll.setMinimumHeight(600)
+        self.queue_gallery_scroll.setObjectName("merge_queue_gallery")
+        mark_resizable_gallery(self.queue_gallery_scroll)
         queue_gallery_inner = QWidget()
         self.queue_gallery_layout = QGridLayout(queue_gallery_inner)
         self.queue_gallery_layout.setAlignment(
