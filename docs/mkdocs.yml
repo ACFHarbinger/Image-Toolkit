@@ -175,6 +175,7 @@ nav:
       - Architecture: moon/roadmaps/architecture.md
       - Performance: moon/roadmaps/performance.md
       - New Features: moon/roadmaps/new_features.md
+      - Cloud Jobs Service: moon/roadmaps/cloud_jobs.md
       - GUI / UX: moon/roadmaps/gui_ux.md
       - GUI Refactoring: moon/roadmaps/gui_refactoring.md
       - Content Generation: moon/roadmaps/content_generation.md

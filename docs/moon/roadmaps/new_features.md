@@ -843,8 +843,10 @@ Drive arm is opt-in via `IT_GDRIVE_ACCESS_TOKEN`.
 
 ## 4.21 Cloud Compute Offload {: #421-cloud-compute-offload }
 
-**Status:** In progress (issue #486). PoC first: Extractor-tab extractions via
-Google Cloud (`gcd`). Dashboards aggregation + charts: issue #490.
+**Status:** The PoC shipped (issues #486–#491, closed). **Absorbed and
+superseded on 2026-10-19 by [Cloud Jobs Service](cloud_jobs.md).** That
+roadmap covers eight providers, four workloads and the Cloud Jobs window.
+The text below is kept as history.
 
 **Goal:** run the app's heavy requests — video-frame / GIF / clip extraction,
 deep-learning image generation — on a chosen managed cloud provider instead of
@@ -946,4 +948,4 @@ against a mocked Cloud Run endpoint.
 
 ## Document History
 
-*Last updated: 2026-08-31 — §4.21 Cloud Compute Offload added (run heavy requests — extraction, DL generation — on a chosen cloud provider from a Settings-shaped window with per-platform hardware descriptions + a resource-usage dashboards tab; PoC = Extractor extractions via Google Cloud Run; infra/cloud/{gcd,cloudflare,oracle}/ configs added; issues #486/#487). Previous update same day — §4.20 Cloud Sync tab restructure into subtabs + Local Directory Sync (~/.image-toolkit ↔ remote .image-toolkit) added, Priority 1 in progress (issue #479). Previous update 2026-08-15 — §4.19 Account-Linked Settings Sync (Google Drive) added as a quick draft, deliberately not fully specced. Previous update same day: §4.18 Image Board Crawler rating filter and Safebooru board support added (planned, not yet implemented), motivated by the ASP SFW benchmark corpus roadmap. Previous update 2026-08-03: §4.17 Media Loader (Reddit + nhentai web media downloader tab) added and shipped same day, issue #182. Previous update 2026-07-17: §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*
+*Last updated: 2026-10-19 — §4.21 absorbed into [Cloud Jobs Service](cloud_jobs.md). Previous update 2026-08-31 — §4.21 Cloud Compute Offload added (run heavy requests — extraction, DL generation — on a chosen cloud provider from a Settings-shaped window with per-platform hardware descriptions + a resource-usage dashboards tab; PoC = Extractor extractions via Google Cloud Run; infra/cloud/{gcd,cloudflare,oracle}/ configs added; issues #486/#487). Previous update same day — §4.20 Cloud Sync tab restructure into subtabs + Local Directory Sync (~/.image-toolkit ↔ remote .image-toolkit) added, Priority 1 in progress (issue #479). Previous update 2026-08-15 — §4.19 Account-Linked Settings Sync (Google Drive) added as a quick draft, deliberately not fully specced. Previous update same day: §4.18 Image Board Crawler rating filter and Safebooru board support added (planned, not yet implemented), motivated by the ASP SFW benchmark corpus roadmap. Previous update 2026-08-03: §4.17 Media Loader (Reddit + nhentai web media downloader tab) added and shipped same day, issue #182. Previous update 2026-07-17: §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*
