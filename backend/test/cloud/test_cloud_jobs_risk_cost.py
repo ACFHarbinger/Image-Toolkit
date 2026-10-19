@@ -64,7 +64,10 @@ def _spec(mode=ExecutionMode.MANAGED_BATCH, region="europe-west1", runtime=600.0
                    inputs={"a" * 64: InputBlob("a" * 64, 1024 ** 3, "in.mp4")}, **kw)
 
 
-def _diag(spec, settings=CloudSettings(), rules=None, mtd=0.0, manifest=MANIFEST):
+_DEFAULTS = CloudSettings()
+
+
+def _diag(spec, settings=_DEFAULTS, rules=None, mtd=0.0, manifest=MANIFEST):
     est = estimate(spec, CAT, today=TODAY)
     ctx = build_context(spec, manifest, est, settings, mtd)
     return (rules or RuleSet(load_seed())).evaluate(ctx, settings.warnings_enabled), ctx
