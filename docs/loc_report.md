@@ -56,4 +56,4 @@
 | `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
 | `gui/src/windows/settings/settings_window.py` | 345 | 28 | 10 | 383 |
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
-| **TOTALS** | **102604** | **6586** | **10533** | **119723** |
+| **TOTALS** | **102621** | **6586** | **10543** | **119750** |
