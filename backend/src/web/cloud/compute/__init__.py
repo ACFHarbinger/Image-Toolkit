@@ -1,54 +1,28 @@
-"""Cloud Compute Offload (roadmap §4.21) — client-side job model + provider
-adapters.
+"""Deprecated alias for :mod:`backend.src.cloud.poc` (moved 2026-10-19, #825).
 
-`CloudJob` is the canonical, Qt-free description of one heavy request. Its
-`to_job_json()` emits exactly the wire schema the provider worker containers
-consume (see ``infra/cloud/gcd/worker/extraction.py``). A
-`CloudProviderAdapter` submits a `CloudJob` to one provider and returns a
-`CloudRunResult` (terminal status + output URIs + a usage row for the
-Dashboards tab).
-
-First PoC: `GCDCloudRunAdapter` → Google Cloud Run (`infra/cloud/gcd`).
-Cloudflare / Oracle adapters are declared but not implemented yet.
+Kept for one release. Submodules are aliased in ``sys.modules`` (not
+re-exported) so ``patch("backend.src.web.cloud.compute.<mod>.<name>")``
+still patches the object the code actually uses.
 """
 
 from __future__ import annotations
 
-from .cloud_job import CloudJob
-from .dispatcher import CloudExtractionDispatcher, DispatchResult
-from .gcd_adapter import GCDCloudRunAdapter
-from .gcs_client import GCSClient, parse_gs_uri
-from .provider_adapter import (
-    CloudflareAdapter,
-    CloudProviderAdapter,
-    CloudRunResult,
-    OracleAdapter,
-    get_adapter,
-)
-from .usage import (
-    UsageRow,
-    UsageRowSource,
-    UsageSummary,
-    aggregate_usage_rows,
-)
-from .usage_store import DEFAULT_USAGE_PATH, UsageStore
+import importlib
+import sys
+import warnings
 
-__all__ = [
-    "CloudJob",
-    "CloudProviderAdapter",
-    "CloudRunResult",
-    "CloudExtractionDispatcher",
-    "DispatchResult",
-    "GCDCloudRunAdapter",
-    "GCSClient",
-    "parse_gs_uri",
-    "CloudflareAdapter",
-    "OracleAdapter",
-    "UsageRow",
-    "UsageRowSource",
-    "UsageSummary",
-    "UsageStore",
-    "DEFAULT_USAGE_PATH",
-    "aggregate_usage_rows",
-    "get_adapter",
-]
+from backend.src.cloud.poc import *  # noqa: F401,F403
+from backend.src.cloud.poc import __all__  # noqa: F401
+
+_SUBMODULES = (
+    "cloud_job", "dispatcher", "gcd_adapter", "gcs_client",
+    "provider_adapter", "usage", "usage_store",
+)
+for _name in _SUBMODULES:
+    sys.modules[f"{__name__}.{_name}"] = importlib.import_module(f"backend.src.cloud.poc.{_name}")
+
+warnings.warn(
+    "backend.src.web.cloud.compute moved to backend.src.cloud.poc; the old path is removed next release.",
+    DeprecationWarning,
+    stacklevel=2,
+)

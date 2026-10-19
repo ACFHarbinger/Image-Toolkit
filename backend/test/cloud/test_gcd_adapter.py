@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from backend.src.web.cloud.compute import (
+from backend.src.cloud.poc import (
     CloudflareAdapter,
     CloudJob,
     GCDCloudRunAdapter,

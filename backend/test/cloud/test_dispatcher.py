@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from backend.src.web.cloud.compute import (
+from backend.src.cloud.poc import (
     CloudExtractionDispatcher,
     CloudRunResult,
     UsageStore,
@@ -126,7 +126,7 @@ def test_missing_source_fails_fast(tmp_path, store):
 
 
 def test_usage_store_round_trips_and_skips_corrupt_lines(tmp_path):
-    from backend.src.web.cloud.compute import UsageRow, aggregate_usage_rows
+    from backend.src.cloud.poc import UsageRow, aggregate_usage_rows
 
     store = UsageStore(tmp_path / "u.jsonl")
     store.append(UsageRow.from_mapping(

@@ -1,6 +1,6 @@
 """Pure-logic tests for Cloud Compute usage-row aggregation (#490)."""
 
-from backend.src.web.cloud.compute.usage import (
+from backend.src.cloud.poc.usage import (
     UsageRow,
     aggregate_usage_rows,
     format_bytes,

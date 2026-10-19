@@ -35,7 +35,7 @@ def _cloud_cfg(vault_manager) -> Dict[str, Any]:
 
 def build_dispatcher(vault_manager, output_dir: str):
     """Assemble a `CloudExtractionDispatcher` for GCD from vault config."""
-    from backend.src.web.cloud.compute import (
+    from backend.src.cloud.poc import (
         CloudExtractionDispatcher,
         GCDCloudRunAdapter,
     )

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from backend.src.web.cloud.compute import CloudJob
+from backend.src.cloud.poc import CloudJob
 
 
 def test_to_job_json_matches_worker_schema():
