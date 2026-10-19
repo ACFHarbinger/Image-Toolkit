@@ -1,0 +1,231 @@
+# Cloud Jobs risk rules, the shipped seed (#830). Users can edit every rule in
+# Settings; their edits are stored in cloud_jobs.db and layered over this
+# file by `id`. Editing or disabling a `capability` rule puts a permanent
+# warning on each job it would have blocked.
+#
+# Rule fields:
+#   id, kind (capability | policy), severity (block | warn | info)
+#   when:     condition over the context (see risk/engine.py)
+#   targets:  form field paths to recolour
+#   disables: form field paths to grey out while the rule matches
+#   requires_ack: a warning the user must acknowledge before submit
+#   message:  shown with the ⚠; {dotted.paths} are filled from the context
+version: 1
+rules:
+  # --- capability: facts about what a provider can run ---------------------
+  - id: cap.mode_unsupported
+    kind: capability
+    severity: block
+    when: {field: cap.mode_supported, op: eq, value: false}
+    targets: [placement.mode]
+    disables: [placement.mode]
+    message: "{placement.provider} can't run {placement.mode} jobs."
+
+  - id: cap.gpu_on_cpu_only_mode
+    kind: capability
+    severity: block
+    when:
+      all:
+        - {field: resources.needs_gpu, op: eq, value: true}
+        - {field: cap.mode_cpu_only, op: eq, value: true}
+    targets: [resources.gpu_class, placement.mode]
+    disables: [resources.gpu_class]
+    message: "{placement.provider} {placement.mode} is CPU-only; pick an instance mode for GPU work."
+
+  - id: cap.gpu_class_unavailable
+    kind: capability
+    severity: block
+    when:
+      all:
+        - {field: resources.needs_gpu, op: eq, value: true}
+        - {field: cap.gpu_class_offered, op: eq, value: false}
+    targets: [resources.gpu_class]
+    message: "{placement.provider} doesn't offer GPU class {resources.gpu_class}."
+
+  - id: cap.storage_unsupported
+    kind: capability
+    severity: block
+    when: {field: cap.storage_supported, op: eq, value: false}
+    targets: [storage]
+    disables: [storage]
+    message: "{placement.provider} can't use {storage} storage in {placement.mode} mode."
+
+  - id: cap.task_timeout
+    kind: capability
+    severity: block
+    when:
+      all:
+        - {field: cap.max_task_s, op: gt, value: 0}
+        - {field: estimate.runtime_s, op: gt, ref: cap.max_task_s}
+    targets: [placement.mode, limits.max_runtime_s]
+    message: "The estimated runtime ({estimate.runtime_s}s) is over {placement.provider} {placement.mode}'s verified task limit ({cap.max_task_s}s)."
+
+  - id: cap.spot_unsupported
+    kind: capability
+    severity: block
+    when:
+      all:
+        - {field: limits.spot_allowed, op: eq, value: true}
+        - {field: cap.supports_spot, op: eq, value: false}
+    targets: [limits.spot_allowed]
+    disables: [limits.spot_allowed]
+    message: "{placement.provider} has no spot/preemptible capacity."
+
+  - id: cap.region_unknown
+    kind: capability
+    severity: warn
+    when: {field: cap.region_known, op: eq, value: false}
+    targets: [placement.region]
+    message: "{placement.region} isn't a region listed for {placement.provider}."
+
+  # --- policy: the user's safeguards ---------------------------------------
+  - id: pol.spot_non_resumable
+    kind: policy
+    severity: block
+    when:
+      all:
+        - {field: limits.spot_allowed, op: eq, value: true}
+        - {field: job.resumable, op: eq, value: false}
+    targets: [limits.spot_allowed]
+    disables: [limits.spot_allowed]
+    message: "Spot instances can be reclaimed at any time, and a {job.kind} job can't resume from a checkpoint."
+
+  - id: pol.spot_resumable
+    kind: policy
+    severity: warn
+    when:
+      all:
+        - {field: limits.spot_allowed, op: eq, value: true}
+        - {field: job.resumable, op: eq, value: true}
+    targets: [limits.spot_allowed]
+    message: "Spot instances can be reclaimed; the job resumes from its last checkpoint and may take longer."
+
+  - id: pol.no_estimate
+    kind: policy
+    severity: warn
+    requires_ack: true
+    when:
+      all:
+        - {field: settings.estimates_enabled, op: eq, value: true}
+        - {field: estimate.known, op: eq, value: false}
+    targets: [placement.provider]
+    message: "No price data for this placement, so cost can't be estimated or capped in advance."
+
+  - id: pol.expensive_job
+    kind: policy
+    severity: warn
+    when:
+      all:
+        - {field: settings.warnings_enabled, op: eq, value: true}
+        - {field: estimate.total_usd, op: gte, ref: settings.warn_job_spend_usd}
+    targets: [resources.gpu_class, placement.instance_type]
+    message: "Estimated cost ${estimate.total_usd} is at or above your ${settings.warn_job_spend_usd} warning threshold."
+
+  - id: pol.over_job_cap
+    kind: policy
+    severity: block
+    when:
+      all:
+        - {field: settings.hard_caps_enabled, op: eq, value: true}
+        - {field: estimate.total_usd, op: gt, ref: limits.effective_max_spend_usd}
+    targets: [limits.max_spend_usd]
+    message: "Estimated cost ${estimate.total_usd} is over this job's ${limits.effective_max_spend_usd} spend cap."
+
+  - id: pol.monthly_cap
+    kind: policy
+    severity: block
+    when:
+      all:
+        - {field: settings.hard_caps_enabled, op: eq, value: true}
+        - {field: spend.month_after_job_usd, op: gt, ref: settings.monthly_cap_usd}
+    targets: [limits.max_spend_usd]
+    message: "This job would take month-to-date spend to ${spend.month_after_job_usd}, over your ${settings.monthly_cap_usd} monthly cap."
+
+  - id: pol.long_runtime
+    kind: policy
+    severity: warn
+    when:
+      all:
+        - {field: settings.warnings_enabled, op: eq, value: true}
+        - {field: limits.effective_max_runtime_s, op: gte, ref: settings.warn_runtime_s}
+    targets: [limits.max_runtime_s]
+    message: "Max runtime {limits.effective_max_runtime_s}s is long; an instance that stalls bills until then."
+
+  - id: pol.large_egress
+    kind: policy
+    severity: warn
+    when:
+      all:
+        - {field: settings.warnings_enabled, op: eq, value: true}
+        - {field: estimate.egress_gb, op: gte, ref: settings.warn_egress_gb}
+    targets: [storage]
+    message: "This job moves about {estimate.egress_gb} GB out of the cloud; egress is billed."
+
+  - id: pol.stale_prices
+    kind: policy
+    severity: info
+    when: {field: estimate.price_age_days, op: gt, ref: settings.warn_price_age_days}
+    targets: [placement.provider]
+    message: "Prices for this placement were last verified {estimate.price_age_days} days ago."
+
+  - id: pol.private_data
+    kind: policy
+    severity: warn
+    when: {field: job.data_class, op: eq, value: private}
+    targets: [data_class]
+    message: "This job uploads files from your private library to {placement.provider}."
+
+  - id: pol.sensitive_third_party
+    kind: policy
+    severity: block
+    when:
+      all:
+        - {field: job.data_class, op: eq, value: sensitive}
+        - {field: cap.third_party_gpu_host, op: eq, value: true}
+        - {field: job.provider_allowlisted, op: eq, value: false}
+    targets: [data_class, placement.provider]
+    message: "Sensitive data is blocked from third-party GPU hosts unless {placement.provider} is on your allowlist."
+
+  - id: pol.sensitive_cloud_sync
+    kind: policy
+    severity: block
+    when:
+      all:
+        - {field: job.data_class, op: eq, value: sensitive}
+        - {field: storage, op: eq, value: cloud_sync}
+        - {field: job.provider_allowlisted, op: eq, value: false}
+    targets: [storage]
+    disables: [storage]
+    message: "Sensitive data can't be staged through a Cloud Sync remote unless explicitly allowed."
+
+  - id: pol.cross_region
+    kind: policy
+    severity: warn
+    when: {field: job.cross_region, op: eq, value: true}
+    targets: [placement.region]
+    message: "{placement.region} isn't your default region for {placement.provider}; data will move between regions."
+
+  - id: pol.reduced_protection
+    kind: policy
+    severity: warn
+    requires_ack: true
+    when:
+      all:
+        - {field: cap.native_deadline, op: eq, value: false}
+        - {field: env.watchdog_configured, op: eq, value: false}
+    targets: [placement.provider]
+    message: "No cloud-side deadline or watchdog covers this job; if this computer is off, it can keep billing until the in-instance timer ends it."
+
+  - id: pol.user_image
+    kind: policy
+    severity: warn
+    when: {field: job.user_image, op: eq, value: true}
+    targets: [image]
+    message: "A user-supplied image runs under the provider's normal isolation only; its outputs are quarantined until verified."
+
+  - id: pol.workers_ai_translation
+    kind: policy
+    severity: warn
+    when: {field: job.workers_ai_translation, op: eq, value: true}
+    targets: [placement.provider]
+    message: "Workers AI runs its own build of the model without custom nodes; results will differ from your ComfyUI workflow."

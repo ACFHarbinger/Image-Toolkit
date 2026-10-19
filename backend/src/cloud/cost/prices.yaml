@@ -1,0 +1,20 @@
+# Curated price catalogue for Cloud Jobs estimates (#832).
+#
+# Deliberately empty: prices change often and none have been verified for
+# this release. Fill rows from each provider's current pricing page, with
+# `last_verified` set to the date you checked; user overrides in Settings and
+# live price APIs (where a provider has one) take precedence over these.
+#
+# compute:
+#   - {provider: runpod, region: "*", mode: instance, sku: A100-80GB,
+#      usd_per_hour: 0.0, billing_increment_s: 1, minimum_s: 0,
+#      startup_s: 120, ipv4_usd_per_hour: 0.0, spot: false,
+#      last_verified: "YYYY-MM-DD"}
+# egress:
+#   - {provider: gcp, destination: internet, usd_per_gb: 0.0, last_verified: "YYYY-MM-DD"}
+# storage:
+#   - {provider: gcp, usd_per_gb_month: 0.0, last_verified: "YYYY-MM-DD"}
+version: "2026-10-19"
+compute: []
+egress: []
+storage: []
