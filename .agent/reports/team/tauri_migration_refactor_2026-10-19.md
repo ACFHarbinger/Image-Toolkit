@@ -248,6 +248,28 @@ DRY problem to resolve, not to copy forward.
   - **new Deep Learning panels in Tauri** against `record.json` /
     `events.jsonl`. No PostgreSQL.
 
+- **Cursor** (2026-10-19):
+  [Full proposal](../cursor/tauri_migration_refactor_proposal_2026-10-19.md).
+  Adds the window and chrome the others leave as a table:
+  - a **WindowManager role map** (labels, hide-all, pop-out) so Gate D
+    is a panel with an optional `cloud.jobs` webview, not a new
+    `TabId` and not a mandatory second window;
+  - **EventHub as the generated in-app bus**; `appStore.ts` shrinks to
+    ephemeral UI;
+  - **Wave 0 shell**: catalog-driven rail/ribbon/inspector/status bar
+    replacing `App.tsx`'s handwritten `TabId` union;
+  - CSS variables from existing `gui/src/theming/tokens/`; one
+    shortcut registry; native tray that ports
+    `collect_background_windows()`;
+  - dual installers until Qt is gone, then a frozen sidecar;
+    `db.rs`'s `postgresql://localhost` default is deleted, not ported.
+  Asks about Gate D window vs panel, EventHub vs `appStore`, tray
+  timing, packaging, tokens, shortcuts, OS order, and `TabId`.
+  - **Harbinger answered 2026-10-19:** W1–W8 all A. Gate D is a panel
+    with pop-out; generated EventHub; Wave 0 tray and hide-all; dual
+    installers then frozen sidecar; token CSS from existing JSON; one
+    shortcut registry; Linux-first; `TabId` replaced by the catalog.
+
 ## 5. Questions for Harbinger (tag with your name; Harbinger answers inline)
 
 Answered directly in chat on 2026-10-19, before the round opened:
@@ -446,6 +468,59 @@ Harbinger's answers below supersede the original recommendations where they diff
   - **A (recommended):** Freeze new Qt panels. Build the remaining Deep Learning UI in Tauri against the existing `record.json` / `events.jsonl` contract.
   - **B:** Finish the open Qt issue first, then freeze `gui/` Deep Learning panels.
   - **C:** Make the Deep Learning workspace the migration pilot, ahead of Convert.
+
+### Cursor — 2026-10-19 (all eight answered)
+
+Harbinger's answers below match the recommendations. Recorded by Cursor, 2026-10-19. Scope still awaits the team final round.
+
+- **[Cursor W1] How does Cloud Jobs Gate D appear in Tauri?**
+  - **Harbinger answer (2026-10-19; recorded by Cursor):** A. Panel in `main` with a WindowManager pop-out that creates a labeled `cloud.jobs` webview. Header badge stays on `main`. Child window has no `**` asset scope.
+  - **A (recommended):** Panel in `main` with a WindowManager pop-out that creates a labeled `cloud.jobs` webview. Header badge stays on `main`. Child window has no `**` asset scope.
+  - **B:** Always a native `cloud.jobs` webview, for parity with the locked PySide6 standalone window.
+  - **C:** Route only. No pop-out in v1.
+  - **D:** A new `TabId` in today's `App.tsx` switcher, so Gate D can ship before the catalog shell.
+- **[Cursor W2] What is the in-app event bus?**
+  - **Harbinger answer (2026-10-19; recorded by Cursor):** A. Generated EventHub intents/facts. Sidecar emits them. `appStore.ts` is ephemeral UI only.
+  - **A (recommended):** Generated EventHub intents/facts. Sidecar emits them. `appStore.ts` is ephemeral UI only.
+  - **B:** React store (`appStore.ts` / Redux) is the source of truth. EventHub dies with Qt.
+  - **C:** No in-webview bus. Every view polls the sidecar.
+  - **D:** Keep EventHub (Qt) and `appStore.ts` (Tauri) with a manual mapping until the last Qt row.
+- **[Cursor W3] When does close-to-background / tray land?**
+  - **Harbinger answer (2026-10-19; recorded by Cursor):** A. Wave 0 native tray. Closing `main` hides every labeled window (port of `collect_background_windows`). Supervisor keeps sidecar and daemons.
+  - **A (recommended):** Wave 0 native tray. Closing `main` hides every labeled window (port of `collect_background_windows`). Supervisor keeps sidecar and daemons.
+  - **B:** Tray after the Convert pilot. Until then, closing `main` quits the UI; daemons keep running.
+  - **C:** No tray until PySide6 is gone. Tauri uses the OS taskbar minimize only.
+  - **D:** Qt keeps the only tray for the whole coexistence period.
+- **[Cursor W4] How do we package while both apps ship?**
+  - **Harbinger answer (2026-10-19; recorded by Cursor):** A. Dual installers until the last Qt row is deleted (current PyInstaller AppImage/deb + Tauri bundle). Then one Tauri installer with a frozen sidecar. `ImageToolkit.spec` dies with PySide6. Canonical version stays `pyproject.toml`.
+  - **A (recommended):** Dual installers until the last Qt row is deleted (current PyInstaller AppImage/deb + Tauri bundle). Then one Tauri installer with a frozen sidecar. `ImageToolkit.spec` dies with PySide6. Canonical version stays `pyproject.toml`.
+  - **B:** One installer that can launch either UI.
+  - **C:** Tauri-only packaging from Wave 0; PySide6 is source-run during the migration.
+  - **D:** PyInstaller remains the only release channel; Tauri is an unpackaged extra.
+- **[Cursor W5] Where do visual tokens come from?**
+  - **Harbinger answer (2026-10-19; recorded by Cursor):** A. Generate CSS variables from `gui/src/theming/tokens/{light,dark}.json` in Wave 0. Both shells consume them. Do not hand-port QSS.
+  - **A (recommended):** Generate CSS variables from `gui/src/theming/tokens/{light,dark}.json` in Wave 0. Both shells consume them. Do not hand-port QSS.
+  - **B:** New Tauri visual language. Qt stays on QSS until deleted.
+  - **C:** Import the QSS files as raw CSS.
+  - **D:** Unstyled until after functional parity.
+- **[Cursor W6] Where do keyboard shortcuts live?**
+  - **Harbinger answer (2026-10-19; recorded by Cursor):** A. One serializable registry lifted from `shortcut_manager.py` / `keybindings.json`. Both shells bind it. Tauri global shortcuts only for tray show/hide.
+  - **A (recommended):** One serializable registry lifted from `shortcut_manager.py` / `keybindings.json`. Both shells bind it. Tauri global shortcuts only for tray show/hide.
+  - **B:** Hand-write React hotkeys per view.
+  - **C:** Defer shortcuts until after visual parity.
+  - **D:** OS-level global shortcuts for every action.
+- **[Cursor W7] Which OS is Gate D allowed to miss?**
+  - **Harbinger answer (2026-10-19; recorded by Cursor):** A. Linux is the Wave 0 + Convert + Cloud Jobs Gate D platform. Windows and macOS follow per capability after the Linux row passes.
+  - **A (recommended):** Linux is the Wave 0 + Convert + Cloud Jobs Gate D platform. Windows and macOS follow per capability after the Linux row passes.
+  - **B:** Linux and Windows from Wave 0; macOS later.
+  - **C:** All three from Wave 0.
+  - **D:** Whatever the implementing agent can run.
+- **[Cursor W8] What happens to `App.tsx`'s handwritten `TabId` union?**
+  - **Harbinger answer (2026-10-19; recorded by Cursor):** A. Wave 0 replaces it with the serializable catalog. Existing `*Tab.tsx` files remain views behind catalog ids. No feature adds a `TabId` member, including Cloud Jobs.
+  - **A (recommended):** Wave 0 replaces it with the serializable catalog. Existing `*Tab.tsx` files remain views behind catalog ids. No feature adds a `TabId` member, including Cloud Jobs.
+  - **B:** Keep `TabId` until each tab is rewritten. Catalog is Qt-only until then.
+  - **C:** Dual navigation (catalog + `TabId`) until the Convert pilot lands.
+  - **D:** Freeze `App.tsx` as-is and put new UI in a parallel shell tree.
 
 ## 6. Design axes to cover (suggestions, not a checklist)
 
