@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- Fixed the import-linter contract `gui.src.classes must not import gui.src.tabs`, which an earlier change had broken: gallery height grips imported the settings window, and that chain reached the tabs. Per-class session values now live in `gui/src/preferences/session_values.py`, and `AppSettings.session` / `set_session` delegate to it. Files: `gui/src/preferences/session_values.py`, `gui/src/windows/settings/app_settings.py`, `gui/src/components/containers/height_resize_grip.py`.
 - **The Python package `backend/` is now `middleware/`** (Tauri migration W0-01, #865).
   - **What changed:** imports (`middleware.src…`), paths, CI workflows, the PyInstaller spec, import-linter contracts, `pyproject.toml` workspace members, pixi tasks and docs. The distribution is renamed `image-toolkit-middleware`, so re-run `uv sync` (or `uv pip install -e ./middleware`) in existing environments.
   - **Old imports still work:** a top-level `backend` alias maps every `backend.…` import to the same `middleware.…` module object, so `patch()` targets and the submodules' imports keep working. It emits a `DeprecationWarning`, and W0-02 (#866) removes it when the C++ core takes the `backend` name.
