@@ -37,7 +37,7 @@ from middleware.benchmark.managers import BenchmarkManager  # noqa: E402
 from middleware.src.core import lifecycle_memory  # noqa: E402
 
 try:
-    import base as cpp_core  # type: ignore[import]
+    import backend as cpp_core  # type: ignore[import]
 
     _CPP_AVAILABLE = True
 except ImportError:

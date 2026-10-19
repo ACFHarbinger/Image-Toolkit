@@ -29,7 +29,7 @@ clean:
     rm -rf tmp/
     rm -rf target/
     rm -rf images/
-    rm -rf build/base/
+    rm -rf build/backend/
     find . -type d -empty -delete
     @echo "✅ Clean complete!"
 

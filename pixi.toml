@@ -28,7 +28,7 @@ ninja        = "*"
 cxx-compiler = "*"
 c-compiler   = "*"
 pkg-config   = "*"
-# openmp       = "*"   # Required by base/CMakeLists.txt (OpenMP::OpenMP_CXX)
+# openmp       = "*"   # Required by backend/CMakeLists.txt (OpenMP::OpenMP_CXX)
 eigen        = "*"   # Eigen3 (CMake fetches it if absent; conda avoids that)
 pybind11     = "*"   # pybind11_add_module — also available from conda-forge
 
@@ -193,12 +193,12 @@ benchmark = { features = ["benchmark"], solve-group = "default" }
 # Run with: pixi run <task-name>
 # ---------------------------------------------------------------------------
 [tasks]
-# ── C++ extension (base/) ─────────────────────────────────────────────────────
+# ── C++ extension (backend/) ─────────────────────────────────────────────────────
 # Linux: system + conda include paths for sqlcipher/sodium.
-build-base = { cmd = "cmake -B build/base base/ -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INCLUDE_PATH=/usr/include/sqlcipher:/usr/include && cmake --build build/base --parallel", description = "Builds the pybind11 C++ base extension" }
+build-base = { cmd = "cmake -B build/backend backend/ -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INCLUDE_PATH=/usr/include/sqlcipher:/usr/include && cmake --build build/backend --parallel", description = "Builds the pybind11 C++ base extension" }
 # Windows: conda env provides all include/lib paths via CMAKE_PREFIX_PATH.
-build-base-win = { cmd = "cmake -B build/base base/ -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=%CONDA_PREFIX% && cmake --build build/base --parallel", description = "Builds the pybind11 C++ base extension (Windows/MSVC)" }
-test-base = { cmd = "cmake --build build/base --target test", depends-on = ["build-base"], description = "Runs native C++ Catch2 unit tests" }
+build-base-win = { cmd = "cmake -B build/backend backend/ -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=%CONDA_PREFIX% && cmake --build build/backend --parallel", description = "Builds the pybind11 C++ base extension (Windows/MSVC)" }
+test-base = { cmd = "cmake --build build/backend --target test", depends-on = ["build-base"], description = "Runs native C++ Catch2 unit tests" }
 
 # ── Python backend ────────────────────────────────────────────────────────────
 start-backend = { cmd = "python middleware/main.py server", depends-on = ["build-base"], description = "Starts the Django/FastAPI backend" }

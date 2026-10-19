@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-base = pytest.importorskip("base")
+backend = pytest.importorskip("backend")
 
 SCHEMA_SQL = (
     Path(__file__).resolve().parents[2]
@@ -23,14 +23,14 @@ SALT = "test-account"
 
 @pytest.fixture()
 def db(tmp_path):
-    handle = base.database.Database(str(tmp_path / "lib.db"), PASSWORD, SALT)
+    handle = backend.database.Database(str(tmp_path / "lib.db"), PASSWORD, SALT)
     yield handle
     handle.close()
 
 
 def test_open_creates_file_and_is_encrypted(tmp_path):
     path = tmp_path / "lib.db"
-    db = base.database.Database(str(path), PASSWORD, SALT)
+    db = backend.database.Database(str(path), PASSWORD, SALT)
     db.apply_ddl("CREATE TABLE t (x TEXT);")
     db.execute("INSERT INTO t VALUES (?)", ("needle-plaintext",))
     db.close()
@@ -41,13 +41,13 @@ def test_open_creates_file_and_is_encrypted(tmp_path):
 
 def test_wrong_password_rejected(tmp_path):
     path = str(tmp_path / "lib.db")
-    db = base.database.Database(path, PASSWORD, SALT)
+    db = backend.database.Database(path, PASSWORD, SALT)
     db.apply_ddl("CREATE TABLE t (x TEXT);")
     db.close()
     with pytest.raises(RuntimeError, match="wrong password"):
-        base.database.Database(path, "not-the-password", SALT)
+        backend.database.Database(path, "not-the-password", SALT)
     with pytest.raises(RuntimeError, match="wrong password"):
-        base.database.Database(path, PASSWORD, "not-the-salt")
+        backend.database.Database(path, PASSWORD, "not-the-salt")
 
 
 def test_query_roundtrips_all_types(db):
@@ -160,7 +160,7 @@ def test_kdf_once_per_session(tmp_path):
     """The KDF cost is paid in the constructor, not per call."""
     path = str(tmp_path / "lib.db")
     t0 = time.perf_counter()
-    db = base.database.Database(path, PASSWORD, SALT)
+    db = backend.database.Database(path, PASSWORD, SALT)
     ctor_time = time.perf_counter() - t0
 
     db.apply_ddl("CREATE TABLE t (x INTEGER);")
@@ -200,7 +200,7 @@ def test_concurrent_workers_smoke(db):
 
 
 def test_closed_db_raises(tmp_path):
-    db = base.database.Database(str(tmp_path / "lib.db"), PASSWORD, SALT)
+    db = backend.database.Database(str(tmp_path / "lib.db"), PASSWORD, SALT)
     db.close()
     assert not db.is_open
     with pytest.raises(RuntimeError, match="closed"):
@@ -208,7 +208,7 @@ def test_closed_db_raises(tmp_path):
 
 
 def test_context_manager(tmp_path):
-    with base.database.Database(str(tmp_path / "lib.db"), PASSWORD, SALT) as db:
+    with backend.database.Database(str(tmp_path / "lib.db"), PASSWORD, SALT) as db:
         assert db.is_open
     assert not db.is_open
 

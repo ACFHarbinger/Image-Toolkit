@@ -1,6 +1,6 @@
 # Unified Database Roadmap — Merging the Listings Subtabs and the Database Tabs
 
-*Created: 2026-07-11. Merges the two storage/UI stacks — the SQLCipher listings store (`base.secret` → `~/.image-toolkit/listings_secure.db`, Content/Entity Listings subtabs) and the PostgreSQL + pgvector image index (`middleware/src/database/image_database.py`, Configuration/Search/Metadata tabs) — into a single encrypted, serverless, relational store with real semantic search. PostgreSQL is **dropped entirely**.*
+*Created: 2026-07-11. Merges the two storage/UI stacks — the SQLCipher listings store (`backend.secret` → `~/.image-toolkit/listings_secure.db`, Content/Entity Listings subtabs) and the PostgreSQL + pgvector image index (`middleware/src/database/image_database.py`, Configuration/Search/Metadata tabs) — into a single encrypted, serverless, relational store with real semantic search. PostgreSQL is **dropped entirely**.*
 
 ***Status (2026-08-01): all ten phases (DB.1–DB.10) shipped.*** *Every locked-in decision from the Q&A below has a real, tested implementation — including decision #2 ("no plaintext sidecar DBs"), closed last via `EncryptedSQLiteStore` (DB.7). A handful of deliberately-scoped-down items remain, documented honestly in their own sections rather than silently dropped: the hnswlib ANN index (brute-force is fast enough at current scale), multi-group semantic prefiltering, and Entity Recon batch-linking — none of them gaps in the original locked-in decisions, all UX/scale refinements for a future round if ever needed.*
 
@@ -14,7 +14,7 @@
 6. Argon2id key derivation happens **once at login**; a keyed connection is held for the session.
 7. UI: a unified Library tab category, **plus** new raw-database browser tab(s) showing field values and table associations ER-diagram-style (crow's-foot, à la the SQL Server sample diagram provided).
 8. Mandatory pre-migration backups; all migration scripts live in `middleware/migrations/`.
-9. **`base.secret` is Vault-only and must not be touched.** New native code goes in a new **`base.database`** C++ module. CRUD language (C++ vs Python) chosen for performance — see [DB.2](#db2-basedatabase--the-native-storage-engine).
+9. **`backend.secret` is Vault-only and must not be touched.** New native code goes in a new **`backend.database`** C++ module. CRUD language (C++ vs Python) chosen for performance — see [DB.2](#db2-basedatabase--the-native-storage-engine).
 10. Phasing: incremental (chosen here) — the app stays shippable after every phase.
 
 ---
@@ -23,7 +23,7 @@
 
 - [Current State](#current-state)
 - [DB.1 Unified Schema Design](#db1-unified-schema-design)
-- [DB.2 base.database — the Native Storage Engine](#db2-basedatabase--the-native-storage-engine)
+- [DB.2 backend.database — the Native Storage Engine](#db2-basedatabase--the-native-storage-engine)
 - [DB.3 Python DAL (`middleware/src/database/unified/`)](#db3-python-dal-backendsrcdatabaseunified)
 - [DB.4 Backups & Migration Scripts (`middleware/migrations/`)](#db4-backups--migration-scripts-backendmigrations)
 - [DB.5 Listings Subtabs on the Unified Store](#db5-listings-subtabs-on-the-unified-store)
@@ -43,7 +43,7 @@
 Two disjoint stacks that never talk to each other:
 
 **Listings side** (`gui/src/tabs/core/elements/{content,entity}_listings_subtab.py`):
-- SQLCipher SQLite at `~/.image-toolkit/listings_secure.db` via `base.secret` (`base/src/secret/vault_db.cpp`).
+- SQLCipher SQLite at `~/.image-toolkit/listings_secure.db` via `backend.secret` (`backend/src/secret/vault_db.cpp`).
 - One document-store table `listings(id, category, title, metadata JSON, date_added, embedding BLOB, dim)`; entities are rows with `category='Entity'`; episodes, credits, associations, genres/tags all live inside the JSON blob.
 - Argon2id KDF runs **inside every API call** (`open_db()`); associations are kept bidirectionally consistent by Python fetch-all/diff/re-upsert loops; all filtering/sorting happens in Python over full-table loads.
 - The `embedding` column and `hybrid_search_secure()` are dead weight (GUI writes empty or byte-of-title placeholder vectors). Recommendations bypass the DB entirely via `CRE/` (BGE-M3 hybrid, plain SQLite `rec_engine.db`).
@@ -121,18 +121,18 @@ Design notes:
 
 Deliverable: `docs/database/unified_schema.md` with the full DDL + an ER diagram (also consumed by DB.9's ER view), reviewed before any code.
 
-## ✅ DB.2 base.database — the Native Storage Engine
+## ✅ DB.2 backend.database — the Native Storage Engine
 
-*Shipped 2026-07-12 (S210): `base/src/database/database.cpp` + `include/database/database.hpp`, registered as `base.database.Database` in `bindings.cpp`. Session-keyed handle (Argon2id once, GIL released during KDF), wrong-key detection, WAL + FK + busy_timeout pragmas, query/execute/executemany (atomic) + explicit transactions, apply_ddl/schema_version/has_fts5/vacuum/reindex/integrity_check/statistics, upsert_embedding + brute-force cosine `knn` with `prefilter_sql` (HNSW upgrade deferred to DB.7), context-manager protocol, stub class when built without SQLCipher. 14 tests in `middleware/test/database/test_base_database.py` incl. encrypted-at-rest, KDF-once timing, 4-thread concurrency, FTS5-functional. FTS5 confirmed available in the linked SQLCipher.*
+*Shipped 2026-07-12 (S210): `backend/src/database/database.cpp` + `include/database/database.hpp`, registered as `backend.database.Database` in `bindings.cpp`. Session-keyed handle (Argon2id once, GIL released during KDF), wrong-key detection, WAL + FK + busy_timeout pragmas, query/execute/executemany (atomic) + explicit transactions, apply_ddl/schema_version/has_fts5/vacuum/reindex/integrity_check/statistics, upsert_embedding + brute-force cosine `knn` with `prefilter_sql` (HNSW upgrade deferred to DB.7), context-manager protocol, stub class when built without SQLCipher. 14 tests in `middleware/test/database/test_base_database.py` incl. encrypted-at-rest, KDF-once timing, 4-thread concurrency, FTS5-functional. FTS5 confirmed available in the linked SQLCipher.*
 
-New C++ module `base/src/database/` registered as `base.database` (pybind11, same extension binary). **`base.secret` remains untouched** (answer #9).
+New C++ module `backend/src/database/` registered as `backend.database` (pybind11, same extension binary). **`backend.secret` remains untouched** (answer #9).
 
-**Why C++ rather than Python `sqlcipher3`:** the `base` extension already links SQLCipher + libsodium + argon2 (used by `base.secret`); a Python SQLCipher package would load a *second* libsqlcipher into a process that also hosts the JPype JVM — exactly the lazily-loaded-native-library conflict class that has caused three SIGSEGVs in this app already. Reusing the already-linked library in a new C++ module sidesteps that entirely, and keeps the vector-search hot path native.
+**Why C++ rather than Python `sqlcipher3`:** the `base` extension already links SQLCipher + libsodium + argon2 (used by `backend.secret`); a Python SQLCipher package would load a *second* libsqlcipher into a process that also hosts the JPype JVM — exactly the lazily-loaded-native-library conflict class that has caused three SIGSEGVs in this app already. Reusing the already-linked library in a new C++ module sidesteps that entirely, and keeps the vector-search hot path native.
 
 API surface (bound class, not free functions — this is what enables the session key):
 
 ```cpp
-class Database {                       // py: base.database.Database
+class Database {                       // py: backend.database.Database
     // opens (creating if absent) library.db; runs Argon2id ONCE here
     Database(std::string db_path, std::string password, std::string salt);
     void close();                      // + context-manager __enter__/__exit__
@@ -156,9 +156,9 @@ class Database {                       // py: base.database.Database
 };
 ```
 
-- The keyed `sqlite3*` handle lives for the object's lifetime → **one KDF per session** (answer #6), vs one per call today. The GUI owns a single `Database` instance created at login (post-vault-unlock, same `raw_password`/`account_name` inputs `base.secret` uses today) and threads it through a small accessor in `middleware/src/database/unified/session.py`.
+- The keyed `sqlite3*` handle lives for the object's lifetime → **one KDF per session** (answer #6), vs one per call today. The GUI owns a single `Database` instance created at login (post-vault-unlock, same `raw_password`/`account_name` inputs `backend.secret` uses today) and threads it through a small accessor in `middleware/src/database/unified/session.py`.
 - WAL mode + `busy_timeout`; a coarse internal mutex serializes access from Qt worker threads (QRunnable workers already funnel DB work through few threads; contention at this scale is negligible).
-- HNSW index built in-memory at first use from the `embeddings` table and persisted to an encrypted sidecar blob table (`vector_index(model, owner_type, data BLOB)`); reuses the hnswlib vendoring already present for `base.similarity`/`base.recon`.
+- HNSW index built in-memory at first use from the `embeddings` table and persisted to an encrypted sidecar blob table (`vector_index(model, owner_type, data BLOB)`); reuses the hnswlib vendoring already present for `backend.similarity`/`backend.recon`.
 - FTS5 must be enabled in the SQLCipher build flags (`-DSQLITE_ENABLE_FTS5`) — verify at CMake configure time; build-env notes in the pixi/RPATH memory apply.
 - Tests: pure-C++-free pytest suite `middleware/test/database/test_base_database.py` (tmpdir DBs, wrong-password behavior, concurrent-worker smoke test, KDF-once timing assertion).
 
@@ -188,14 +188,14 @@ middleware/src/database/unified/
 
 ## ✅ DB.4 Backups & Migration Scripts (`middleware/migrations/`)
 
-*Shipped 2026-07-12 (S210): all five steps + runner. 000 `backup_all.py` (see progress note below); 001 `create_library_db.py` (DDL + version stamp, idempotent); 002 `migrate_listings.py` (reads via `base.secret.fetch_all_listings_secure` — its last consumer; two-pass rows-then-links so ordering can't drop associations; asymmetric legacy association data healed by M2M union; dangling ids logged AND parked in `extra._dangling_*`); 003 `migrate_pgvector.py` (injectable data provider — psycopg2 confined to the default provider; FK resolution for the denormalized text columns; original dates + pHashes preserved; graceful skip when unreachable, re-runnable); 004 `verify_migration.py` (full id↔title sweep vs legacy listings, pgvector counts + sampled paths, `integrity_check` + `foreign_key_check`, parked-dangling report); `runner.py` (resumable state file at `~/.image-toolkit/.phase_db_migration_state.json`, backup manifest re-verified by hash on EVERY run, verification failure aborts non-zero pointing at the backups, `--skip-postgres`/`--force`). 13 tests in `middleware/test/database/test_migrations.py` incl. end-to-end runner, resume, tampered-backup refusal, verification-failure abort.*
+*Shipped 2026-07-12 (S210): all five steps + runner. 000 `backup_all.py` (see progress note below); 001 `create_library_db.py` (DDL + version stamp, idempotent); 002 `migrate_listings.py` (reads via `backend.secret.fetch_all_listings_secure` — its last consumer; two-pass rows-then-links so ordering can't drop associations; asymmetric legacy association data healed by M2M union; dangling ids logged AND parked in `extra._dangling_*`); 003 `migrate_pgvector.py` (injectable data provider — psycopg2 confined to the default provider; FK resolution for the denormalized text columns; original dates + pHashes preserved; graceful skip when unreachable, re-runnable); 004 `verify_migration.py` (full id↔title sweep vs legacy listings, pgvector counts + sampled paths, `integrity_check` + `foreign_key_check`, parked-dangling report); `runner.py` (resumable state file at `~/.image-toolkit/.phase_db_migration_state.json`, backup manifest re-verified by hash on EVERY run, verification failure aborts non-zero pointing at the backups, `--skip-postgres`/`--force`). 13 tests in `middleware/test/database/test_migrations.py` incl. end-to-end runner, resume, tampered-backup refusal, verification-failure abort.*
 
 Non-negotiable order (answer #8): **backup first, migrate second, verify third.** New directory:
 
 ```
 middleware/migrations/            # module names can't start with digits — the
     backup_all.py              #   runner maps step numbers to modules
-    create_library_db.py       # 001: DDL from DB.1 via base.database, stamps schema_version
+    create_library_db.py       # 001: DDL from DB.1 via backend.database, stamps schema_version
     migrate_listings.py        # 002: listings_secure.db → library.db
     migrate_pgvector.py        # 003: PostgreSQL → library.db (skippable if server absent)
     verify_migration.py        # 004: row-count + checksum + referential-integrity report
@@ -205,7 +205,7 @@ middleware/migrations/            # module names can't start with digits — the
 *Progress: ✅ 000 `backup_all.py` shipped 2026-07-12 (S210) — timestamped dirs under `assets/migrations/pre_unified/`, SHA-256 manifest, `verify_manifest()` re-hash check, staleness warnings on `.enc` copies, pg_dump with graceful skip; 4 tests in `middleware/test/database/test_backup_all.py`.*
 
 - **000_backup_all**: (a) file-copy `listings_secure.db` → `assets/migrations/pre_unified/listings_secure.db.bak`; (b) trigger the existing encrypted JSON backup path (equivalent of both "Update Backup" buttons) so `listings.json.enc`/`entities.json.enc` are current; (c) `pg_dump --format=custom` of the image DB → `assets/migrations/pre_unified/imagedb.dump` (graceful skip + loud warning if Postgres is unreachable); (d) manifest with SHA-256 of every artifact.
-- **002_migrate_listings**: reads via `base.fetch_all_listings_secure` (last use of that API); explodes each JSON blob into `media_items`/`episodes`/`entities`/`credits`; splits CSV genres/tags into `tags`+`media_tags`; converts `associated_*` lists into M2M rows (dangling IDs logged, not dropped — parked in `extra`); unknown keys → `extra`.
+- **002_migrate_listings**: reads via `backend.fetch_all_listings_secure` (last use of that API); explodes each JSON blob into `media_items`/`episodes`/`entities`/`credits`; splits CSV genres/tags into `tags`+`media_tags`; converts `associated_*` lists into M2M rows (dangling IDs logged, not dropped — parked in `extra`); unknown keys → `extra`.
 - **003_migrate_pgvector**: streams `images`/`groups`/`subgroups`/`tags`/`image_tags` via psycopg2 (the only surviving use of it, inside the script); resolves text `group_name`/`subgroup_name` → FKs; carries `phash` over; `embedding` column is ignored (it's NULL everywhere).
 - **004_verify**: source-vs-target row counts per table, spot-check field equality on a random sample, `PRAGMA foreign_key_check`, orphaned-association report. Runner exits non-zero and points at the backups if anything mismatches.
 - Runner invoked from a first-launch dialog ("Library upgrade required — a full backup will be created first") and from the CLI (`python -m middleware.migrations.runner`).
@@ -213,7 +213,7 @@ middleware/migrations/            # module names can't start with digits — the
 ## 🔄 DB.5 Listings Subtabs on the Unified Store
 
 **Verification note — 2026-08-22:** the rebuilt `base` extension resolves to
-the compiled `.so`, exposes `base.database`, and completed a temporary
+the compiled `.so`, exposes `backend.database`, and completed a temporary
 SQLCipher create/insert/query/close round trip. The remaining GUI acceptance
 check—open the Database tab and verify listings load and save—is still
 pending: the available display already had another active `just python`
@@ -277,7 +277,7 @@ Port `SeriesListingsSubTab` / `EntityListingsSubTab` + detail panels/dialogs to 
 
 **Full CRE storage absorption, shipped — reversing a prior round's conclusion**:
 - Two earlier rounds concluded absorption was too large, reasoning that `RecommendationWorker`'s hybrid dense+sparse (SPLADE) + RRF + watch-history-boosted retrieval "doesn't map onto the simple `embeddings` table/`Database.knn()`." That reasoning is correct for *porting the retrieval algorithm* — but conflated it with the separate, much smaller question of *where `SQLiteStore` physically stores its rows*. A re-investigation drew that distinction explicitly and it held up: `SQLiteStore` (`submodules/CRE/src/data/store.py`) turned out to use only plain, portable SQL (`CREATE TABLE IF NOT EXISTS`, `SELECT`/`INSERT OR REPLACE`/`DELETE`, no JSON1, no FTS5, no `ATTACH`, no custom functions/collations) — the retrieval/scoring layer (`HybridRetriever`/`Scorer`) sits entirely in Python on top of whatever rows the store returns, completely unaware of which store produced them.
-- New `EncryptedSQLiteStore` (same submodule, same public API as `SQLiteStore`) takes an **injected, already-open** `base.database.Database` handle instead of opening its own SQLite file — `recommendation_worker.py` now reuses the unified library session (`middleware.src.database.unified.session.get_session()`) that's already open by the time any listings feature is reachable, rather than deriving a second Argon2id key. Table `rec_engine_items` lives inside `library.db` itself (checked against `schema.sql` for name collisions — none). Falls back to the legacy plaintext `SQLiteStore` only if no library session is open yet (logged as a warning) — a defensive path, not the normal one.
+- New `EncryptedSQLiteStore` (same submodule, same public API as `SQLiteStore`) takes an **injected, already-open** `backend.database.Database` handle instead of opening its own SQLite file — `recommendation_worker.py` now reuses the unified library session (`middleware.src.database.unified.session.get_session()`) that's already open by the time any listings feature is reachable, rather than deriving a second Argon2id key. Table `rec_engine_items` lives inside `library.db` itself (checked against `schema.sql` for name collisions — none). Falls back to the legacy plaintext `SQLiteStore` only if no library session is open yet (logged as a warning) — a defensive path, not the normal one.
 - This closes the plaintext-sidecar gap DB.1 locked in as decision #2 ("no plaintext sidecar DBs") without touching the retrieval algorithm at all — `SQLiteStore` itself is untouched, purely additive change.
 - Tests: `middleware/test/database/test_recommendation_encrypted_store.py` (15 tests, mirrors `CRE`'s own `tests/test_store.py` coverage plus a table-collision check); `CRE`'s own suite (14 tests) unaffected.
 
@@ -291,7 +291,7 @@ Port `SeriesListingsSubTab` / `EntityListingsSubTab` + detail panels/dialogs to 
 - **Text→image search**: MetaCLIP text encoder → `knn('image', 'metaclip', vec, k, sql_prefilter=…)`, with the SQL prefilter compiled from the existing Search tab filters (group/tags/format) so vector search composes with structured search. New "Semantic" mode toggle + natural-language box in the Search tab; "Find similar" context-menu action on every image card (query by image embedding).
 - **pHash** remains the dedup primitive only (Similarity tab, extension use-case) — explicitly not the search engine.
 - **Listings semantic search**: BGE-M3 embeddings for `media_items`/`entities` stored under `model='bge-m3'`; `CRE`'s store gains a `LibraryBackend` so `rec_engine.db` is absorbed and the dead placeholder-embedding code in `listings_common.py` (`save_*_entry_to_db` byte-of-title vectors) is deleted.
-- **Index**: hnswlib per (owner_type, model) inside `base.database` (DB.2), persisted encrypted; brute-force fallback below ~5k vectors (cheaper than index maintenance). Cosine metric everywhere.
+- **Index**: hnswlib per (owner_type, model) inside `backend.database` (DB.2), persisted encrypted; brute-force fallback below ~5k vectors (cheaper than index maintenance). Cosine metric everywhere.
 - Acceptance: text query over 50k images returns top-50 in <150 ms warm; find-similar returns visually coherent neighbors on the owner's real library.
 
 ## ✅ DB.8 Cross-Domain Features
@@ -341,7 +341,7 @@ DB.9 is now feature-complete against its original roadmap scope.
 - **New full-library backup added**: `middleware/migrations/backup_all.py` (the `000_backup_all` pre-migration gate) retargeted — removed the `pg_dump`/`_dump_postgres`/`_load_pg_env` PostgreSQL dump entirely (DB.6 ported the image tabs off Postgres, so this was backing up a database the app no longer uses) and added a `library.db.bak` byte copy of the unified SQLCipher store (`middleware/src/database/unified/session.py::DEFAULT_DB_PATH`), using the same copy pattern already used for `listings_secure.db.bak`. The legacy `listings_secure.db.bak` artifact is kept (restoring pre-DB.5 backups still needs it). `middleware/test/database/test_backup_all.py` and the `runner_env` fixture in `test_migrations.py` updated to match (removed the now-nonexistent `ENV_FILE` monkeypatch, added `LIBRARY_DB`).
 - **Not done**: a `VACUUM INTO`-based live-consistent snapshot (mentioned as an option in the original roadmap text) — used a plain byte copy instead, matching the existing `listings_secure.db.bak` precedent; worth a future revisit if the gate is ever run while the app has `library.db` open for writing.
 - **Docs**: not touched this round — `docs/database/unified_schema.md` and AGENTS/CLAUDE notes were out of scope for the concrete code changes above; flagged for a follow-up pass, not verified stale or current here.
-- **Tests green**: `middleware/test/database/test_backup_all.py` (4/4) and `test_migrations.py` (6/13 — the other 7 fail/error on a pre-existing, unrelated `base.database` build-artifact gap this worktree lacks, confirmed identical with this session's changes reverted).
+- **Tests green**: `middleware/test/database/test_backup_all.py` (4/4) and `test_migrations.py` (6/13 — the other 7 fail/error on a pre-existing, unrelated `backend.database` build-artifact gap this worktree lacks, confirmed identical with this session's changes reverted).
 
 ## ✅ DB.11 Danbooru-Style Tag Category System — DONE, 2026-08-02
 
@@ -365,7 +365,7 @@ Incremental (answer #10 — implementer's choice); the app ships after every pha
 | Phase | Contents | Ships with app in what state | Effort |
 |-------|----------|------------------------------|--------|
 | ✅ P0 | DB.1 schema spec + DB.4 `000_backup_all` | Unchanged app + backup tool | done (S210) |
-| ✅ P1 | DB.2 `base.database` + DB.3 DAL + DB.4 migrations 001–004 | Unchanged UI; `library.db` created & populated; old stores read-only fallbacks | done (S210) |
+| ✅ P1 | DB.2 `backend.database` + DB.3 DAL + DB.4 migrations 001–004 | Unchanged UI; `library.db` created & populated; old stores read-only fallbacks | done (S210) |
 | 🔄 P2 | DB.5 listings port | Listings run on unified store; image tabs still on Postgres | mostly done (S210); SQL-side filtering deferred |
 | 🔄 P3 | DB.6 image-tab port + Postgres retirement + Library category | Postgres gone; unified Library UI | mostly done (S211); archival + scan-worker deferred |
 | ✅ P4 | DB.7 semantic search & CBIR | Full original scope shipped: image + listings semantic search, and full CRE storage absorption (`EncryptedSQLiteStore`) | done |
@@ -381,7 +381,7 @@ flowchart LR
     classDef planned  stroke:#64748b,stroke-width:2px
 
     db1["DB.1 Schema"]:::infra:::planned
-    db2["DB.2 base.database"]:::infra:::planned
+    db2["DB.2 backend.database"]:::infra:::planned
     db3["DB.3 Python DAL"]:::infra:::planned
     db4["DB.4 Backups +\nMigrations"]:::migration:::planned
     db5["DB.5 Listings port"]:::refactor:::planned
@@ -407,13 +407,13 @@ flowchart LR
 | Risk | Mitigation |
 |------|------------|
 | **Data loss during migration** (there is precedent: the listings delete-then-reinsert incident) | `000_backup_all` is a hard gate; runner is idempotent/resumable; `004_verify` blocks cutover; old stores kept read-only until P6; `.enc` restore path preserved |
-| Second libsqlcipher / JVM native-lib SIGSEGV class | No Python SQLCipher package — `base.database` reuses the already-linked SQLCipher inside the `base` extension (see JVM/native-lib conflict memory) |
+| Second libsqlcipher / JVM native-lib SIGSEGV class | No Python SQLCipher package — `backend.database` reuses the already-linked SQLCipher inside the `base` extension (see JVM/native-lib conflict memory) |
 | FTS5 missing from SQLCipher build | CMake configure-time check; pixi build-env notes (PKG_CONFIG_PATH / system-OpenSSL / RPATH ordering) apply to the new module |
 | Keyed handle + Qt worker threads | WAL + internal mutex in DB.2; repos never share statements across threads; smoke test in `test_base_database.py` |
 | Postgres unreachable at migration time | 003 is skippable with a loud warning + re-runnable later; nothing else depends on it |
 | Session key in memory | Same exposure as today (`vault_manager.raw_password` already lives in-process); key is zeroized on `close()` |
 | Perf regressions vs Postgres at 10k–100k rows | Indexed SQLite + FTS5 comfortably beats the current `ILIKE %…%` + Python-side filtering at this scale; measure in P3 with a 100k synthetic fixture before retiring Postgres |
-| ~~`rec_engine.db` is plaintext, violating DB.1's "no plaintext sidecars" decision~~ **RESOLVED 2026-08-01** | `EncryptedSQLiteStore` (DB.7) stores recommendation data inside `library.db` via an injected `base.database.Database` handle, sidestepping both previously-blocked fixes — no new SQLCipher driver, no retrieval-algorithm port, just a storage-connection swap under an unchanged algorithm. |
+| ~~`rec_engine.db` is plaintext, violating DB.1's "no plaintext sidecars" decision~~ **RESOLVED 2026-08-01** | `EncryptedSQLiteStore` (DB.7) stores recommendation data inside `library.db` via an injected `backend.database.Database` handle, sidestepping both previously-blocked fixes — no new SQLCipher driver, no retrieval-algorithm port, just a storage-connection swap under an unchanged algorithm. |
 
 ## Effort × Impact Matrix
 

@@ -18,13 +18,13 @@ from gui.src.helpers.base import BaseQRunnableWorker
 from ._qimagereader_disk_cache import load_qir_thumbnail
 
 if HAS_NATIVE_IMAGING:
-    import base
+    import backend
 
 # Set to False if the loaded native module predates the (rgb, cache_dir) params
 
 
 def _bgr_array_to_qimage(arr: np.ndarray) -> QImage:
-    """base.load_image_batch returns HxWx3 BGR uint8 arrays (cv::imread order).
+    """backend.load_image_batch returns HxWx3 BGR uint8 arrays (cv::imread order).
     Convert to a tightly-packed RGB buffer and copy it into a QImage."""
     import numpy as np
 
@@ -56,7 +56,7 @@ def native_load_batch(paths: list[str], target_size: int) -> list[tuple[str, QIm
     if _NATIVE_SUPPORTS_RGB_CACHE:
         try:
             with telemetry.NATIVE_IMAGE_BATCH_LOCK:
-                raw = base.load_image_batch(  # pyrefly: ignore [missing-attribute]
+                raw = backend.load_image_batch(  # pyrefly: ignore [missing-attribute]
                     paths,
                     target_size,
                     target_size,
@@ -69,7 +69,7 @@ def native_load_batch(paths: list[str], target_size: int) -> list[tuple[str, QIm
             _NATIVE_SUPPORTS_RGB_CACHE = False
 
     with telemetry.NATIVE_IMAGE_BATCH_LOCK:
-        raw = base.load_image_batch(  # pyrefly: ignore [missing-attribute]
+        raw = backend.load_image_batch(  # pyrefly: ignore [missing-attribute]
             paths, target_size, target_size, True
         )
     return [(p, _bgr_array_to_qimage(a) if a is not None and not e else None, e) for p, a, e in raw]

@@ -405,7 +405,7 @@ toggleable tooling instead of another one-off print pass: see
 `[thread-lifecycle]`/`[startup-probe-guard]` call site already documented
 above (additive only, none of the existing prints were touched) plus the
 suspected native-crash boundary itself — `QImage().loadFromData()` in
-`video_thumbnailer.py` and every `base.scan_files_multi()` call —
+`video_thumbnailer.py` and every `backend.scan_files_multi()` call —
 wrapped in `telemetry.span()` so a crash mid-decode leaves an unambiguous
 "orphaned span" in the file instead of requiring inference from which
 `print()` line happened to be last. `dev/telemetry_analyzer.py` parses

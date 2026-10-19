@@ -39,10 +39,10 @@ def run(
     backup_dir: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """Migrate tags.type -> tags.category_id. Returns a report dict."""
-    import base
+    import backend
 
     path = str(db_path if db_path is not None else session.DEFAULT_DB_PATH)
-    db = base.database.Database(path, password, salt)
+    db = backend.database.Database(path, password, salt)
     try:
         needs_migration = tag_categories.has_column(db, "tags", "type")
         if not needs_migration:

@@ -83,7 +83,7 @@ def test_daemon_zero_delay_keeps_exact_interval(tmp_path, monkeypatch):
 
 
 def test_monitor_scheduler_durations_include_delay():
-    with patch.object(monitor_slideshow_daemon, "base") as base:
+    with patch.object(monitor_slideshow_daemon, "backend") as base:
         base.run_monitor_slideshow.return_value = "{}"
         monitor_slideshow_daemon.start(
             "0", ["/a.png", "/b.png"], [90, 20], monitors=[], callback=lambda *a: None, transition_delay=3

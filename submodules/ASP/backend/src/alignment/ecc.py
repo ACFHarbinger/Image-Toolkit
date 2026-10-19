@@ -15,7 +15,7 @@ from middleware.src.constants import (
 )
 
 try:
-    import base as _batch_ecc
+    import backend as _batch_ecc
     _BATCH_ECC = (
         getattr(_batch_ecc, "__file__", None) is not None
         and hasattr(_batch_ecc, "fg_register")

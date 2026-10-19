@@ -120,7 +120,7 @@ def run(
     provider: Optional[DataProvider] = None,
 ) -> Dict[str, Any]:
     """Migrate. Returns a report dict; skips gracefully when Postgres is out."""
-    import base
+    import backend
 
     from middleware.src.database.unified import session
     from middleware.src.database.unified.image_repo import ImageRepo
@@ -136,7 +136,7 @@ def run(
                 "reason": f"PostgreSQL unreachable: {e}"}
 
     path = str(db_path if db_path is not None else session.DEFAULT_DB_PATH)
-    db = base.database.Database(path, password, salt)
+    db = backend.database.Database(path, password, salt)
     counts = {"groups": 0, "subgroups": 0, "tags": 0, "images": 0,
               "image_tags": 0}
     try:

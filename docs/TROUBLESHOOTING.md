@@ -405,7 +405,7 @@ toggleable tooling instead of another one-off print pass: see
 `[thread-lifecycle]`/`[startup-probe-guard]` call site already documented
 above (additive only, none of the existing prints were touched) plus the
 suspected native-crash boundary itself — `QImage().loadFromData()` in
-`video_thumbnailer.py` and every `base.scan_files_multi()` call —
+`video_thumbnailer.py` and every `backend.scan_files_multi()` call —
 wrapped in `telemetry.span()` so a crash mid-decode leaves an unambiguous
 "orphaned span" in the file instead of requiring inference from which
 `print()` line happened to be last. `dev/telemetry_analyzer.py` parses
@@ -712,7 +712,7 @@ only its top half — while square thumbnails look fine. Reproduces under KDE
 Plasma with the Breeze or Kvantum widget style; does **not** reproduce under
 Fusion, offscreen/headless test runs, or on other styles.
 
-**Cause:** every thumbnail-scaling step (the native C++ `base.load_image_batch`
+**Cause:** every thumbnail-scaling step (the native C++ `backend.load_image_batch`
 resize, its disk-cache path, and every Python-side `QPixmap.scaled(...,
 KeepAspectRatio, ...)` call) is correctly aspect-preserving and was verified
 never to produce a pixmap larger than its target box. The crop instead comes

@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- **The C++ core `base/` is now `backend/`, imported as `import backend`** (Tauri migration W0-02, #866).
+  - **Renamed:** the pybind11 module, CMake targets (`backend`, `backend_tests`, `backend_bench_*`) and options (`BACKEND_BUILD_TESTS` / `_BENCHMARKS`), the build dir (`build/backend`), the installed `backend.cpython-*.so`, CI, the PyInstaller spec, docs, and 78 Python files.
+  - **The W0-01 `backend` → `middleware` alias is gone,** so `import base` and `import backend.src…` no longer work.
+  - **Rebuild needed:** run `just build::build-base` in existing checkouts. Old `base.cpython-*.so` files can be deleted.
+  - **One runtime fix:** `finder.cpp` imported the module by name (`py::module_::import("base")`) for `ParityDict`; it now imports `backend`.
 - **HIE, ASP, CSG and CRE are now part of this repository** (Tauri migration W0-03 phase A, #867).
   - **How:** they were absorbed with `git subtree`, keeping their full history, at their existing paths under `submodules/`. They are no longer git submodules: the gitlinks and their `.gitmodules` entries are gone, and so are the CI steps that ran `git submodule update` for them. The vendor submodules are unchanged.
   - **Imports:** their imports of the main package now use `middleware.…`. Twelve references to ASP's own modules (benchmark scripts and fallbacks for running standalone) were left as they are.

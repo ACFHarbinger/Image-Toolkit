@@ -118,7 +118,7 @@ class TestAtexitGuard:
         from middleware.src.utils.display import monitor_slideshow_daemon as daemon
 
         calls = []
-        monkeypatch.setattr(daemon, "base", type("B", (), {})())
+        monkeypatch.setattr(daemon, "backend", type("B", (), {})())
         daemon._stop_scheduler_at_exit()
         assert calls == []
 
@@ -127,7 +127,7 @@ class TestAtexitGuard:
 
         calls = []
         monkeypatch.setattr(
-            daemon, "base", type("B", (), {"run_monitor_slideshow": calls.append})()
+            daemon, "backend", type("B", (), {"run_monitor_slideshow": calls.append})()
         )
         daemon._stop_scheduler_at_exit()
         assert calls == ["stop"]

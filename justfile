@@ -143,8 +143,8 @@ devtool-app *ARGS: helper::_print_header
 
 # --- Building ---
 
-# Build C++ base extension (Phase 7: batch/ renamed to base/, Rust retired)
-# Also builds libitk_crypto.so (base/CMakeLists.txt compiles it alongside
+# Build C++ base extension (Phase 7: batch/ renamed to backend/, Rust retired)
+# Also builds libitk_crypto.so (backend/CMakeLists.txt compiles it alongside
 # the rest of base::secret) -- login works after this alone, no separate
 # build-crypto step needed.
 build-base: helper::_print_header
@@ -152,7 +152,7 @@ build-base: helper::_print_header
 
 # Build native cryptography library standalone (C/OpenSSL, replaces the
 # retired Kotlin JAR). Already built as part of `build-base` above; use this
-# only for a lighter rebuild after editing base/src/secret/itk_crypto.c
+# only for a lighter rebuild after editing backend/src/secret/itk_crypto.c
 # without wanting to rebuild the whole (OpenCV/Eigen-heavy) base extension.
 build-crypto: helper::_print_header
     just build::build-crypto

@@ -76,10 +76,10 @@ def open_session(password: str, salt: str, db_path: Optional[str] = None):
                 f"opening {path}"
             )
 
-        import base  # deferred: keep module importable without the extension
+        import backend  # deferred: keep module importable without the extension
 
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        db = base.database.Database(path, password, salt)
+        db = backend.database.Database(path, password, salt)
         try:
             ensure_schema(db)
         except Exception:

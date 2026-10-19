@@ -12,7 +12,7 @@ import datetime as dt
 
 import pytest
 
-pytest.importorskip("base")
+pytest.importorskip("backend")
 
 from middleware.src.cloud.adapter import CapabilityManifest  # noqa: E402
 from middleware.src.cloud.certification import LEVEL_DECLARED, certify  # noqa: E402

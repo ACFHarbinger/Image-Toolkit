@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 try:
-    import base as batch
+    import backend as batch
     if (
         getattr(batch, "__file__", None) is None
         or not hasattr(batch, "compositing")

@@ -26,13 +26,13 @@ from middleware.migrations.migrate_listings import LEGACY_DB, _parse_legacy_rows
 def _verify_listings(db, password: str, salt: str,
                      legacy_db_path: Optional[str],
                      problems: List[str]) -> Dict[str, Any]:
-    import base
+    import backend
 
     legacy = str(legacy_db_path if legacy_db_path is not None else LEGACY_DB)
     if not Path(legacy).exists():
         return {"skipped": True, "reason": f"legacy DB not found: {legacy}"}
 
-    rows = base.secret.fetch_all_listings_secure(legacy, password, salt)
+    rows = backend.secret.fetch_all_listings_secure(legacy, password, salt)
     media_entries, entity_entries = _parse_legacy_rows(rows)
 
     media_count = db.query("SELECT count(*) FROM media_items", ())[0][0]
@@ -143,13 +143,13 @@ def run(
     legacy_db_path: Optional[str] = None,
     pg_provider=None,
 ) -> Dict[str, Any]:
-    import base
+    import backend
 
     from middleware.src.database.unified import session
 
     path = str(db_path if db_path is not None else session.DEFAULT_DB_PATH)
     problems: List[str] = []
-    db = base.database.Database(path, password, salt)
+    db = backend.database.Database(path, password, salt)
     try:
         listings = _verify_listings(db, password, salt, legacy_db_path, problems)
         pgvector = _verify_pgvector(db, problems, provider=pg_provider)

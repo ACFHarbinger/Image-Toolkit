@@ -1,6 +1,6 @@
 version: 2
 
-# Note: C++ dependencies (CMake/vcpkg/Conan in base/) have no native
+# Note: C++ dependencies (CMake/vcpkg/Conan in backend/) have no native
 # Dependabot ecosystem support and are therefore not tracked here.
 #
 # Rust `base` module was fully retired to archive/rust/ (Rust -> C++

@@ -14,7 +14,7 @@ from asp_backend.core.stateless import _luma
 from scipy.optimize import least_squares
 
 try:
-    import base as _batch_photo
+    import backend as _batch_photo
     _BATCH_PHOTO = (
         getattr(_batch_photo, "__file__", None) is not None
         and hasattr(_batch_photo, "exposure")

@@ -42,7 +42,7 @@ except ImportError:
     log.warning("scenedetect not installed — scene detection disabled; using I-frame sampling")
 
 try:
-    import base as cpp_base  # C++ extension
+    import backend as cpp_base  # C++ extension
     if getattr(cpp_base, "__file__", None) is None:
         raise ImportError("base is a namespace package, not the compiled extension")
     _CPP_OK = True

@@ -37,7 +37,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-import base  # noqa: E402
+import backend  # noqa: E402
 
 from middleware.backups._backup_utils import backup_database, restore_database  # noqa: E402
 from middleware.src.constants import IMAGE_TOOLKIT_DIR  # noqa: E402
@@ -188,7 +188,7 @@ def load_listings(
     contents: Dict[str, Dict[str, Any]] = {}
     entities: Dict[str, Dict[str, Any]] = {}
 
-    rows = base.fetch_all_listings_secure(db_path, password, salt)  # pyrefly: ignore [missing-attribute]
+    rows = backend.fetch_all_listings_secure(db_path, password, salt)  # pyrefly: ignore [missing-attribute]
     for row in rows:
         id_, category, title, metadata_json, date_added = row
         try:
@@ -213,7 +213,7 @@ def load_listings(
 def upsert_content_entry(
     db_path: str, password: str, salt: str, entry: Dict[str, Any]
 ) -> None:
-    base.insert_listing_secure(  # pyrefly: ignore [missing-attribute]
+    backend.insert_listing_secure(  # pyrefly: ignore [missing-attribute]
         db_path,
         password,
         salt,
@@ -229,7 +229,7 @@ def upsert_content_entry(
 def upsert_entity_entry(
     db_path: str, password: str, salt: str, entity: Dict[str, Any]
 ) -> None:
-    base.insert_listing_secure(  # pyrefly: ignore [missing-attribute]
+    backend.insert_listing_secure(  # pyrefly: ignore [missing-attribute]
         db_path,
         password,
         salt,

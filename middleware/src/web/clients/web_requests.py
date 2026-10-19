@@ -1,6 +1,6 @@
 import json
 
-import base  # Native extension
+import backend  # Native extension
 
 from middleware.src.events import Observable
 
@@ -8,7 +8,7 @@ from middleware.src.events import Observable
 class WebRequestsLogic:
     """
     Wrapper for the C++ implementation of WebRequestsLogic.
-    Uses 'base.run_web_requests_sequence' for the heavy lifting.
+    Uses 'backend.run_web_requests_sequence' for the heavy lifting.
     """
 
     def __init__(self, config: dict):
@@ -40,7 +40,7 @@ class WebRequestsLogic:
         config_json = json.dumps(self.config)
 
         try:
-            result = base.run_web_requests_sequence(config_json, self)
+            result = backend.run_web_requests_sequence(config_json, self)
             if self._is_running:
                 self.on_finished.publish(result)
         except Exception as e:

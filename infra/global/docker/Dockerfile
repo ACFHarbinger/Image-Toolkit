@@ -1,6 +1,6 @@
 # Image-Toolkit backend image.
 #
-# Builds the pybind11 C++ base extension (base/) and the Python backend
+# Builds the pybind11 C++ base extension (backend/) and the Python backend
 # (Django + Celery), then runs the headless web server. The PySide6 desktop GUI
 # and the Tauri frontend are NOT containerized here (they are desktop apps).
 #
@@ -15,7 +15,7 @@ FROM python:3.14-slim AS builder
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1
 
-# Native build toolchain + the libraries base/CMakeLists.txt links against
+# Native build toolchain + the libraries backend/CMakeLists.txt links against
 # (OpenCV, Eigen, OpenSSL, FFTW, libsodium, SQLCipher) and libpq for psycopg.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential cmake ninja-build pkg-config git curl \
@@ -39,11 +39,11 @@ RUN uv venv /opt/venv \
 COPY . .
 
 # Build the pybind11 C++ base extension (mirrors `pixi run build-base`).
-RUN cmake -B build/base base/ -G Ninja -DCMAKE_BUILD_TYPE=Release \
+RUN cmake -B build/backend backend/ -G Ninja -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INCLUDE_PATH="/usr/include/sqlcipher:/usr/include" \
-    && cmake --build build/base --parallel \
+    && cmake --build build/backend --parallel \
     # The pybind11 module is emitted next to the package; collect it explicitly.
-    && find . build/base -maxdepth 3 -name 'base*.so' -exec cp {} /app/ \; || true
+    && find . build/backend -maxdepth 3 -name 'base*.so' -exec cp {} /app/ \; || true
 
 # ---------------------------------------------------------------------------
 # Stage 2 — runtime: slim image with the venv, the built extension, and source

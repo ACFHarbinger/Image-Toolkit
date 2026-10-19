@@ -8,7 +8,7 @@ from PySide6.QtCore import Signal
 from gui.src.helpers.base import BaseQThreadWorker
 
 if HAS_NATIVE_IMAGING:
-    import base
+    import backend
 
 
 class VideoScannerWorker(BaseQThreadWorker):
@@ -111,10 +111,10 @@ class VideoScannerWorker(BaseQThreadWorker):
                 # telemetry.NATIVE_SCAN_LOCK's docstring (image_scan_worker.py
                 # takes the identical lock around its own call).
                 with telemetry.span(
-                    "native", "base.scan_files_multi",
+                    "native", "backend.scan_files_multi",
                     directories=self.directories, recursive=self.recursive,
                 ), telemetry.NATIVE_SCAN_LOCK:
-                    all_video_paths = base.scan_files_multi(  # pyrefly: ignore [missing-attribute]
+                    all_video_paths = backend.scan_files_multi(  # pyrefly: ignore [missing-attribute]
                         self.directories, list(self.extensions), self.recursive
                     )
                 if self._is_cancelled:

@@ -8,7 +8,7 @@ core, the Python ML/orchestration backend, and the QML frontend.
 
 | Tier | Signal | Engine | Index | Cost |
 |------|--------|--------|-------|------|
-| 1 — Exact | xxHash64 file digest | C++ (`base.similarity.xxh64_file[s]`) | hash-map grouping | O(N), I/O bound |
+| 1 — Exact | xxHash64 file digest | C++ (`backend.similarity.xxh64_file[s]`) | hash-map grouping | O(N), I/O bound |
 | 2 — Consensus hashing | pHash (DCT) + dHash + wHash (Haar), size 8/16/32 | C++ (`compute_hashes`, `consensus_confidence`) | **VP-tree** Hamming range search (`hash_pairs_within`) | O(N log N) |
 | 3 — Structural | SSIM + ORB/SIFT (Lowe ratio + RANSAC homography) | C++ (`ssim`, `match_features`) | candidate pairs only (from tiers 2/4) | ~50–300 ms/pair, capped |
 | 4 — Semantic | CLIP / MobileCLIP / ResNet-18 embeddings | Python (torch) + C++ **HNSW** (`HnswIndex`) | HNSW cosine kNN | O(N log N) |
@@ -51,14 +51,14 @@ reclaim space without breaking layouts.
 ## Directory structure
 
 ```
-base/
+backend/
   include/core/similarity.hpp          # public C++ API
   src/core/similarity/
     hashing.cpp                        # XXH64, pHash/dHash/wHash, consensus
     vptree.cpp                         # VP-tree (Hamming)
     hnsw.cpp                           # HNSW (cosine)
     visual.cpp                         # SSIM, ORB/SIFT+RANSAC, diff mask
-    bindings.cpp                       # pybind11 → base.similarity
+    bindings.cpp                       # pybind11 → backend.similarity
 middleware/
   src/core/similarity/
     config.py                          # SimilarityConfig + TriageRules (all GUI hyperparams)
@@ -82,12 +82,12 @@ gui/
 
 ## Build changes
 
-`base/CMakeLists.txt`:
+`backend/CMakeLists.txt`:
 - five new sources under `src/core/similarity/`;
 - **RPATH fix**: an explicit `-Wl,-rpath,<pixi lib>` link option now forces the
   pixi lib dir ahead of `/usr/lib/x86_64-linux-gnu` (pixi's `libssl` must
   resolve pixi's `libcrypto`, not the older system one — this previously broke
-  `import base` under pytest which prefers `build/base/`).
+  `import base` under pytest which prefers `build/backend/`).
 
 No new third-party dependencies: XXH64, the VP-tree and HNSW are implemented
 in-repo; OpenCV provides DCT/SSIM/ORB/SIFT/RANSAC. Semantic embeddings use

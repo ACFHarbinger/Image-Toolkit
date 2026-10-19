@@ -90,7 +90,7 @@ pytest --doctest-modules middleware/src/animation/
 
 ## <a id="cpp-doxygen-comments"></a>C++ (Doxygen `///` comments)
 
-All public functions and classes in `base/include/` and `base/src/` must have Doxygen `///` block comments. Module-level documentation uses a `@file` block at the top of each header.
+All public functions and classes in `backend/include/` and `backend/src/` must have Doxygen `///` block comments. Module-level documentation uses a `@file` block at the top of each header.
 
 ### Required sections
 
@@ -99,7 +99,7 @@ All public functions and classes in `base/include/` and `base/src/` must have Do
 | Summary line | Always |
 | `@param` | Function has ≥ 2 non-trivial parameters |
 | `@throws` | Function throws or propagates exceptions |
-| `@example` | Public function in `base/include/math/` or any pybind11-exported function |
+| `@example` | Public function in `backend/include/math/` or any pybind11-exported function |
 
 ### Format
 

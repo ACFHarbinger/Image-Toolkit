@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 
 try:
-    import base as batch
+    import backend as batch
     if (
         getattr(batch, "__file__", None) is None
         or not hasattr(batch, "canvas")

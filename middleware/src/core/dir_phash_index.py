@@ -78,10 +78,10 @@ def compute_phash_file(path: str) -> Optional[int]:
 def _scan_tree(root: str, recursive: bool) -> List[str]:
     """List image files under *root* (C++ scanner when available)."""
     try:
-        import base  # C++ fast path
+        import backend  # C++ fast path
 
         with NATIVE_SCAN_LOCK:
-            return list(base.scan_files_multi([root], list(CORE_DIR_PHASH_INDEX__IMG_EXTS), recursive))
+            return list(backend.scan_files_multi([root], list(CORE_DIR_PHASH_INDEX__IMG_EXTS), recursive))
     except Exception:
         pass
 

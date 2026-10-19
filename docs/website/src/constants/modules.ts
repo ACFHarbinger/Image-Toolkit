@@ -6,7 +6,7 @@ import type { ModuleCard } from "../interfaces/types";
 export const moduleCards: ModuleCard[] = [
   {
     slug: "base",
-    title: "base/",
+    title: "backend/",
     tagline: "C++ core engine",
     description:
       "High-performance image processing, crawling, and sync logic. Built with CMake + pybind11; exposes file_system, image_converter, image_merger, image_finder, video_converter, wallpaper, and the Selenium-backed crawlers (danbooru, gelbooru, sankaku).",
@@ -20,7 +20,7 @@ export const moduleCards: ModuleCard[] = [
     title: "middleware/",
     tagline: "Python orchestrator",
     description:
-      "Wraps the C++ core, owns the pgvector database (image_database.py), the VaultManager security layer, and the pure-Python/PyTorch ML models. Thin wrappers only — heavy logic stays in base/.",
+      "Wraps the C++ core, owns the pgvector database (image_database.py), the VaultManager security layer, and the pure-Python/PyTorch ML models. Thin wrappers only — heavy logic stays in backend/.",
     stack: ["Python", "PyTorch", "pgvector", "Hydra"],
     path: "/api/python/core",
     docSource: "docs/api/python/core.md",

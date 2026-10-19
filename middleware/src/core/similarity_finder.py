@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-import base
+import backend
 import cv2
 import numpy as np
 from PIL import Image
@@ -47,7 +47,7 @@ class SimilarityFinder:
         try:
             # C++ returns HashMap<group_name, Vec<path>>
             with NATIVE_IMAGE_BATCH_LOCK:
-                return base.find_similar_images_phash(directory, extensions, threshold)
+                return backend.find_similar_images_phash(directory, extensions, threshold)
         except Exception as e:
             print(f"Error in find_similar_phash (C++): {e}", file=sys.stderr)
             return {}

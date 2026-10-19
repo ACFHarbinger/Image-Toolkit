@@ -62,11 +62,11 @@ if TYPE_CHECKING:
     import numpy as np
 
 try:
-    import base
+    import backend
 
-    HAVE_NATIVE_HIE = hasattr(base, "hie")
+    HAVE_NATIVE_HIE = hasattr(backend, "hie")
 except ImportError:
-    base = None  # type: ignore[assignment]
+    backend = None  # type: ignore[assignment]
     HAVE_NATIVE_HIE = False
 
 Bounds = Sequence[tuple[float, float]]
@@ -93,8 +93,8 @@ def native_solve_seam(energy_grid: Sequence[Sequence[SeamPixelLike]]):
         raise RuntimeError("native HIE bindings are not available (base.hie not found)")
     rows = len(energy_grid)
     cols = len(energy_grid[0]) if rows else 0
-    flat = [base.hie.SeamPixel(px.energy, px.masked) for row in energy_grid for px in row]
-    return base.hie.solve_seam(flat, rows, cols)
+    flat = [backend.hie.SeamPixel(px.energy, px.masked) for row in energy_grid for px in row]
+    return backend.hie.solve_seam(flat, rows, cols)
 
 
 def native_solve_seam_np(energy: "np.ndarray", mask: "np.ndarray | None" = None):
@@ -119,11 +119,11 @@ def native_solve_seam_np(energy: "np.ndarray", mask: "np.ndarray | None" = None)
     if energy_arr.ndim != 2:
         raise ValueError(f"energy must be a 2D array, got shape {energy_arr.shape}")
     if mask is None:
-        return base.hie.solve_seam_np(energy_arr)
+        return backend.hie.solve_seam_np(energy_arr)
     mask_arr = np.asarray(mask, dtype=np.uint8)
     if mask_arr.shape != energy_arr.shape:
         raise ValueError(f"mask shape {mask_arr.shape} must match energy shape {energy_arr.shape}")
-    return base.hie.solve_seam_np(energy_arr, mask_arr)
+    return backend.hie.solve_seam_np(energy_arr, mask_arr)
 
 
 class LayerColorStatsLike(Protocol):
@@ -146,13 +146,13 @@ def native_solve_color_harmonization(source: LayerColorStatsLike, target: LayerC
     """
     if not HAVE_NATIVE_HIE:
         raise RuntimeError("native HIE bindings are not available (base.hie not found)")
-    native_source = base.hie.LayerColorStats(
+    native_source = backend.hie.LayerColorStats(
         source.mean_l, source.mean_a, source.mean_b, source.std_l, source.std_a, source.std_b
     )
-    native_target = base.hie.LayerColorStats(
+    native_target = backend.hie.LayerColorStats(
         target.mean_l, target.mean_a, target.mean_b, target.std_l, target.std_a, target.std_b
     )
-    return base.hie.solve_color_harmonization(native_source, native_target)
+    return backend.hie.solve_color_harmonization(native_source, native_target)
 
 
 class CorrespondenceLike(Protocol):
@@ -180,9 +180,9 @@ def native_solve_alignment_gnc(
     if not HAVE_NATIVE_HIE:
         raise RuntimeError("native HIE bindings are not available (base.hie not found)")
     native_correspondences = [
-        base.hie.Correspondence(c.src_x, c.src_y, c.dst_x, c.dst_y) for c in correspondences
+        backend.hie.Correspondence(c.src_x, c.src_y, c.dst_x, c.dst_y) for c in correspondences
     ]
-    return base.hie.solve_alignment_gnc(native_correspondences, gnc_iterations, inlier_threshold)
+    return backend.hie.solve_alignment_gnc(native_correspondences, gnc_iterations, inlier_threshold)
 
 
 def native_pso_solve(
@@ -194,11 +194,11 @@ def native_pso_solve(
     """Call `base.hie.pso_solve`. Raises if `HAVE_NATIVE_HIE` is False — check first."""
     if not HAVE_NATIVE_HIE:
         raise RuntimeError("native HIE bindings are not available (base.hie not found)")
-    native_bounds = [base.hie.ParamBound(lo, hi) for lo, hi in bounds]
-    config = base.hie.PSOConfig()
+    native_bounds = [backend.hie.ParamBound(lo, hi) for lo, hi in bounds]
+    config = backend.hie.PSOConfig()
     config.n_particles = n_particles
     config.max_iter = max_iter
-    result = base.hie.pso_solve(objective_fn, native_bounds, config)
+    result = backend.hie.pso_solve(objective_fn, native_bounds, config)
     return list(result.best_params)
 
 
@@ -211,9 +211,9 @@ def native_de_solve(
     """Call `base.hie.de_solve`. Raises if `HAVE_NATIVE_HIE` is False — check first."""
     if not HAVE_NATIVE_HIE:
         raise RuntimeError("native HIE bindings are not available (base.hie not found)")
-    native_bounds = [base.hie.ParamBound(lo, hi) for lo, hi in bounds]
-    config = base.hie.DEConfig()
+    native_bounds = [backend.hie.ParamBound(lo, hi) for lo, hi in bounds]
+    config = backend.hie.DEConfig()
     config.popsize = population_size
     config.max_iter = max_iter
-    result = base.hie.de_solve(objective_fn, native_bounds, config)
+    result = backend.hie.de_solve(objective_fn, native_bounds, config)
     return list(result.best_params)

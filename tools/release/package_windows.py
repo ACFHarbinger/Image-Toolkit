@@ -76,8 +76,8 @@ def build_base_extension() -> None:
     subprocess.run(
         [
             "cmake",
-            "-B", "build/base",
-            "base/",
+            "-B", "build/backend",
+            "backend/",
             "-G", "Ninja",
             "-DCMAKE_BUILD_TYPE=Release",
             f"-DCMAKE_PREFIX_PATH={prefix_path}",
@@ -86,7 +86,7 @@ def build_base_extension() -> None:
         check=True,
     )
     subprocess.run(
-        ["cmake", "--build", "build/base", "--parallel"],
+        ["cmake", "--build", "build/backend", "--parallel"],
         cwd=ROOT_DIR,
         check=True,
     )

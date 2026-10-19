@@ -59,13 +59,13 @@ class DatasetIndexer:
         return out
 
     def build(self):
-        import base
+        import backend
 
         images = self._collect()
         self.stats = {"images": len(images), "indexed": 0, "labels": 0}
         self._progress("Scanning dataset", 0, len(images))
         if not images:
-            self.index = base.recon.IdentityIndex(dim=embedding_dim(self.config.embed_mode))
+            self.index = backend.recon.IdentityIndex(dim=embedding_dim(self.config.embed_mode))
             return self.index
 
         dim = embedding_dim(self.config.embed_mode)
@@ -94,7 +94,7 @@ class DatasetIndexer:
             if i % 16 == 0:
                 self._progress("Indexing", i, len(images))
 
-        self.index = base.recon.IdentityIndex(dim=dim, ef_construction=200)
+        self.index = backend.recon.IdentityIndex(dim=dim, ef_construction=200)
         if vectors:
             self.index.add_batch(np.stack(vectors), labels, paths)
         self.stats["indexed"] = len(vectors)

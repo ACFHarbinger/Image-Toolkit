@@ -2,7 +2,7 @@ import functools
 import os
 from pathlib import Path
 
-import base
+import backend
 
 from middleware.src.core.telemetry import NATIVE_SCAN_LOCK
 
@@ -86,7 +86,7 @@ class FSETool:
         try:
             # C++ extension expects string args
             with NATIVE_SCAN_LOCK:
-                return base.get_files_by_extension(
+                return backend.get_files_by_extension(
                     str(directory), str(extension), recursive
                 )
         except Exception as e:
@@ -104,7 +104,7 @@ class FileDeleter:
     @FSETool.ensure_absolute_paths()
     def delete_path(path_to_delete: str) -> bool:
         try:
-            return base.delete_path(path_to_delete)
+            return backend.delete_path(path_to_delete)
         except Exception as e:
             print(f"Delete Error (C++): {e}")
             return False
@@ -113,7 +113,7 @@ class FileDeleter:
     @FSETool.ensure_absolute_paths()
     def delete_files_by_extensions(directory: str, extensions: list[str]) -> int:
         try:
-            return base.delete_files_by_extensions(directory, extensions)
+            return backend.delete_files_by_extensions(directory, extensions)
         except Exception as e:
             print(f"Delete Files Error (C++): {e}")
             return 0

@@ -22,7 +22,7 @@ import numpy as np
 from asp_backend.alignment.canvas import _detect_scroll_axis
 
 try:
-    import base as _batch
+    import backend as _batch
     if (
         getattr(_batch, "__file__", None) is None
         or not hasattr(_batch, "validation")

@@ -3,7 +3,7 @@ from dataclasses import replace
 
 import pytest
 
-pytest.importorskip("base")
+pytest.importorskip("backend")
 
 from middleware.src.cloud.adapter import Observation, ProviderStatus
 from middleware.src.cloud.engine import EngineSettings, JobEngine

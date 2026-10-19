@@ -3,7 +3,7 @@
 Extracted from ``monitor_display_subtab.py`` -- pure code motion, no logic
 change (see ``_ui_graph_canvas.py``'s docstring).
 
-Delegated to base.run_monitor_slideshow (base/src/utils/monitor_slideshow.cpp)
+Delegated to base.run_monitor_slideshow (backend/src/utils/monitor_slideshow.cpp)
 via monitor_slideshow_daemon.start()/stop()/status(). That native
 scheduler runs its own std::thread inside this GUI process and calls
 WallpaperManager.apply_wallpaper back on each tick -- independent of

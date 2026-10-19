@@ -1,7 +1,7 @@
 import hashlib
 import sys
 
-import base
+import backend
 
 from middleware.src.core.file_system_entries import FSETool
 from middleware.src.core.telemetry import NATIVE_IMAGE_BATCH_LOCK
@@ -39,7 +39,7 @@ class DuplicateFinder:
             # C++ returns HashMap<hash, Vec<path>>
             # Python expects dict
             with NATIVE_IMAGE_BATCH_LOCK:
-                duplicates = base.find_duplicate_images(directory, extensions, recursive)
+                duplicates = backend.find_duplicate_images(directory, extensions, recursive)
             return duplicates
         except Exception as e:
             print(f"Error in find_duplicate_images (C++): {e}", file=sys.stderr)

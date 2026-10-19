@@ -122,7 +122,7 @@ comfyui = [
 [tool.uv]
 package = false
 # Rebuild the C++ extension if CMakeLists or source files change
-cache-keys = [{ file = "base/CMakeLists.txt" }, { file = "base/src/**/*.cpp" }, { file = "base/include/**/*.hpp" }]
+cache-keys = [{ file = "backend/CMakeLists.txt" }, { file = "backend/src/**/*.cpp" }, { file = "backend/include/**/*.hpp" }]
 # ptlflow / romatch / transparent-background / ultralytics depend on
 # opencv-python (GUI build). Installing it next to opencv-python-headless
 # yields a split cv2: AttributeError: partially initialized module 'cv2'

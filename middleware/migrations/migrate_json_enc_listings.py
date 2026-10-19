@@ -91,7 +91,7 @@ def run(
     db_path: Optional[str] = None,
     delete_on_success: bool = False,
 ) -> Dict[str, Any]:
-    import base  # noqa: F401  (ensures the native extension is importable)
+    import backend  # noqa: F401  (ensures the native extension is importable)
 
     from middleware.src.database.unified import session
     from middleware.src.database.unified.entity_repo import EntityRepo
