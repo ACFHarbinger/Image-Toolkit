@@ -299,6 +299,31 @@ DRY problem to resolve, not to copy forward.
   spike scope, the e2e harness, branch policy, schema-migration
   enforcement, and spike go/no-go authority. All eight pending.
 
+- **Gemini** (2026-10-19):
+  [Full proposal](../gemini/tauri_migration_refactor_proposal_2026-10-19.md).
+  Focuses on DRY and SOLID enforcement and architectural boundaries:
+  - **C++ Core (`base/`) Boundary:** Python sidecar exclusively hosts the
+    compiled `base` pybind11 module; Rust remains a thin window/tray shell
+    without C++ linkage, securing vault unlock and the SQLCipher key in C++
+    memory without IPC exposure.
+  - **Zero-Copy High-Throughput Binary Pipeline:** Bounded local cache
+    directory (`~/.image-toolkit/cache/render/`) for rendered stills and tiles,
+    streamed directly into the webview via Tauri's hardware-accelerated
+    `asset://` protocol, avoiding stdio pipe choking and base64 bloat.
+  - **WebGL2 / WebGPU Shared Canvas Host:** Dynamic tile-pyramid canvas
+    managed by an off-screen Web Worker for panning, deep zooming, sub-pixel
+    alignment, and seam editing across panoramas exceeding 50,000 px.
+  - **SOLID Service Extraction:** Command/Handler pattern with Python
+    `@runtime_checkable` `Protocol` interfaces in `backend/src/services/<feature>/`.
+    Existing Qt workers become 15-line shims delegating to pure services until
+    deleted.
+  - **Submodule Consolidation:** Unify ASP, HIE, and CSG C++ routines into
+    the root `base/CMakeLists.txt` build tree and relocate backend code into
+    `backend/src/services/`.
+  - **Human Developer Documentation Spine:** MkDocs Material documentation
+    with immutable ADRs in `docs/adr/`, C4 architecture diagrams, a "How to Add
+    a Capability" guide, and React component Storybook in `frontend/`.
+
 ## 5. Questions for Harbinger (tag with your name; Harbinger answers inline)
 
 Answered directly in chat on 2026-10-19, before the round opened:
@@ -628,6 +653,33 @@ rationale in the
   - **B:** No-go ⇒ initiative re-scope discussion per case.
   - **C:** Spikes are informational; waves decide by budget (Codex R5)
     alone.
+
+### Gemini — 2026-10-19 (all six pending)
+
+- **[Gemini G1] C++ Core (`base/`) Binding Architecture:**
+  - **A (recommended):** Python sidecar exclusively hosts `base/`. The compiled `base` pybind11 module remains exclusively in the Python sidecar process. Rust remains a lightweight native shell without C++ linkage. Vault unlock is passed from webview to sidecar over stdio, where C++ secures the credentials in memory.
+  - **B:** Dual linkage. Rust links directly to `base/` via C FFI for vault and database key management, while Python links to `base/` via pybind11 for image processing and computer vision algorithms.
+  - **C:** Native Rust crypto re-implementation. Rust calls `libitk_crypto.so` directly via Rust FFI to manage vault unlocking, bypassing both Python and `base/`.
+- **[Gemini G2] High-Throughput Binary & Canvas Tile IPC Protocol:**
+  - **A (recommended):** Zero-copy local file cache + Tauri asset streaming protocol. Services write rendered tiles/frames to a bounded scratch cache (`~/.image-toolkit/cache/render/`). JSON-RPC responses return local URIs, which the webview streams directly via Tauri's hardware-accelerated `asset://` protocol.
+  - **B:** Length-prefixed binary multiplexing on stdio. Custom binary framing interleaved with JSON-RPC over the stdio stream.
+  - **C:** Pure Base64 in JSON-RPC. Encode all image buffers directly into standard JSON-RPC payloads, accepting CPU and memory overhead for simplicity.
+- **[Gemini G3] Shared Canvas Host Rendering Engine:**
+  - **A (recommended):** WebGL2 / WebGPU dynamic tile-pyramid canvas. An off-screen Web Worker calculates viewport frustum culling and requests dynamic level-of-detail tiles, rendered via a custom WebGL2 texture shader.
+  - **B:** HTML5 Canvas 2D with viewport windowing. Use standard 2D canvas context with software-based coordinate slicing.
+  - **C:** Embedded OpenSeadragon / Leaflet library. Adapt an off-the-shelf deep-zoom viewer library for stitching and editing canvases.
+- **[Gemini G4] Service Extraction Pattern for Qt Workers & Controllers:**
+  - **A (recommended):** Command/Handler pattern with Protocol interfaces. Extract domain logic into pure Python `Service` classes implementing `@runtime_checkable` `Protocol`s with frozen dataclasses. PySide6 `QThread` workers become 15-line shims delegating to the service, and the sidecar exposes the identical service methods over stdio.
+  - **B:** Internal event bus refactor. Replace worker threads with a decoupled internal event queue where UI and services communicate purely via message events.
+  - **C:** Direct procedural function extraction. Extract worker `run()` bodies into procedural helper functions without formal interfaces or dependency injection.
+- **[Gemini G5] Submodule C++ and Backend Unification (ASP, HIE, CSG):**
+  - **A (recommended):** Unified CMake & service namespaces. Merge submodule C++ build routines into the main `base/CMakeLists.txt` and relocate Python backend code to `backend/src/services/{asp,hie,csg}/`, sharing OpenCV and crypto linkages.
+  - **B:** Independent Python wheels. Package each submodule as a distinct Python wheel installed into the runtime venv.
+  - **C:** Child subprocess sidecars. Keep submodules as independent external processes spawned and controlled via stdio child processes.
+- **[Gemini G6] Developer Documentation & Architecture Knowledge Base:**
+  - **A (recommended):** MkDocs Material documentation + ADRs + component Storybook. Establish `docs/adr/` for decision records, C4 model diagrams in MkDocs, a concrete "Adding a Capability" guide, and Storybook in `frontend/` for React components, all validated in CI.
+  - **B:** Sphinx Python autodoc only. Rely primarily on Sphinx generated documentation from Python docstrings.
+  - **C:** Repo-root Markdown files. Maintain plain Markdown files in the repository root without static site generation or Storybook.
 
 ## 6. Design axes to cover (suggestions, not a checklist)
 
