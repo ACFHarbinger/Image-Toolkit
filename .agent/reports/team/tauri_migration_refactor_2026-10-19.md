@@ -184,8 +184,9 @@ DRY problem to resolve, not to copy forward.
   Django over the same services; explicit separation of session requests
   from durable jobs; shared settings ownership preserving existing scopes;
   scoped media access and isolated ComfyUI; behavior/performance parity;
-  tested UI/sidecar version pairs; and a small host interface for submodule
-  views. Builds on existing catalog/preferences contracts. Flags the current
+  tested UI/sidecar version pairs; and, following Harbinger’s answers,
+  primarily consolidated submodule frontends with selective shared interfaces.
+  Performance budgets allow case-specific deferral of intractable optimization. Builds on existing catalog/preferences contracts. Flags the current
   mixed HTTP/Rust/Python launch paths and broad asset scope as early work.
   Moves minimal vault/settings/packaging and hard-feature feasibility early.
 
@@ -214,34 +215,41 @@ Answered directly in chat on 2026-10-19, before the round opened:
 
 Claude's remaining questions are in its proposal (§Q).
 
-### Codex — 2026-10-19 (unanswered)
+### Codex — 2026-10-19 (all seven answered)
 
 - **[Codex R1] Which desktop bridge should we standardize on?**
+  - **Harbinger answer (2026-10-19; recorded by Codex):** A. Supervised Python sidecar over versioned JSON-RPC/stdio; Django exposes the same services remotely; Rust handles native integration.
   - **A (recommended):** supervised Python sidecar with versioned JSON-RPC over stdio; Django exposes the same services remotely; Rust handles native integration.
   - **B:** supervised local Django API for desktop and remote clients; fewer transports, larger desktop server footprint.
   - **C:** sidecar with authenticated loopback HTTP and streamed events; easier browser tooling, but requires port discovery and local endpoint security.
 - **[Codex R2] Should local work survive closing every app window?** Cloud jobs already must survive.
+  - **Harbinger answer (2026-10-19; recorded by Codex):** A. Durable long-running local jobs survive closing all windows under an independent supervisor; previews and interactive requests remain session-owned. Cloud jobs retain their independent lifecycle.
   - **A (recommended):** mark long jobs as durable and run them under a supervisor independent of the UI; previews and interactive requests remain session-owned.
   - **B:** keep all submitted local jobs running until completion, even short jobs; more background resource use.
   - **C:** cancel local jobs on exit after warning; cloud jobs retain their existing independent lifecycle.
 - **[Codex R3] How should settings behave while both GUIs ship?**
+  - **Harbinger answer (2026-10-19; recorded by Codex):** A. Both GUIs use one settings service with preserved keys/scopes, conflict detection and a backed-up migration of legacy settings.
   - **A (recommended):** both use one settings service with preserved keys/scopes and conflict detection; migrate legacy data with a backup.
   - **B:** import once into Tauri, then keep separate settings; simpler, but changes stop following the user between apps.
   - **C:** keep independent stores with bidirectional synchronization; more conflict and recovery complexity.
 - **[Codex R4] How should ComfyUI be hosted?**
+  - **Harbinger answer (2026-10-19; recorded by Codex):** A. Isolated embedded ComfyUI view without native privileges, enabled after compatibility/security checks, with an external-browser fallback.
   - **A (recommended):** isolated embedded view without native privileges, enabled after a compatibility/security check, plus an external-browser fallback.
   - **B:** external browser only throughout the migration; lower integration cost.
   - **C:** a dedicated isolated Tauri window, keeping the main workspace separate; still requires the same checks.
 - **[Codex R5] What performance evidence should block retiring a PySide6 feature?**
+  - **Harbinger answer (2026-10-19; recorded by Codex):** A as the target, with C permitted for specific areas where optimization proves intractable. Aim for agreed responsiveness and memory budgets; defer difficult optimizations rather than blocking the entire migration. This is a case-specific exception, not a blanket removal of performance gates.
   - **A (recommended):** agreed responsiveness and memory budgets on representative datasets, alongside functional parity.
   - **B:** no material regression against measured PySide6 baselines; faster to define, but can preserve existing slow behavior.
   - **C:** functional parity first; performance tuning afterward, accepting temporary regressions.
   Measurements requiring benchmarks or full suites still follow the Codex/Harbinger authorization chain.
 - **[Codex R6] How should desktop/backend updates stay compatible?**
+  - **Harbinger answer (2026-10-19; recorded by Codex):** A. Ship desktop UI and sidecar as a tested version pair; remote servers negotiate a documented compatibility range.
   - **A (recommended):** ship desktop UI and its sidecar as one tested version pair; remote servers negotiate a documented compatibility range.
   - **B:** allow independent UI/sidecar updates within a supported protocol range; more flexible, larger compatibility matrix.
   - **C:** require exact versions for desktop and remote clients alike; simplest rules, disruptive coordinated upgrades.
 - **[Codex R7] How should HIE, ASP and CSG join the main app?**
+  - **Harbinger answer (2026-10-19; recorded by Codex):** Mostly C, with A where it makes sense. Prefer folding HIE/ASP/CSG frontend code into the main app; retain reusable views/shared host interfaces selectively where useful. Standalone shells are not a universal requirement.
   - **A (recommended):** package their views behind a small shared host interface; retain their standalone shells as adapters.
   - **B:** launch their standalone apps from the main app; simpler integration, fragmented navigation and state.
   - **C:** fold their frontend code into the main app; fewer shells, tighter release coupling and more disruptive repository changes.
