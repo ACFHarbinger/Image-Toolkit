@@ -181,10 +181,10 @@ class GalleryHeightResizer(QObject):
     def _restore_saved_height(self) -> None:
         if not (self._settings_scope and self._settings_key):
             return
-        from gui.src.windows.settings.app_settings import AppSettings
+        from gui.src.preferences.session_values import session_value
 
         try:
-            saved = int(AppSettings.session(self._settings_scope, self._settings_key, 0) or 0)
+            saved = int(session_value(self._settings_scope, self._settings_key, 0) or 0)
         except (TypeError, ValueError):
             saved = 0
         if saved > 0:
@@ -193,9 +193,9 @@ class GalleryHeightResizer(QObject):
     def _save_height(self) -> None:
         if not (self._settings_scope and self._settings_key):
             return
-        from gui.src.windows.settings.app_settings import AppSettings
+        from gui.src.preferences.session_values import set_session_value
 
-        AppSettings.set_session(self._settings_scope, self._settings_key, self.custom_height or 0)
+        set_session_value(self._settings_scope, self._settings_key, self.custom_height or 0)
 
 
 def enable_height_resize(

@@ -189,12 +189,16 @@ class AppSettings:
 
         Keys are stored as ``session/{class_name}/{key}``.
         """
-        return cls._q().value(f"session/{class_name}/{key}", default)
+        from gui.src.preferences.session_values import session_value
+
+        return session_value(class_name, key, default)
 
     @classmethod
     def set_session(cls, class_name: str, key: str, value: Any) -> None:
         """Write a per-class session value."""
-        cls._q().setValue(f"session/{class_name}/{key}", value)
+        from gui.src.preferences.session_values import set_session_value
+
+        set_session_value(class_name, key, value)
 
     # ── Splitter namespace ────────────────────────────────────────────────────
 
