@@ -1,0 +1,27 @@
+# Pull Request
+
+## Summary
+
+<!-- What does this PR change and why? Link the roadmap item (docs/moon/ROADMAP.md or a module roadmap in docs/moon/roadmaps/). -->
+
+## Affected Module(s)
+
+- [ ] `logic/src/` (colorization / temporal / rigging / features solvers)
+- [ ] `gui/` (PySide6 desktop UI)
+- [ ] `frontend/` (Tauri, unimplemented scaffold)
+- [ ] `app/` (iOS/Android, unimplemented scaffold)
+- [ ] Tooling / docs / CI
+
+## Type of Change
+
+- [ ] 🐛 Bug fix
+- [ ] ✨ New feature
+- [ ] ♻️ Refactor
+- [ ] ⚡ Performance
+- [ ] 📚 Documentation
+- [ ] 🔧 Tooling / CI
+
+## Verification
+
+- [ ] `just lint` and `just test-all` pass for the affected module(s).
+- [ ] Docs / roadmap / `docs/moon/CHANGELOG.md` updated where the public surface changed.

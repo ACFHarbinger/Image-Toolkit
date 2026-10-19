@@ -1,0 +1,132 @@
+{
+  "id": "anime-head-volume-jaw",
+  "exercise_id": "anime-head-volume-jaw",
+  "version": "1.0.0",
+  "method_id": "anime-head-construction-v1",
+  "schema_version": 1,
+  "title": "Anime Head Construction: Cranial Volume and Jaw Variation",
+  "summary": "Change age, design, and silhouette without losing the underlying head orientation. This lesson separates structural cranial mass from stylistic jaw choices so variation remains intentional rather than becoming accidental distortion.",
+  "estimated_minutes": 50,
+  "prerequisite_ids": [
+    "anime-head-orientation"
+  ],
+  "media": [
+    "diagrams/cranial-jaw-variation-matrix.svg",
+    "diagrams/cranial-volume-check.svg"
+  ],
+  "learning_objectives": [
+    "Preserve a readable cranial mass while changing jaw width, length, and taper.",
+    "Distinguish structural proportion changes from perspective compression caused by orientation.",
+    "Design youthful, neutral, and mature jaw variants from the same construction method.",
+    "Attach the jaw at repeatable structural points instead of beginning from an arbitrary cheek contour.",
+    "Check silhouette variation against centerline, eye-line, chin, and back-of-skull evidence."
+  ],
+  "theory": [
+    {
+      "title": "The cranium is the stable parent form",
+      "explanation": "Treat the cranial ball as the parent volume and the face/jaw as an attached lower form. Style can simplify the skull contour, but the space needed for the braincase does not vanish when the jaw becomes small, pointed, or narrow. Preserve the top, back, and side mass before decorating the silhouette."
+    },
+    {
+      "title": "Variation uses controlled variables",
+      "explanation": "Change one structural variable at a time: jaw attachment width, jaw length, chin width, or taper curve. Holding the other variables steady makes the visual effect understandable. Changing everything simultaneously makes it hard to tell design intent from construction drift."
+    },
+    {
+      "title": "Age cues are relationships, not fixed recipes",
+      "explanation": "A comparatively large cranium, shorter lower face, softer jaw turn, and smaller chin often read younger. A longer lower face, more angular jaw turn, or broader chin can read older or more robust. These are tendencies, not biological rules; use them as design controls and avoid treating one proportion as universally correct."
+    },
+    {
+      "title": "Perspective still governs the variant",
+      "explanation": "A chosen jaw design must rotate with the head. In three-quarter view, the far attachment compresses and reaches the chin sooner in the image even when both sides are symmetrical in the imagined form. Do not restore front-view equality after choosing a turned orientation."
+    }
+  ],
+  "steps": [
+    {
+      "title": "1. Establish a neutral control head",
+      "explanation": "Construct one front-view cranial ball, centerline, eye-line, jaw attachments, and chin. Keep the jaw moderate in width and length. This control is not the ideal head; it is a stable reference for observing deliberate changes."
+    },
+    {
+      "title": "2. Mark structural anchors",
+      "explanation": "Identify the top, side, and back of the cranium; both jaw attachment points; the facial centerline; and the chin. Keep these anchors visible. A variant is successful only if another artist could reconstruct the intended volume from these guides."
+    },
+    {
+      "title": "3. Create a youthful variant",
+      "explanation": "Copy the control construction without tracing its contour. Keep the cranium similar, shorten the lower face slightly, soften the jaw turn, and reduce chin width. Compare the cranial-to-lower-face relationship rather than merely drawing larger eyes or decorative features."
+    },
+    {
+      "title": "4. Create a long tapered variant",
+      "explanation": "Return to the same cranial mass. Lengthen the distance from eye-line to chin and use a gradual taper. Keep the chin on the centerline and check that the jaw still attaches beneath the cranium instead of starting halfway down the face."
+    },
+    {
+      "title": "5. Create a broad angular variant",
+      "explanation": "Widen the jaw attachment and chin, then make the jaw turn more angular. Preserve enough side cranial mass that the head does not become a box attached directly to the forehead. Compare width at the cranium, jaw attachment, and chin as three separate measurements."
+    },
+    {
+      "title": "6. Rotate one chosen variant",
+      "explanation": "Choose one of the three designs and reconstruct it in a three-quarter view. Carry the same jaw length, attachment character, and chin width into depth while compressing the far side. Label which properties belong to the design and which image changes come from rotation."
+    },
+    {
+      "title": "7. Audit volume before adding features",
+      "explanation": "Cover or ignore the interior guides and inspect the silhouette, then reveal the guides again. Check for preserved top/back cranial mass, coherent attachment, chin alignment, and consistent design across views. Correct structure before adding eyes, nose, mouth, ears, or hair."
+    }
+  ],
+  "guided_drills": [
+    {
+      "title": "One-variable jaw rows",
+      "repetitions": 3,
+      "instructions": "Draw three rows of four small front heads. In row one vary only jaw length, in row two only chin width, and in row three only attachment width. Keep the cranial ball and other variables as consistent as practical."
+    },
+    {
+      "title": "Silhouette-to-construction check",
+      "repetitions": 5,
+      "instructions": "Draw five head silhouettes, then add the hidden cranial ball, centerline, jaw attachments, and chin afterward. Mark where the silhouette could not support a coherent internal construction and redraw that variant."
+    },
+    {
+      "title": "Variant rotation pair",
+      "repetitions": 3,
+      "instructions": "For each chosen design, draw a front and three-quarter pair. Write one sentence naming the invariant design choices and one sentence naming the perspective changes."
+    }
+  ],
+  "common_mistakes": [
+    {
+      "symptom": "A small anime jaw makes the entire skull look pinched.",
+      "cause": "The cranial side and back were narrowed together with the jaw.",
+      "correction": "Restore the cranial ball first, then attach the smaller jaw beneath it as a separate controlled change."
+    },
+    {
+      "symptom": "Every variant looks like a different camera angle.",
+      "cause": "The centerline, eye-line, or far-side compression changed while proportions were being varied.",
+      "correction": "Return all variants to the same front orientation, change one design variable, and rotate only after the differences are clear."
+    },
+    {
+      "symptom": "The jaw floats below the cranium.",
+      "cause": "The contour was designed from the chin upward without stable attachment points.",
+      "correction": "Mark both attachments before drawing the jaw sides and connect each side continuously to the chin."
+    },
+    {
+      "symptom": "A broad jaw turns the whole head into a rectangle.",
+      "cause": "Cranial width, attachment width, and chin width were treated as one value.",
+      "correction": "Measure the three widths separately and preserve curved upper cranial volume above the angular lower form."
+    },
+    {
+      "symptom": "The design changes identity when rotated.",
+      "cause": "Perspective compression replaced rather than transformed the chosen jaw proportions.",
+      "correction": "Annotate attachment width, lower-face length, and chin character in front view, then preserve those imagined-form properties while compressing only the far-side image spacing."
+    }
+  ],
+  "completion_criteria": [
+    "A neutral control plus youthful, long-tapered, and broad-angular front variants are present.",
+    "All variants retain visible cranial mass, centerline, jaw attachments, and chin evidence.",
+    "Each variant changes identifiable variables instead of drifting in orientation.",
+    "At least one variant is reconstructed in three-quarter view with far-side compression.",
+    "The rotated variant preserves its intended jaw length, attachment character, and chin design.",
+    "The artist can name one silhouette correction made after checking the hidden construction."
+  ],
+  "self_review_questions": [
+    "Did I preserve the upper and back cranial mass when narrowing the jaw?",
+    "Can I name the specific variable changed in each variant?",
+    "Do the jaw sides attach at intentional structural points?",
+    "Does every chin follow its facial centerline?",
+    "Did the chosen design remain recognizable after rotation?"
+  ],
+  "practice_prompt": "Create a four-column design sheet: neutral control, youthful/soft, long/tapered, and broad/angular. Choose one variant and add a three-quarter reconstruction beside it. Keep construction visible, label the variables you changed, and do not add facial features until the volume audit is complete."
+}

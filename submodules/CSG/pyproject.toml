@@ -1,0 +1,15 @@
+[tool.uv.workspace]
+members = ["gui", "logic"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.5.0",
+    "mypy>=1.10.0",
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "pytest-benchmark>=4.0.0",
+    # logic/validation/ dev-tooling (module dependency graphs, LoC reports)
+    "jinja2",
+    "rich",
+    "pyvis>=0.3.2",
+]
