@@ -3,7 +3,7 @@
 **Status:** LOCKED 2026-10-19. Harbinger and Claude locked this scope
 after an eight-agent proposal round (Claude, Codex, Gemini, Grok, Cursor,
 Mistral, Kimi, OpenCode) and a final brainstorming round. GitHub milestone
-**Cloud Jobs Service** tracks the work, using the `cloud-jobs-*` issues
+**Cloud Jobs Service** (tracking issue [#824](https://github.com/ACFHarbinger/Image-Toolkit/issues/824)) tracks the work, using the `cloud-jobs-*` issues
 listed per gate below. This document holds the design rationale and the
 ordered plan; check the issues for status.
 
@@ -365,62 +365,62 @@ One milestone. Build gates in order: each gate assumes the one before it.
   LoRA/LyCORIS. Each step gets restart and cleanup checks.
 - **Provider order:** GCP and RunPod first, then the remaining six.
 
-Tracking issue: [#823](https://github.com/ACFHarbinger/Image-Toolkit/issues/823).
+Tracking issue: [#824](https://github.com/ACFHarbinger/Image-Toolkit/issues/824).
 
 ### Gate A — Core contracts (no spend)
 
 | Issue | Deliverable |
 |---|---|
-| [#824](https://github.com/ACFHarbinger/Image-Toolkit/issues/824) | A1: Move `backend/src/web/cloud/compute/` into `backend/src/cloud/`, with re-export shims for one release |
-| [#825](https://github.com/ACFHarbinger/Image-Toolkit/issues/825) | A2: `JobSpec`, shard manifest, adapter contract and capability-manifest schema |
-| [#826](https://github.com/ACFHarbinger/Image-Toolkit/issues/826) | A3: PostgreSQL store (jobs, attempts, shards, `job_events`, spend ledger), retention pruning with export, and the `UsageStore` migration |
-| [#827](https://github.com/ACFHarbinger/Image-Toolkit/issues/827) | A4: State machine and pure reconciler, with idempotency keys, submit reconciliation and clock-triggered `queued` |
-| [#828](https://github.com/ACFHarbinger/Image-Toolkit/issues/828) | A5: FakeProvider fault timelines, recorded-HTTP harness, crash-point matrix, adapter certification kit |
-| [#829](https://github.com/ACFHarbinger/Image-Toolkit/issues/829) | A6: Risk rule engine (YAML seed, PostgreSQL storage, editable, permanent ⚠ on capability overrides, structural-failure semantics) |
-| [#830](https://github.com/ACFHarbinger/Image-Toolkit/issues/830) | A7: Preflight pipeline (data classes and allowlist, secret scan, weight classes, quota probe) |
-| [#831](https://github.com/ACFHarbinger/Image-Toolkit/issues/831) | A8: Cost model (catalogue, live prices, snapshots, total-job ranking, deadline, caps, admission, reservations, billing reconciliation, calibration) |
-| [#832](https://github.com/ACFHarbinger/Image-Toolkit/issues/832) | A9: Storage interface (bucket with presigned URLs, provider volumes, Cloud Sync via temp links or transit bucket), content-addressed staging, retention |
+| [#825](https://github.com/ACFHarbinger/Image-Toolkit/issues/825) | A1: Move `backend/src/web/cloud/compute/` into `backend/src/cloud/`, with re-export shims for one release |
+| [#826](https://github.com/ACFHarbinger/Image-Toolkit/issues/826) | A2: `JobSpec`, shard manifest, adapter contract and capability-manifest schema |
+| [#827](https://github.com/ACFHarbinger/Image-Toolkit/issues/827) | A3: PostgreSQL store (jobs, attempts, shards, `job_events`, spend ledger), retention pruning with export, and the `UsageStore` migration |
+| [#828](https://github.com/ACFHarbinger/Image-Toolkit/issues/828) | A4: State machine and pure reconciler, with idempotency keys, submit reconciliation and clock-triggered `queued` |
+| [#829](https://github.com/ACFHarbinger/Image-Toolkit/issues/829) | A5: FakeProvider fault timelines, recorded-HTTP harness, crash-point matrix, adapter certification kit |
+| [#830](https://github.com/ACFHarbinger/Image-Toolkit/issues/830) | A6: Risk rule engine (YAML seed, PostgreSQL storage, editable, permanent ⚠ on capability overrides, structural-failure semantics) |
+| [#831](https://github.com/ACFHarbinger/Image-Toolkit/issues/831) | A7: Preflight pipeline (data classes and allowlist, secret scan, weight classes, quota probe) |
+| [#832](https://github.com/ACFHarbinger/Image-Toolkit/issues/832) | A8: Cost model (catalogue, live prices, snapshots, total-job ranking, deadline, caps, admission, reservations, billing reconciliation, calibration) |
+| [#833](https://github.com/ACFHarbinger/Image-Toolkit/issues/833) | A9: Storage interface (bucket with presigned URLs, provider volumes, Cloud Sync via temp links or transit bucket), content-addressed staging, retention |
 
 ### Gate B — Daemon and safety
 
 | Issue | Deliverable |
 |---|---|
-| [#833](https://github.com/ACFHarbinger/Image-Toolkit/issues/833) | B1: Cloud jobs daemon (Linux): single instance, authenticated IPC, WAL, leader/observer lease |
-| [#834](https://github.com/ACFHarbinger/Image-Toolkit/issues/834) | B2: Job-scoped credential lease |
-| [#835](https://github.com/ACFHarbinger/Image-Toolkit/issues/835) | B3: Watchdog and relay deployable (GCP first, Cloudflare Worker alternative): teardown endpoint, plus disclosure when protection is reduced |
-| [#836](https://github.com/ACFHarbinger/Image-Toolkit/issues/836) | B4: Leak protection (tags, orphan sweep, in-instance dead-man's switch, provider-native deadlines) |
-| [#837](https://github.com/ACFHarbinger/Image-Toolkit/issues/837) | B5: Cancel, Force stop, and "Stop all cloud activity" (relay fallback on platforms without a daemon) |
-| [#838](https://github.com/ACFHarbinger/Image-Toolkit/issues/838) | B6: Notifications (desktop, plus webhook/email sink) |
-| [#839](https://github.com/ACFHarbinger/Image-Toolkit/issues/839) | B7: Worker images (CPU/CUDA Dockerfiles, publish to a user-owned registry, digest pinning, cloud-init boot, user images, `events.jsonl` telemetry, flight recorder) |
+| [#834](https://github.com/ACFHarbinger/Image-Toolkit/issues/834) | B1: Cloud jobs daemon (Linux): single instance, authenticated IPC, WAL, leader/observer lease |
+| [#835](https://github.com/ACFHarbinger/Image-Toolkit/issues/835) | B2: Job-scoped credential lease |
+| [#836](https://github.com/ACFHarbinger/Image-Toolkit/issues/836) | B3: Watchdog and relay deployable (GCP first, Cloudflare Worker alternative): teardown endpoint, plus disclosure when protection is reduced |
+| [#837](https://github.com/ACFHarbinger/Image-Toolkit/issues/837) | B4: Leak protection (tags, orphan sweep, in-instance dead-man's switch, provider-native deadlines) |
+| [#838](https://github.com/ACFHarbinger/Image-Toolkit/issues/838) | B5: Cancel, Force stop, and "Stop all cloud activity" (relay fallback on platforms without a daemon) |
+| [#839](https://github.com/ACFHarbinger/Image-Toolkit/issues/839) | B6: Notifications (desktop, plus webhook/email sink) |
+| [#840](https://github.com/ACFHarbinger/Image-Toolkit/issues/840) | B7: Worker images (CPU/CUDA Dockerfiles, publish to a user-owned registry, digest pinning, cloud-init boot, user images, `events.jsonl` telemetry, flight recorder) |
 
 ### Gate C — First providers end to end (GCP + RunPod; extraction, then ComfyUI)
 
 | Issue | Deliverable |
 |---|---|
-| [#840](https://github.com/ACFHarbinger/Image-Toolkit/issues/840) | C1: GCP adapter (Cloud Run, Cloud Run Jobs / Batch, GCE for long GPU jobs) |
-| [#841](https://github.com/ACFHarbinger/Image-Toolkit/issues/841) | C2: RunPod adapter (API v2; Pods and Serverless; network-volume cache) |
-| [#842](https://github.com/ACFHarbinger/Image-Toolkit/issues/842) | C3: Workload 1, extraction, ported onto the new lifecycle |
-| [#843](https://github.com/ACFHarbinger/Image-Toolkit/issues/843) | C4: Workload 2, ComfyUI batch generation (pinned node packs, prompt-slice shards, `Cloud Jobs/<job-id>` outputs) |
-| [#844](https://github.com/ACFHarbinger/Image-Toolkit/issues/844) | C5: Placement card, default mode per workload, region defaults, automatic fallback including out-of-stock |
-| [#845](https://github.com/ACFHarbinger/Image-Toolkit/issues/845) | C6: `live_cloud` smoke-test marker and runbook (through the benchmark chain) |
+| [#841](https://github.com/ACFHarbinger/Image-Toolkit/issues/841) | C1: GCP adapter (Cloud Run, Cloud Run Jobs / Batch, GCE for long GPU jobs) |
+| [#842](https://github.com/ACFHarbinger/Image-Toolkit/issues/842) | C2: RunPod adapter (API v2; Pods and Serverless; network-volume cache) |
+| [#843](https://github.com/ACFHarbinger/Image-Toolkit/issues/843) | C3: Workload 1, extraction, ported onto the new lifecycle |
+| [#844](https://github.com/ACFHarbinger/Image-Toolkit/issues/844) | C4: Workload 2, ComfyUI batch generation (pinned node packs, prompt-slice shards, `Cloud Jobs/<job-id>` outputs) |
+| [#845](https://github.com/ACFHarbinger/Image-Toolkit/issues/845) | C5: Placement card, default mode per workload, region defaults, automatic fallback including out-of-stock |
+| [#846](https://github.com/ACFHarbinger/Image-Toolkit/issues/846) | C6: `live_cloud` smoke-test marker and runbook (through the benchmark chain) |
 
 ### Gate D — Cloud Jobs window
 
 | Issue | Deliverable |
 |---|---|
-| [#846](https://github.com/ACFHarbinger/Image-Toolkit/issues/846) | D1: `cloud.jobs` window shell, with the header ☁️ control and badge |
-| [#847](https://github.com/ACFHarbinger/Image-Toolkit/issues/847) | D2: Jobs table and Detail view (timeline, live log, metrics, spend, outputs, daemon status) |
-| [#848](https://github.com/ACFHarbinger/Image-Toolkit/issues/848) | D3: Resources view (orphans, Terminate) and Spend view (Dashboards drawn from the ledger) |
-| [#849](https://github.com/ACFHarbinger/Image-Toolkit/issues/849) | D4: Submit surfaces (origin tabs and Request Builder sharing one `JobSpec`), risk-feedback UI, Plan & cost confirmation sheet |
-| [#850](https://github.com/ACFHarbinger/Image-Toolkit/issues/850) | D5: Cloud Jobs settings (caps, thresholds, rule editor, retention, packing, fallback, notifications, regions) |
-| [#851](https://github.com/ACFHarbinger/Image-Toolkit/issues/851) | D6: "Run in cloud instead" from `gpu_lease_arbiter` |
+| [#847](https://github.com/ACFHarbinger/Image-Toolkit/issues/847) | D1: `cloud.jobs` window shell, with the header ☁️ control and badge |
+| [#848](https://github.com/ACFHarbinger/Image-Toolkit/issues/848) | D2: Jobs table and Detail view (timeline, live log, metrics, spend, outputs, daemon status) |
+| [#849](https://github.com/ACFHarbinger/Image-Toolkit/issues/849) | D3: Resources view (orphans, Terminate) and Spend view (Dashboards drawn from the ledger) |
+| [#850](https://github.com/ACFHarbinger/Image-Toolkit/issues/850) | D4: Submit surfaces (origin tabs and Request Builder sharing one `JobSpec`), risk-feedback UI, Plan & cost confirmation sheet |
+| [#851](https://github.com/ACFHarbinger/Image-Toolkit/issues/851) | D5: Cloud Jobs settings (caps, thresholds, rule editor, retention, packing, fallback, notifications, regions) |
+| [#852](https://github.com/ACFHarbinger/Image-Toolkit/issues/852) | D6: "Run in cloud instead" from `gpu_lease_arbiter` |
 
 ### Gate E — Remaining workloads
 
 | Issue | Deliverable |
 |---|---|
-| [#852](https://github.com/ACFHarbinger/Image-Toolkit/issues/852) | E1: Workload 3, CLIP/phash indexing (image-ID shards, staging table, hash check, atomic upsert, review toggle) |
-| [#853](https://github.com/ACFHarbinger/Image-Toolkit/issues/853) | E2: Workload 4, LoRA/LyCORIS training (checkpoints, spot with resume, Deep Learning Runs records, no worker Hugging Face credentials) |
+| [#853](https://github.com/ACFHarbinger/Image-Toolkit/issues/853) | E1: Workload 3, CLIP/phash indexing (image-ID shards, staging table, hash check, atomic upsert, review toggle) |
+| [#854](https://github.com/ACFHarbinger/Image-Toolkit/issues/854) | E2: Workload 4, LoRA/LyCORIS training (checkpoints, spot with resume, Deep Learning Runs records, no worker Hugging Face credentials) |
 
 ### Gate F — Remaining providers
 
@@ -435,20 +435,20 @@ Each adapter issue includes:
 
 | Issue | Deliverable |
 |---|---|
-| [#854](https://github.com/ACFHarbinger/Image-Toolkit/issues/854) | F1: AWS adapter (Batch for CPU/GPU, EC2) |
-| [#855](https://github.com/ACFHarbinger/Image-Toolkit/issues/855) | F2: Azure adapter (Container Apps Jobs for CPU, VMs for GPU, ACI quota check) |
-| [#856](https://github.com/ACFHarbinger/Image-Toolkit/issues/856) | F3: Oracle adapter (Container Instances for CPU, Compute GPU shapes; fix the Terraform comment) |
-| [#857](https://github.com/ACFHarbinger/Image-Toolkit/issues/857) | F4: Cloudflare adapter (Containers for CPU, R2, Workers AI auto-translation of simple workflows) |
-| [#858](https://github.com/ACFHarbinger/Image-Toolkit/issues/858) | F5: Hyperstack adapter (instances, stock probe, spot flavours, follow-up label PUT) |
-| [#859](https://github.com/ACFHarbinger/Image-Toolkit/issues/859) | F6: Thunder Compute adapter (instances, mandatory `public_key`, templates as unverified override) |
+| [#855](https://github.com/ACFHarbinger/Image-Toolkit/issues/855) | F1: AWS adapter (Batch for CPU/GPU, EC2) |
+| [#856](https://github.com/ACFHarbinger/Image-Toolkit/issues/856) | F2: Azure adapter (Container Apps Jobs for CPU, VMs for GPU, ACI quota check) |
+| [#857](https://github.com/ACFHarbinger/Image-Toolkit/issues/857) | F3: Oracle adapter (Container Instances for CPU, Compute GPU shapes; fix the Terraform comment) |
+| [#858](https://github.com/ACFHarbinger/Image-Toolkit/issues/858) | F4: Cloudflare adapter (Containers for CPU, R2, Workers AI auto-translation of simple workflows) |
+| [#859](https://github.com/ACFHarbinger/Image-Toolkit/issues/859) | F5: Hyperstack adapter (instances, stock probe, spot flavours, follow-up label PUT) |
+| [#860](https://github.com/ACFHarbinger/Image-Toolkit/issues/860) | F6: Thunder Compute adapter (instances, mandatory `public_key`, templates as unverified override) |
 
 ### Gate G — Extended orchestration
 
 | Issue | Deliverable |
 |---|---|
-| [#860](https://github.com/ACFHarbinger/Image-Toolkit/issues/860) | G1: Remote management through the relay's command endpoint (phone/web client, scoped tokens, TLS, audit log) |
-| [#861](https://github.com/ACFHarbinger/Image-Toolkit/issues/861) | G2: Scheduled (wall-clock) submission |
-| [#862](https://github.com/ACFHarbinger/Image-Toolkit/issues/862) | G3: Instance packing (sequential chaining and parallel packing; per-job cap stops) |
+| [#861](https://github.com/ACFHarbinger/Image-Toolkit/issues/861) | G1: Remote management through the relay's command endpoint (phone/web client, scoped tokens, TLS, audit log) |
+| [#862](https://github.com/ACFHarbinger/Image-Toolkit/issues/862) | G2: Scheduled (wall-clock) submission |
+| [#863](https://github.com/ACFHarbinger/Image-Toolkit/issues/863) | G3: Instance packing (sequential chaining and parallel packing; per-job cap stops) |
 
 ### Backlog (deferred past v1)
 
