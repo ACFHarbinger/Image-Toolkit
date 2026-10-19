@@ -21,6 +21,7 @@ from .adapter import (
     QuotaExceeded,
     find_by_idempotency,
 )
+from .cost.caps import AdmissionSnapshot, admission_blockers
 from .reconciler import (
     SUBMIT_FAILED,
     SUBMIT_OUT_OF_STOCK,
@@ -38,6 +39,7 @@ from .reconciler import (
     Transition,
     reconcile,
 )
+from .settings import CloudSettings
 from .spec import JobSpec, Placement
 from .state import ACTIVE, CancelRequest, JobState
 from .store import KIND_ACTUAL, KIND_RESERVED, CloudJobStore, LedgerEntry, transaction
@@ -58,6 +60,19 @@ class EngineSettings:
     expiry_grace_s: float = 900.0
     default_max_runtime_s: float = 6 * 3600.0
     max_concurrent_jobs: int = 4
+    max_concurrent_gpu_instances: int = 2
+    max_reserved_usd: float = float("inf")
+
+    @classmethod
+    def from_cloud_settings(cls, settings: CloudSettings, owner: str,
+                            fallback_candidates: Tuple[Placement, ...] = ()) -> "EngineSettings":
+        """The engine reads the user's CloudSettings; only the owner tag and candidates are its own."""
+        return cls(owner=owner, max_attempts=settings.max_attempts,
+                   fallback_enabled=settings.fallback_enabled, fallback_candidates=fallback_candidates,
+                   default_max_runtime_s=float(settings.default_max_runtime_s),
+                   max_concurrent_jobs=settings.max_concurrent_jobs,
+                   max_concurrent_gpu_instances=settings.max_concurrent_gpu_instances,
+                   max_reserved_usd=settings.max_reserved_usd)
 
 
 @dataclass
@@ -127,8 +142,18 @@ class JobEngine:
                               att.started_at + max_rt + self.settings.expiry_grace_s)
 
     def _admitted(self, job_id: str) -> bool:
+        if self.store.jobs.state(job_id) is not JobState.QUEUED:
+            return True
         active = [j for j in self.store.jobs.job_ids(ACTIVE) if j != job_id]
-        return len(active) < self.settings.max_concurrent_jobs
+        gpu = sum(1 for j in active if self.store.jobs.spec(j).resources.needs_gpu)
+        own = self.store.ledger.total(KIND_RESERVED, job_id=job_id)
+        # Only admitted jobs hold reserved spend; counting queued ones lets them block each other forever.
+        held = sum(self.store.ledger.total(KIND_RESERVED, job_id=j) for j in active)
+        snap = AdmissionSnapshot(len(active), gpu, held)
+        limits = CloudSettings(max_concurrent_jobs=self.settings.max_concurrent_jobs,
+                               max_concurrent_gpu_instances=self.settings.max_concurrent_gpu_instances,
+                               max_reserved_usd=self.settings.max_reserved_usd)
+        return not admission_blockers(snap, limits, self.store.jobs.spec(job_id).resources.needs_gpu, own)
 
     def _prior_spend(self, job_id: str) -> float:
         cur = self.store.jobs.current_attempt(job_id)

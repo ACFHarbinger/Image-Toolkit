@@ -286,3 +286,24 @@ def test_cloud_core_is_qt_free():
     code = ("import sys; import backend.src.cloud.engine, backend.src.cloud.store, backend.src.cloud.fakes; "
             "assert not any(m.startswith('PySide6') for m in sys.modules), 'Qt imported'")
     subprocess.run([sys.executable, "-c", code], check=True)
+
+
+def test_gpu_and_reserved_spend_admission(store):
+    from backend.src.cloud.settings import CloudSettings
+    from backend.src.cloud.spec import Resources
+
+    p = FakeProvider(timelines=[[running(total=1)], [finished(1)], [finished(1)]])
+    settings = EngineSettings.from_cloud_settings(
+        CloudSettings(max_concurrent_jobs=5, max_concurrent_gpu_instances=1, max_reserved_usd=3.0), OWNER)
+    eng = JobEngine(store, {"fake": p}, settings, clock=store.clock)
+    gpu = Resources(gpu_class="L4", gpu_count=1)
+    a = eng.submit(_spec(1, resources=gpu), reserve_usd=1.0)
+    b = eng.submit(_spec(1, resources=gpu), reserve_usd=1.0)  # second GPU instance: waits
+    c = eng.submit(_spec(1), reserve_usd=2.5)  # CPU, but would push reserved spend past $3
+    _run(eng, 2)
+    assert store.jobs.state(a) is JobState.RUNNING
+    assert store.jobs.state(b) is JobState.QUEUED and store.jobs.state(c) is JobState.QUEUED
+    eng.cancel(a)
+    _run(eng, 4)
+    assert store.jobs.state(b) is JobState.SUCCEEDED
+

@@ -134,3 +134,65 @@ class FakeProvider:
     def preempt_all(self) -> None:
         """Simulate the provider reclaiming every instance."""
         self._live.clear()
+
+
+class FakeObjectStore:
+    """In-memory bucket; presigned URLs are opaque strings carrying op, key and expiry."""
+
+    def __init__(self, name: str = "fake-bucket", region_bound: bool = False, clock=lambda: 0.0):
+        self.name, self.region_bound, self._clock = name, region_bound, clock
+        self.objects: Dict[str, bytes] = {}
+        self.puts: List[str] = []
+
+    def exists(self, key: str) -> bool:
+        return key in self.objects
+
+    def put_file(self, key: str, local_path: str) -> None:
+        with open(local_path, "rb") as fh:
+            self.objects[key] = fh.read()
+        self.puts.append(key)
+
+    def put_bytes(self, key: str, data: bytes) -> None:  # what a worker does through a PUT url
+        self.objects[key] = data
+
+    def presign_get(self, key: str, ttl_s: int) -> str:
+        return f"fake://{self.name}/{key}?op=get&exp={int(self._clock() + ttl_s)}"
+
+    def presign_put(self, key: str, ttl_s: int) -> str:
+        return f"fake://{self.name}/{key}?op=put&exp={int(self._clock() + ttl_s)}"
+
+    def read_range(self, key: str, start: int) -> bytes:
+        return self.objects[key][start:]
+
+    def delete(self, key: str) -> None:
+        self.objects.pop(key, None)
+
+    def list(self, prefix: str):
+        from .storage.base import ObjectInfo
+
+        return [ObjectInfo(k, len(v), 0.0) for k, v in self.objects.items() if k.startswith(prefix)]
+
+
+class FakeSyncRemote:
+    def __init__(self, name: str = "Dropbox", supports_temp_links: bool = True):
+        self.name, self.supports_temp_links = name, supports_temp_links
+        self.files: Dict[str, bytes] = {}
+
+    def temp_download_link(self, path: str, ttl_s: int) -> str:
+        return f"remote://{self.name}/{path}?op=get&ttl={ttl_s}"
+
+    def temp_upload_link(self, path: str, ttl_s: int) -> str:
+        return f"remote://{self.name}/{path}?op=put&ttl={ttl_s}"
+
+    def exists(self, path: str) -> bool:
+        return path in self.files
+
+    def upload(self, local_path: str, path: str) -> None:
+        with open(local_path, "rb") as fh:
+            self.files[path] = fh.read()
+
+    def read(self, path: str, offset: int) -> bytes:
+        return self.files.get(path, b"")[offset:]
+
+    def copy_from(self, store, key: str, path: str) -> None:
+        self.files[path] = store.read_range(key, 0)
