@@ -109,6 +109,10 @@ class Observation:
     burn_rate_usd_per_s: float = 0.0
     detail: str = ""
     structural: bool = False  # failure caused by the configuration, not chance
+    # Workers PUT shard outputs to staging storage, so they outlive the instance. An
+    # adapter whose outputs only exist on the instance must report False: those
+    # shards are collected before teardown or lost with it.
+    outputs_durable: bool = True
 
 
 @dataclass(frozen=True)

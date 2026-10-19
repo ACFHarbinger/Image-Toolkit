@@ -12,6 +12,7 @@ import time
 from dataclasses import dataclass, replace
 from typing import Callable, List, Mapping, Optional, Sequence, Tuple
 
+from .acceptance import AcceptedJob
 from .adapter import (
     AmbiguousSubmit,
     AttemptContext,
@@ -19,6 +20,7 @@ from .adapter import (
     OutOfStock,
     ProviderAdapter,
     QuotaExceeded,
+    ShardStatus,
     SubmitRejected,
     find_by_idempotency,
 )
@@ -42,13 +44,14 @@ from .reconciler import (
 )
 from .settings import CloudSettings
 from .spec import ExecutionMode, JobSpec, Placement
-from .state import ACTIVE, TERMINAL, CancelRequest, JobState
+from .state import ACTIVE, TERMINAL, CancelRequest, JobState, Outcome
 from .store import KIND_ACTUAL, KIND_RESERVED, CloudJobStore, LedgerEntry, transaction
 from .store.jobs import AttemptRow
 
 log = logging.getLogger(__name__)
 
 _MAX_STEPS = 12  # actions per job per tick; a healthy job needs 2-3
+MAX_COLLECT_ATTEMPTS = 3  # per durable shard, across ticks, before its output is reported lost
 
 
 @dataclass(frozen=True)
@@ -65,6 +68,7 @@ class EngineSettings:
     max_concurrent_jobs: int = 4
     max_concurrent_gpu_instances: int = 2
     max_reserved_usd: float = float("inf")
+    revalidate_after_s: float = 3600.0  # a job queued longer than this is re-checked before it provisions
 
     @classmethod
     def from_cloud_settings(cls, settings: CloudSettings, owner: str,
@@ -92,18 +96,24 @@ class JobEngine:
     adapters: Mapping[str, ProviderAdapter]
     settings: EngineSettings
     clock: Callable[[], float] = time.time
+    # Re-runs preflight for a placement chosen without the user (scheduled start,
+    # automatic fallback); returns a refusal reason, or None when it still passes.
+    revalidator: Optional[Callable[[str, JobSpec], Optional[str]]] = None
 
     # --- public -------------------------------------------------------------
 
-    def submit(self, spec: JobSpec, capability_override: bool = False,
-               reserve_usd: float = 0.0) -> str:
+    def submit(self, accepted: AcceptedJob) -> str:
+        """Enqueue a job that already passed preflight; see CloudJobService.submit."""
+        accepted.check()
+        spec = accepted.spec
         if spec.placement.provider not in self.adapters:
             raise KeyError(f"no adapter for provider {spec.placement.provider!r}")
         with transaction(self.store.db):
-            job_id = self.store.jobs.create(spec, capability_override)
-            if reserve_usd > 0:
+            job_id = self.store.jobs.create(spec, accepted.capability_override)
+            if accepted.reservation_usd > 0:
                 self.store.ledger.add(LedgerEntry(job_id, spec.placement.provider, KIND_RESERVED,
-                                                  reserve_usd, task=spec.kind.value))
+                                                  accepted.reservation_usd, task=spec.kind.value))
+            self.store.jobs.event(job_id, "accepted", accepted.record())
         return job_id
 
     def cancel(self, job_id: str, force: bool = False) -> None:
@@ -129,13 +139,19 @@ class JobEngine:
                     return
                 continue
             if self.settings.hard_caps_enabled:
+                cap = view.max_spend_usd or self.settings.default_max_spend_usd
+                reserved = self.store.ledger.total(KIND_RESERVED, job_id=job_id)
+                if reserved > 0:  # the monthly budget only holds the reservation, so never spend past it
+                    cap = min(cap, reserved)
                 view = replace(view,
                                max_runtime_s=view.max_runtime_s or self.settings.default_max_runtime_s,
-                               max_spend_usd=view.max_spend_usd or self.settings.default_max_spend_usd)
+                               max_spend_usd=cap)
             else:
                 view = replace(view, max_runtime_s=None, max_spend_usd=None)
             if ts.obs is None and view.cancel is not CancelRequest.FORCE:
                 ts.obs = self._observe(job_id, view.state)
+                if ts.obs is not None:
+                    view = replace(view, shards=self.store.jobs.view(job_id).shards)
             if ts.submit_error is None and view.state is JobState.SUBMITTING:
                 ts.submit_error = self.store.jobs.submit_error(job_id)
             actions = reconcile(view, ts.obs, self._reconcile_settings(job_id), self.clock(),
@@ -199,7 +215,10 @@ class JobEngine:
         if att is None or not att.submitted or att.ended_at is not None:
             return None
         obs = self._adapter(job_id).observe(self._ctx(att), att.resources)
-        self.store.jobs.record_cost(att.attempt_id, obs.cost_so_far_usd)
+        with transaction(self.store.db):
+            self.store.jobs.record_cost(att.attempt_id, obs.cost_so_far_usd)
+            done = [i for i, st in obs.shards.items() if st is ShardStatus.SUCCEEDED and i in att.shards]
+            self.store.jobs.mark_ready(job_id, done, obs.outputs_durable)
         return obs
 
     def _apply(self, job_id: str, actions: Sequence[Action], ts: _TickState) -> bool:
@@ -212,6 +231,12 @@ class JobEngine:
                         self.store.ledger.release_reservation(job_id)
                 changed = True
             elif isinstance(action, BeginAttempt):
+                refusal = self._first_start_refusal(job_id)
+                if refusal is not None:
+                    with transaction(self.store.db):
+                        self.store.jobs.set_outcome(job_id, Outcome.FAILED, refusal)
+                        self.store.jobs.transition(job_id, JobState.SETTLING, refusal)
+                    return True
                 att = self.store.jobs.begin_attempt(job_id, action.shards)
                 ts.submit_error = self._submit(att)
                 ts.obs = None
@@ -222,7 +247,7 @@ class JobEngine:
             elif isinstance(action, Collect):
                 changed |= self._collect(job_id, action.shard)
             elif isinstance(action, Checkpoint):
-                self._checkpoint(job_id)
+                self._checkpoint(job_id)  # never raises: a failed checkpoint must not block teardown
             elif isinstance(action, Teardown):
                 changed |= self._teardown(job_id)
             elif isinstance(action, SetOutcome):
@@ -285,22 +310,37 @@ class JobEngine:
         ts.submit_error = self._submit(att)  # same attempt, same idempotency key
 
     def _collect(self, job_id: str, shard: int) -> bool:
+        """Returns True when the job's collection state changed (collected or given up)."""
         att = self.store.jobs.current_attempt(job_id)
         if att is None:
             return False
-        res = self._adapter(job_id).collect(self._ctx(att), shard)
-        if not res.verified:
-            self.store.jobs.event(job_id, "collect_unverified", {"shard": shard})
-            return False
-        self.store.jobs.collect_shard(job_id, shard, res.outputs)
-        return True
+        try:
+            res = self._adapter(job_id).collect(self._ctx(att), shard)
+            error = "" if res.verified else "output failed verification"
+        except Exception as exc:  # download endpoint down, checksum mismatch raised, ...
+            res, error = None, f"{type(exc).__name__}: {exc}"
+        if res is not None and res.verified:
+            self.store.jobs.collect_shard(job_id, shard, res.outputs)
+            return True
+        view = next(s for s in self.store.jobs.view(job_id).shards if s.index == shard)
+        attempts = self.store.jobs.note_collect_failure(job_id, shard, error, give_up=False)
+        # Durable outputs can be retried after teardown; ephemeral ones are given up at teardown.
+        if view.durable and attempts >= MAX_COLLECT_ATTEMPTS:
+            self.store.jobs.note_collect_failure(job_id, shard, error, give_up=True)
+            return True
+        return False
 
     def _checkpoint(self, job_id: str) -> None:
         att = self.store.jobs.current_attempt(job_id)
         fn = getattr(self._adapter(job_id), "checkpoint", None)
-        if att is not None and callable(fn):
+        if att is None or not callable(fn):
+            return
+        try:
             fn(self._ctx(att))
-            self.store.jobs.event(job_id, "checkpoint", {})
+        except Exception as exc:
+            self.store.jobs.event(job_id, "checkpoint_failed", {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        self.store.jobs.event(job_id, "checkpoint", {})
 
     def _teardown(self, job_id: str) -> bool:
         spec = self.store.jobs.spec(job_id)
@@ -315,6 +355,10 @@ class JobEngine:
                         task=spec.kind.value, status="torn_down",
                         duration_s=max(0.0, self.clock() - att.started_at)))
                     self.store.jobs.event(job_id, "torn_down", {"attempt_id": att.attempt_id})
+                    for sh in self.store.jobs.view(job_id).shards:
+                        if sh.index in att.shards and sh.collectable and not sh.durable:
+                            self.store.jobs.note_collect_failure(job_id, sh.index, "output lost with the instance",
+                                                                 give_up=True)
             else:
                 pending = True
                 self.store.jobs.event(job_id, "teardown_failed", {"attempt_id": att.attempt_id})
@@ -344,14 +388,52 @@ class JobEngine:
                 self.store.jobs.event(job_id, "fallback", {"reason": reason, "to": _placement_key(target)})
             self.store.jobs.event(job_id, "retry", {"reason": reason})
             self.store.jobs.transition(job_id, JobState.SUBMITTING, f"retry: {reason}")
-            att = self.store.jobs.begin_attempt(job_id, self.store.jobs.view(job_id).pending_shards)
+            view = self.store.jobs.view(job_id)
+            safe = set(view.collectable(durable_only=True))  # finished and in staging: collect, don't re-run
+            rerun = tuple(i for i in view.pending_shards if i not in safe)
+            if not rerun:
+                # Everything left is finished and staged: settle and collect, don't provision.
+                self.store.jobs.event(job_id, "restart_resumed", {"attempt_id": None})
+                self.store.jobs.set_outcome(job_id, Outcome.SUCCEEDED, "remaining shards finished")
+                self.store.jobs.transition(job_id, JobState.SETTLING, "remaining shards finished")
+                return True
+            self.store.jobs.reset_shards(job_id, rerun)
+            att = self.store.jobs.begin_attempt(job_id, rerun)
             self.store.jobs.event(job_id, "restart_resumed", {"attempt_id": att.attempt_id})
         ts.submit_error = self._submit(att)
         ts.obs = None
         return True
 
+    def _revalidate(self, job_id: str, spec: JobSpec) -> Optional[str]:
+        if self.revalidator is None:
+            return "no revalidator configured; refusing a placement the user didn't confirm"
+        return self.revalidator(job_id, spec)
+
+    def _first_start_refusal(self, job_id: str) -> Optional[str]:
+        """Scheduled or long-queued jobs are re-checked: prices, quota and rules may have changed."""
+        view = self.store.jobs.view(job_id)
+        if view.attempts_used > 0:
+            return None
+        waited = self.clock() - self.store.jobs.created_at(job_id)
+        if view.scheduled_at is None and waited < self.settings.revalidate_after_s:
+            return None
+        why = self._revalidate(job_id, self.store.jobs.spec(job_id))
+        return None if why is None else f"revalidation before start: {why}"
+
     def _fallback(self, job_id: str, reason: str, ts: _TickState) -> bool:
-        return self._restart(job_id, reason, ts, self._remaining_fallbacks(job_id)[0])
+        spec = self.store.jobs.spec(job_id)
+        for target in self._remaining_fallbacks(job_id):
+            why = self._revalidate(job_id, spec.with_placement(target))
+            if why is None:
+                return self._restart(job_id, reason, ts, target)
+            self.store.jobs.note_fallback(job_id, _placement_key(target))
+            self.store.jobs.event(job_id, "fallback_rejected", {"to": _placement_key(target), "why": why})
+        why = f"{reason}; no fallback placement passed revalidation"
+        with transaction(self.store.db):
+            self.store.jobs.set_outcome(job_id, Outcome.FAILED, why)
+            self.store.jobs.set_teardown_pending(job_id, bool(self.store.jobs.open_teardowns(job_id)))
+            self.store.jobs.transition(job_id, JobState.SETTLING, why)
+        return True
 
 
 def _placement_key(p: Placement) -> str:

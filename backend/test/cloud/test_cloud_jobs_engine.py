@@ -13,7 +13,7 @@ pytest.importorskip("base")
 from backend.src.cloud import fakes  # noqa: E402
 from backend.src.cloud.adapter import Observation, ProviderStatus  # noqa: E402
 from backend.src.cloud.engine import EngineSettings, JobEngine  # noqa: E402
-from backend.src.cloud.fakes import FakeProvider, finished, running  # noqa: E402
+from backend.src.cloud.fakes import FakeProvider, accept_unchecked, finished, running  # noqa: E402
 from backend.src.cloud.sharding import plan_extraction  # noqa: E402
 from backend.src.cloud.spec import (  # noqa: E402
     ExecutionMode,
@@ -82,7 +82,7 @@ def test_happy_path_collects_every_shard_and_tears_down(store):
     p = FakeProvider(timelines=[[Observation(ProviderStatus.PROVISIONING), running(0, total=3, cost=0.1),
                                  finished(3, cost=0.25)]])
     eng = _engine(store, [p])
-    job = eng.submit(_spec(), reserve_usd=1.0)
+    job = eng.submit(accept_unchecked(_spec(), reserve_usd=1.0))
     assert store.ledger.reserved() == 1.0
     _run(eng)
     assert store.jobs.state(job) is JobState.SUCCEEDED
@@ -98,7 +98,7 @@ def test_happy_path_collects_every_shard_and_tears_down(store):
 def test_ambiguous_submit_that_created_resources_is_found_not_duplicated(store):
     p = FakeProvider(submit_faults=[fakes.AMBIGUOUS_CREATED], timelines=[[finished(3)]])
     eng = _engine(store, [p])
-    job = eng.submit(_spec())
+    job = eng.submit(accept_unchecked(_spec()))
     _run(eng)
     assert store.jobs.state(job) is JobState.SUCCEEDED
     assert p.calls.count("submit:1") == 1
@@ -109,7 +109,7 @@ def test_ambiguous_submit_that_created_resources_is_found_not_duplicated(store):
 def test_ambiguous_submit_with_nothing_created_resubmits_same_attempt(store):
     p = FakeProvider(submit_faults=[fakes.AMBIGUOUS_NOT_CREATED], timelines=[[finished(3)]])
     eng = _engine(store, [p])
-    job = eng.submit(_spec())
+    job = eng.submit(accept_unchecked(_spec()))
     _run(eng)
     assert store.jobs.state(job) is JobState.SUCCEEDED
     atts = store.jobs.attempts(job)
@@ -119,7 +119,7 @@ def test_ambiguous_submit_with_nothing_created_resubmits_same_attempt(store):
 def test_crash_between_intent_and_submit_is_recovered(store):
     p = FakeProvider(timelines=[[finished(2)]])
     eng = _engine(store, [p])
-    job = eng.submit(_spec(2))
+    job = eng.submit(accept_unchecked(_spec(2)))
     store.jobs.transition(job, JobState.SUBMITTING)
     store.jobs.begin_attempt(job, (0, 1))  # process died before calling the provider
     _run(_engine(store, [p]))
@@ -130,7 +130,7 @@ def test_crash_between_intent_and_submit_is_recovered(store):
 def test_preemption_retries_only_uncollected_shards(store):
     p = FakeProvider(timelines=[[running(0, total=3)], [finished(3)]])
     eng = _engine(store, [p])
-    job = eng.submit(_spec())
+    job = eng.submit(accept_unchecked(_spec()))
     eng.tick()
     eng.tick()  # shard 0 collected while running
     p.preempt_all()
@@ -144,7 +144,7 @@ def test_preemption_retries_only_uncollected_shards(store):
 def test_out_of_stock_fails_fast_without_fallback(store):
     p = FakeProvider(submit_faults=[fakes.OUT_OF_STOCK])
     eng = _engine(store, [p])
-    job = eng.submit(_spec())
+    job = eng.submit(accept_unchecked(_spec()))
     _run(eng, 2)
     assert store.jobs.state(job) is JobState.FAILED
     assert store.jobs.view(job).outcome_reason == "out of stock"
@@ -156,17 +156,61 @@ def test_out_of_stock_falls_back_when_enabled(store):
     b = FakeProvider(name="b", timelines=[[finished(3)]])
     alt = Placement("b", "b-1", ExecutionMode.INSTANCE)
     eng = _engine(store, [a, b], fallback_enabled=True, fallback_candidates=(alt,))
-    job = eng.submit(_spec(provider="a"))
+    eng.revalidator = lambda job_id, spec: None
+    job = eng.submit(accept_unchecked(_spec(provider="a")))
     _run(eng)
     assert store.jobs.state(job) is JobState.SUCCEEDED
     assert store.jobs.spec(job).placement == alt
     assert "fallback" in _types(store, job)
 
 
+def test_fallback_skips_candidates_that_fail_revalidation(store):
+    a = FakeProvider(name="a", submit_faults=[fakes.OUT_OF_STOCK])
+    b = FakeProvider(name="b")
+    c = FakeProvider(name="c", timelines=[[finished(3)]])
+    bad, good = (Placement("b", "b-1", ExecutionMode.INSTANCE), Placement("c", "c-1", ExecutionMode.INSTANCE))
+    eng = _engine(store, [a, b, c], fallback_enabled=True, fallback_candidates=(bad, good))
+    eng.revalidator = lambda job_id, spec: "sensitive data" if spec.placement.provider == "b" else None
+    job = eng.submit(accept_unchecked(_spec(provider="a")))
+    _run(eng)
+    assert store.jobs.state(job) is JobState.SUCCEEDED and store.jobs.spec(job).placement == good
+    assert b.calls == []  # never provisioned on the rejected candidate
+    assert "fallback_rejected" in _types(store, job)
+
+
+def test_fallback_without_a_revalidator_fails_instead_of_moving(store):
+    a = FakeProvider(name="a", submit_faults=[fakes.OUT_OF_STOCK])
+    b = FakeProvider(name="b", timelines=[[finished(3)]])
+    eng = _engine(store, [a, b], fallback_enabled=True,
+                  fallback_candidates=(Placement("b", "b-1", ExecutionMode.INSTANCE),))
+    job = eng.submit(accept_unchecked(_spec(provider="a")))
+    _run(eng)
+    assert store.jobs.state(job) is JobState.FAILED and b.calls == []
+
+
+def test_engine_refuses_specs_that_skipped_preflight(store):
+    from backend.src.cloud.acceptance import AcceptedJob, NotAccepted
+
+    eng = _engine(store, [FakeProvider()])
+    with pytest.raises(NotAccepted):
+        eng.submit(AcceptedJob(_spec(), 0.0, False, ()))
+
+
+def test_scheduled_start_is_revalidated(store):
+    p = FakeProvider(timelines=[[finished(1)]])
+    eng = _engine(store, [p])
+    eng.revalidator = lambda job_id, spec: "quota is now 0"
+    job = eng.submit(accept_unchecked(_spec(1, scheduled_at=store.clock.t + 60)))
+    _run(eng, 4)
+    assert store.jobs.state(job) is JobState.FAILED
+    assert "revalidation before start: quota is now 0" in store.jobs.view(job).outcome_reason
+    assert p.calls == []
+
+
 def test_quota_blocks_with_request_link(store):
     p = FakeProvider(submit_faults=[fakes.QUOTA])
     eng = _engine(store, [p])
-    job = eng.submit(_spec())
+    job = eng.submit(accept_unchecked(_spec()))
     _run(eng, 2)
     assert store.jobs.state(job) is JobState.FAILED
     ev = [e for e in store.jobs.events(job) if e["type"] == "submit_failed"][0]
@@ -176,7 +220,7 @@ def test_quota_blocks_with_request_link(store):
 def test_predictive_spend_cap_stops_and_keeps_partial_outputs(store):
     p = FakeProvider(timelines=[[running(0, total=3, cost=0.5, burn=0.01), running(0, 1, total=3, cost=0.9, burn=0.01)]])
     eng = _engine(store, [p])
-    job = eng.submit(_spec(limits=Limits(max_spend_usd=1.2)))
+    job = eng.submit(accept_unchecked(_spec(limits=Limits(max_spend_usd=1.2))))
     _run(eng)
     v = store.jobs.view(job)
     assert store.jobs.state(job) is JobState.FAILED and v.outcome_reason == "spend cap reached"
@@ -188,7 +232,7 @@ def test_max_runtime_stops_resumable_job_with_checkpoint(store):
     p = FakeProvider(timelines=[[running(total=1)]])
     eng = _engine(store, [p], cap_margin_s=10)
     spec = _spec(1, kind=WorkloadKind.LORA_TRAIN, limits=Limits(max_runtime_s=100))
-    job = eng.submit(spec)
+    job = eng.submit(accept_unchecked(spec))
     _run(eng, 6, dt=30)
     assert store.jobs.view(job).outcome_reason == "max runtime reached"
     assert "checkpoint" in p.calls
@@ -198,7 +242,7 @@ def test_cancel_checkpoints_but_force_stop_does_not(store):
     for force, expect in ((False, True), (True, False)):
         p = FakeProvider(timelines=[[running(total=1)]])
         eng = _engine(store, [p])
-        job = eng.submit(_spec(1, kind=WorkloadKind.LORA_TRAIN))
+        job = eng.submit(accept_unchecked(_spec(1, kind=WorkloadKind.LORA_TRAIN)))
         _run(eng, 2)
         eng.cancel(job, force=force)
         _run(eng, 2)
@@ -210,7 +254,7 @@ def test_cancel_checkpoints_but_force_stop_does_not(store):
 def test_failed_teardown_stays_owed_until_it_succeeds(store):
     p = FakeProvider(timelines=[[finished(1)]], teardown_failures=3)
     eng = _engine(store, [p])
-    job = eng.submit(_spec(1))
+    job = eng.submit(accept_unchecked(_spec(1)))
     eng.tick()
     assert store.jobs.view(job).teardown_pending
     assert job in store.jobs.needing_work()
@@ -222,7 +266,7 @@ def test_failed_teardown_stays_owed_until_it_succeeds(store):
 def test_capability_override_failure_is_structural(store):
     p = FakeProvider(timelines=[[Observation(ProviderStatus.FAILED, detail="GPU timeout")]])
     eng = _engine(store, [p])
-    job = eng.submit(_spec(1), capability_override=True)
+    job = eng.submit(accept_unchecked(_spec(1), capability_override=True))
     _run(eng)
     assert store.jobs.state(job) is JobState.FAILED
     assert store.jobs.view(job).outcome_reason.startswith("structural")
@@ -232,9 +276,9 @@ def test_capability_override_failure_is_structural(store):
 def test_scheduled_job_waits_and_admission_queues(store):
     p = FakeProvider(timelines=[[running(total=1)], [finished(1)], [finished(1)]])
     eng = _engine(store, [p], max_concurrent_jobs=1)
-    later = eng.submit(_spec(1, scheduled_at=store.clock.t + 3600))
-    first = eng.submit(_spec(1))
-    second = eng.submit(_spec(1))
+    later = eng.submit(accept_unchecked(_spec(1, scheduled_at=store.clock.t + 3600)))
+    first = eng.submit(accept_unchecked(_spec(1)))
+    second = eng.submit(accept_unchecked(_spec(1)))
     _run(eng, 2)
     assert store.jobs.state(later) is JobState.QUEUED
     assert store.jobs.state(second) is JobState.QUEUED
@@ -246,7 +290,7 @@ def test_scheduled_job_waits_and_admission_queues(store):
 def test_prune_keeps_ledger_and_exports(store, tmp_path):
     p = FakeProvider(timelines=[[finished(1, cost=0.4)]])
     eng = _engine(store, [p])
-    job = eng.submit(_spec(1))
+    job = eng.submit(accept_unchecked(_spec(1)))
     _run(eng, 2)
     export = tmp_path / "export.jsonl"
     assert prune_history(store.db, 3600, store.clock.t + 7200, export) == 1
@@ -297,9 +341,9 @@ def test_gpu_and_reserved_spend_admission(store):
         CloudSettings(max_concurrent_jobs=5, max_concurrent_gpu_instances=1, max_reserved_usd=3.0), OWNER)
     eng = JobEngine(store, {"fake": p}, settings, clock=store.clock)
     gpu = Resources(gpu_class="L4", gpu_count=1)
-    a = eng.submit(_spec(1, resources=gpu), reserve_usd=1.0)
-    b = eng.submit(_spec(1, resources=gpu), reserve_usd=1.0)  # second GPU instance: waits
-    c = eng.submit(_spec(1), reserve_usd=2.5)  # CPU, but would push reserved spend past $3
+    a = eng.submit(accept_unchecked(_spec(1, resources=gpu), reserve_usd=1.0))
+    b = eng.submit(accept_unchecked(_spec(1, resources=gpu), reserve_usd=1.0))  # second GPU instance: waits
+    c = eng.submit(accept_unchecked(_spec(1), reserve_usd=2.5))  # CPU, but would push reserved spend past $3
     _run(eng, 2)
     assert store.jobs.state(a) is JobState.RUNNING
     assert store.jobs.state(b) is JobState.QUEUED and store.jobs.state(c) is JobState.QUEUED

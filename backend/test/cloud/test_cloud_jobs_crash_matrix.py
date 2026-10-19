@@ -17,7 +17,7 @@ pytest.importorskip("base")
 from backend.src.cloud.adapter import CapabilityManifest  # noqa: E402
 from backend.src.cloud.certification import LEVEL_DECLARED, certify  # noqa: E402
 from backend.src.cloud.engine import EngineSettings, JobEngine  # noqa: E402
-from backend.src.cloud.fakes import FakeProvider, finished, running  # noqa: E402
+from backend.src.cloud.fakes import FakeProvider, accept_unchecked, finished, running  # noqa: E402
 from backend.src.cloud.spec import (  # noqa: E402
     ExecutionMode,
     JobSpec,
@@ -85,7 +85,7 @@ def _calls_in_clean_run(tmp_path):
     store = CloudJobStore.open("s" * 40, "salt-0123456789ab", tmp_path / "clean.db", clock=clock)
     counter = Crashing(_provider(), at=-1, after_effect=False)
     eng = _drive(store, counter, clock)
-    eng.submit(_spec())
+    eng.submit(accept_unchecked(_spec()))
     _drive(store, counter, clock)
     store.close()
     return counter.n
@@ -100,7 +100,7 @@ def test_engine_recovers_from_a_crash_at_every_provider_call(tmp_path, after_eff
         path = tmp_path / f"crash-{after_effect}-{k}.db"
         store = CloudJobStore.open("s" * 40, "salt-0123456789ab", path, clock=clock)
         provider = _provider()
-        job = JobEngine(store, {"fake": provider}, EngineSettings(owner="it-crash"), clock=clock).submit(_spec())
+        job = JobEngine(store, {"fake": provider}, EngineSettings(owner="it-crash"), clock=clock).submit(accept_unchecked(_spec()))
         with pytest.raises(Crash):
             _drive(store, Crashing(provider, k, after_effect), clock)
         store.close()
