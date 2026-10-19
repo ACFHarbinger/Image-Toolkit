@@ -21,7 +21,7 @@ import logging
 import secrets
 from typing import Any, Dict
 
-from backend.src.core.dir_phash_index import BRIDGE_DIR, DEFAULT_THRESHOLD
+from middleware.src.core.dir_phash_index import BRIDGE_DIR, DEFAULT_THRESHOLD
 
 logger = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from backend.src.constants.comfy import ServerState
+from middleware.src.constants.comfy import ServerState
 from PySide6.QtWidgets import QPushButton, QScrollArea, QWidget
 
 from gui.src.modules.comfy_workspace_controller import ComfyWorkspaceController
@@ -21,7 +21,7 @@ _PNG = base64.b64decode(
 
 @pytest.fixture(autouse=True)
 def _no_live_thermal_sensor(monkeypatch):
-    monkeypatch.setattr("backend.src.comfy_matrix.read_gpu_temperature_c", lambda: None)
+    monkeypatch.setattr("middleware.src.comfy_matrix.read_gpu_temperature_c", lambda: None)
 
 
 @pytest.fixture
@@ -263,7 +263,7 @@ def test_filmstrip_loads_a_thumbnail_off_the_gui_thread(surface, q_app):
 
 
 def test_open_browser_notes_an_unobservable_session(surface, monkeypatch):
-    from backend.src.comfy_matrix import gpu_lease
+    from middleware.src.comfy_matrix import gpu_lease
 
     monkeypatch.setattr(surface._controller, "open_external", lambda: True)
     gpu_lease.note_external_browser(False)
@@ -292,7 +292,7 @@ def test_new_tab_validates_cached_inventory(surface):
 
 @pytest.mark.parametrize("mode", ["graph", "promoted"])
 def test_single_comfy_run_holds_admission_until_execution_finishes(surface, mode):
-    from backend.src.comfy_matrix import gpu_lease
+    from middleware.src.comfy_matrix import gpu_lease
 
     def wait(prompt_id, **kwargs):
         assert prompt_id == "running"

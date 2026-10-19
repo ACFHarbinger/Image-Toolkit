@@ -1,4 +1,4 @@
-from backend.src.web import WebRequestsLogic
+from middleware.src.web import WebRequestsLogic
 from PySide6.QtCore import Signal
 
 from gui.src.helpers.base import BaseQThreadWorker

@@ -72,7 +72,7 @@ under #729, which stays open. Server ownership, independent states and the
 shared coordinator are documented in the [ComfyUI lifecycle contract](../architecture/comfy_lifecycle.md).
 
 **Training analysis starts as wiring, not new ML code (Gate D).**
-`backend/src/models/hooks/training_hooks.py` already ships
+`middleware/src/models/hooks/training_hooks.py` already ships
 `DiagnosticsLogger`, `CrossAttnRecorder`, `lora_effective_rank()`, and
 `lora_delta_heatmap()` — independently found by Mistral, confirmed by Kimi/
 Gemini/Qwen — but neither GUI launch path ever constructs one

@@ -10,7 +10,7 @@ import logging
 import os
 from collections.abc import Callable
 
-from backend.src.constants import LOCAL_SOURCE_PATH
+from middleware.src.constants import LOCAL_SOURCE_PATH
 from PySide6.QtCore import QTimer
 
 from gui.src.contracts.tab_config import ConfigCollectible, ConfigSettable, apply_tab_config

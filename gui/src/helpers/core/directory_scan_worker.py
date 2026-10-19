@@ -4,7 +4,7 @@
 the R1.1 worker base: :meth:`_execute` returns the collected path list
 (``None`` on cancel), delivered via ``finished``; failures additionally
 emit ``error`` with the exception object. No ``run()`` override, no
-legacy signal names (see ``backend/validation/check_worker_base.py``).
+legacy signal names (see ``middleware/validation/check_worker_base.py``).
 """
 
 from __future__ import annotations

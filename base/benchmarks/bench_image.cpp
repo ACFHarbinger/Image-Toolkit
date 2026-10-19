@@ -9,7 +9,7 @@
 //   • scan_files: flat, recursive, multi-directory root, multi-extension filter
 //   • scan_files_multi: scanning multiple root directories at once
 //
-// Mirrors the Python benchmarks in backend/benchmark/bench_cpp_image_processing.py
+// Mirrors the Python benchmarks in middleware/benchmark/bench_cpp_image_processing.py
 // and bench_thumbnails.py, but runs at the pure C++ layer without Python overhead.
 //
 // Build:   cmake --build build/base --target base_bench_image

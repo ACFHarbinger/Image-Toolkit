@@ -18,7 +18,7 @@ pytestmark = pytest.mark.gui
 
 @pytest.fixture(autouse=True)
 def _isolate_extraction_history(tmp_path, monkeypatch):
-    """The conftest's mock_image_toolkit_paths patches backend.src.constants,
+    """The conftest's mock_image_toolkit_paths patches middleware.src.constants,
     but _extraction_history binds IMAGE_TOOLKIT_DIR at import time, so the
     extraction-history JSON still points at the real home dir. Route it to the
     per-test tmp dir to keep queue recording tests isolated."""

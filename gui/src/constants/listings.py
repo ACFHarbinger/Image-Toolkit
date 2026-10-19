@@ -1,4 +1,4 @@
-from backend.src.constants import IMAGE_TOOLKIT_DIR
+from middleware.src.constants import IMAGE_TOOLKIT_DIR
 
 # Constants and Storage Files
 LISTINGS_FILE = IMAGE_TOOLKIT_DIR / "listings.json"

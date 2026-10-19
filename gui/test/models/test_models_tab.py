@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from backend.src.models.wrappers.sd3_wrapper import SD3Wrapper
+from middleware.src.models.wrappers.sd3_wrapper import SD3Wrapper
 from PySide6.QtWidgets import QWidget
 
 from gui.src.tabs.models.gen.ddm_generate_tab import SD3GenerateTab

@@ -1,4 +1,4 @@
-"""Constants relocated from backend/src or gui/src modules under this subpackage (module-level ALL_CAPS assignments)."""
+"""Constants relocated from middleware/src or gui/src modules under this subpackage (module-level ALL_CAPS assignments)."""
 
 import re
 from pathlib import Path

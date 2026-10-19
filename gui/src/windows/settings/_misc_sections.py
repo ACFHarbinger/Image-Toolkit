@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 
 import psutil
-from backend.src.web.clients.mal_dispatcher import MAL_FETCH_METHODS
+from middleware.src.web.clients.mal_dispatcher import MAL_FETCH_METHODS
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -196,7 +196,7 @@ class _MiscSectionsMixin:
             "Jikan API: default, richest data, but a third-party MAL proxy that\n"
             "  can fail (504) independently of MAL itself for uncached titles.\n"
             "Official MyAnimeList API: hits MAL directly, needs a free client ID\n"
-            "  (backend/config/api_keys.yaml [myanimelist] or MAL_CLIENT_ID),\n"
+            "  (middleware/config/api_keys.yaml [myanimelist] or MAL_CLIENT_ID),\n"
             "  no character/staff data available.\n"
             "Direct Website Scraping: scrapes myanimelist.net directly, no key\n"
             "  needed, full data, but slower (2-3 page loads) and more fragile."

@@ -7,7 +7,7 @@ import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import backend.src.constants as udef
+import middleware.src.constants as udef
 from PySide6.QtCore import QSize, Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtPdf import QPdfDocument
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 # NOTE (Phase DB, DB.5): save_content_entry_to_db / save_entity_entry_to_db /
 # fetch_entity_name_map were removed — persistence goes through
-# backend.src.database.unified (MediaRepo.save_media / EntityRepo.save_entity
+# middleware.src.database.unified (MediaRepo.save_media / EntityRepo.save_entity
 # / EntityRepo.name_map) on the session-keyed library database.
 
 

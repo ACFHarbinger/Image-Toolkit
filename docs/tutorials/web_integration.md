@@ -190,7 +190,7 @@ Finds where an image (or images — the tab works on a gallery selection) appear
     Drives a real browser through Google Lens and scrapes the results. Engine-specific options: **Browser** (`brave`/`chrome`/`firefox`/`edge`), **Mode** (below), **Keep Browser Open** (leave the browser up after the search — useful for continuing manually), and a resolution filter for results.
 
 === "TinEye API"
-    The commercial TinEye matching API; needs credentials via the `TINEYE_API_KEY` / `TINEYE_API_SECRET` environment variables or `backend/config/api_keys.yaml`. No browser involved.
+    The commercial TinEye matching API; needs credentials via the `TINEYE_API_KEY` / `TINEYE_API_SECRET` environment variables or `middleware/config/api_keys.yaml`. No browser involved.
 
     ![TinEye API config: credentials-via-env note, Search Selected Image](images/web_integration/reverse_search_tineye_config.png)
 

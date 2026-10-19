@@ -6,7 +6,7 @@
 // A session-keyed SQLCipher connection: the Argon2id KDF runs exactly once,
 // in the constructor, and the keyed sqlite3* handle lives for the object's
 // lifetime. Generic parameterized SQL primitives (query/execute/executemany
-// + transactions) back the Python DAL in backend/src/database/unified/;
+// + transactions) back the Python DAL in middleware/src/database/unified/;
 // embeddings storage and brute-force cosine knn back DB.7 (HNSW later).
 //
 // Deliberately separate from base.secret (Vault-only, untouchable).

@@ -14,8 +14,8 @@ def no_model_loads(monkeypatch):
 
 
 def test_vocabulary_uses_real_repository(monkeypatch):
-    from backend.src.database.unified import session
     from gui.src.components.prompt_vocabulary import _default_tag_rows
+    from middleware.src.database.unified import session
     db = Mock()
     db.query.return_value = [("cat", "general", 3)]
     monkeypatch.setattr(session, "get_session", lambda: db)

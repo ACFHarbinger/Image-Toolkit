@@ -3,8 +3,8 @@ import copy
 import json
 from pathlib import Path
 
-from backend.src.comfy_matrix import apply_node_overrides, gpu_lease, merge_sampler_overrides, try_admit
-from backend.src.core.gpu_vram_estimate import estimate_job_gb
+from middleware.src.comfy_matrix import apply_node_overrides, gpu_lease, merge_sampler_overrides, try_admit
+from middleware.src.core.gpu_vram_estimate import estimate_job_gb
 
 from gui.src.helpers.base import BaseQThreadWorker
 
@@ -104,7 +104,7 @@ WORKFLOW_MODES = {
 
 # Template loading/override-merging is duplicated here (a thin ~10-line
 # mirror of ComfyUIManager.load_workflow()/apply_overrides()) rather than
-# imported from backend.src.models.core.comfy_manager, because
+# imported from middleware.src.models.core.comfy_manager, because
 # gui/test/conftest.py blanket-mocks that module for every GUI test (its
 # "block heavy imports" convention, predating this change, applies to the
 # whole models/core package). Keeping the pure template logic self-contained

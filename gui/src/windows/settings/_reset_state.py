@@ -10,7 +10,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from backend.src.constants import (
+from middleware.src.constants import (
     DAEMON_CONFIG_PATH,
     IMAGE_TOOLKIT_DIR,
     LOCAL_SECRETS_DIR,

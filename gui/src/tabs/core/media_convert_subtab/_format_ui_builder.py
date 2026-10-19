@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Optional, Set
 
-from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from middleware.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,

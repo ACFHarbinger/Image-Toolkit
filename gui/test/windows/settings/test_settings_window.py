@@ -522,7 +522,7 @@ class TestSettingsWindowMalFetchMethod:
         assert window.mal_fetch_method_combo.currentData() == "jikan"
 
     def test_mal_fetch_method_combo_has_all_three_methods(self, q_app):
-        from backend.src.web.clients.mal_dispatcher import MAL_FETCH_METHODS
+        from middleware.src.web.clients.mal_dispatcher import MAL_FETCH_METHODS
 
         window = SettingsWindow()
         combo = window.mal_fetch_method_combo

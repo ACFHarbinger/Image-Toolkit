@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QMessageBox
 from ._tab_bound import TabBoundController
 
 try:
-    from backend.src.models.tuning.cbir_tuner import CBIRTuner
+    from middleware.src.models.tuning.cbir_tuner import CBIRTuner
 
     _TRAINER_OK = True
 except ImportError:

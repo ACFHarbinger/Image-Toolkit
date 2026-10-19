@@ -11,7 +11,7 @@ import platform
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, cast
 
-from backend.src.core import WallpaperManager
+from middleware.src.core import WallpaperManager
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox, QWidget
 from shiboken6 import Shiboken as sip

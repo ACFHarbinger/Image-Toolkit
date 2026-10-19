@@ -15,7 +15,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, NamedTuple, Optional
 
-from backend.src.constants import ROOT_DIR
+from middleware.src.constants import ROOT_DIR
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 logger = logging.getLogger(__name__)

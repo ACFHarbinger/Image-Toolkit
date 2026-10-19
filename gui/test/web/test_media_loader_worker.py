@@ -6,7 +6,7 @@ nhentai source in the Media Loader tab (SIGSEGV/heap corruption via
 another thread``). The downloader QObject must be constructed on the GUI
 thread; only ``downloader.run()`` may run on a plain ``threading.Thread``.
 These tests exercise the worker's dispatch/forwarding logic only (the real
-downloaders have their own unit tests in ``backend/test/web/``), using a
+downloaders have their own unit tests in ``middleware/test/web/``), using a
 fake downloader with real Observables so emissions actually forward through
 the worker's QtEventBridges.
 """
@@ -14,7 +14,7 @@ the worker's QtEventBridges.
 import threading
 from unittest.mock import patch
 
-from backend.src.events import Observable
+from middleware.src.events import Observable
 
 from gui.src.helpers.web.media_loader_worker import MediaLoaderWorker
 

@@ -3,7 +3,7 @@ import logging
 import os
 from typing import List, Optional
 
-from backend.src.core.video.video_probe import probe_codecs
+from middleware.src.core.video.video_probe import probe_codecs
 from PySide6.QtCore import Signal
 
 from gui.src.helpers.base import BaseQRunnableWorker, _WorkerSignals

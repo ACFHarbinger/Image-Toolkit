@@ -20,8 +20,8 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-from backend.src.database.unified.image_repo import ImageRepo
-from backend.src.database.unified.media_repo import MediaRepo
+from middleware.src.database.unified.image_repo import ImageRepo
+from middleware.src.database.unified.media_repo import MediaRepo
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,

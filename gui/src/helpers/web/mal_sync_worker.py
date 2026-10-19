@@ -1,4 +1,4 @@
-from backend.src.web.clients.mal_dispatcher import fetch_mal_anime_data
+from middleware.src.web.clients.mal_dispatcher import fetch_mal_anime_data
 from PySide6.QtCore import Signal
 
 from gui.src.helpers.base import BaseQThreadWorker

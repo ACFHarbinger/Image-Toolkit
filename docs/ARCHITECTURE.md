@@ -8,8 +8,8 @@ Edges point from consumer → provider (i.e. "depends on").
 ```mermaid
 flowchart TD
     subgraph Entry["Entry Points"]
-        MAIN["backend/main.py\n(PySide6 launch)"]
-        CLI["backend/dispatcher.py\n(Hydra CLI)"]
+        MAIN["middleware/main.py\n(PySide6 launch)"]
+        CLI["middleware/dispatcher.py\n(Hydra CLI)"]
         TAURI["frontend/src-tauri/\n(Tauri desktop)"]
         API["api/\n(Django REST)"]
     end
@@ -20,7 +20,7 @@ flowchart TD
         LRU["LRUImageCache\n(gui/src/utils/)"]
     end
 
-    subgraph Backend["Python Backend  ·  backend/"]
+    subgraph Backend["Python Backend  ·  middleware/"]
         CTRL["(Hydra dispatcher)"]
         ANIMMOD["animation/\n(ASP pipeline)"]
         MODELS["models/\n(PyTorch ML)"]
@@ -148,7 +148,7 @@ flowchart TD
 
 ## 2. `_merge_images_scan_stitch` — Detailed Flowchart
 
-**Source:** `backend/src/core/image_merger.py:129`
+**Source:** `middleware/src/core/image_merger.py:129`
 
 This method wraps OpenCV's built-in SCANS stitcher with minimal preprocessing. It is also used as the fallback inside `AnimeStitchPipeline` when no valid feature edges are found.
 
@@ -198,8 +198,8 @@ flowchart TD
 
 ## 3. `perfect_stitch` / `AnimeStitchPipeline` — Full Pipeline
 
-**Entry point:** `backend/src/core/image_merger.py:737`
-**Orchestrator:** `backend/src/animation/pipeline.py:87`
+**Entry point:** `middleware/src/core/image_merger.py:737`
+**Orchestrator:** `middleware/src/animation/pipeline.py:87`
 
 ### 3.1 Parameter Resolution Chain
 
@@ -233,8 +233,8 @@ flowchart LR
 
 ### 3.2 Stage 1 — Frame Loading and Dark-Border Trim
 
-**Module:** `backend/src/animation/canvas.py:17` (`_load_frames`)
-**Helper:** `backend/src/animation/stateless.py` (`_trim_dark_border`)
+**Module:** `middleware/src/animation/canvas.py:17` (`_load_frames`)
+**Helper:** `middleware/src/animation/stateless.py` (`_trim_dark_border`)
 
 ```mermaid
 flowchart TD
@@ -253,7 +253,7 @@ flowchart TD
 
 ### 3.3 Stage 2 — Width Normalisation
 
-**Module:** `backend/src/animation/canvas.py:30` (`_normalise_widths`)
+**Module:** `middleware/src/animation/canvas.py:30` (`_normalise_widths`)
 
 ```mermaid
 flowchart TD
@@ -269,7 +269,7 @@ flowchart TD
 
 ### 3.4 Stage 3 — BaSiC Photometric Correction
 
-**Module:** `backend/src/animation/photometric.py`
+**Module:** `middleware/src/animation/photometric.py`
 **Activated by:** `use_basic=True`
 
 ```mermaid
@@ -295,7 +295,7 @@ flowchart TD
 
 ### 3.5 Stage 4 — BiRefNet Foreground Masking
 
-**Module:** `backend/src/animation/masking.py` (`_compute_fg_masks`)
+**Module:** `middleware/src/animation/masking.py` (`_compute_fg_masks`)
 **Constants:** `_FOREGROUND_DILATION=16`, `_FOREGROUND_EROSION=8`
 
 ```mermaid
@@ -320,7 +320,7 @@ flowchart TD
 
 ### 3.6 Stage 4.5 — Background Photometric Normalisation
 
-**Module:** `backend/src/animation/pipeline.py:420` (inline in `run()`)
+**Module:** `middleware/src/animation/pipeline.py:420` (inline in `run()`)
 
 ```mermaid
 flowchart TD
@@ -349,7 +349,7 @@ flowchart TD
 
 ### 3.7 Stages 5-6 — Pairwise Feature Matching
 
-**Module:** `backend/src/animation/matching.py`
+**Module:** `middleware/src/animation/matching.py`
 
 #### 3.7.1 Edge Graph Construction
 
@@ -432,7 +432,7 @@ flowchart TD
 
 ### 3.8 Stage 7 — Global Bundle Adjustment
 
-**Module:** `backend/src/animation/bundle_adjust.py` (`_bundle_adjust_affine`)
+**Module:** `middleware/src/animation/bundle_adjust.py` (`_bundle_adjust_affine`)
 
 ```mermaid
 flowchart TD
@@ -457,7 +457,7 @@ flowchart TD
 
 ### 3.9 Stage 8 — ECC Sub-Pixel Refinement
 
-**Module:** `backend/src/animation/ecc.py` (`_ecc_refine`)
+**Module:** `middleware/src/animation/ecc.py` (`_ecc_refine`)
 **Activated by:** `use_ecc=True`
 
 ```mermaid
@@ -481,7 +481,7 @@ flowchart TD
 
 ### 3.10 Stage 9 — Canvas Construction
 
-**Module:** `backend/src/animation/canvas.py:43` (`_compute_canvas`)
+**Module:** `middleware/src/animation/canvas.py:43` (`_compute_canvas`)
 
 ```mermaid
 flowchart TD
@@ -497,7 +497,7 @@ flowchart TD
 
 ### 3.11 Stage 10 — Temporal Renderer
 
-**Module:** `backend/src/animation/rendering.py`
+**Module:** `middleware/src/animation/rendering.py`
 
 ```mermaid
 flowchart TD
@@ -544,7 +544,7 @@ flowchart TD
 
 ### 3.12 Optional MFSR Super-Resolution Pass
 
-**Module:** `backend/src/animation/mfsr/`
+**Module:** `middleware/src/animation/mfsr/`
 **Activated by:** `mfsr_mode=True`
 
 ```mermaid
@@ -570,7 +570,7 @@ flowchart TD
 
 ### 3.13 Stage 11 — Hard-Partition Foreground Composite (Deghost)
 
-**Module:** `backend/src/animation/compositing.py` (`_composite_foreground`)
+**Module:** `middleware/src/animation/compositing.py` (`_composite_foreground`)
 **Activated by:** `composite_fg=True AND use_birefnet=True`
 
 ```mermaid
@@ -599,7 +599,7 @@ flowchart TD
 
 ### 3.14 Stage 13 — Boundary Crop
 
-**Module:** `backend/src/animation/canvas.py:75` (`_crop_to_valid`)
+**Module:** `middleware/src/animation/canvas.py:75` (`_crop_to_valid`)
 
 ```mermaid
 flowchart TD
@@ -653,7 +653,7 @@ graph TD
 
 ## 6. Constants Quick Reference
 
-All tunable constants live in `backend/src/animation/constants.py`.
+All tunable constants live in `middleware/src/animation/constants.py`.
 
 ### Core Stitching
 

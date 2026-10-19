@@ -7,7 +7,7 @@
 // Session-keyed SQLCipher connection for ~/.image-toolkit/library.db:
 //   - Argon2id KDF runs ONCE in the constructor (vs per-call in base.secret)
 //   - generic parameterized query/execute primitives (the Python DAL in
-//     backend/src/database/unified/ owns all SQL text)
+//     middleware/src/database/unified/ owns all SQL text)
 //   - transactions, maintenance ops, statistics
 //   - embeddings storage + brute-force cosine knn (HNSW arrives in DB.7)
 //

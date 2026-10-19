@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-from backend.src.constants import SUPPORTED_IMG_FORMATS
+from middleware.src.constants import SUPPORTED_IMG_FORMATS
 from PySide6.QtWidgets import QMessageBox
 
 from ....utils.sort_utils import natural_sort_key
@@ -85,7 +85,7 @@ class SimilarityLegacyScanController(TabBoundController):
         return list(SUPPORTED_IMG_FORMATS)
 
     def _list_all_files(self, target_dir: str, extensions: list):
-        from backend.src.core import SimilarityFinder
+        from middleware.src.core import SimilarityFinder
 
         exts = extensions or list(SUPPORTED_IMG_FORMATS)
         recursive = self.recursive_check.isChecked() if hasattr(self, "recursive_check") else False

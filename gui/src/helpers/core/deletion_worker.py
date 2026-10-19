@@ -2,8 +2,8 @@ import logging
 import os
 from typing import Any, Dict, Union
 
-from backend.src.constants import SUPPORTED_IMG_FORMATS
-from backend.src.core import FileDeleter, FSETool
+from middleware.src.constants import SUPPORTED_IMG_FORMATS
+from middleware.src.core import FileDeleter, FSETool
 from PySide6.QtCore import QMutex, QWaitCondition, Signal
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 

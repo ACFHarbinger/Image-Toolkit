@@ -4,8 +4,8 @@ from __future__ import annotations
 import threading
 from collections.abc import Callable
 
-from backend.src.constants.comfy import ServerState, ViewState
-from backend.src.models.core.comfy_manager import ComfyUIManager
+from middleware.src.constants.comfy import ServerState, ViewState
+from middleware.src.models.core.comfy_manager import ComfyUIManager
 from PySide6.QtCore import QObject, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QApplication

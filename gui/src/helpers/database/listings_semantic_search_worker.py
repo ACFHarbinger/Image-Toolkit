@@ -58,7 +58,7 @@ class ListingsSemanticSearchWorker(BaseQRunnableWorker):
             self.signals.cancelled.emit()
             return
 
-        from backend.src.database.unified.search_repo import SearchRepo
+        from middleware.src.database.unified.search_repo import SearchRepo
 
         search = SearchRepo(self.db)
         hits: List[Tuple[str, float, str]]

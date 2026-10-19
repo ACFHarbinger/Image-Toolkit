@@ -114,9 +114,9 @@ def _load_json_file(path: Path) -> dict:
 
 
 def _decrypt_client_secret(account: str, password: str) -> dict:
-    import backend.src.constants.crypto as udef
-    from backend.src.constants.paths import API_DIR
-    from backend.src.core.vault_manager import SecureJsonVault, VaultManager
+    import middleware.src.constants.crypto as udef
+    from middleware.src.constants.paths import API_DIR
+    from middleware.src.core.vault_manager import SecureJsonVault, VaultManager
 
     udef.update_cryptographic_values(account)
     vm = VaultManager()
@@ -292,7 +292,7 @@ def _load_sync_worker():
 def main() -> int:
     print("Image-Toolkit live Drive Local Directory Sync", flush=True)
     args = _parse_args()
-    from backend.src.web.cloud.gdrive_file_client import GoogleDriveFileClient
+    from middleware.src.web.cloud.gdrive_file_client import GoogleDriveFileClient
     from PySide6.QtCore import QCoreApplication
 
     LocalDirSyncWorker = _load_sync_worker()

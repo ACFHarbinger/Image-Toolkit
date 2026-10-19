@@ -17,7 +17,7 @@ from gui.src.constants.elements import _VIDEO_DURATION_CACHE
 logger = logging.getLogger(__name__)
 
 def _is_video(path: str) -> bool:
-    from backend.src.constants import SUPPORTED_VIDEO_FORMATS
+    from middleware.src.constants import SUPPORTED_VIDEO_FORMATS
 
     return os.path.splitext(path)[1].lower() in SUPPORTED_VIDEO_FORMATS
 

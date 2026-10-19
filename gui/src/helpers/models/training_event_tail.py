@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from backend.src.core.training_runs import EVENTS_FILE_NAME
+from middleware.src.core.training_runs import EVENTS_FILE_NAME
 from PySide6.QtCore import QFileSystemWatcher, QObject, Signal, Slot
 
 from gui.src.helpers.base import BaseQThreadWorker

@@ -1,11 +1,11 @@
-#[submodule "backend/src/models/R3GAN"]
-#	path = backend/src/models/R3GAN
+#[submodule "middleware/src/models/R3GAN"]
+#	path = middleware/src/models/R3GAN
 #	url = https://github.com/brownvc/R3GAN.git
-#[submodule "backend/src/models/sd3.5"]
-#	path = backend/src/models/sd3.5
+#[submodule "middleware/src/models/sd3.5"]
+#	path = middleware/src/models/sd3.5
 #	url = https://github.com/Stability-AI/sd3.5.git
-#[submodule "backend/src/models/MetaCLIP"]
-#	path = backend/src/models/MetaCLIP
+#[submodule "middleware/src/models/MetaCLIP"]
+#	path = middleware/src/models/MetaCLIP
 #	url = https://github.com/facebookresearch/MetaCLIP.git
 [submodule "vendor/EfficientLoFTR"]
 	path = vendor/EfficientLoFTR

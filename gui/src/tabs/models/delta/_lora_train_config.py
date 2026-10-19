@@ -2,7 +2,7 @@
 import shutil
 import threading
 
-from backend.src.constants import LOCAL_SOURCE_PATH
+from middleware.src.constants import LOCAL_SOURCE_PATH
 
 from ._lora_train_runs import (  # noqa: F401  re-exported for callers and tests
     AdapterRankWorker,

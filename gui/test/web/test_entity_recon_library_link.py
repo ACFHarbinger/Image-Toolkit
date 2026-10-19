@@ -27,7 +27,7 @@ class TestLibraryLinkGating:
 
         with (
             patch(
-                "backend.src.database.unified.session.is_open", return_value=False
+                "middleware.src.database.unified.session.is_open", return_value=False
             ),
             patch(
                 "gui.src.tabs.web.entity_recon_tab._library_link.QMessageBox.information"
@@ -43,7 +43,7 @@ class TestLibraryLinkGating:
 
         with (
             patch(
-                "backend.src.database.unified.session.is_open", return_value=True
+                "middleware.src.database.unified.session.is_open", return_value=True
             ),
             patch(
                 "gui.src.tabs.web.entity_recon_tab._library_link.QMessageBox.information"
@@ -60,7 +60,7 @@ class TestLibraryLinkGating:
 
         with (
             patch(
-                "backend.src.database.unified.session.is_open", return_value=True
+                "middleware.src.database.unified.session.is_open", return_value=True
             ),
             patch(
                 "gui.src.tabs.web.entity_recon_tab._library_link.QMessageBox.warning"
@@ -85,18 +85,18 @@ class TestLibraryLinkFlow:
 
         with (
             patch(
-                "backend.src.database.unified.session.is_open", return_value=True
+                "middleware.src.database.unified.session.is_open", return_value=True
             ),
             patch(
-                "backend.src.database.unified.session.get_session",
+                "middleware.src.database.unified.session.get_session",
                 return_value=mock_db,
             ),
             patch(
-                "backend.src.database.unified.image_repo.ImageRepo",
+                "middleware.src.database.unified.image_repo.ImageRepo",
                 return_value=mock_image_repo,
             ),
             patch(
-                "backend.src.database.unified.entity_repo.EntityRepo",
+                "middleware.src.database.unified.entity_repo.EntityRepo",
                 return_value=mock_entity_repo,
             ),
             patch(
@@ -132,18 +132,18 @@ class TestLibraryLinkFlow:
 
         with (
             patch(
-                "backend.src.database.unified.session.is_open", return_value=True
+                "middleware.src.database.unified.session.is_open", return_value=True
             ),
             patch(
-                "backend.src.database.unified.session.get_session",
+                "middleware.src.database.unified.session.get_session",
                 return_value=mock_db,
             ),
             patch(
-                "backend.src.database.unified.image_repo.ImageRepo",
+                "middleware.src.database.unified.image_repo.ImageRepo",
                 return_value=mock_image_repo,
             ),
             patch(
-                "backend.src.database.unified.entity_repo.EntityRepo",
+                "middleware.src.database.unified.entity_repo.EntityRepo",
                 return_value=mock_entity_repo,
             ),
             patch(
@@ -178,18 +178,18 @@ class TestLibraryLinkFlow:
 
         with (
             patch(
-                "backend.src.database.unified.session.is_open", return_value=True
+                "middleware.src.database.unified.session.is_open", return_value=True
             ),
             patch(
-                "backend.src.database.unified.session.get_session",
+                "middleware.src.database.unified.session.get_session",
                 return_value=mock_db,
             ),
             patch(
-                "backend.src.database.unified.image_repo.ImageRepo",
+                "middleware.src.database.unified.image_repo.ImageRepo",
                 return_value=mock_image_repo,
             ),
             patch(
-                "backend.src.database.unified.entity_repo.EntityRepo",
+                "middleware.src.database.unified.entity_repo.EntityRepo",
                 return_value=mock_entity_repo,
             ),
             patch(

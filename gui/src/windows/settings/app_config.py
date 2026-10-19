@@ -16,9 +16,9 @@ Lives alongside ``AppSettings`` under ``gui/src/windows/settings/``, not
 utility layer (§5.11A import-linter contract "gui.src.utils must not import
 other GUI layers") and this module imports ``AppSettings`` from
 ``gui.src.windows``, which would break that contract from ``utils``. It also
-deliberately lives under ``gui/src/``, not ``backend/src/``: GUI -> backend
+deliberately lives under ``gui/src/``, not ``middleware/src/``: GUI -> backend
 is the allowed dependency direction (see
-``backend/validation/visualize_module_graph.py``'s layering check) -- the
+``middleware/validation/visualize_module_graph.py``'s layering check) -- the
 reverse would be a genuine architectural violation.
 
 Usage::

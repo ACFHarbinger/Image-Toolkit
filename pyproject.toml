@@ -1,7 +1,7 @@
 [project]
 name = "image-toolkit-workspace"
 version = "1.0.0"
-description = "Root workspace manifest for Image-Toolkit. Python modules: backend/ (see backend/pyproject.toml), gui/ (see gui/pyproject.toml), and the submodules/CRE/ git submodule (see submodules/CRE/pyproject.toml)."
+description = "Root workspace manifest for Image-Toolkit. Python modules: middleware/ (see middleware/pyproject.toml), gui/ (see gui/pyproject.toml), and the submodules/CRE/ git submodule (see submodules/CRE/pyproject.toml)."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
@@ -13,7 +13,7 @@ dependencies = []
 # roots — we list their individual leaf packages instead.
 members = [
     # Image-Toolkit core packages
-    "backend",
+    "middleware",
     "gui",
     # ASP submodule leaf packages
     "submodules/ASP/backend",
@@ -29,7 +29,7 @@ members = [
 [dependency-groups]
 # CI runs `uv sync --group dev` from the workspace root, so the group must be
 # defined here too (uv resolves --group against the invoked project, not
-# transitively across workspace members). Mirrors backend/pyproject.toml's
+# transitively across workspace members). Mirrors middleware/pyproject.toml's
 # `dev` group plus gui/pyproject.toml's `dev` group.
 dev = [
     "black>=26.5.1",
@@ -66,9 +66,9 @@ docs = [
 #                       -r vendor/ComfyUI/manager_requirements.txt)
 # NOTE: torch, torchvision, torchaudio, torchsde, and numpy are intentionally
 # omitted — they are already resolved through the backend workspace member
-# (backend/pyproject.toml) and pinning them here would create version conflicts.
+# (middleware/pyproject.toml) and pinning them here would create version conflicts.
 # Same reasoning covers opencv-python-headless, scikit-image, matplotlib, and
-# sam-2 (backend/pyproject.toml already pins all four) — only the genuinely
+# sam-2 (middleware/pyproject.toml already pins all four) — only the genuinely
 # new custom-node deps below need adding.
 comfyui = [
     # --- Core ComfyUI UI packages ---
@@ -145,7 +145,7 @@ constraint-dependencies = [
 [tool.pyrefly]
 # Pyrefly 1.x config. Interpreter is auto-detected from `.venv/bin/python`.
 # Scope checks to application source; skip vendored/generated trees.
-project_includes = ["gui/src", "backend/src"]
+project_includes = ["gui/src", "middleware/src"]
 project_excludes = [
     "**/__pycache__/**",
     "**/vendor/**",
@@ -155,7 +155,7 @@ project_excludes = [
 ]
 
 [tool.ruff]
-src = ["backend/src", "gui/src"]
+src = ["middleware/src", "gui/src"]
 line-length = 120
 target-version = "py311"
 exclude = [
@@ -191,7 +191,7 @@ warn_unused_configs = true
 ignore_missing_imports = true
 # Per-module overrides — gradually opt in to stricter checking
 [[tool.mypy.overrides]]
-module = ["backend.src.errors"]
+module = ["middleware.src.errors"]
 disallow_untyped_defs = true
 check_untyped_defs = true
 
@@ -200,12 +200,12 @@ python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*", "*Test"]
 python_functions = ["test_*", "*_test"]
 testpaths = [
-    "backend/test",
+    "middleware/test",
     "gui/test",
 ]
 # Submodule suites stay in their own packages. Collecting them from the
 # workspace root puts ASP/HIE `src` packages on sys.path and shadows
-# backend/src (vault_manager, ImageMerger, …). Run those trees explicitly:
+# middleware/src (vault_manager, ImageMerger, …). Run those trees explicitly:
 #   pytest submodules/ASP/backend/test …
 norecursedirs = [
     ".git",
@@ -236,43 +236,43 @@ markers = [
 # Run: PYTHONPATH=. lint-imports
 # ---------------------------------------------------------------------------
 [tool.importlinter]
-root_packages = ["backend", "gui"]
+root_packages = ["middleware", "gui"]
 # Required: the PySide contract below forbids an external package, which
 # import-linter only resolves when external packages join the graph.
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
-# No PySide under backend/src/ outside the app.py launcher (D8/D9, issue
+# No PySide under middleware/src/ outside the app.py launcher (D8/D9, issue
 # #530). Enforces what #529 built: backend is pure Python, Qt lives only
 # in gui/ plus the single allowlisted desktop entry point.
-name = "backend.src must not import PySide except via app.py"
+name = "middleware.src must not import PySide except via app.py"
 type = "forbidden"
-source_modules = ["backend.src"]
+source_modules = ["middleware.src"]
 forbidden_modules = ["PySide6"]
 # grimp records external imports at top-level granularity
-# (backend.src.app -> PySide6), so one entry covers QtCore/QtGui/QtWidgets.
+# (middleware.src.app -> PySide6), so one entry covers QtCore/QtGui/QtWidgets.
 # The forbidden check is transitive: app.py legitimately pulls the GUI
 # (it is the allowlisted desktop launcher — see the GUI contract's own
 # app.py exclusion), which pulls Qt. The second entry cuts that one
 # legitimate chain so only illegitimate paths to PySide can break this.
 ignore_imports = [
-    "backend.src.app -> PySide6",
-    "backend.src.app -> gui.src.windows",
+    "middleware.src.app -> PySide6",
+    "middleware.src.app -> gui.src.windows",
 ]
 
 [[tool.importlinter.contracts]]
 # The production backend packages must never depend on the GUI.
-# Excludes: backend.src.app (app launcher), backend.benchmark, backend.test.
+# Excludes: middleware.src.app (app launcher), middleware.benchmark, middleware.test.
 name = "Backend core must not import GUI"
 type = "forbidden"
 source_modules = [
-    "backend.src.models",
-    "backend.src.core",
-    "backend.src.web",
-    "backend.src.pipeline",
-    "backend.src.constants",
-    "backend.src.errors",
-    "backend.src.utils",
+    "middleware.src.models",
+    "middleware.src.core",
+    "middleware.src.web",
+    "middleware.src.pipeline",
+    "middleware.src.constants",
+    "middleware.src.errors",
+    "middleware.src.utils",
 ]
 forbidden_modules = ["gui"]
 

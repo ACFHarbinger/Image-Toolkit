@@ -17,8 +17,8 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict
 
-from backend.src.constants import DEFAULT_TRANSITION_DELAY_SECONDS
-from backend.src.core import telemetry
+from middleware.src.constants import DEFAULT_TRANSITION_DELAY_SECONDS
+from middleware.src.core import telemetry
 from PySide6.QtWidgets import QMessageBox
 
 from .....components import DraggableMonitorContainer, MonitorDropView

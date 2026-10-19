@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
-from backend.src.constants import LOCAL_SOURCE_PATH
+from middleware.src.constants import LOCAL_SOURCE_PATH
 from PySide6.QtCore import QObject, QRect, QRunnable, Qt, QThreadPool, Signal, Slot
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import (

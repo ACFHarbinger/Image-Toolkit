@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from backend.src.constants import SUPPORTED_VIDEO_FORMATS
+from middleware.src.constants import SUPPORTED_VIDEO_FORMATS
 
 from ...graph.data_schema import GraphData, NodeData
 

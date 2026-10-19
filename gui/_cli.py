@@ -26,7 +26,7 @@ def handle_cli_flags(argv: Sequence[str] | None = None) -> None:
         print(_USAGE, end="")
         raise SystemExit(0)
     if "-v" in args or "--version" in args:
-        from backend.src._version import __version__
+        from middleware.src._version import __version__
 
         print(f"Image Toolkit {__version__}")
         raise SystemExit(0)

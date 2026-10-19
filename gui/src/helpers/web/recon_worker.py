@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
     import numpy as np
 
-from backend.src.web.recon import DatasetIndexer, ReconConfig, ReconEngine
+from middleware.src.web.recon import DatasetIndexer, ReconConfig, ReconEngine
 from PySide6.QtCore import Signal
 
 from gui.src.helpers.base import BaseQThreadWorker

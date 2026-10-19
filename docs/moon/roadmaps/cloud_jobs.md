@@ -9,7 +9,7 @@ ordered plan; check the issues for status.
 
 **Origin:**
 
-- A new service in `backend/src/cloud/` that runs CPU-heavy and GPU-heavy
+- A new service in `middleware/src/cloud/` that runs CPU-heavy and GPU-heavy
   jobs in the cloud, on eight providers:
   - **CPU:** AWS, GCP, Azure, Cloudflare, Oracle.
   - **GPU:** RunPod, Hyperstack, Thunder Compute, plus the GPU offerings
@@ -56,7 +56,7 @@ Consequences:
 
 ## 1. Architecture
 
-### Core model (Qt-free, under `backend/src/cloud/`)
+### Core model (Qt-free, under `middleware/src/cloud/`)
 
 - **`JobSpec`** is the provider-neutral description of a job.
   - A job is a **manifest of shards**, and retry, collection, progress,
@@ -385,7 +385,7 @@ Tracking issue: [#824](https://github.com/ACFHarbinger/Image-Toolkit/issues/824)
 
 | Issue | Deliverable |
 |---|---|
-| [#825](https://github.com/ACFHarbinger/Image-Toolkit/issues/825) | A1: Move `backend/src/web/cloud/compute/` into `backend/src/cloud/`, with re-export shims for one release |
+| [#825](https://github.com/ACFHarbinger/Image-Toolkit/issues/825) | A1: Move `middleware/src/web/cloud/compute/` into `middleware/src/cloud/`, with re-export shims for one release |
 | [#826](https://github.com/ACFHarbinger/Image-Toolkit/issues/826) | A2: `JobSpec`, shard manifest, adapter contract and capability-manifest schema |
 | [#827](https://github.com/ACFHarbinger/Image-Toolkit/issues/827) | A3: `cloud_jobs.db` store (jobs, attempts, shards, `job_events`, spend ledger), retention pruning with export, and the `UsageStore` migration |
 | [#828](https://github.com/ACFHarbinger/Image-Toolkit/issues/828) | A4: State machine and pure reconciler, with idempotency keys, submit reconciliation and clock-triggered `queued` |

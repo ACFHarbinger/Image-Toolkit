@@ -7,7 +7,7 @@ import os
 import tempfile
 from typing import Any, Dict, List, Optional
 
-from backend.src.core.similarity import SimilarityConfig, SimilarityReport, TriageRules
+from middleware.src.core.similarity import SimilarityConfig, SimilarityReport, TriageRules
 from PySide6.QtCore import Property, QPoint, Signal
 
 from gui.src.helpers.core.similarity_scan_worker import SimilarityScanWorker

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from backend.src.constants import LOCAL_SOURCE_PATH
+from middleware.src.constants import LOCAL_SOURCE_PATH
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QWidget
 
@@ -19,7 +19,7 @@ class MediaLoaderTab(QWidget):
     """GUI tab for downloading media (images/video) from the web.
 
     First two source integrations: Reddit (via ``asyncpraw``) and nhentai
-    (gallery-page scrape) -- see ``backend/src/web/downloaders``.
+    (gallery-page scrape) -- see ``middleware/src/web/downloaders``.
 
     Phase 2 (ui-arch-23/#544): mixins collapsed into composed controllers.
     """

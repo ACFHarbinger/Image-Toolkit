@@ -83,7 +83,7 @@ per guided mode on that signal, cache the issues per mode, and stay
 disabled showing the first `TemplateIssue` while any issue is present;
 checkpoint field edits revalidate. Tests validate against a recorded
 `/object_info` pinned to the vendored `vendor/ComfyUI` revision
-(`backend/test/fixtures/comfy_object_info.json`; re-record on bump).
+(`middleware/test/fixtures/comfy_object_info.json`; re-record on bump).
 
 ## Generate surface (#739, #740)
 

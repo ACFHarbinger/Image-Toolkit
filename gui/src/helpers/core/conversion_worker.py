@@ -5,8 +5,8 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional, Union
 
-from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
-from backend.src.core import ImageFormatConverter, VideoFormatConverter
+from middleware.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from middleware.src.core import ImageFormatConverter, VideoFormatConverter
 from PySide6.QtCore import Signal
 
 from gui.src.helpers.base import BaseQThreadWorker

@@ -15,7 +15,7 @@ echo "$$" > "${PIDFILE}"
 echo "===== $(date -Is) detached ungated runner start pid=$$ ====="
 
 # Wait only for a live Python bench, not this wrapper or a TUI command line.
-while pgrep -f ".venv/bin/python .*backend/benchmark/bench_anime_stitch.py" >/dev/null 2>&1; do
+while pgrep -f ".venv/bin/python .*middleware/benchmark/bench_anime_stitch.py" >/dev/null 2>&1; do
   echo "$(date -Is) waiting for existing bench_anime_stitch.py ..."
   sleep 30
 done

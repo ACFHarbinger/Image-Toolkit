@@ -2,7 +2,9 @@
 from unittest.mock import MagicMock
 
 import pytest
-from backend.src.core.guidance_trajectory import (
+from gui.src.components.guidance.what_changed_overlay import WhatChangedOverlay
+from gui.src.windows.image_compare_window import ImageCompareWindow
+from middleware.src.core.guidance_trajectory import (
     STRUCTURAL_HINT,
     AppliedChange,
     GuidanceTrajectory,
@@ -10,8 +12,6 @@ from backend.src.core.guidance_trajectory import (
     append_step,
     record_verdict,
 )
-from gui.src.components.guidance.what_changed_overlay import WhatChangedOverlay
-from gui.src.windows.image_compare_window import ImageCompareWindow
 from PySide6.QtWidgets import QLabel, QLineEdit, QPushButton
 
 pytestmark = pytest.mark.gui
@@ -130,8 +130,8 @@ def test_review_hosts_overlay_under_compare_canvas(q_app, tmp_path):
 def test_bound_pair_loads_parent_and_variant_then_enables_voting(q_app, tmp_path):
     from types import SimpleNamespace
 
-    from backend.src.core.guidance_pair import BoundPair
     from gui.src.tabs.models.dl_workspace_host import _ReviewToolsPage
+    from middleware.src.core.guidance_pair import BoundPair
 
     parent = _png(tmp_path, "parent.png")
     variant = _png(tmp_path, "variant.png")
@@ -244,8 +244,8 @@ def test_pair_worker_can_finish_after_loader_is_deleted(q_app, tmp_path, monkeyp
 def test_verdict_persistence_cannot_finish_in_reverse_order(q_app):
     import threading
 
-    from backend.src.core.guidance_trajectory import record_verdict
     from gui.src.components.guidance.pair_loader import ComparisonPairLoader
+    from middleware.src.core.guidance_trajectory import record_verdict
 
     entered, release, second_written = threading.Event(), threading.Event(), threading.Event()
     saved = []

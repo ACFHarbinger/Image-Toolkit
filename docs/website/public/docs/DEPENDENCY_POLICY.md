@@ -94,7 +94,7 @@ Once approved, add to the correct requirements file and run `uv lock` / `cargo u
 
 ## Removing a Dependency
 
-1. Verify no code paths import the package: `grep -r "import <pkg>" backend/ base/ frontend/src/ app/`.
+1. Verify no code paths import the package: `grep -r "import <pkg>" middleware/ base/ frontend/src/ app/`.
 2. Remove from `requirements.txt` / `Cargo.toml` / `package.json`.
 3. Regenerate the lockfile: `uv lock` / `cargo update` / `npm install`.
 4. Run the full test suite.

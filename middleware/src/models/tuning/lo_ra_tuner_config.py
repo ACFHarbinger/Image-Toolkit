@@ -1,0 +1,122 @@
+"""
+middleware/src/models/lora_diffusion.py
+======================================
+Anime diffusion fine-tuning: LoRATuner (legacy), LoRATunerV2, and
+DreamBoothTuner.
+
+LoRATunerV2 adds over the original:
+  - LyCORIS support (LoCon / LoHa / LoKr via lycoris-lora package)
+  - DoRA / rsLoRA via PEFT
+  - Dual text-encoder training with separate LR multipliers
+  - Min-SNR-γ loss (ε-prediction and v-prediction)
+  - Prodigy / Adafactor / AdamW8bit / Lion optimizers
+  - EMA wrapper compatible with PEFT adapters
+  - SDXL micro-conditioning (original_size / crop_top_left / target_size)
+  - Hydra-compatible config dataclass
+
+DreamBoothTuner extends LoRATunerV2 with prior-preservation loss and
+class-image generation.
+
+FullFineTuner lives in middleware/src/models/full_finetune.py.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Optional
+
+from middleware.src.constants import (  # noqa: F401
+    SDXL_ATTN_TARGETS as SDXL_ATTN_TARGETS,
+)
+from middleware.src.constants import (  # noqa: F401
+    SDXL_CONV_TARGETS as SDXL_CONV_TARGETS,
+)
+from middleware.src.constants import (  # noqa: F401
+    TE_ATTN_TARGETS as TE_ATTN_TARGETS,
+)
+
+
+# ===========================================================================
+# LoRA Tuner Config
+# ===========================================================================
+@dataclass
+class LoRATunerConfig:
+    # Model
+    base_model_path: str = "OnomaAIResearch/Illustrious-XL-v2.0"
+    prediction_type: str = "epsilon"        # 'epsilon' or 'v_prediction'
+    zero_terminal_snr: bool = False         # True for NoobAI-XL Vpred
+    clip_skip: int = 1                      # 1 for Illustrious/NoobAI (not 2!)
+
+    # Adapter
+    method: str = "peft"                    # 'peft' or 'lycoris'
+    rank: int = 16
+    alpha: Optional[int] = None            # defaults to rank
+    use_dora: bool = False
+    use_rslora: bool = False
+    lycoris_algo: str = "lora"             # 'lora','locon','loha','lokr','dylora'
+    lycoris_conv_dim: int = 8
+    lycoris_conv_alpha: int = 4
+
+    # Text encoder training
+    train_text_encoder_one: bool = False
+    train_text_encoder_two: bool = False
+    te_lr_scale: float = 0.5
+
+    # Training
+    resolution: int = 1024
+    train_batch_size: int = 1
+    gradient_accumulation_steps: int = 1
+    gradient_checkpointing: bool = True
+    mixed_precision: str = "bf16"          # 'no','fp16','bf16'
+    # Load the frozen base (UNet, VAE, text encoders) in bf16. peft keeps
+    # adapter weights fp32. Halves base-weight VRAM (needed for SDXL on 12 GB).
+    full_bf16: bool = False
+    # Seeds Python/NumPy/torch RNGs (noise, timesteps, adapter init) when set.
+    seed: Optional[int] = None
+    max_train_steps: Optional[int] = 2000
+    max_train_epochs: Optional[int] = None
+
+    # Loss
+    snr_gamma: Optional[float] = 5.0       # None disables Min-SNR; 1.0 for v-pred
+    noise_offset: float = 0.0
+
+    # Optimizer
+    optimizer_type: str = "adamw8bit"      # 'adamw','adamw8bit','prodigy','adafactor','lion'
+    unet_lr: float = 1e-4
+    lr_scheduler: str = "cosine_with_restarts"
+    lr_warmup_steps: int = 100
+    lr_num_cycles: int = 1
+    weight_decay: float = 1e-2
+
+    # EMA
+    use_ema: bool = False
+    ema_decay: float = 0.9999
+
+    # Output
+    output_dir: str = "output_lora"
+    save_every_n_epochs: int = 1
+    save_precision: str = "bf16"
+
+    # Validation
+    validation_prompts: list[str] = field(default_factory=list)
+    validation_seed: int = 42
+    # #747: persist a fixed-prompt/seed sample grid at every checkpoint
+    # save (the material blind checkpoint tournaments pair up). Off-switch
+    # for runs where the extra sampling cost isn't worth it.
+    sample_grids: bool = True
+
+    # #756: Hutchinson Hessian-trace probes per checkpoint (0 disables the
+    # curvature diagnostic). Disabled until GPU memory cost is validated.
+    hessian_vectors: int = 0
+
+    # Logging: the dead use_wandb/wandb_project/use_tensorboard fields were
+    # removed (#741) — nothing consumed them; the Hydra logging.* tree is a
+    # separate config consumed by anime_training_pipeline.
+
+# ===========================================================================
+# LoRATunerV2
+# ===========================================================================
+
+# ===========================================================================
+# DreamBoothTuner
+# ===========================================================================

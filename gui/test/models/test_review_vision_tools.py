@@ -11,7 +11,7 @@ class _Ocr:
     name = "fake"
 
     def read(self, image_path, *, region=None):
-        from backend.src.core.guidance_vision import OcrBox, OcrResult
+        from middleware.src.core.guidance_vision import OcrBox, OcrResult
 
         return OcrResult("fake", "Hello", (OcrBox("Hello", 0, 0, 1, 1, 90.0),), 8, 8)
 
@@ -24,13 +24,13 @@ class _Advisor:
         self.api_key = api_key
 
     def preview(self, image_path, *, note=""):
-        from backend.src.core.guidance_vision import DeparturePreview
+        from middleware.src.core.guidance_vision import DeparturePreview
 
         leaves = self.placement == "cloud"
         return DeparturePreview(leaves, "api.openai.com" if leaves else "127.0.0.1", ("model", "image", "note"), 12, len(note))
 
     def observe(self, image_path, *, note="", approved=False):
-        from backend.src.core.guidance_vision import VlmObservation
+        from middleware.src.core.guidance_vision import VlmObservation
 
         if self.placement == "cloud" and not approved:
             return VlmObservation("chat", (), "Cloud analysis needs an explicit send approval.")

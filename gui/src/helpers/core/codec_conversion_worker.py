@@ -5,8 +5,8 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional, Union
 
-from backend.src.core import VideoFormatConverter
-from backend.src.core.video.video_probe import probe_codecs
+from middleware.src.core import VideoFormatConverter
+from middleware.src.core.video.video_probe import probe_codecs
 from PySide6.QtCore import Signal
 
 from gui.src.helpers.base import BaseQThreadWorker

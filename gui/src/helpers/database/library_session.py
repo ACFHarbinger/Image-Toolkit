@@ -47,7 +47,7 @@ def get_library_db(vault_manager, parent=None):
     if creds is None:
         return None
 
-    from backend.src.database.unified import session
+    from middleware.src.database.unified import session
 
     if session.is_open():
         db = session.get_session()
@@ -79,7 +79,7 @@ def _maybe_offer_migration(db, vault_manager, parent) -> None:
         return
     _migration_offered = True
 
-    from backend.migrations.migrate_listings import LEGACY_DB
+    from middleware.migrations.migrate_listings import LEGACY_DB
 
     try:
         counts = db.query(
@@ -101,7 +101,7 @@ def _maybe_offer_migration(db, vault_manager, parent) -> None:
         "the PostgreSQL image index if reachable) will be created first, "
         "and the legacy stores are only read — never modified.\n\n"
         "You can also run it later from a terminal:\n"
-        "    python -m backend.migrations.runner",
+        "    python -m middleware.migrations.runner",
         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         QMessageBox.StandardButton.Yes,
     )
@@ -119,8 +119,8 @@ def run_migration_with_progress(vault_manager, parent=None) -> bool:
         return False
     password, salt = creds
 
-    from backend.migrations import runner
-    from backend.src.database.unified import session
+    from middleware.migrations import runner
+    from middleware.src.database.unified import session
 
     # The runner opens its own handles on library.db — release ours first.
     session.close_session()
@@ -176,7 +176,7 @@ def run_migration_with_progress(vault_manager, parent=None) -> bool:
             "Your data is untouched — the legacy stores are read-only during "
             "migration and a verified backup exists under "
             "assets/migrations/pre_unified/. Fix the issue and re-run:\n"
-            "    python -m backend.migrations.runner",
+            "    python -m middleware.migrations.runner",
         )
         return False
 

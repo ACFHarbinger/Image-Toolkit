@@ -7,11 +7,11 @@ the Python backend, C++ base layer, and TypeScript analytics math backbone.
 
 | Suite | Runner | Location | Output | CI job |
 |---|---|---|---|---|
-| **Database** | Python `benchmark/bench_database.py` | `backend/benchmark/` | `results/benchmark_*.json` | `benchmark.yml` |
-| **ML Models** | Python `benchmark/bench_models.py` | `backend/benchmark/` | `results/benchmark_*.json` | `benchmark.yml` |
-| **Image Processing** | Python `benchmark/bench_image_ops.py` | `backend/benchmark/` | `results/benchmark_*.json` | `benchmark.yml` |
+| **Database** | Python `benchmark/bench_database.py` | `middleware/benchmark/` | `results/benchmark_*.json` | `benchmark.yml` |
+| **ML Models** | Python `benchmark/bench_models.py` | `middleware/benchmark/` | `results/benchmark_*.json` | `benchmark.yml` |
+| **Image Processing** | Python `benchmark/bench_image_ops.py` | `middleware/benchmark/` | `results/benchmark_*.json` | `benchmark.yml` |
 | **C++ Base** | `just test-base-cpp` | `base/tests/` | ctest output | `benchmark.yml` |
-| **ASP Corpus** | `backend/benchmark/bench_anime_stitch.py` | `backend/benchmark/` | `data/output/benchmark_report.md` | manual |
+| **ASP Corpus** | `middleware/benchmark/bench_anime_stitch.py` | `middleware/benchmark/` | `data/output/benchmark_report.md` | manual |
 | **Frontend Math** | `npm test` / TypeDoc | `frontend/src/math/` | Jest output | `docs.yml` (type-check) |
 
 ## Prerequisites
@@ -56,8 +56,8 @@ just asp-just bench::help
 ```
 
 `just asp-benchmark-assess` delegates to the ASP submodule's
-`backend/src/cli/eval_dispatch.py` through the benchmark module's explicit
-submodule bootstrap. The legacy `backend/controllers/bench_eval_dispatch.py`
+`middleware/src/cli/eval_dispatch.py` through the benchmark module's explicit
+submodule bootstrap. The legacy `middleware/controllers/bench_eval_dispatch.py`
 compatibility path, when present, forwards to that same implementation. The
 evaluator's human ratings are written to the ASP evaluation data described in
 the ASP submodule documentation; they are not interchangeable with automated
@@ -361,7 +361,7 @@ Each contains 4–20 source frames captured from scroll-through anime content.
 The safe test runner (no GPU, uses pre-computed fixtures) is:
 
 ```bash
-pytest backend/test/animation/ --skip-gpu -q
+pytest middleware/test/animation/ --skip-gpu -q
 ```
 
 **Failure taxonomy** (established across S1–S45 of ASP development):
@@ -386,7 +386,7 @@ pytest backend/test/animation/ --skip-gpu -q
 | SCANS fallback rate | 4/96 tests | — | target ≤ 5 | lower better |
 
 **Corpus interactive analysis**: see `docs/notebooks/benchmark_analysis.ipynb` — loads
-all `backend/benchmark/results/*.json` files and produces metric distributions, failure
+all `middleware/benchmark/results/*.json` files and produces metric distributions, failure
 taxonomy bar charts, and a styled per-test table.
 
 ### Prerequisites
@@ -409,7 +409,7 @@ back to CPU otherwise.
 
 ```bash
 # From the repository root, with the venv active:
-python -m backend.benchmark.bench_anime_stitch   # or: just asp-benchmark
+python -m middleware.benchmark.bench_anime_stitch   # or: just asp-benchmark
 ```
 
 The script processes every `data/asp_test*` directory in natural sort order.
@@ -419,7 +419,7 @@ number of source frames.
 To run a single dataset during development, edit the `__main__` block:
 
 ```python
-# backend/benchmark/bench_anime_stitch.py — bottom of file
+# middleware/benchmark/bench_anime_stitch.py — bottom of file
 datasets = sorted(glob.glob(os.path.join(base_dir, "asp_test1")))  # pin to test1
 ```
 
@@ -698,14 +698,14 @@ with the workspace root set to `data/output/`, or use the absolute path override
 
 ```bash
 # Re-generate with absolute paths (edit generate_report() if needed)
-REPORT_ABS_PATHS=1 python -m backend.benchmark.bench_anime_stitch   # or: just asp-benchmark
+REPORT_ABS_PATHS=1 python -m middleware.benchmark.bench_anime_stitch   # or: just asp-benchmark
 ```
 
 ## Registering a New Benchmark with CI
 
 ### Python benchmark
 
-1. Create `backend/benchmark/bench_<name>.py` following the `BenchmarkRunner` / `@measure_memory` pattern.
+1. Create `middleware/benchmark/bench_<name>.py` following the `BenchmarkRunner` / `@measure_memory` pattern.
 2. Import and call it from `benchmark/run_all.py`:
 
    ```python

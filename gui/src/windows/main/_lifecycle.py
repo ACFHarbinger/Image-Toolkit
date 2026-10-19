@@ -117,7 +117,7 @@ class _LifecycleMixin:
 
         # §2.12A tray-icon setup is NOT constructed here. It is constructed
         # once, right after login (credentials or guest), from
-        # `backend/src/app.py`'s `launch_main_gui()` -- immediately after
+        # `middleware/src/app.py`'s `launch_main_gui()` -- immediately after
         # this window's first `.show()` -- rather than from this event.
         # History: an earlier version of this call was unconditional at
         # construction time / various deferred points (QTimer.singleShot(0),

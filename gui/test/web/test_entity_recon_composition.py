@@ -1,7 +1,7 @@
 """Tests for EntityReconTab mixin-to-composition migration (ui-arch-23, #544)."""
 
 import pytest
-from backend.src.web.recon.config import EMBED_CLIP, EMBED_FACE, SCOPE_LOCAL, SCOPE_WEB
+from middleware.src.web.recon.config import EMBED_CLIP, EMBED_FACE, SCOPE_LOCAL, SCOPE_WEB
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QWidget
 

@@ -128,7 +128,7 @@ def handle_dup_check(payload: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
     if err is not None:
         return err
 
-    from backend.src.core.dir_phash_index import DirPhashIndex
+    from middleware.src.core.dir_phash_index import DirPhashIndex
 
     try:
         threshold = int(payload.get("threshold", cfg.get("threshold", 10)))
@@ -177,7 +177,7 @@ def handle_ingest(payload: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
     if err is not None:
         return err
 
-    from backend.src.core.dir_phash_index import DirPhashIndex
+    from middleware.src.core.dir_phash_index import DirPhashIndex
 
     force = bool(payload.get("force", False))
     dup_root = cfg.get("dup_root") or ""
@@ -239,7 +239,7 @@ def handle_ingest(payload: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
     if payload.get("auto_tag"):
         tag_info: Dict[str, Any] = {}
         try:
-            from backend.src.models.wrappers.wd_tagger_wrapper import (
+            from middleware.src.models.wrappers.wd_tagger_wrapper import (
                 WDTaggerWrapper,
             )
 
@@ -278,7 +278,7 @@ def handle_similar(payload: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
         top_k = 12
     top_k = max(1, min(top_k, 100))
 
-    from backend.src.core.dir_phash_index import DirPhashIndex
+    from middleware.src.core.dir_phash_index import DirPhashIndex
 
     index = DirPhashIndex(dup_root, recursive=bool(cfg.get("recursive", True)))
     try:
@@ -326,7 +326,7 @@ def handle_phash_snapshot(payload: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]
     if not dup_root:
         return 409, {"error": "No duplicate-search directory configured in the app."}
 
-    from backend.src.core.dir_phash_index import DirPhashIndex
+    from middleware.src.core.dir_phash_index import DirPhashIndex
 
     index = DirPhashIndex(dup_root, recursive=bool(cfg.get("recursive", True)))
     try:

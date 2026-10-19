@@ -16,9 +16,9 @@ def test_world_state_persistence_and_bookmarks(tmp_path: Path):
     ws = WorldState(workspace=str(tmp_path))
 
     # Add a custom node coordinate
-    ws.update_node_position("backend.src.app", x=12.5, y=0.0, z=-4.2, pinned=True)
-    assert "backend.src.app" in ws.nodes
-    assert ws.nodes["backend.src.app"].pinned is True
+    ws.update_node_position("middleware.src.app", x=12.5, y=0.0, z=-4.2, pinned=True)
+    assert "middleware.src.app" in ws.nodes
+    assert ws.nodes["middleware.src.app"].pinned is True
 
     # Add a camera bookmark linked to an investigation
     bm = ws.add_bookmark(
@@ -26,7 +26,7 @@ def test_world_state_persistence_and_bookmarks(tmp_path: Path):
         position=[10.0, 20.0, 30.0],
         target=[12.5, 0.0, -4.2],
         investigation_id="inv-001",
-        pinned_node_id="backend.src.app",
+        pinned_node_id="middleware.src.app",
     )
     assert len(ws.bookmarks) == 1
     assert bm.investigation_id == "inv-001"
@@ -39,8 +39,8 @@ def test_world_state_persistence_and_bookmarks(tmp_path: Path):
     # Load from disk and verify fidelity
     loaded = WorldState.load(tmp_path)
     assert loaded.workspace == str(tmp_path.resolve())
-    assert "backend.src.app" in loaded.nodes
-    assert loaded.nodes["backend.src.app"].position == [12.5, 0.0, -4.2]
+    assert "middleware.src.app" in loaded.nodes
+    assert loaded.nodes["middleware.src.app"].position == [12.5, 0.0, -4.2]
     assert len(loaded.bookmarks) == 1
     assert loaded.bookmarks[0].label == "Investigate Seam Artifact"
 

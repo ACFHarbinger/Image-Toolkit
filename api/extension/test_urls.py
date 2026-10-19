@@ -1,7 +1,7 @@
 """Test-only URLConf: mounts just ``api.extension.urls`` under its real
 production prefix (``/api/extension/…``), without pulling in the project's
 full ``api.urls`` (which also includes ``tasks.urls`` — broken independently
-of this app, at ``tasks/tasks.py``'s `from backend.src.database import
+of this app, at ``tasks/tasks.py``'s `from middleware.src.database import
 PgvectorImageDatabase`, an archived DB.6 symbol pre-existing this change and
 out of this bridge work's scope to fix).
 

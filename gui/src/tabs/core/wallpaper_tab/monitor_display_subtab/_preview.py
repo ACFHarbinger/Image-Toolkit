@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
-from backend.src.constants import SUPPORTED_VIDEO_FORMATS
+from middleware.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QTimer, Slot
 from PySide6.QtWidgets import QMessageBox
 

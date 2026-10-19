@@ -2,8 +2,8 @@ import os
 import sys
 import warnings
 
-# ASP's `asp_backend` alias must be registered BEFORE any `backend.src.*`
-# import — `backend.src.app` transitively pulls `windows.settings.app_config`,
+# ASP's `asp_backend` alias must be registered BEFORE any `middleware.src.*`
+# import — `middleware.src.app` transitively pulls `windows.settings.app_config`,
 # which does `from asp_backend.core.config import ...` at module load. In a
 # PyInstaller bundle `__file__` is not a usable repo path, so resolve the root
 # from `sys._MEIPASS` when frozen.
@@ -15,7 +15,7 @@ if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
 
 # --version/--help must run before submodule bootstrap, Qt, or launch_app
-# (#475). Path insert above is enough for backend.src._version.
+# (#475). Path insert above is enough for middleware.src._version.
 from gui._cli import handle_cli_flags  # noqa: E402
 
 handle_cli_flags()
@@ -24,7 +24,7 @@ from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa
 
 register_submodule_packages(repo_root)
 
-from backend.src.app import launch_app  # noqa: E402
+from middleware.src.app import launch_app  # noqa: E402
 
 os.environ.setdefault("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", "")
 
@@ -40,7 +40,7 @@ warnings.filterwarnings(
 # from the #373 KDE-wallpaper investigation in /etc/environment) makes every
 # QMediaPlayer fail to initialize -> Extractor tab video player black. Pin
 # the backend before any QtMultimedia object can be constructed.
-from backend.src.qt_runtime_env import pin_qt_media_backend  # noqa: E402
+from middleware.src.qt_runtime_env import pin_qt_media_backend  # noqa: E402
 
 pin_qt_media_backend()
 

@@ -1,8 +1,8 @@
 import time
 
 import pytest
-from backend.src.constants.comfy import ServerState, ViewState
 from gui.src.modules.comfy_workspace_controller import ComfyWorkspaceController
+from middleware.src.constants.comfy import ServerState, ViewState
 from PySide6.QtTest import QTest as qt_test
 
 pytestmark = pytest.mark.gui

@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import backend.src.constants as udef
+import middleware.src.constants as udef
 from PySide6.QtWidgets import QMessageBox
 
 from ._tab_bound import TabBoundController

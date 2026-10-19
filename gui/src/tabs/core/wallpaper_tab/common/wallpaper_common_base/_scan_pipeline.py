@@ -15,7 +15,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Deque, Iterator, Optional
 
-from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from middleware.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
 
 from ......utils.sort_utils import natural_sort_key
 

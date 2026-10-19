@@ -1,4 +1,4 @@
-from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from middleware.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
 from PySide6.QtWidgets import (
     QButtonGroup,
     QDialog,

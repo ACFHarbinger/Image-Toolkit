@@ -14,8 +14,8 @@ import sys
 import time
 from typing import TYPE_CHECKING, Optional
 
-from backend.src.constants import MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH, ROOT_DIR
-from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
+from middleware.src.constants import MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH, ROOT_DIR
+from middleware.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox
 
@@ -146,7 +146,7 @@ class MonitorDisplaySlideshowDaemonController(TabBoundController):
             )
             return
 
-        script_path = ROOT_DIR / "backend" / "src" / "utils" / "display" / "monitor_slideshow_daemon.py"
+        script_path = ROOT_DIR / "middleware" / "src" / "utils" / "display" / "monitor_slideshow_daemon.py"
         if not script_path.exists():
             QMessageBox.critical(self.tab, "Error", f"Daemon script not found at:\n{script_path}")
             return

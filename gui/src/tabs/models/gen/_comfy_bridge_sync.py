@@ -2,7 +2,7 @@
 import contextlib
 from pathlib import Path
 
-from backend.src.constants.comfy import ServerState
+from middleware.src.constants.comfy import ServerState
 from PySide6.QtCore import QUrl
 
 from gui.src.helpers.worker_retention import retain_until_stopped
@@ -111,7 +111,7 @@ class ComfyBridgeSyncMixin:
         view.load(QUrl(self._manager.url))
         self._web_view = view
         with contextlib.suppress(Exception):
-            from backend.src.comfy_matrix import gpu_lease
+            from middleware.src.comfy_matrix import gpu_lease
             if hasattr(gpu_lease, "note_embedded_view"):
                 gpu_lease.note_embedded_view(str(id(self)), True)
 
@@ -123,7 +123,7 @@ class ComfyBridgeSyncMixin:
         view = self._web_view
         self._web_view = None
         with contextlib.suppress(Exception):
-            from backend.src.comfy_matrix import gpu_lease
+            from middleware.src.comfy_matrix import gpu_lease
             if hasattr(gpu_lease, "note_embedded_view"):
                 gpu_lease.note_embedded_view(str(id(self)), False)
         if self._web_channel is not None and self._bridge is not None:

@@ -9,8 +9,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
-from backend.src.database.unified.entity_repo import EntityRepo
-from backend.src.database.unified.search_repo import SearchRepo
+from middleware.src.database.unified.entity_repo import EntityRepo
+from middleware.src.database.unified.search_repo import SearchRepo
 from PySide6.QtWidgets import QMessageBox
 
 from gui.src.helpers.database.library_session import get_library_db

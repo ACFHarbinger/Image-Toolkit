@@ -13,7 +13,7 @@ import random
 import time
 from typing import TYPE_CHECKING, Dict, Optional
 
-from backend.src.constants import DAEMON_CONFIG_PATH
+from middleware.src.constants import DAEMON_CONFIG_PATH
 from PySide6.QtCore import QTimer, Slot
 from PySide6.QtWidgets import QMessageBox
 

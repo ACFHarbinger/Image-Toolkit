@@ -101,7 +101,7 @@ Each section describes a performance bottleneck, all viable implementation optio
 
 ## ✅ §3.10 Test Suite Process Freeze: Root Cause Analysis {: #-310-test-suite-process-freeze-root-cause-analysis }
 
-> **Severity: CRITICAL — ALL ROOT CAUSES FIXED** — Running `pytest backend/test/animation/ --skip-gpu` is now safe (917 pass). `pytest backend/test/` (all modules) requires §3.15 non-animation audit to be complete. Root causes identified 2026-06-18; all fixed by 2026-06-18.
+> **Severity: CRITICAL — ALL ROOT CAUSES FIXED** — Running `pytest middleware/test/animation/ --skip-gpu` is now safe (917 pass). `pytest middleware/test/` (all modules) requires §3.15 non-animation audit to be complete. Root causes identified 2026-06-18; all fixed by 2026-06-18.
 
 ### Root Cause #1 — `from diffusers import DiffusionPipeline` at module level in `anim_fill.py` ✅ FIXED
 
@@ -154,7 +154,7 @@ This creates ~1,200 thread lifecycle calls during the test run. Under rapid sequ
 
 **Fixes applied:**
 - `pytest-xdist` + `pytest-forked` installed.
-- Parallel mode verified: `pytest backend/test/animation/ -n auto --dist=worksteal --skip-gpu` passes with same failure count, multiple independent worker processes each with bounded RSS.
+- Parallel mode verified: `pytest middleware/test/animation/ -n auto --dist=worksteal --skip-gpu` passes with same failure count, multiple independent worker processes each with bounded RSS.
 - GPU tests isolated with `@pytest.mark.forked` (subprocess) or skipped via `--skip-gpu`.
 - `pyproject.toml` documents the recommended invocations — addopts is intentionally empty (parallel execution is opt-in).
 
@@ -212,7 +212,7 @@ Without process isolation, memory freed by test N is still resident in RSS (glib
 **A — `pytest-xdist` with `-n auto` [Medium effort]**
 ```bash
 pip install pytest-xdist
-pytest backend/test/ -n auto
+pytest middleware/test/ -n auto
 ```
 `pytest-xdist` forks N worker processes (one per CPU core). Each worker handles a subset of tests; when a worker process exits, its OS resources (RAM, VRAM-backed IPC handles) are fully reclaimed by the kernel.
 - Caveat: CUDA contexts cannot be shared between processes. Tests that use CUDA must use `pytest.mark.cuda` + `--forked` worker mode (one fork per test).
@@ -237,8 +237,8 @@ class TestDINOv2Features: ...
 @pytest.fixture(scope="session", autouse=True)
 def clear_ml_singletons():
     yield
-    import backend.src.animation.frame_selection as fs
-    import backend.src.animation.fg_register as fgr
+    import middleware.src.animation.frame_selection as fs
+    import middleware.src.animation.fg_register as fgr
     for k in list(fs._DINOV2_CACHE.keys()):
         model, _ = fs._DINOV2_CACHE.pop(k)
         if model is not None:
@@ -329,13 +329,13 @@ Remaining risk areas after S140:
 ### Options
 
 **A — Audit and lazy-ify all top-level heavy imports [Quick Win per module]**
-For each `backend/src/animation/` module, verify that any library with known heavy import cost (torch, diffusers, transformers, ptlflow, torchvision, skimage, scipy) is either:
+For each `middleware/src/animation/` module, verify that any library with known heavy import cost (torch, diffusers, transformers, ptlflow, torchvision, skimage, scipy) is either:
 1. Imported inside the function that first uses it, OR
 2. Wrapped in `try/except ImportError` so that it degrades gracefully, OR
 3. Documented as a known mandatory dependency in `pyproject.toml [project.dependencies]`.
 
 **B — `importtime` profiling in CI**
-Add a CI step: `python -m pytest --collect-only backend/test/animation/` with `PYTHONPROFILEIMPORTTIME=1` (Python 3.11 startup profiling). Compare import time before/after changes.
+Add a CI step: `python -m pytest --collect-only middleware/test/animation/` with `PYTHONPROFILEIMPORTTIME=1` (Python 3.11 startup profiling). Compare import time before/after changes.
 - Pros: Automated regression detection.
 - Cons: CI-only; doesn't help local development.
 
@@ -350,7 +350,7 @@ ssim_fn = lazy_object_proxy.Proxy(lambda: __import__("skimage.metrics", ...).str
 
 **Recommendation:** A for immediate wins module-by-module. B as a CI regression gate. C only if A produces too many call-site changes.
 
-**Implemented:** Option A + B — comprehensive audit of all `backend/src/animation/` modules complete (2026-06-18):
+**Implemented:** Option A + B — comprehensive audit of all `middleware/src/animation/` modules complete (2026-06-18):
 
 **Phase 1 (S140 + previous session):**
 - `compositing.py`: `import torch as _tc_torch` → `try/except ImportError`.
@@ -366,9 +366,9 @@ ssim_fn = lazy_object_proxy.Proxy(lambda: __import__("skimage.metrics", ...).str
 
 **Phase 3 (wrapper + __init__ sweep — current):**
 - `pipeline.py`: All 5 heavy model-wrapper try/except blocks (BiRefNetWrapper, LoFTRWrapper, EfficientLoFTRWrapper, ALIKEDLightGlueWrapper, unused AnimeStitchNet) replaced with `importlib.util.find_spec()` probes. All 4 classes imported lazily at instantiation sites. "Relocated Nested Imports" block cleaned up (deduplicated; JamMaWrapper lazy).
-- `backend/src/models/__init__.py`: All 8 eager wrapper re-exports removed; only base utilities remain. Previously this caused EVERY import of any wrapper to trigger the full chain (birefnet → transformers + aliked → kornia + eloftr → transformers).
+- `middleware/src/models/__init__.py`: All 8 eager wrapper re-exports removed; only base utilities remain. Previously this caused EVERY import of any wrapper to trigger the full chain (birefnet → transformers + aliked → kornia + eloftr → transformers).
 - `fg_register.py`: `torchvision.models` (464 ms) moved from try/except module-level into `_get_vgg19_feat()`.
-- `backend/scripts/check_import_times.py`: §3.14B CI regression gate — measures all 14 animation modules in subprocesses, flags any exceeding 1.5 s net above baseline. Run: `python backend/scripts/check_import_times.py --ci`.
+- `middleware/scripts/check_import_times.py`: §3.14B CI regression gate — measures all 14 animation modules in subprocesses, flags any exceeding 1.5 s net above baseline. Run: `python middleware/scripts/check_import_times.py --ci`.
 
 **Result (Phase 3):** All 14 animation modules pass the 1.5 s threshold (net cost 0.67–0.80 s, down from 1.6–2.4 s). 917 animation tests pass (0 new failures).
 
@@ -381,27 +381,27 @@ ssim_fn = lazy_object_proxy.Proxy(lambda: __import__("skimage.metrics", ...).str
 
 ### Problem
 
-§3.14 fixed all 14 `backend/src/animation/` modules but left two non-animation source modules with the same "Relocated Nested Imports" pattern, discovered when auditing the non-animation test files in `backend/test/`:
+§3.14 fixed all 14 `middleware/src/animation/` modules but left two non-animation source modules with the same "Relocated Nested Imports" pattern, discovered when auditing the non-animation test files in `middleware/test/`:
 
-- **`backend/src/core/image_merger.py`** — six unconditional model-wrapper imports at module level:
+- **`middleware/src/core/image_merger.py`** — six unconditional model-wrapper imports at module level:
   ```python
-  from backend.src.models.siamese_network import SiameseModelLoader
-  from backend.src.models.gan_wrapper import GanWrapper
-  from backend.src.models.birefnet_wrapper import BiRefNetWrapper   # → transformers (~800ms)
-  from backend.src.models.basic_wrapper import BaSiCWrapper
-  from backend.src.models.loftr_wrapper import LoFTRWrapper          # → kornia (~168ms)
-  from backend.src.animation import AnimeStitchPipeline                   # → entire animation pipeline (~800ms)
+  from middleware.src.models.siamese_network import SiameseModelLoader
+  from middleware.src.models.gan_wrapper import GanWrapper
+  from middleware.src.models.birefnet_wrapper import BiRefNetWrapper   # → transformers (~800ms)
+  from middleware.src.models.basic_wrapper import BaSiCWrapper
+  from middleware.src.models.loftr_wrapper import LoFTRWrapper          # → kornia (~168ms)
+  from middleware.src.animation import AnimeStitchPipeline                   # → entire animation pipeline (~800ms)
   ```
   `test_image_merger_ml.py` imports `ImageMerger` at collection time, triggering all six. Total estimated cost: ~3 s above baseline — would have been flagged as SLOW by the CI gate if core modules were included.
 
-- **`backend/src/core/vault_manager.py`** — `import jpype` unconditionally at module level:
+- **`middleware/src/core/vault_manager.py`** — `import jpype` unconditionally at module level:
   ```python
   import jpype
   from jpype.types import JArray, JChar
   ```
   `test_java_vault_manager.py` imports `VaultManager` at collection time. If jpype is installed, this triggers JVM path resolution. If jpype is absent, it raises `ImportError` crashing collection of all tests that run after it in the same worker.
 
-- **`backend/scripts/check_import_times.py`** — only covered animation modules; core modules were invisible to the CI gate.
+- **`middleware/scripts/check_import_times.py`** — only covered animation modules; core modules were invisible to the CI gate.
 
 ### Options
 
@@ -468,7 +468,7 @@ Divide the canvas into N×M tiles. Process each tile independently (loading only
 
 ## 3.2 ASP Render Stage GPU Acceleration
 
-**✅ Shipped (Option A) — see ROADMAP.md item 3.11.** Confirmed 2026-07-27: `_gpu_nanmedian()` in `backend/src/animation/rendering/rendering.py`, gated behind `ASP_GPU_MEDIAN=1`, with a numpy fallback when CUDA is unavailable. Options B (Numba), C (Cython), D (multiprocessing), E (Welford's online median) not implemented — moot now that A shipped.
+**✅ Shipped (Option A) — see ROADMAP.md item 3.11.** Confirmed 2026-07-27: `_gpu_nanmedian()` in `middleware/src/animation/rendering/rendering.py`, gated behind `ASP_GPU_MEDIAN=1`, with a numpy fallback when CUDA is unavailable. Options B (Numba), C (Cython), D (multiprocessing), E (Welford's online median) not implemented — moot now that A shipped.
 
 **Pain point (original framing):** Stage 10 (temporal median render) averages 20.78s, single-threaded NumPy. The 10-frame, 4K canvas case (test19: 33.8s) is the dominant bottleneck.
 
@@ -506,7 +506,7 @@ Use an online median estimator (e.g., two heaps) that processes one frame at a t
 
 ## 3.3 BiRefNet Inference Batching
 
-**✅ Shipped (Option C) — see ROADMAP.md item 3.12.** Confirmed 2026-07-27: `get_mask_batch()` + `_compute_batch_size()` in `backend/src/models/wrappers/birefnet_wrapper.py` — VRAM-sized dynamic batching via `torch.cuda.mem_get_info()`, falls back to batch=1 on CPU/failure. This is Option C (dynamic batching), which subsumes A/B as described.
+**✅ Shipped (Option C) — see ROADMAP.md item 3.12.** Confirmed 2026-07-27: `get_mask_batch()` + `_compute_batch_size()` in `middleware/src/models/wrappers/birefnet_wrapper.py` — VRAM-sized dynamic batching via `torch.cuda.mem_get_info()`, falls back to batch=1 on CPU/failure. This is Option C (dynamic batching), which subsumes A/B as described.
 
 **Pain point (original framing):** BiRefNet runs once per frame in sequence. For a 14-frame dataset, 14 serial GPU kernel launches underutilise the GPU between calls.
 
@@ -539,7 +539,7 @@ Export BiRefNet to TorchScript or ONNX and run via `onnxruntime`. ONNX Runtime a
 
 ## 3.4 Database Query Optimisation
 
-**Partial — Options A + D shipped, see ROADMAP.md items 4.8 and 2.14.** Confirmed: Option A (psycopg3 connection pool) shipped as `PooledPgvectorDatabase` in `backend/src/database/pooled_image_database.py`; Option D (HNSW index tuning, `m=32, ef_construction=128`, `hnsw.ef_search=80`) shipped per ROADMAP 2.14. Options B (prepared statements), C (partial index), E (materialized view), F (table partitioning) not confirmed — remain open.
+**Partial — Options A + D shipped, see ROADMAP.md items 4.8 and 2.14.** Confirmed: Option A (psycopg3 connection pool) shipped as `PooledPgvectorDatabase` in `middleware/src/database/pooled_image_database.py`; Option D (HNSW index tuning, `m=32, ef_construction=128`, `hnsw.ef_search=80`) shipped per ROADMAP 2.14. Options B (prepared statements), C (partial index), E (materialized view), F (table partitioning) not confirmed — remain open.
 
 **Pain point (original framing):** Several common database operations are suboptimal for large collections (>100k images).
 
@@ -626,7 +626,7 @@ Replace Selenium with Playwright, which has a built-in context manager and more 
 
 **✅ Resolved 2026-07-27 — MOOT, documented.** Issue #76 investigation. ROADMAP.md item 1.7 cited `apply_ar_transform` (`image_converter.rs`) and `fast_resize` (`image_merger.rs`) as the "Done" evidence for this optimisation; neither `.rs` file exists post the Rust→C++ migration (Phase 8, `base/` is now pybind11 + OpenCV, see §3.1/§3.5). This audit located the successor code and confirmed the *original* clone-cost problem does not exist in the current implementation, for two independent reasons:
 
-1. **Successor functions found and read.** `apply_ar_transform` → `base::core::apply_ar()` in `base/src/core/convert.cpp:80-87`, called from `convert_single_image()` (`convert.cpp:105-139`, registered as `base.core.convert_single_image` / `base.core.convert_image_batch`, called from `backend/src/core/image_converter.py`). `fast_resize`'s no-op-preserving intent → `base::core::merge_images_horizontal/vertical/grid()` in `base/src/core/merger.cpp` (registered as `base.core.merge_images_horizontal/vertical/grid`, called from `backend/src/core/image_merger.py`).
+1. **Successor functions found and read.** `apply_ar_transform` → `base::core::apply_ar()` in `base/src/core/convert.cpp:80-87`, called from `convert_single_image()` (`convert.cpp:105-139`, registered as `base.core.convert_single_image` / `base.core.convert_image_batch`, called from `middleware/src/core/image_converter.py`). `fast_resize`'s no-op-preserving intent → `base::core::merge_images_horizontal/vertical/grid()` in `base/src/core/merger.cpp` (registered as `base.core.merge_images_horizontal/vertical/grid`, called from `middleware/src/core/image_merger.py`).
 2. **`cv::Mat` already has the semantics Option A/B were trying to add, for free.** `cv::Mat` is reference-counted with shallow-copy-by-default (copy constructor/assignment/pass-by-value copies only the header + atomically increments a refcount; the pixel buffer is shared until a mutating op needs its own copy). Reading the actual code:
    - `apply_ar(const cv::Mat& img, ...)` takes the input **by const reference** (`convert.cpp:80`) — no copy on entry.
    - The no-op path is literally `if (!aspect_ratio) return img;` (`convert.cpp:82`) — this is exactly Option A/B's goal (return the original image untouched when no transform is needed), and it costs a header copy + one atomic increment, not a 32 MB `memcpy`. There's no Rust-style `DynamicImage::clone()` deep-copy equivalent for this to guard against.
@@ -634,7 +634,7 @@ Replace Selenium with Playwright, which has a built-in context manager and more 
    - `merger.cpp`'s `to_bgr(cv::Mat img)` (`merger.cpp:36`) takes by value, but again that's a cheap header copy, not a buffer copy.
 3. **The pybind11 boundary — flagged in the issue as the most likely place a real copy could hide — doesn't even apply to these functions.** `convert_single_image`/`convert_image_batch`/`merge_images_*` all take **file paths** (`std::string`) in and out; they call `cv::imread`/`cv::imwrite` directly in C++ and never marshal pixel buffers across the Python/C++ boundary as `numpy`/`py::array` at all. (Elsewhere in `base/`, e.g. `base/include/common.hpp`'s `mat_from_array`/`mat_from_f32`, input conversion from numpy is already zero-copy — shares the Python buffer directly per the file's own doc comment — and only the necessary *output* conversion (`array_from_mat`/`array_from_f32`) deep-copies, which is unavoidable there since a new owned Python object must be produced. That pattern isn't used by convert/merge at all, but confirms the codebase already does the right thing where this boundary is actually crossed.)
 
-**Conclusion:** no accidental clone/copy exists in the current C++ code for the operations these Rust functions used to cover. The pain point this section described (a real owned-buffer deep clone, ~32 MB for 4K RGBA) was specific to `image::DynamicImage`'s ownership model and does not recur under `cv::Mat`'s reference-counted semantics. No code change made — manufacturing a fix here would add complexity (e.g. threading `const cv::Mat&` further, or `std::move`) for zero measurable benefit, since `cv::Mat`'s copy constructor is already O(1). `backend/benchmark/bench_cpp_image_processing.py` (exists, covers `merge_images_*`/`convert_*`) was not re-run to "prove" this, since there is no code change to benchmark — the recommendation is not applicable. **Aside, out of scope for #76:** while reading this benchmark file, noticed `bench_convert_512_webp`/`bench_convert_1080_webp`/`bench_convert_512_jpg` call `cpp_core.convert_image(...)` and `bench_merge_*` call `cpp_core.merge_images(...)`, and `bench_scan_flat`/`bench_scan_recursive` call `cpp_core.scan_directory(...)` — none of these three names are bound anywhere in `base/` (the real names are `convert_single_image`/`convert_image_batch`, `merge_images_horizontal`/`_vertical`/`_grid`, and `scan_files`/`scan_files_single`/`scan_files_multi` per `base/src/core/*.cpp` and `backend/src/utils/base_dispatch.py`). 5 of the file's 8 benchmarks appear to currently raise `AttributeError` rather than measure anything; this is a pre-existing stale-benchmark bug unrelated to move semantics and was left unfixed here (separate concern from #76).
+**Conclusion:** no accidental clone/copy exists in the current C++ code for the operations these Rust functions used to cover. The pain point this section described (a real owned-buffer deep clone, ~32 MB for 4K RGBA) was specific to `image::DynamicImage`'s ownership model and does not recur under `cv::Mat`'s reference-counted semantics. No code change made — manufacturing a fix here would add complexity (e.g. threading `const cv::Mat&` further, or `std::move`) for zero measurable benefit, since `cv::Mat`'s copy constructor is already O(1). `middleware/benchmark/bench_cpp_image_processing.py` (exists, covers `merge_images_*`/`convert_*`) was not re-run to "prove" this, since there is no code change to benchmark — the recommendation is not applicable. **Aside, out of scope for #76:** while reading this benchmark file, noticed `bench_convert_512_webp`/`bench_convert_1080_webp`/`bench_convert_512_jpg` call `cpp_core.convert_image(...)` and `bench_merge_*` call `cpp_core.merge_images(...)`, and `bench_scan_flat`/`bench_scan_recursive` call `cpp_core.scan_directory(...)` — none of these three names are bound anywhere in `base/` (the real names are `convert_single_image`/`convert_image_batch`, `merge_images_horizontal`/`_vertical`/`_grid`, and `scan_files`/`scan_files_single`/`scan_files_multi` per `base/src/core/*.cpp` and `middleware/src/utils/base_dispatch.py`). 5 of the file's 8 benchmarks appear to currently raise `AttributeError` rather than measure anything; this is a pre-existing stale-benchmark bug unrelated to move semantics and was left unfixed here (separate concern from #76).
 
 **Superseded options (kept for history — no longer applicable, `cv::Mat` already provides this for free):**
 

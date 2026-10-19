@@ -297,7 +297,7 @@ def parse_args() -> argparse.Namespace:
     ``GITHUB_PROJECT_OWNER``, ``PROJECT_NUMBER``) so the script can be run
     either as ``sync_backlog.py --repo-owner ... --project-id ...`` locally
     or bare (env-driven) in CI, matching how ``check_commit_ref.py`` and the
-    legacy backend/scripts/github/sync_backlog.py were invoked.
+    legacy middleware/scripts/github/sync_backlog.py were invoked.
 
     Returns:
         Parsed argument namespace.

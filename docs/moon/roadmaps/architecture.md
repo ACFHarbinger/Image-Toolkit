@@ -121,9 +121,9 @@ Each section describes an architectural debt or infrastructure gap, all viable i
 
 ## 5.1 ASP Pipeline Unit Test Coverage
 
-**✅ Shipped — see ROADMAP.md item 3.13.** Confirmed 2026-07-27 via `pytest backend/test/animation/ --collect-only` (675 tests collected; covers `bundle_adjust.py`, `compositing.py`, `frame_selection.py`, `canvas.py`, `pipeline.py`, `matching.py`, `validation.py`, `config.py`, `fg_register.py`). Option A (unit tests per stage) is what shipped; Option C (benchmark diff golden-gate CI) is separately tracked at §5.2/ROADMAP 3.14.
+**✅ Shipped — see ROADMAP.md item 3.13.** Confirmed 2026-07-27 via `pytest middleware/test/animation/ --collect-only` (675 tests collected; covers `bundle_adjust.py`, `compositing.py`, `frame_selection.py`, `canvas.py`, `pipeline.py`, `matching.py`, `validation.py`, `config.py`, `fg_register.py`). Option A (unit tests per stage) is what shipped; Option C (benchmark diff golden-gate CI) is separately tracked at §5.2/ROADMAP 3.14.
 
-**Pain point (original framing):** `backend/test/animation/` tests end-to-end ASP runs but has limited unit tests for individual pipeline stages. Regressions in `bundle_adjust.py` or `compositing.py` are hard to catch without running the full benchmark.
+**Pain point (original framing):** `middleware/test/animation/` tests end-to-end ASP runs but has limited unit tests for individual pipeline stages. Regressions in `bundle_adjust.py` or `compositing.py` are hard to catch without running the full benchmark.
 
 ### Options
 
@@ -172,7 +172,7 @@ Store the intermediate outputs of each stage (affine matrices, seam masks, gain-
 
 **✅ Shipped — see ROADMAP.md items 3.14 and 4.3.** Confirmed 2026-07-27: `.github/workflows/benchmark.yml` exists (Option A) and includes a weekly `cron` schedule (Option B, ROADMAP 4.3).
 
-**Pain point (original framing):** The benchmark suite in `backend/benchmark/` exists with baseline comparison but is not wired into GitHub Actions for automatic regression detection.
+**Pain point (original framing):** The benchmark suite in `middleware/benchmark/` exists with baseline comparison but is not wired into GitHub Actions for automatic regression detection.
 
 ### Options
 
@@ -188,7 +188,7 @@ Run `python run_all.py --baseline results/baseline/` on every push to main. Fail
       runs-on: ubuntu-latest
       steps:
         - uses: actions/checkout@v4
-        - run: python backend/benchmark/run_all.py --baseline baseline/
+        - run: python middleware/benchmark/run_all.py --baseline baseline/
         - uses: actions/upload-artifact@v4
           with:
             path: benchmark/results/
@@ -271,7 +271,7 @@ Apply the same registry/interface pattern to compositing strategies (hard-partit
 
 ## 5.4 Logging and Diagnostics
 
-**Partial — Options A and B shipped, see ROADMAP.md items 1.13 and 2.13.** Confirmed: `backend/src/app.py::_setup_logging()` sets up a `RotatingFileHandler` + console handler (Option A), and a per-run pipeline execution trace JSON is written to `PipelineTrace` via `trace.py` (Option B). Options C (GUI log panel — see §2.17 in gui_ux.md, also shipped), D (structlog), E (Sentry), F (OpenTelemetry), G (Rerun.io) remain open/not done.
+**Partial — Options A and B shipped, see ROADMAP.md items 1.13 and 2.13.** Confirmed: `middleware/src/app.py::_setup_logging()` sets up a `RotatingFileHandler` + console handler (Option A), and a per-run pipeline execution trace JSON is written to `PipelineTrace` via `trace.py` (Option B). Options C (GUI log panel — see §2.17 in gui_ux.md, also shipped), D (structlog), E (Sentry), F (OpenTelemetry), G (Rerun.io) remain open/not done.
 
 **Pain point (original framing):** Pipeline logs to stdout with `print()` statements. Diagnosing failures requires replaying the entire run. No structured log format for automated analysis.
 
@@ -338,7 +338,7 @@ Integrate **rerun-sdk** as the primary diagnostic logger for CV-heavy stages. Lo
 
 **S290 update (2026-08-03):** `uv run mypy --explicit-package-bases gui/src` baseline was 4693 errors/397 files, nearly all `attr-defined` noise from `self`-typed mixins that mypy checks in isolation (each composed tab = a `manager.py` host + a dozen-plus mixins). Fix pattern: a `Protocol` per composed tab at `gui/src/<package>/protos/<tab>.py` declaring every attribute/method the mixins assume the host provides, `self: "<Tab>HostProtocol"` on every mixin method, `cast(QWidget, self)` at Qt-API call sites needing a nominal `QWidget`, `# type: ignore[safe-super]` on `super().foo()` calls where `foo`'s only Protocol-visible body is `...`, and explicit class-body attribute annotations where two mixins infer conflicting types for the same host attribute. Fully clean so far: `cbir_train_tab`, `abstract_class_single_gallery`, `abstract_class_two_galleries`, `extractor_tab`, `wallpaper_tab/common/wallpaper_common_base`, `wallpaper_tab/monitor_display_subtab`, `wallpaper_tab/system_display_subtab` — down to 2987 errors/322 files. Remaining large clusters (`scan_metadata_tab`, `search_tab`, `stitch_tab`, `merge_tab`, `similarity_tab`, ...) are unstarted follow-up work under this same item, not new issues. Full session detail in `docs/moon/CHANGELOG.md` S290.
 
-**Pain point (original framing):** `pyproject.toml` lists `mypy>=1.18.2` as a dev dependency but the `[tool.mypy]` section is absent. Pyright is configured with `typeCheckingMode = "off"`. As a result neither type checker runs in CI, and the codebase accumulates type errors silently. Spot checks show: `backend/src/animation/pipeline.py` has 77 function definitions with ~72 return annotations (partial coverage); `gui/src/classes/abstract_class_two_galleries.py` has 79 function definitions with ~38 return annotations (~48% coverage). Worker `config` dictionaries are typed `Dict[str, Any]` throughout — all key accesses are unchecked. The cost of *fixing* the first type error in a fully-strict run of a 150-file codebase is prohibitive; the cost of not enforcing types is a growing silent bug surface.
+**Pain point (original framing):** `pyproject.toml` lists `mypy>=1.18.2` as a dev dependency but the `[tool.mypy]` section is absent. Pyright is configured with `typeCheckingMode = "off"`. As a result neither type checker runs in CI, and the codebase accumulates type errors silently. Spot checks show: `middleware/src/animation/pipeline.py` has 77 function definitions with ~72 return annotations (partial coverage); `gui/src/classes/abstract_class_two_galleries.py` has 79 function definitions with ~38 return annotations (~48% coverage). Worker `config` dictionaries are typed `Dict[str, Any]` throughout — all key accesses are unchecked. The cost of *fixing* the first type error in a fully-strict run of a 150-file codebase is prohibitive; the cost of not enforcing types is a growing silent bug surface.
 
 Informed by: JetBrains 2025 survey (type hint adoption grew from 48% to 71% in Python projects 2022–2025); mypy maintainer guidance on per-module strictness escalation; and the Dropbox engineering blog's account of migrating 4M LOC to mypy over 5 years using per-package ignore files.
 
@@ -357,12 +357,12 @@ disallow_untyped_defs = false
 
 # Strict opt-in per module as they are cleaned up
 [[tool.mypy.overrides]]
-module = ["backend.src.animation.bundle_adjust", "backend.src.animation.validation"]
+module = ["middleware.src.animation.bundle_adjust", "middleware.src.animation.validation"]
 disallow_untyped_defs = true
 warn_return_any = true
 ```
 Migration sequence:
-1. **Week 1**: Enable baseline config (zero violations, just enables the tool). Run `mypy backend/src gui/src` in CI; failures are warnings-only.
+1. **Week 1**: Enable baseline config (zero violations, just enables the tool). Run `mypy middleware/src gui/src` in CI; failures are warnings-only.
 2. **Week 2–N**: Enable `disallow_untyped_defs = true` for each module once it is annotated. Priority order: `constants/` → `core/` → `models/` → `animation/` → `gui/src/classes/` → `gui/src/helpers/`.
 3. **End state**: All modules under strict coverage; `disallow_untyped_defs = true` globally.
 - Pros: Zero upfront disruption. Each PR that adds annotations shrinks the un-strict surface. Directly enabled by §5.9D (`WorkerConfig` TypedDict) and §5.11D (`__all__` hygiene), which are already planned.
@@ -483,16 +483,16 @@ Run `cargo audit` in CI to detect CVEs in Rust crate dependencies.
 
 ---
 
-## 5.8 Model Wrapper Abstraction Layer (`backend/src/models/`)
+## 5.8 Model Wrapper Abstraction Layer (`middleware/src/models/`)
 
-**✅ Shipped — see ROADMAP.md item 4.2 (A+B+C) and A.3 (D).** Confirmed: `ModelWrapper` class exists at `backend/src/models/core/base.py` (moved from the `backend/src/models/base.py` path this section assumes) and properly inherits from `ABC` (completed §5.8A); `@lazy_load` decorator and `ModelRegistry` also shipped per ROADMAP 4.2; the "Relocated Nested Imports" comment blocks (Option D) were removed per ROADMAP A.3.
+**✅ Shipped — see ROADMAP.md item 4.2 (A+B+C) and A.3 (D).** Confirmed: `ModelWrapper` class exists at `middleware/src/models/core/base.py` (moved from the `middleware/src/models/base.py` path this section assumes) and properly inherits from `ABC` (completed §5.8A); `@lazy_load` decorator and `ModelRegistry` also shipped per ROADMAP 4.2; the "Relocated Nested Imports" comment blocks (Option D) were removed per ROADMAP A.3.
 
 **Pain point (original framing):** Every model wrapper (`LoFTRWrapper`, `ALIKEDLightGlueWrapper`, `RoMaWrapper`, `BiRefNetWrapper`, `BaSiCWrapper`, etc.) independently reimplements the same lifecycle boilerplate: CUDA device selection in `__init__`, a `torch.cuda.empty_cache()` + `gc.collect()` `unload()` body, a `logger = logging.getLogger(__name__)` line at module level, and a `# --- Relocated Nested Imports ---` comment block. Adding a new model requires copying this scaffolding by hand.
 
 ### Options
 
 **A — `ModelWrapper` abstract base class [Recommended]**
-Define `backend/src/models/base.py`:
+Define `middleware/src/models/base.py`:
 ```python
 class ModelWrapper(ABC):
     def __init__(self, device: Optional[str] = None) -> None:
@@ -693,9 +693,9 @@ Both `AbstractClassSingleGallery` and `AbstractClassTwoGalleries` call `self._lo
 
 ## 5.11 Circular Import Prevention & Module Boundary Documentation {: #511-circular-import-prevention--module-boundary-documentation }
 
-**✅ Shipped (A+B+C+D). See ROADMAP.md items A.17, A.8, A.4, A.18.** Confirmed: `pyproject.toml` has a `[tool.importlinter]` section with 3 contracts (Option A); `TYPE_CHECKING` guards added for heavy GUI→backend imports (Option B); `__all__` hygiene pass done across 15 `__init__.py` files (Option D). **Option C shipped 2026-07-29**: rather than adding `pydeps` as a new dependency, fixed and wired the codebase's own pre-existing (but broken — its `DEFAULT_LAYERS` prefixes still said `"logic"`, a pre-rename leftover that made it silently detect zero `Backend`-layer modules) `backend/validation/visualize_module_graph.py`. `just validation::module-graph` now scans `backend/src` + `gui/src` together (so cross-boundary edges/violations are visible) and the generated graph is committed at `docs/module_graph.html` (408→475 modules as the epic's file splits landed, 0 unexplained cross-layer violations — 1 allowlisted exception for `backend.src.app`, the Qt composition root).
+**✅ Shipped (A+B+C+D). See ROADMAP.md items A.17, A.8, A.4, A.18.** Confirmed: `pyproject.toml` has a `[tool.importlinter]` section with 3 contracts (Option A); `TYPE_CHECKING` guards added for heavy GUI→backend imports (Option B); `__all__` hygiene pass done across 15 `__init__.py` files (Option D). **Option C shipped 2026-07-29**: rather than adding `pydeps` as a new dependency, fixed and wired the codebase's own pre-existing (but broken — its `DEFAULT_LAYERS` prefixes still said `"logic"`, a pre-rename leftover that made it silently detect zero `Backend`-layer modules) `middleware/validation/visualize_module_graph.py`. `just validation::module-graph` now scans `middleware/src` + `gui/src` together (so cross-boundary edges/violations are visible) and the generated graph is committed at `docs/module_graph.html` (408→475 modules as the epic's file splits landed, 0 unexplained cross-layer violations — 1 allowlisted exception for `middleware.src.app`, the Qt composition root).
 
-**Pain point (original framing):** The project has no documented import rules. As the codebase grows (currently 150+ Python files across `gui/src/`, `backend/src/`, `tasks/`, `api/`), accidental circular imports become increasingly likely. The current architecture has one known dangerous pattern: GUI helpers import `backend.src.*` at module level (e.g. `from backend.src.animation import AnimeStitchPipeline` in `stitch_worker.py`), which pulls in PyTorch and heavy model weights during GUI startup even when the stitch tab is never opened.
+**Pain point (original framing):** The project has no documented import rules. As the codebase grows (currently 150+ Python files across `gui/src/`, `middleware/src/`, `tasks/`, `api/`), accidental circular imports become increasingly likely. The current architecture has one known dangerous pattern: GUI helpers import `middleware.src.*` at module level (e.g. `from middleware.src.animation import AnimeStitchPipeline` in `stitch_worker.py`), which pulls in PyTorch and heavy model weights during GUI startup even when the stitch tab is never opened.
 
 ### Options
 
@@ -710,7 +710,7 @@ name = "GUI must not import from gui internals at module level in helpers"
 type = "layers"
 layers = ["gui.src.windows", "gui.src.tabs", "gui.src.helpers", "gui.src.classes", "gui.src.components", "gui.src.utils"]
 ```
-A separate contract forbids `gui.*` from importing `backend.src.models.*` at module scope (only inside `run()` or `_execute()`).
+A separate contract forbids `gui.*` from importing `middleware.src.models.*` at module scope (only inside `run()` or `_execute()`).
 - Pros: CI-enforced. `import-linter` integrates with pre-commit. Violations shown as import-graph diffs.
 - Cons: `import-linter` is an additional dev dependency. Initial setup requires mapping the actual import graph first.
 
@@ -720,7 +720,7 @@ Heavy backend imports in GUI helpers that are only needed for type annotations s
 from __future__ import annotations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from backend.src.animation import AnimeStitchPipeline
+    from middleware.src.animation import AnimeStitchPipeline
 ```
 - Runtime imports of `AnimeStitchPipeline` (and other heavy models) move inside `_execute()` / `run()`.
 - Pros: Deferred import means PyTorch is not loaded until the worker actually runs. Reduces GUI cold-start time by ~2–4 s on CPU-only machines.
@@ -729,13 +729,13 @@ if TYPE_CHECKING:
 **C — Module-level dependency diagram [Quick Win]**
 Generate a dependency graph using `pydeps` or `pipdeptree` and commit the output as `docs/module_graph.svg`. Update it in CI on merges to `main`. Visible bottlenecks (nodes with 20+ dependents) become obvious candidates for decoupling.
 ```bash
-pydeps backend/src --max-bacon 3 --show-deps -o docs/backend_deps.svg
+pydeps middleware/src --max-bacon 3 --show-deps -o docs/backend_deps.svg
 pydeps gui/src     --max-bacon 3 --show-deps -o docs/gui_deps.svg
 ```
 - Effort: < 2 hours to generate; CI integration < 1 hour.
 
 **D — `__all__` hygiene pass [Quick Win]**
-Every public module in `backend/src/` and `gui/src/` should define `__all__`. Currently most `__init__.py` files use bare re-exports without `__all__`, meaning `from module import *` would leak private helpers. A single pass to add `__all__ = [...]` to every `__init__.py` also serves as living documentation of the public API surface.
+Every public module in `middleware/src/` and `gui/src/` should define `__all__`. Currently most `__init__.py` files use bare re-exports without `__all__`, meaning `from module import *` would leak private helpers. A single pass to add `__all__ = [...]` to every `__init__.py` also serves as living documentation of the public API surface.
 
 **Recommendation:** B immediately (zero new deps, runtime benefit). C + D as a single documentation PR. A once C reveals the actual graph.
 
@@ -743,12 +743,12 @@ Every public module in `backend/src/` and `gui/src/` should define `__all__`. Cu
 
 ## 5.12 Codebase Documentation & Diagrams {: #512-codebase-documentation--diagrams }
 
-**Pain point:** `backend/src/models/` wrapper files have good module-level docstrings explaining the ML model, but function-level docstrings are sparse or absent. `gui/src/classes/` has class-level docstrings but no parameter documentation. New developers cannot understand the tab→worker→backend call chain without reading multiple files. There is no auto-generated API reference.
+**Pain point:** `middleware/src/models/` wrapper files have good module-level docstrings explaining the ML model, but function-level docstrings are sparse or absent. `gui/src/classes/` has class-level docstrings but no parameter documentation. New developers cannot understand the tab→worker→backend call chain without reading multiple files. There is no auto-generated API reference.
 
 ### Options
 
 **A — NumPy-style docstring standard for all public functions**
-Adopt the NumPy docstring convention for all public methods across `backend/src/` and `gui/src/`:
+Adopt the NumPy docstring convention for all public methods across `middleware/src/` and `gui/src/`:
 ```python
 def fit(self, images: List[np.ndarray], luma_only: bool = True) -> Tuple[...]:
     """
@@ -768,13 +768,13 @@ def fit(self, images: List[np.ndarray], luma_only: bool = True) -> Tuple[...]:
     baselines  : np.ndarray, shape (N,), float32
     """
 ```
-- Priority order: (1) all public methods in `backend/src/models/`, (2) all public methods in `backend/src/animation/`, (3) all abstract methods in `gui/src/classes/`.
+- Priority order: (1) all public methods in `middleware/src/models/`, (2) all public methods in `middleware/src/animation/`, (3) all abstract methods in `gui/src/classes/`.
 - The existing `basic_wrapper.py` already uses this style consistently — apply it everywhere.
 
 **B — Mermaid class diagrams in module docstrings**
 Add a `.. mermaid::` (or plain fenced Mermaid block) at the top of key `__init__.py` files showing the class hierarchy:
 ```
-backend/src/models/__init__.py:
+middleware/src/models/__init__.py:
   ModelWrapper (ABC)
   ├── BaSiCWrapper
   ├── BiRefNetWrapper
@@ -804,7 +804,7 @@ A single `docs/architecture_overview.md` (committed to the repo, not just `moon/
 **D — Sphinx auto-docs with pdoc fallback**
 Generate HTML API docs from docstrings using `pdoc` (simpler than Sphinx for a project without RST files):
 ```bash
-pdoc backend/src gui/src --output-dir docs/api/
+pdoc middleware/src gui/src --output-dir docs/api/
 ```
 Wire into CI to regenerate on every merge to `main` and host via GitHub Pages.
 - Pros: Always up-to-date reference. Links between classes are clickable.
@@ -819,9 +819,9 @@ Rather than static Mermaid diagrams, generate a live, GPU-rendered force-directe
 
 ---
 
-## 5.13 Decorator Library for Cross-Cutting Concerns (`backend/src/utils/decorators.py`)
+## 5.13 Decorator Library for Cross-Cutting Concerns (`middleware/src/utils/decorators.py`)
 
-**Partial — Options A, C, E shipped; B not confirmed; D superseded. See ROADMAP.md item A.6.** Confirmed: `log_call()` (Option C) exists at `backend/src/utils/decorators/function_calls.py` (the module became a package rather than a single file, but is still importable via `backend/src/utils/decorators` per Option E); `@lazy_load` (Option A) shipped per ROADMAP 4.2/§5.8. `@require_path` (Option B) not found anywhere in the codebase — still open, delegated 2026-09-13 as issue #624. `@worker_method` (Option D) is superseded by `BaseQThreadWorker`'s built-in three-tier handler (§5.9/§5.15B, already shipped) — the option text itself says to choose one or the other.
+**Partial — Options A, C, E shipped; B not confirmed; D superseded. See ROADMAP.md item A.6.** Confirmed: `log_call()` (Option C) exists at `middleware/src/utils/decorators/function_calls.py` (the module became a package rather than a single file, but is still importable via `middleware/src/utils/decorators` per Option E); `@lazy_load` (Option A) shipped per ROADMAP 4.2/§5.8. `@require_path` (Option B) not found anywhere in the codebase — still open, delegated 2026-09-13 as issue #624. `@worker_method` (Option D) is superseded by `BaseQThreadWorker`'s built-in three-tier handler (§5.9/§5.15B, already shipped) — the option text itself says to choose one or the other.
 
 **Pain point (original framing):** Several patterns recur identically across many files but are not extracted as reusable utilities: (1) "call `self.load()` if not already loaded" appears in every wrapper method body; (2) "emit `self.error.emit(str(e))` on exception" appears in every worker `run()`; (3) "validate that this path exists before doing anything" appears in every file-operation entry point; (4) "log entry + exit with timing" is not applied anywhere but was requested in §5.4.
 
@@ -870,7 +870,7 @@ def log_call(level=logging.DEBUG):
 ```
 Applied selectively to pipeline stages and model `load()`/`unload()` calls. Provides timing data compatible with §5.4B's JSON trace format without instrumenting every function body.
 
-**Status update (2026-07-28):** built (A.6, `backend/src/utils/decorators/function_calls.py`), but never actually applied to any function anywhere in the codebase — a repo-wide grep for `log_call` found zero call sites besides its own definition. Removed as dead code during the controllers/utils restructuring pass. Options A/B/D above remain unimplemented proposals.
+**Status update (2026-07-28):** built (A.6, `middleware/src/utils/decorators/function_calls.py`), but never actually applied to any function anywhere in the codebase — a repo-wide grep for `log_call` found zero call sites besides its own definition. Removed as dead code during the controllers/utils restructuring pass. Options A/B/D above remain unimplemented proposals.
 
 **D — `@worker_method` — standardised exception-to-signal routing**
 For QThread workers that always want exceptions routed to `self.error.emit(str(e))`:
@@ -886,21 +886,21 @@ def worker_method(fn):
 ```
 Applied to `run()` in every `QThread` worker. Pairs with §5.9A's `BaseQThreadWorker` (which provides the same guarantee at the class level — choose one or the other, not both).
 
-**E — `backend/src/utils/decorators.py` module**
+**E — `middleware/src/utils/decorators.py` module**
 All the above decorators live in a single module. Keeps them discoverable and importable via one path. No circular import risk since `decorators.py` only imports stdlib (`functools`, `inspect`, `os`, `time`, `logging`).
 
 **Recommendation:** E is the structure decision — do it first. Then A + C (highest leverage). B + D as follow-ons.
 
 ---
 
-## 5.14 Centralised Settings Facade (`gui/src/utils/settings.py` + `backend/src/animation/config.py`) {: #514-centralised-settings-facade-guisrcutilssettingspy--backendsrcanimconfigpy }
+## 5.14 Centralised Settings Facade (`gui/src/utils/settings.py` + `middleware/src/animation/config.py`) {: #514-centralised-settings-facade-guisrcutilssettingspy--backendsrcanimconfigpy }
 
-**✅ Shipped (A+B+C+D). See ROADMAP.md items A.11, A.12, A.5, A.19.** Confirmed: an `AppSettings` singleton facade exists (Option A) — now at `gui/src/windows/settings/app_settings.py` rather than the `gui/src/utils/settings.py` path this section assumes; `get_asp(key, default)` exists in `backend/src/animation/core/config.py` (Option B); `SETTINGS_SCHEMA` + `_validate_settings()` in `backend/src/app.py` validate QSettings keys at startup (Option D). **Option C shipped 2026-07-29**, now that §5.11 landed: `AppConfig` at `gui/src/windows/settings/app_config.py` — a read-only, introspectable snapshot merging every `ASP_*` env-var key (via the backend's own `asp_schema()`) with `AppSettings`'s known static GUI preference keys, plus a `gui_dynamic_keys` listing (names only) for the runtime-created `session/`/`splitters/`/`labels/` QSettings namespaces that have no fixed schema to snapshot as typed fields. Deliberately placed under `gui/src/windows/settings/`, not `gui/src/utils/` (the original sketch's suggested location) — `gui.src.utils` is the codebase's documented bottom import-linter layer, and this module needs to import `AppSettings` from `gui.src.windows`, which would break that layering contract from `utils`. Additive only: `AppSettings` and `get_asp()` remain the source of truth for all existing read/write call sites.
+**✅ Shipped (A+B+C+D). See ROADMAP.md items A.11, A.12, A.5, A.19.** Confirmed: an `AppSettings` singleton facade exists (Option A) — now at `gui/src/windows/settings/app_settings.py` rather than the `gui/src/utils/settings.py` path this section assumes; `get_asp(key, default)` exists in `middleware/src/animation/core/config.py` (Option B); `SETTINGS_SCHEMA` + `_validate_settings()` in `middleware/src/app.py` validate QSettings keys at startup (Option D). **Option C shipped 2026-07-29**, now that §5.11 landed: `AppConfig` at `gui/src/windows/settings/app_config.py` — a read-only, introspectable snapshot merging every `ASP_*` env-var key (via the backend's own `asp_schema()`) with `AppSettings`'s known static GUI preference keys, plus a `gui_dynamic_keys` listing (names only) for the runtime-created `session/`/`splitters/`/`labels/` QSettings namespaces that have no fixed schema to snapshot as typed fields. Deliberately placed under `gui/src/windows/settings/`, not `gui/src/utils/` (the original sketch's suggested location) — `gui.src.utils` is the codebase's documented bottom import-linter layer, and this module needs to import `AppSettings` from `gui.src.windows`, which would break that layering contract from `utils`. Additive only: `AppSettings` and `get_asp()` remain the source of truth for all existing read/write call sites.
 
 **Pain point (original framing):** Application configuration is split across at least three independent mechanisms with no unified access point:
 1. **GUI persistent state** — `QSettings("ImageToolkit", "ImageToolkit")` is called with hardcoded organisation/application strings in 20+ locations across `abstract_class_two_galleries.py`, `abstract_class_single_gallery.py`, `splitter_persistence.py`, `listings_common.py`, `main_window.py`, and `settings_window.py`. Any typo in the string creates a silently-separate settings namespace.
 2. **Backend ASP flags** — 132+ `os.environ.get("ASP_*", default)` calls scattered across `pipeline.py`, `compositing.py`, `frame_selection.py`, etc. The `config.py` module (§1.8A `load_asp_config`) exists but is not universally used — modules still read `os.environ` directly.
-3. **Application-level constants** — `backend/src/constants/` has 8 modules (`app.py`, `paths.py`, `system.py`, etc.) that mix runtime-changeable values with true compile-time constants.
+3. **Application-level constants** — `middleware/src/constants/` has 8 modules (`app.py`, `paths.py`, `system.py`, etc.) that mix runtime-changeable values with true compile-time constants.
 
 The consequence: there is no single place to enumerate "what settings does this application have", change a settings key, or add validation. Discovered via grep: 20 independent `QSettings("ImageToolkit", "ImageToolkit")` constructor calls, all of which would silently break if the organisation name changed.
 
@@ -950,15 +950,15 @@ app_settings = AppSettings()
 - Cons: Requires touching all 20 call sites. Properties must be added for every new setting.
 
 **B — Merge backend `os.environ.get()` calls into `load_asp_config()` [Recommended]**
-`backend/src/animation/config.py`'s `load_asp_config()` already reads `asp_config.toml` and writes env vars via `os.environ.setdefault`. Extend the contract: every module that currently reads `os.environ.get("ASP_*", default)` at module level should instead call `load_asp_config()` once at startup (already done in `AnimeStitchPipeline.__init__`) and then read from `os.environ` with the guarantee that defaults have been set. Add a module-level assertion `assert "ASP_HOLD_THRESHOLD" in os.environ, "load_asp_config() must be called before importing pipeline modules"` — or better, provide a `get_asp(key, default)` function in `config.py` that is always safe to call.
+`middleware/src/animation/config.py`'s `load_asp_config()` already reads `asp_config.toml` and writes env vars via `os.environ.setdefault`. Extend the contract: every module that currently reads `os.environ.get("ASP_*", default)` at module level should instead call `load_asp_config()` once at startup (already done in `AnimeStitchPipeline.__init__`) and then read from `os.environ` with the guarantee that defaults have been set. Add a module-level assertion `assert "ASP_HOLD_THRESHOLD" in os.environ, "load_asp_config() must be called before importing pipeline modules"` — or better, provide a `get_asp(key, default)` function in `config.py` that is always safe to call.
 - Pros: Eliminates the risk of a module reading an env var before `load_asp_config()` runs. `config.py` remains the single source of defaults.
 - Cons: Requires auditing 132 `os.environ.get()` call sites.
 
 **C — Merge GUI and backend configuration into a single `AppConfig` dataclass**
-Define a top-level `backend/src/config.py` (or `config/app_config.py`) with a `AppConfig` dataclass containing both GUI persistence keys and ASP tuning parameters. On startup, populate it from: (1) `asp_config.toml`, (2) `QSettings`, (3) environment variables (highest priority). Pass the instance down to any component that needs it.
+Define a top-level `middleware/src/config.py` (or `config/app_config.py`) with a `AppConfig` dataclass containing both GUI persistence keys and ASP tuning parameters. On startup, populate it from: (1) `asp_config.toml`, (2) `QSettings`, (3) environment variables (highest priority). Pass the instance down to any component that needs it.
 - Inspired by: Hydra's `DictConfig` pattern; Django's `LazySettings` singleton.
 - Pros: Single `AppConfig` object is the complete application configuration. Fully introspectable: `print(app_config)` lists all values. Enables a "Show current config" debug screen.
-- Cons: Creates a cross-cutting dependency between `gui/` and `backend/`. The PySide6 `QSettings` backend (platform-specific file) and the `tomllib` backend have incompatible persistence models.
+- Cons: Creates a cross-cutting dependency between `gui/` and `middleware/`. The PySide6 `QSettings` backend (platform-specific file) and the `tomllib` backend have incompatible persistence models.
 
 **D — Validate QSettings keys at load time [Quick Win]**
 Define a `SETTINGS_SCHEMA: dict[str, type]` mapping every valid QSettings key to its expected type. Run `_validate_settings(schema)` on app startup that logs a warning for any persisted key not in the schema (stale keys from old versions) and re-applies defaults for any missing key. Zero behaviour change; catches silent regressions from settings key renames.
@@ -981,8 +981,8 @@ Informed by: React's Error Boundary pattern (2016; isolate crash to subtree, not
 
 ### Options
 
-**A — Custom exception hierarchy for `backend/src/` [Recommended]**
-Define `backend/src/exceptions.py`:
+**A — Custom exception hierarchy for `middleware/src/` [Recommended]**
+Define `middleware/src/exceptions.py`:
 ```python
 class ImageToolkitError(Exception):
     """Base for all application-defined exceptions."""
@@ -1034,7 +1034,7 @@ def run(self) -> None:
 A grep-and-fix pass:
 ```bash
 grep -rn "except Exception:\s*pass\|except.*:\s*pass\|print.*Error\|print.*error" \
-     backend/src/ gui/src/ --include="*.py"
+     middleware/src/ gui/src/ --include="*.py"
 ```
 Each hit becomes either a `logger.warning(...)` (if the failure is expected and non-fatal) or a `logger.error(..., exc_info=True)` (if it should never happen). This costs nothing architecturally and eliminates the most dangerous silent failure modes today.
 - Current confirmed instances: `DeletionWorker` (bare `pass`), `ConversionWorker` (3× `print(f"Error...")`).
@@ -1056,11 +1056,11 @@ This makes the difference between "pipeline succeeded via fallback" and "pipelin
 
 ---
 
-## 5.16 Contract Testing for ML Model Wrappers (`backend/src/models/`)
+## 5.16 Contract Testing for ML Model Wrappers (`middleware/src/models/`)
 
-**Partial — Option A shipped; C not yet, B not done. See ROADMAP.md item A.9.** Confirmed: `backend/test/models/test_wrapper_contracts.py` exists with mock-based interface contract tests (Option A). Option C (a shared `ModelWrapperContractMixin`) is not yet factored out — a comment in the test file itself still describes it as future work ("will..."), so individual per-wrapper contract test classes exist without the shared mixin; delegated 2026-09-13 as issue #625. Option B (GPU-gated smoke tests with real weights) not found — still open, not yet delegated (needs a GPU CI runner decision first). Note also: the "827-test suite" figure below is stale post-S200-trim; re-verified 2026-07-27 at 675 tests (see ROADMAP.md item 3.13).
+**Partial — Option A shipped; C not yet, B not done. See ROADMAP.md item A.9.** Confirmed: `middleware/test/models/test_wrapper_contracts.py` exists with mock-based interface contract tests (Option A). Option C (a shared `ModelWrapperContractMixin`) is not yet factored out — a comment in the test file itself still describes it as future work ("will..."), so individual per-wrapper contract test classes exist without the shared mixin; delegated 2026-09-13 as issue #625. Option B (GPU-gated smoke tests with real weights) not found — still open, not yet delegated (needs a GPU CI runner decision first). Note also: the "827-test suite" figure below is stale post-S200-trim; re-verified 2026-07-27 at 675 tests (see ROADMAP.md item 3.13).
 
-**Pain point (original framing):** The 827-test suite covers pipeline logic (`bundle_adjust.py`, `compositing.py`, `validation.py`, `frame_selection.py`, etc.) extensively but has **zero tests for the model wrapper layer** (`backend/src/models/`). The wrappers (`LoFTRWrapper`, `ALIKEDLightGlueWrapper`, `BiRefNetWrapper`, `RoMaWrapper`, `BaSiCWrapper`, `EfficientLoFTRWrapper`, `JamMaWrapper`) are the highest-risk files in the codebase: they wrap third-party PyTorch models whose APIs change across versions, and a silent interface break (wrong tensor shape, changed output key name, removed method) will only surface when the full pipeline is run on real images.
+**Pain point (original framing):** The 827-test suite covers pipeline logic (`bundle_adjust.py`, `compositing.py`, `validation.py`, `frame_selection.py`, etc.) extensively but has **zero tests for the model wrapper layer** (`middleware/src/models/`). The wrappers (`LoFTRWrapper`, `ALIKEDLightGlueWrapper`, `BiRefNetWrapper`, `RoMaWrapper`, `BaSiCWrapper`, `EfficientLoFTRWrapper`, `JamMaWrapper`) are the highest-risk files in the codebase: they wrap third-party PyTorch models whose APIs change across versions, and a silent interface break (wrong tensor shape, changed output key name, removed method) will only surface when the full pipeline is run on real images.
 
 Informed by: Ploomber's ML testing taxonomy (2024) — "Code tests", "Data tests", "Model tests" are three independent concerns; Google's ML Test Score rubric (2016, Sculley et al.) which assigns points for "testing the model's input and output shapes explicitly"; Made With ML / Anyscale MLOps guide (2024) which separates *behavioral tests* (expected outputs) from *infrastructure tests* (model loads, inputs accepted, outputs shaped correctly).
 
@@ -1146,9 +1146,9 @@ Lightweight. Zero mocking needed for shape-only tests if model weights are small
 
 ## 5.17 File Size Limit Enforcement (<500 LoC) {: #517-file-size-limit-enforcement-500-loc }
 
-**Priority: Medium — ✅ Shipped (A+B+D). Options A+D shipped 2026-09-13 as issue #626 (CI-enforced LoC gate + auto-generated LoC dashboard). Option B (splitting) 100% complete — every offender identified in the original audit, across `backend/src/` (issue #117), `gui/src/` medium files (issue #121, 24 files), and the 3 `gui/src/` giants (issue #122: `stitch_tab.py`, `extractor_tab.py`, `settings_window.py`), has been split via package-directory re-export. 5 new post-split drift files exceeding 500 code lines were grandfathered temporarily in `docs/loc_exceptions.txt` and tracked in issue #629 for follow-up Option B splits.** All 8 `backend/src/` files listed below were split using Option B (package-directory, public-API re-export) — `compositing.py` and `pipeline.py`, explicitly the two largest and most benchmark-sensitive files in the codebase, included. Confirmed via `count_loc.py backend/src --sort code`: the largest file anywhere in `backend/src` is now 457 code lines (`animation/core/pipeline/run_stage.py` — see its own module docstring for why it's the one file left close to, rather than comfortably under, the limit: `run()` has no end-to-end regression test, so a full context-object decomposition wasn't attempted). All 24 `gui/src/` files between 515–1,355 code lines were likewise split via Option B (issue #121, superseding the `gui/src` portion of the original issue #116/#118); the 3 giants — `stitch_tab.py` (5,032), `extractor_tab.py` (3,268), and `settings_window.py` (2,505, mostly one `__init__`) — were explicitly scoped *out* of issue #121 per Option E's own triage guidance given their size and centrality, tracked instead under a dedicated issue #122, and have now shipped 2026-07-29 as well (see below).
+**Priority: Medium — ✅ Shipped (A+B+D). Options A+D shipped 2026-09-13 as issue #626 (CI-enforced LoC gate + auto-generated LoC dashboard). Option B (splitting) 100% complete — every offender identified in the original audit, across `middleware/src/` (issue #117), `gui/src/` medium files (issue #121, 24 files), and the 3 `gui/src/` giants (issue #122: `stitch_tab.py`, `extractor_tab.py`, `settings_window.py`), has been split via package-directory re-export. 5 new post-split drift files exceeding 500 code lines were grandfathered temporarily in `docs/loc_exceptions.txt` and tracked in issue #629 for follow-up Option B splits.** All 8 `middleware/src/` files listed below were split using Option B (package-directory, public-API re-export) — `compositing.py` and `pipeline.py`, explicitly the two largest and most benchmark-sensitive files in the codebase, included. Confirmed via `count_loc.py middleware/src --sort code`: the largest file anywhere in `middleware/src` is now 457 code lines (`animation/core/pipeline/run_stage.py` — see its own module docstring for why it's the one file left close to, rather than comfortably under, the limit: `run()` has no end-to-end regression test, so a full context-object decomposition wasn't attempted). All 24 `gui/src/` files between 515–1,355 code lines were likewise split via Option B (issue #121, superseding the `gui/src` portion of the original issue #116/#118); the 3 giants — `stitch_tab.py` (5,032), `extractor_tab.py` (3,268), and `settings_window.py` (2,505, mostly one `__init__`) — were explicitly scoped *out* of issue #121 per Option E's own triage guidance given their size and centrality, tracked instead under a dedicated issue #122, and have now shipped 2026-07-29 as well (see below).
 
-**Pain point (historical — resolved 2026-07-29):** `backend/src/utils/validation/count_loc.py` (already built, already used ad hoc — see §5.12/§5.11C's companion `tree_loc.py`) has never been wired into an *enforced* limit (Option A is still open), which is why these files were able to grow this large before being caught by a manual audit in the first place. Two files had exceeded **5,000 code lines** (`gui/src/tabs/animation/stitch_tab.py` at 5,032; `gui/src/tabs/core/extractor_tab.py` at 3,268); `windows/settings/settings_window.py` (2,505) was the third giant. All `gui/src/` (24 medium + 3 giants) and `backend/src/` (8 files) offenders identified in the original audit have now been split (issues #121, #122, and #117 respectively). Large files had compounding costs specific to this codebase: `stitch_tab.py` mixed HITL checkpoint UI, session replay, and pipeline-trigger logic in one class, making it the single riskiest file to touch for any change (as already flagged informally in `docs/moon/roadmaps/asp_sessions_log.md`); `settings_window.py`'s `__init__` alone was ~1,113 physical lines of widget construction, meaning even IDE "go to definition" and code review degraded badly; and `count_loc.py`'s own output repeatedly drifted from hand-maintained snapshots within a day of other sessions committing, confirming that a *manual* audit process cannot keep pace with concurrent work on this codebase and only a CI-enforced gate (Option A, still open) will hold the line going forward for *new* files.
+**Pain point (historical — resolved 2026-07-29):** `middleware/src/utils/validation/count_loc.py` (already built, already used ad hoc — see §5.12/§5.11C's companion `tree_loc.py`) has never been wired into an *enforced* limit (Option A is still open), which is why these files were able to grow this large before being caught by a manual audit in the first place. Two files had exceeded **5,000 code lines** (`gui/src/tabs/animation/stitch_tab.py` at 5,032; `gui/src/tabs/core/extractor_tab.py` at 3,268); `windows/settings/settings_window.py` (2,505) was the third giant. All `gui/src/` (24 medium + 3 giants) and `middleware/src/` (8 files) offenders identified in the original audit have now been split (issues #121, #122, and #117 respectively). Large files had compounding costs specific to this codebase: `stitch_tab.py` mixed HITL checkpoint UI, session replay, and pipeline-trigger logic in one class, making it the single riskiest file to touch for any change (as already flagged informally in `docs/moon/roadmaps/asp_sessions_log.md`); `settings_window.py`'s `__init__` alone was ~1,113 physical lines of widget construction, meaning even IDE "go to definition" and code review degraded badly; and `count_loc.py`'s own output repeatedly drifted from hand-maintained snapshots within a day of other sessions committing, confirming that a *manual* audit process cannot keep pace with concurrent work on this codebase and only a CI-enforced gate (Option A, still open) will hold the line going forward for *new* files.
 
 **Fresh count (2026-07-28, `count_loc.py --sort code`, code lines only, excludes comments/docstrings/blank):**
 
@@ -1193,7 +1193,7 @@ Two methods were deliberately kept whole rather than force an unsafe split, foll
 
 One file among the 24 (`helpers/animation/stitch_worker/_progress_pipeline.py`) still exceeds 500 code lines post-split (689) by deliberate choice, not oversight — its `run()` is the crash/behavior-sensitive ASP stage-by-stage HITL pipeline threading a large amount of local state across 13 sequential stages via closures; decomposing it further into sub-methods would require converting that state into instance attributes for a line-count-only benefit, a real behavior-change risk documented in the file's own module docstring. Flagged as a candidate for a future dedicated session, not attempted here.
 
-`backend/src/` — all 8 files **✅ shipped 2026-07-29**, split via Option B (package-directory, public-API re-export). Pre-split code-LoC shown for reference; each is now a package whose largest sibling file is well under 500 code lines (worst case: `animation/core/pipeline/run_stage.py` at 457):
+`middleware/src/` — all 8 files **✅ shipped 2026-07-29**, split via Option B (package-directory, public-API re-export). Pre-split code-LoC shown for reference; each is now a package whose largest sibling file is well under 500 code lines (worst case: `animation/core/pipeline/run_stage.py` at 457):
 
 | File (pre-split) | Code LoC | Now | Commit |
 |---|---|---|---|
@@ -1206,7 +1206,7 @@ One file among the 24 (`helpers/animation/stitch_worker/_progress_pipeline.py`) 
 | `core/wallpaper.py` | 570 | `core/wallpaper/` (6 files) | `084b5801` |
 | `animation/alignment/matching.py` | 517 | `animation/alignment/matching/` (5 files) | `b6b16a93` |
 
-Every external `from ...pipeline import AnimeStitchPipeline`-style import keeps working unchanged — each package's `__init__.py` re-exports the original public API. Verified per-file via: the file's own test suite, the full `backend/test/animation/ --skip-gpu` suite (670 passed/5 skipped, stable across all 8), `ruff check`, `uv run lint-imports` (all 3 contracts kept), and a regenerated `docs/module_graph.html` (0 unexplained cross-layer violations throughout). Ref: issue #117 (closed by this work).
+Every external `from ...pipeline import AnimeStitchPipeline`-style import keeps working unchanged — each package's `__init__.py` re-exports the original public API. Verified per-file via: the file's own test suite, the full `middleware/test/animation/ --skip-gpu` suite (670 passed/5 skipped, stable across all 8), `ruff check`, `uv run lint-imports` (all 3 contracts kept), and a regenerated `docs/module_graph.html` (0 unexplained cross-layer violations throughout). Ref: issue #117 (closed by this work).
 
 `gui/src/`'s 24 medium files (issue #121) all shipped as above — same verification pattern per file (scoped tests, ruff, lint-imports, live Qt construction), plus a mandatory MRO-shadowing check for every class extending `AbstractClassTwoGalleries`/`AbstractClassSingleGallery`/`WallpaperCommonBase`/`QWidget`/`QLabel` (mixins must precede the base class in the class declaration, or the base class's own same-named methods silently shadow the mixin's override — discovered via a real regression in `merge_tab.py`'s Ctrl+Wheel handler, now documented and applied everywhere in this epic). The 3 giants (`stitch_tab.py`, `extractor_tab.py`, `settings_window.py`) were deferred out of issue #121's scope but have since shipped under issue #122 (see the table above) — same MRO rule applied, extending it to `StitchTab`'s node-graph/match-editor helper classes and `VideoExtractorSubTab`'s `AbstractClassSingleGallery` base. Issue #121 explicitly excluded the giants (superseding the `gui/src` portion of the original #116/#118, both closed without that work landing); issue #122 was filed specifically to pick them up, and all `gui/src/` file-size offenders identified across both audits are now split.
 
@@ -1215,7 +1215,7 @@ Notes on borderline cases: `frame_selection.py`'s comment+docstring density (237
 ### Options
 
 **A — CI-enforced LoC gate using the existing `count_loc.py` [Quick Win, Recommended]**
-Add a `--max-code-lines N --fail-over` mode to `count_loc.py` (or a thin wrapper script) that exits non-zero if any file under `gui/src/` or `backend/src/` exceeds 500 code lines, and wire it into a new `just check-loc` target plus a CI job. New files are checked on every PR; the *existing* offenders are grandfathered via an explicit allow-list (a `docs/loc_exceptions.txt` of paths, each requiring a comment linking to the tracking issue) so the gate does not block unrelated work immediately — as of 2026-07-30 that allow-list only needs the 3 remaining `gui/src/` giants (`stitch_tab.py`, `extractor_tab.py`, `settings_window.py`) plus `helpers/animation/stitch_worker/_progress_pipeline.py` (689 code lines, deliberately not split further — see above); the 8 `backend/src/` offenders (issue #117) and 24 `gui/src/` medium files (issue #121) shipped and no longer need an entry.
+Add a `--max-code-lines N --fail-over` mode to `count_loc.py` (or a thin wrapper script) that exits non-zero if any file under `gui/src/` or `middleware/src/` exceeds 500 code lines, and wire it into a new `just check-loc` target plus a CI job. New files are checked on every PR; the *existing* offenders are grandfathered via an explicit allow-list (a `docs/loc_exceptions.txt` of paths, each requiring a comment linking to the tracking issue) so the gate does not block unrelated work immediately — as of 2026-07-30 that allow-list only needs the 3 remaining `gui/src/` giants (`stitch_tab.py`, `extractor_tab.py`, `settings_window.py`) plus `helpers/animation/stitch_worker/_progress_pipeline.py` (689 code lines, deliberately not split further — see above); the 8 `middleware/src/` offenders (issue #117) and 24 `gui/src/` medium files (issue #121) shipped and no longer need an entry.
 - Pros: Stops the bleeding immediately — no new file can quietly cross 500 lines. Reuses a tool that already exists and already has a `--sort`/`--limit` CLI. Zero new dependencies.
 - Cons: The allow-list itself needs periodic pruning as files are split, or it silently becomes permanent scaffolding.
 
@@ -1285,7 +1285,7 @@ No further gui/src directory-level reorg work is currently outstanding.
 |---|---|---|---|---|
 | **Low (<1d)** | §5.8D remove relocated-import comments · §5.10C metaclass docstring · §5.10D `_load_thumbnail_size` extraction · §5.11C module graph · §5.11D `__all__` hygiene · §5.13C `@log_call` decorator · §5.14D QSettings key validation · §5.15C eliminate bare `except: pass` | §5.4A `logging` module adoption · §5.5B Pyright `basic` mode · §5.7A `uv lock` · §5.7C+D pip-audit + cargo-audit · §5.9C progress tuple · §5.9D `WorkerConfig` typed dicts · §5.17A CI LoC gate ✅ · §5.17D LoC dashboard ✅ | §5.1A per-stage unit tests (most stages) · §5.11B TYPE_CHECKING guards (deferred heavy imports) · §5.16A wrapper contract tests (mock-based) · §5.17E per-file blast-radius triage | — |
 | **Medium (1d–1w)** | — | §5.4B pipeline trace JSON · §5.5A mypy baseline + per-module opt-in · §5.5C TypedDict worker configs · §5.6A remote wallpaper API · §5.6B gallery web view · §5.12C tab→worker→backend doc · §5.13A `@lazy_load` + §5.13E `decorators.py` module · §5.14A `AppSettings` GUI facade · §5.14B merge backend `os.environ` into `load_asp_config` | §5.2A+B benchmark regression CI · §5.8A `ModelWrapper` ABC + §5.8B `@lazy_load` · §5.9A `BaseQThreadWorker` + §5.9B `BaseQRunnableWorker` · §5.12A NumPy docstrings · §5.12B Mermaid diagrams · §5.15A custom exception hierarchy · §5.15B error boundary in `BaseQThreadWorker` · §5.17B split of a single self-contained file (e.g. `settings_window.py`'s method-group mixins) | §5.16C `ModelWrapperContractMixin` (after §5.8A) |
-| **High (1–2w)** | — | §5.3C Protocol-based duck typing | §5.3B abstract Matcher base class + §5.3E Compositor registry · §5.10A `AbstractGalleryBase` + §5.10B replace metaclass injection · §5.15D per-stage error context in trace JSON | §5.16B GPU smoke tests on weekly CI (after §5.2B) · §5.17B ✅ all `backend/src` (issue #117, 2026-07-29), `gui/src` medium (issue #121, 2026-07-29/30), and `gui/src` giants (issue #122, 2026-07-29) offenders shipped |
+| **High (1–2w)** | — | §5.3C Protocol-based duck typing | §5.3B abstract Matcher base class + §5.3E Compositor registry · §5.10A `AbstractGalleryBase` + §5.10B replace metaclass injection · §5.15D per-stage error context in trace JSON | §5.16B GPU smoke tests on weekly CI (after §5.2B) · §5.17B ✅ all `middleware/src` (issue #117, 2026-07-29), `gui/src` medium (issue #121, 2026-07-29/30), and `gui/src` giants (issue #122, 2026-07-29) offenders shipped |
 | **Very High (2w+)** | — | — | §5.1C benchmark golden-gate diff (CI integration) · §5.11A `import-linter` enforcement · §5.12D Sphinx/pdoc auto-docs · §5.5A full strict mypy coverage (end state) | — |
 
 ---
@@ -1327,9 +1327,9 @@ non-GUI architecture items (§5.1–§5.17) only.
 
 *Last updated: 2026-06-18. Added §5.5 (Gradual Static Type Safety), §5.8–§5.13 (model wrapper abstraction, worker lifecycle standardisation, gallery base class consolidation, circular import prevention, codebase documentation & diagrams, decorator library), and §5.14–§5.16 (centralised settings facade, fault isolation & error boundary protocol, contract testing for ML wrappers). ASP unit tests now at 827 (session 131). ASP benchmark corpus: 97 tests. Phase 2 architecture defined: direct video ingestion (PyAV `VideoIngestionStream`), multi-modal HITL with Grounded SAM-2. See `the ASP submodule's moon/ROADMAP.md` for per-session tracking and Phase 2 Sprint specs.*
 
-*Updated 2026-07-28: Added §5.17 (File Size Limit Enforcement, <500 LoC — high priority, 27 `gui/src` + 8 `backend/src` offenders identified via a fresh `count_loc.py` run). §5.9 (Worker Thread Base Class & Lifecycle Standardisation) completed this session — Options C (`(completed, total)` progress tuples) and D (`WorkerConfig` TypedDicts) shipped across all remaining int-percentage workers; §5.9 marked ✅ Shipped (A+B+C+D) and its Mermaid node updated to `:::done`. See GitHub issues tracking §5.17's file-size epic and §5.9's now-closed quick wins for follow-up.*
+*Updated 2026-07-28: Added §5.17 (File Size Limit Enforcement, <500 LoC — high priority, 27 `gui/src` + 8 `middleware/src` offenders identified via a fresh `count_loc.py` run). §5.9 (Worker Thread Base Class & Lifecycle Standardisation) completed this session — Options C (`(completed, total)` progress tuples) and D (`WorkerConfig` TypedDicts) shipped across all remaining int-percentage workers; §5.9 marked ✅ Shipped (A+B+C+D) and its Mermaid node updated to `:::done`. See GitHub issues tracking §5.17's file-size epic and §5.9's now-closed quick wins for follow-up.*
 
-*Updated 2026-07-29: §5.11 (Option C — module dependency graph) and §5.14 (Option C — unified `AppConfig`) both shipped, closing out their remaining open sub-items; both now marked ✅ Shipped (A+B+C+D). §5.17: all 8 `backend/src/` offenders (issue #117) split via Option B and shipped — `compositing.py` (1,787 LoC) and `pipeline.py` (1,635 LoC), the two largest/most benchmark-sensitive files in the codebase, included; largest file anywhere in `backend/src/` is now 457 code lines. §5.17's `gui/src/` half (issue #116, 27 files) remains open and is deferred to a follow-up session. See GitHub issue #117 (closed by this work), #120 (§5.11C/§5.14C DRY work), and the parent epic #118 (now partially complete) for tracking.*
+*Updated 2026-07-29: §5.11 (Option C — module dependency graph) and §5.14 (Option C — unified `AppConfig`) both shipped, closing out their remaining open sub-items; both now marked ✅ Shipped (A+B+C+D). §5.17: all 8 `middleware/src/` offenders (issue #117) split via Option B and shipped — `compositing.py` (1,787 LoC) and `pipeline.py` (1,635 LoC), the two largest/most benchmark-sensitive files in the codebase, included; largest file anywhere in `middleware/src/` is now 457 code lines. §5.17's `gui/src/` half (issue #116, 27 files) remains open and is deferred to a follow-up session. See GitHub issue #117 (closed by this work), #120 (§5.11C/§5.14C DRY work), and the parent epic #118 (now partially complete) for tracking.*
 
 *Updated 2026-07-30: §5.17: all 24 `gui/src/` files between 515–1,355 code lines split via Option B and shipped under a fresh issue #121 (filed to supersede the `gui/src` portion of #116/#118, both of which had been closed on GitHub without that work landing). Every split composed per-concern mixins via multiple inheritance, following each file's existing comment-banner/method-group structure; discovered and documented a previously-unknown MRO-shadowing bug in the process (a mixin's override of a method the base class already defines is silently shadowed if the base class is listed before the mixins in the class declaration — fixed by always listing mixins first, verified via a real regression in `merge_tab.py`'s Ctrl+Wheel handler) and applied that ordering to every subsequent split touching `AbstractClassTwoGalleries`, `AbstractClassSingleGallery`, `WallpaperCommonBase`, `QWidget`, or `QLabel`. One file (`helpers/animation/stitch_worker/_progress_pipeline.py`, 689 code lines) was deliberately left over the limit — its `run()` is the crash/behavior-sensitive ASP HITL pipeline, and decomposing it further was judged a real behavior-change risk for no benefit beyond the line count. The 3 remaining giants (`stitch_tab.py` 5,032, `extractor_tab.py` 3,268, `settings_window.py` 2,505) stay explicitly out of scope, tracked for a dedicated follow-up. Verified end-to-end: `uv run lint-imports` (all 3 contracts kept), a regenerated `docs/module_graph.html` (723 modules, 1,131 edges, 0 unexplained cross-layer violations), and per-file scoped test runs (all previously-passing tests green; a handful of pre-existing unrelated failures confirmed via git-stash baseline comparisons). See GitHub issue #121 (tracking this work) and the parent epics #116/#118 (both closed; #121 supersedes their `gui/src` scope).*
 

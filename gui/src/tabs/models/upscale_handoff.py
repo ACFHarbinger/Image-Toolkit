@@ -1,7 +1,7 @@
 """Upscale handoff: Send-to-Upscale job shared by Generate/Review (#749).
 
 Wires the existing (previously unwired) ``ESRGANWrapper``
-(``backend/src/models/wrappers/esrgan_wrapper.py``) into the DL workspace:
+(``middleware/src/models/wrappers/esrgan_wrapper.py``) into the DL workspace:
 every surface resolves its output to image bytes or a local file, runs one
 admission-guarded job off the GUI thread, and lands the result back where
 the source was shown.
@@ -19,8 +19,8 @@ import tempfile
 import threading
 from pathlib import Path
 
-from backend.src.comfy_matrix import gpu_lease, try_admit
-from backend.src.core.gpu_vram_estimate import estimate_job_gb, image_size
+from middleware.src.comfy_matrix import gpu_lease, try_admit
+from middleware.src.core.gpu_vram_estimate import estimate_job_gb, image_size
 from PySide6.QtCore import QObject, Signal
 
 UPSCALE_OWNER = "upscale"
@@ -103,7 +103,7 @@ def run_upscale_file(input_path: str, output_path: str) -> str:
     if refusal:
         raise RuntimeError(refusal)
     try:
-        from backend.src.models.wrappers.esrgan_wrapper import ESRGANWrapper
+        from middleware.src.models.wrappers.esrgan_wrapper import ESRGANWrapper
 
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
         # Exclusive reservation prevents overwriting an earlier result or a symlink.

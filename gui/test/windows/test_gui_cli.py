@@ -7,8 +7,8 @@ import sys
 from pathlib import Path
 
 import pytest
-from backend.src._version import __version__
 from gui._cli import handle_cli_flags
+from middleware.src._version import __version__
 
 _REPO = Path(__file__).resolve().parents[3]
 _MAIN = _REPO / "gui" / "__main__.py"

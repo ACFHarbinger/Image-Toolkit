@@ -42,7 +42,7 @@ class TagReviewWorker(BaseQThreadWorker):
         self.skip_already_tagged = skip_already_tagged
 
     def _execute(self) -> object:
-        from backend.src.models.wrappers.wd_tagger_wrapper import WDTaggerWrapper
+        from middleware.src.models.wrappers.wd_tagger_wrapper import WDTaggerWrapper
 
         if not WDTaggerWrapper.is_available():
             raise RuntimeError(

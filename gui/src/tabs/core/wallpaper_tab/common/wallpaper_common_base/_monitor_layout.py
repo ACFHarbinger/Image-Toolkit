@@ -11,7 +11,7 @@ import platform
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, cast
 
-from backend.src.core import WallpaperManager
+from middleware.src.core import WallpaperManager
 from PySide6.QtWidgets import QLabel, QMessageBox, QWidget
 from screeninfo import get_monitors
 

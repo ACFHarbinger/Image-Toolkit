@@ -3,8 +3,8 @@ import json
 import os
 import uuid
 
-import backend.src.constants as udef
-from backend.src.core.vault_manager import CryptographyLibNotBuiltError, VaultManager
+import middleware.src.constants as udef
+from middleware.src.core.vault_manager import CryptographyLibNotBuiltError, VaultManager
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,

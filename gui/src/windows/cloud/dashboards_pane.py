@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from backend.src.cloud.poc.usage import (
+from middleware.src.cloud.poc.usage import (
     UsageRow,
     UsageRowSource,
     aggregate_usage_rows,

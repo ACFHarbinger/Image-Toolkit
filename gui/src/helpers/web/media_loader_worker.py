@@ -27,7 +27,7 @@ import os
 import threading
 from typing import Optional
 
-from backend.src.web import (
+from middleware.src.web import (
     NhentaiDownloader,
     RedditDownloader,
 )

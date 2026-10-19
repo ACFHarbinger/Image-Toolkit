@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import shutil
 
-from backend.src.constants import IMAGE_TOOLKIT_DIR, LOCAL_SOURCE_PATH
+from middleware.src.constants import IMAGE_TOOLKIT_DIR, LOCAL_SOURCE_PATH
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,

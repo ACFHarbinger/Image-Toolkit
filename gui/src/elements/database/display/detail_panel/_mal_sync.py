@@ -5,10 +5,10 @@ Extracted from ``detail_panel.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-from backend.src.database.unified.media_repo import MediaRepo
 from gui.src.constants.listings import ENTRY_STATUS
 from gui.src.helpers.database.library_session import get_library_db
 from gui.src.helpers.web.mal_sync_worker import MalSyncWorker
+from middleware.src.database.unified.media_repo import MediaRepo
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox
 

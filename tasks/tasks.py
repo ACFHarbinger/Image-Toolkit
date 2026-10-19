@@ -5,16 +5,17 @@ from pathlib import Path
 
 import cv2
 import torch
-from backend.src.constants import LOCAL_SOURCE_PATH
-from backend.src.core import (
+from celery import shared_task
+from middleware.src.constants import LOCAL_SOURCE_PATH
+from middleware.src.core import (
     DuplicateFinder,
     FileDeleter,
     ImageFormatConverter,
     ImageMerger,
 )
-from backend.src.database import PgvectorImageDatabase as ImageDatabase
-from backend.src.models.core.gan import GAN
-from backend.src.web import (
+from middleware.src.database import PgvectorImageDatabase as ImageDatabase
+from middleware.src.models.core.gan import GAN
+from middleware.src.web import (
     DanbooruCrawler,
     DropboxDriveSync,
     GelbooruCrawler,
@@ -25,7 +26,6 @@ from backend.src.web import (
     SankakuCrawler,
     WebRequestsLogic,
 )
-from celery import shared_task
 from moviepy.editor import VideoFileClip
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms

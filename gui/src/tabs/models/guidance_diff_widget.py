@@ -20,16 +20,16 @@ import threading
 import uuid
 from copy import deepcopy
 
-from backend.src.comfy_matrix import gpu_lease, try_admit
-from backend.src.constants import LOCAL_SOURCE_PATH
-from backend.src.core.gpu_vram_estimate import estimate_job_gb
-from backend.src.core.guidance_schema import (
+from middleware.src.comfy_matrix import gpu_lease, try_admit
+from middleware.src.constants import LOCAL_SOURCE_PATH
+from middleware.src.core.gpu_vram_estimate import estimate_job_gb
+from middleware.src.core.guidance_schema import (
     GuidanceValidation,
     ModelSwap,
     Verdict,
     apply_validated,
 )
-from backend.src.core.guidance_trajectory import (
+from middleware.src.core.guidance_trajectory import (
     GuidanceTrajectory,
     append_step,
     bind_variant,
@@ -351,7 +351,7 @@ class GuidanceDiffWidget(QWidget):
         if self._controller is None or self._manager is None:
             self._status.setText("Queueing is unavailable here.")
             return
-        from backend.src.constants.comfy import ServerState
+        from middleware.src.constants.comfy import ServerState
 
         if self._controller.server_state != ServerState.READY:
             self._status.setText("ComfyUI server is not running.")

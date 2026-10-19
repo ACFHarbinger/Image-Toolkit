@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import shiboken6
-from backend.src.constants.comfy import ServerState
+from middleware.src.constants.comfy import ServerState
 from PySide6.QtCore import QEventLoop, QTimer, QUrl
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
@@ -289,7 +289,7 @@ class TestComfyUITabBridge:
 
 class TestGuidanceFocusButton:
     def test_guidance_diff_row_has_focus_button(self, q_app):
-        from backend.src.core.guidance_schema import (
+        from middleware.src.core.guidance_schema import (
             GuidanceResponse,
             GuidanceValidation,
             ParamChange,

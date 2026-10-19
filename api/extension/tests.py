@@ -52,11 +52,11 @@ class BridgeTestCase(SimpleTestCase):
                 "api.extension.bridge_config.BRIDGE_DIR", self.tmp
             ),
             mock.patch(
-                "backend.src.core.dir_phash_index.DEFAULT_DB_PATH",
+                "middleware.src.core.dir_phash_index.DEFAULT_DB_PATH",
                 self.tmp / "phash_index.db",
             ),
             mock.patch(
-                "backend.src.core.dir_phash_index.BRIDGE_DIR", self.tmp
+                "middleware.src.core.dir_phash_index.BRIDGE_DIR", self.tmp
             ),
         ]
         for p in patches:
@@ -224,7 +224,7 @@ class TestIngest(BridgeTestCase):
         auto_tags = [{"tag": "1girl", "confidence": 0.9, "category": "general"}]
         review_tags = [{"tag": "maybe", "confidence": 0.2, "category": "general"}]
         with mock.patch(
-            "backend.src.models.wrappers.wd_tagger_wrapper.WDTaggerWrapper"
+            "middleware.src.models.wrappers.wd_tagger_wrapper.WDTaggerWrapper"
             ".tag_with_review",
             return_value=(auto_tags, review_tags),
         ):
@@ -253,7 +253,7 @@ class TestIngest(BridgeTestCase):
     def test_auto_tag_failure_does_not_fail_ingest(self):
         """Tagging errors (e.g. model unavailable) must not lose the saved image."""
         with mock.patch(
-            "backend.src.models.wrappers.wd_tagger_wrapper.WDTaggerWrapper"
+            "middleware.src.models.wrappers.wd_tagger_wrapper.WDTaggerWrapper"
             ".tag_with_review",
             side_effect=RuntimeError("onnxruntime not installed"),
         ):
@@ -462,7 +462,7 @@ class TestCvBgRemove(BridgeTestCase):
         fake_mask = np.full((h, w), 255, dtype=np.uint8)
         fake_mask[:16, :] = 0  # half foreground / half background, for realism
         with mock.patch(
-            "backend.src.models.wrappers.birefnet_wrapper.BiRefNetWrapper.get_mask",
+            "middleware.src.models.wrappers.birefnet_wrapper.BiRefNetWrapper.get_mask",
             return_value=fake_mask,
         ):
             resp = self._post(
@@ -493,7 +493,7 @@ class TestCvBgRemove(BridgeTestCase):
     @_EAGER_CELERY
     def test_job_failure_surfaces_error(self):
         with mock.patch(
-            "backend.src.models.wrappers.birefnet_wrapper.BiRefNetWrapper.get_mask",
+            "middleware.src.models.wrappers.birefnet_wrapper.BiRefNetWrapper.get_mask",
             side_effect=RuntimeError("model load failed"),
         ):
             resp = self._post({"data_b64": base64.b64encode(_png_bytes(seed=61)).decode()})
@@ -534,7 +534,7 @@ class TestCvUpscale(BridgeTestCase):
             return np.repeat(np.repeat(img, 4, axis=0), 4, axis=1)
 
         with mock.patch(
-            "backend.src.models.wrappers.esrgan_wrapper.ESRGANWrapper.upscale",
+            "middleware.src.models.wrappers.esrgan_wrapper.ESRGANWrapper.upscale",
             _fake_upscale,
         ):
             resp = self._post(
@@ -567,7 +567,7 @@ class TestCvUpscale(BridgeTestCase):
             return np.repeat(np.repeat(img, 4, axis=0), 4, axis=1)
 
         with mock.patch(
-            "backend.src.models.wrappers.esrgan_wrapper.ESRGANWrapper.upscale",
+            "middleware.src.models.wrappers.esrgan_wrapper.ESRGANWrapper.upscale",
             _fake_upscale,
         ):
             resp = self._post(

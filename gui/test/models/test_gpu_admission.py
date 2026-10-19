@@ -3,7 +3,7 @@ from types import MethodType
 from unittest.mock import MagicMock
 
 import pytest
-from backend.src.comfy_matrix import gpu_lease
+from middleware.src.comfy_matrix import gpu_lease
 
 pytestmark = pytest.mark.gui
 

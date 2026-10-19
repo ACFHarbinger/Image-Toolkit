@@ -463,10 +463,10 @@ Add screenshots for UI changes.
 pytest
 
 # Specific module
-pytest backend/test/models/
+pytest middleware/test/models/
 
 # With coverage
-uv run pytest --cov=backend/src --cov=gui/src --cov-report=html
+uv run pytest --cov=middleware/src --cov=gui/src --cov-report=html
 
 # Fast tests only
 uv run pytest -m "not slow"
@@ -759,7 +759,7 @@ Include:
 ## Steps to Reproduce
 
 1. Run `uv sync`
-2. Run `python backend/main.py convert --output_format png --input_path ./images --input_formats webp`
+2. Run `python middleware/main.py convert --output_format png --input_path ./images --input_formats webp`
 3. Wait for the batch to finish
 
 ## Expected Behavior

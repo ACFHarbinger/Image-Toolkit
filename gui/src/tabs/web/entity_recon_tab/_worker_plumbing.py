@@ -29,7 +29,7 @@ class EntityReconWorkerController(TabBoundController):
             return
         try:
             import numpy as np
-            from backend.src.web.recon.embedder import embed
+            from middleware.src.web.recon.embedder import embed
 
             embed(np.zeros((64, 64, 3), dtype=np.uint8), mode)
         except Exception as e:  # noqa: BLE001 - warm-up is best-effort

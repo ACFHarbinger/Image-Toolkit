@@ -101,7 +101,7 @@ class LoRATrainUiMixin:
         self.engine_combo.setToolTip(
             "Standard uses this project's original LoRA trainer, unchanged.\n"
             "LyCORIS options route through the LoRATunerV2 pipeline (Hydra\n"
-            "presets under backend/config/training/) for LoCon/LoHa/LoKr\n"
+            "presets under middleware/config/training/) for LoCon/LoHa/LoKr\n"
             "adaptation instead of plain LoRA — see content_generation.md §1.3."
         )
         self.add_param_widget(layout, "Training Engine:", self.engine_combo, "engine", tier=TIER_ADVANCED)

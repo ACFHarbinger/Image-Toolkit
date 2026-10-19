@@ -3,26 +3,26 @@
 The backend geometry is mocked away by the GUI conftest's models tree —
 these tests assert the wiring, the mock degradation path, and the
 explicit gating of the slice, using real pure-type data
-(backend/src/core/adapter_reports.py is torch-free and importable).
+(middleware/src/core/adapter_reports.py is torch-free and importable).
 """
 import time
 from unittest.mock import patch
 
 import pytest
-from backend.src.comfy_matrix import gpu_lease
-from backend.src.core.adapter_reports import (
-    CheckpointRankSnapshot,
-    LossSliceResult,
-    ModuleRankRow,
-    RankHistoryReport,
-)
-from backend.src.core.training_report import STATUS_GOOD, ReportCard, ReportVerdict
-from backend.src.core.training_runs import start_run
 from gui.src.components.dialogs.adapter_rank_chart_dialog import (
     _SLICE_LEASE_OWNER,
     AdapterRankChartDialog,
 )
 from gui.src.components.dialogs.training_report_card_dialog import TrainingReportCardDialog
+from middleware.src.comfy_matrix import gpu_lease
+from middleware.src.core.adapter_reports import (
+    CheckpointRankSnapshot,
+    LossSliceResult,
+    ModuleRankRow,
+    RankHistoryReport,
+)
+from middleware.src.core.training_report import STATUS_GOOD, ReportCard, ReportVerdict
+from middleware.src.core.training_runs import start_run
 from PySide6.QtTest import QTest as qt_test
 from PySide6.QtWidgets import QPushButton, QTabWidget
 

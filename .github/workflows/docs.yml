@@ -8,7 +8,7 @@ on:
       - "docs/moon/roadmaps/**"
       - "docs/moon/ROADMAP.md"
       - "docs/moon/research/**"
-      - "backend/src/**/*.py"
+      - "middleware/src/**/*.py"
       - "base/src/math/**/*.rs"
       - "frontend/src/**/*.ts"
       - "frontend/src/**/*.tsx"
@@ -25,7 +25,7 @@ on:
     paths:
       - "docs/**"
       - "docs/moon/roadmaps/**"
-      - "backend/src/**/*.py"
+      - "middleware/src/**/*.py"
       - "frontend/src/**/*.ts"
       - "frontend/src/**/*.tsx"
       - "docs/mkdocs.yml"
@@ -173,7 +173,7 @@ jobs:
           python-version: "3.11"
 
       - name: Run check_links.py diagnostic script
-        run: python backend/scripts/check_links.py
+        run: python middleware/scripts/check_links.py
 
       - name: lychee — check all Markdown links
         uses: lycheeverse/lychee-action@v2

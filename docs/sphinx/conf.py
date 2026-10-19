@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 # ── sys.path for autodoc imports ─────────────────────────────────────────────
-# Allows autoapi to import backend.src.* without installing the package.
+# Allows autoapi to import middleware.src.* without installing the package.
 REPO_ROOT = Path(__file__).parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
@@ -30,7 +30,7 @@ extensions = [
 ]
 
 # ── sphinx-autoapi ────────────────────────────────────────────────────────────
-autoapi_dirs = [str(REPO_ROOT / "backend" / "src")]
+autoapi_dirs = [str(REPO_ROOT / "middleware" / "src")]
 autoapi_type = "python"
 autoapi_options = [
     "members",

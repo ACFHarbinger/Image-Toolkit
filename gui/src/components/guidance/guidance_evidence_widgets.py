@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import threading
 
-from backend.src.core import guidance_evidence as ge
-from backend.src.core.guidance_schema import GuidanceValidation, ModelSwap, ParamChange
+from middleware.src.core import guidance_evidence as ge
+from middleware.src.core.guidance_schema import GuidanceValidation, ModelSwap, ParamChange
 from PySide6.QtCore import QObject, Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QToolButton, QVBoxLayout, QWidget

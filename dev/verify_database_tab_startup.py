@@ -32,7 +32,7 @@ from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa
 
 register_submodule_packages(repo_root)
 
-from backend.src.qt_runtime_env import pin_qt_media_backend  # noqa: E402
+from middleware.src.qt_runtime_env import pin_qt_media_backend  # noqa: E402
 
 pin_qt_media_backend()
 
@@ -138,7 +138,7 @@ import warnings  # noqa: E402
 
 warnings.filterwarnings("ignore", message=".*urllib3.*doesn't match a supported version!.*")
 
-from backend.src.app import launch_app  # noqa: E402
+from middleware.src.app import launch_app  # noqa: E402
 
 if __name__ == "__main__":
     sys.exit(launch_app({"no_dropdown": False, "enable_manager": False}))

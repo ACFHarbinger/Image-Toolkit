@@ -193,7 +193,7 @@ def test_start_daemon_slideshow_is_noop_when_live(q_app, tmp_path, monkeypatch):
         path,
     )
     monkeypatch.setattr(
-        "backend.src.utils.display.monitor_slideshow_daemon.daemon_is_live",
+        "middleware.src.utils.display.monitor_slideshow_daemon.daemon_is_live",
         lambda cfg: True,
     )
     MonitorDisplaySlideshowDaemonController(FakeTab())._start_daemon_slideshow("0")

@@ -3,9 +3,9 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
-from backend.src.core.guidance_schema import workflow_hash
-from backend.src.core.guidance_trajectory import GuidanceTrajectory
-from backend.src.core.guidance_vision import OcrResult, VlmReply
+from middleware.src.core.guidance_schema import workflow_hash
+from middleware.src.core.guidance_trajectory import GuidanceTrajectory
+from middleware.src.core.guidance_vision import OcrResult, VlmReply
 from PySide6.QtWidgets import QPushButton
 
 from gui.src.tabs.models.dl_workspace_host import _ReviewToolsPage
