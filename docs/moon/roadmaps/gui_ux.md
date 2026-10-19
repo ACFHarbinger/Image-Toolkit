@@ -212,7 +212,7 @@ the overlapping decode/signal churn observed when opening large directories.
 
 **2026-08-22 native follow-up:** a core from the remaining directory crash
 showed the GUI thread faulting in `QObject::property()` during PySide timer
-dispatch while about 150 OpenMP workers from `base.load_image_batch()` were
+dispatch while about 150 OpenMP workers from `backend.load_image_batch()` were
 alive. Native thumbnail batches now cap their OpenMP team at eight workers;
 the real 165-image directory measured 24 baseline threads and 32 peak after
 the change. This preserves parallel decoding without flooding the process.

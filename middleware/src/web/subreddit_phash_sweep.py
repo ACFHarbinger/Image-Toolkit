@@ -54,7 +54,7 @@ class SubredditPHashSweep:
 
     async def sweep(self, query_image_path: str) -> List[ReverseSearchResult]:
         """Fetch posts, hash them, compare, return matches (best first)."""
-        import base
+        import backend
 
         query_hash = await self._hash_query_image(query_image_path)
         if not query_hash:
@@ -81,7 +81,7 @@ class SubredditPHashSweep:
             await self._close_clients()
 
         matches: List[ReverseSearchResult] = []
-        for idx, distance in base.similarity.batch_hamming(query_hash, hashes):
+        for idx, distance in backend.similarity.batch_hamming(query_hash, hashes):
             if distance <= self._config.hamming_threshold:
                 matches.append(self._to_result(submissions[idx], distance))
         matches.sort(key=lambda r: r.score, reverse=True)
@@ -138,7 +138,7 @@ class SubredditPHashSweep:
                     break
 
     async def _hash_query_image(self, image_path: str) -> str:
-        import base
+        import backend
 
         try:
             with open(image_path, "rb") as fh:
@@ -146,10 +146,10 @@ class SubredditPHashSweep:
         except OSError as exc:
             log.warning("Cannot read query image %s: %s", image_path, exc)
             return ""
-        return await asyncio.to_thread(base.similarity.phash_bytes, data, _HASH_SIZE)
+        return await asyncio.to_thread(backend.similarity.phash_bytes, data, _HASH_SIZE)
 
     async def _hash_submission_image(self, submission) -> str:
-        import base
+        import backend
 
         url = getattr(submission, "url", "") or ""
         try:
@@ -163,7 +163,7 @@ class SubredditPHashSweep:
         except Exception as exc:
             log.debug("Download failed for %s: %s", url, exc)
             return ""
-        return await asyncio.to_thread(base.similarity.phash_bytes, data, _HASH_SIZE)
+        return await asyncio.to_thread(backend.similarity.phash_bytes, data, _HASH_SIZE)
 
     def _to_result(self, submission, distance: int) -> ReverseSearchResult:
         score = max(0.0, 1.0 - distance / _MAX_BITS)

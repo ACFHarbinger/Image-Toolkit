@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 from typing import Dict, List
 
-import base  # Native extension
+import backend  # Native extension
 from PIL import Image
 from screeninfo import Monitor
 
@@ -84,7 +84,7 @@ class _GNOMEWallpaperMixin:
         temp_path = os.path.join(Path.home(), ".cache", "image_toolkit_spanned.jpg")
         canvas.save(temp_path, "JPEG", quality=95)
 
-        base.set_wallpaper_gnome(f"file://{temp_path}", "spanned")
+        backend.set_wallpaper_gnome(f"file://{temp_path}", "spanned")
 
 
 __all__ = ["_GNOMEWallpaperMixin"]

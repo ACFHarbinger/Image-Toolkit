@@ -185,10 +185,10 @@ if os.path.exists(crypto_lib_dll):
     binaries.append((crypto_lib_dll, '.'))
 
 for base_lib in (
-    glob.glob(os.path.join(ROOT_DIR, 'base*.so'))
-    + glob.glob(os.path.join(ROOT_DIR, 'base*.pyd'))
-    + glob.glob(os.path.join(ROOT_DIR, 'build', 'base', 'base*.so'))
-    + glob.glob(os.path.join(ROOT_DIR, 'build', 'base', 'base*.pyd'))
+    glob.glob(os.path.join(ROOT_DIR, 'backend*.so'))
+    + glob.glob(os.path.join(ROOT_DIR, 'backend*.pyd'))
+    + glob.glob(os.path.join(ROOT_DIR, 'build', 'backend', 'backend*.so'))
+    + glob.glob(os.path.join(ROOT_DIR, 'build', 'backend', 'backend*.pyd'))
 ):
     binaries.append((base_lib, '.'))
 

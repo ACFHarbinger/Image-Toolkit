@@ -28,7 +28,7 @@ if str(_REPO) not in sys.path:
 from middleware.benchmark.managers import BenchmarkManager, measure_memory  # noqa: E402
 
 try:
-    import base as cpp_core  # type: ignore[import]
+    import backend as cpp_core  # type: ignore[import]
     _CPP_AVAILABLE = True
 except ImportError:
     cpp_core = None  # type: ignore[assignment]

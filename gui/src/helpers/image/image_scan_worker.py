@@ -8,7 +8,7 @@ from PySide6.QtCore import Signal
 from gui.src.helpers.base import BaseQThreadWorker
 
 if HAS_NATIVE_IMAGING:
-    import base
+    import backend
 
 
 class ImageScannerWorker(BaseQThreadWorker):
@@ -124,10 +124,10 @@ class ImageScannerWorker(BaseQThreadWorker):
                 # tick, and nothing establishes base.scan_files_multi is
                 # safe to call concurrently from multiple threads.
                 with telemetry.span(
-                    "native", "base.scan_files_multi",
+                    "native", "backend.scan_files_multi",
                     directories=self.directories, recursive=self.recursive,
                 ), telemetry.NATIVE_SCAN_LOCK:
-                    all_image_paths = base.scan_files_multi( # pyrefly: ignore [missing-attribute]
+                    all_image_paths = backend.scan_files_multi( # pyrefly: ignore [missing-attribute]
                         self.directories, list(self.extensions), self.recursive
                     )
                 if self._is_cancelled:

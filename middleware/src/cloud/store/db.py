@@ -30,9 +30,9 @@ class StoreUnavailable(RuntimeError):
 
 
 def _default_factory(path: str, secret: str, salt: str) -> Any:
-    import base  # compiled extension; imported lazily so pure modules stay importable
+    import backend  # compiled extension; imported lazily so pure modules stay importable
 
-    return base.database.Database(path, secret, salt)
+    return backend.database.Database(path, secret, salt)
 
 
 def open_store_db(

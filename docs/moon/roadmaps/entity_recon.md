@@ -8,13 +8,13 @@ management and web provenance.
 
 | Layer | Role | Where |
 |-------|------|-------|
-| C++ (`base.recon`) | HNSW **IdentityIndex** (embedding → `FirstName_LastName` + path), alpha-cutout hashing | `base/src/web/recon/` |
+| C++ (`backend.recon`) | HNSW **IdentityIndex** (embedding → `FirstName_LastName` + path), alpha-cutout hashing | `backend/src/web/recon/` |
 | Python | SAM 2 segmentation, face/CLIP embeddings, dataset indexing daemon, reverse-search dispatch, NER consensus, provenance export | `middleware/src/web/recon/` |
 | QML/Qt | three-pane UI, hover masking, bounding box, IPC to workers | `gui/qml/tabs/web/EntityReconTab.qml`, `gui/src/tabs/web/entity_recon_tab.py` |
 
 > The original spec named **Rust** for the data/discovery engine. This repo
 > completed its Rust→C++ migration (`archive/base_rust/`), so the native engine
-> is implemented in C++ and reuses `base.similarity`'s HNSW rather than
+> is implemented in C++ and reuses `backend.similarity`'s HNSW rather than
 > reintroducing a Rust toolchain.
 
 ## Pipeline
@@ -24,7 +24,7 @@ source image ──hover──▶ SAM 2 mask ──click──▶ alpha cutout
                                                  │
                             ┌── embed (ArcFace | CLIP) ──┐
                             ▼                            ▼
-                  base.recon.IdentityIndex        base.recon.cutout_hash
+                  backend.recon.IdentityIndex        backend.recon.cutout_hash
                     (local HNSW query)             (provenance-cache key)
                             │                            │
           match ≥ threshold │                            │ (privacy off, no local match)
@@ -49,7 +49,7 @@ source image ──hover──▶ SAM 2 mask ──click──▶ alpha cutout
 - **embedder.py** — `embed_face` (InsightFace/ArcFace), `embed_clip` (reuses the
   Similarity Finder embedder chain), deterministic histogram fallback.
 - **indexer.py** — `DatasetIndexer`: walks `/root/FirstName_LastName/img.jpg`,
-  embeds each image, fills `base.recon.IdentityIndex` (label = parent dir).
+  embeds each image, fills `backend.recon.IdentityIndex` (label = parent dir).
 - **dispatcher.py** — `ReverseSearchDispatcher` (privacy-gated), `ProvenanceCache`
   (SQLite keyed by cutout hash), `RateLimiter` (per-engine min interval).
 - **consensus.py** — `extract_names` (NER) + `consensus_names`: a candidate must

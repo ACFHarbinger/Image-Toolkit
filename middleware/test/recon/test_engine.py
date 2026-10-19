@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 import pytest
 
-pytest.importorskip("base")
+pytest.importorskip("backend")
 
 from middleware.src.web.recon import (  # noqa: E402
     DatasetIndexer,

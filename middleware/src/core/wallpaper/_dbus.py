@@ -12,7 +12,7 @@ import re
 import shutil
 from typing import Optional
 
-import base  # Native extension
+import backend  # Native extension
 
 from middleware.src.constants.core import _QDBUS_CANDIDATES
 
@@ -111,7 +111,7 @@ def evaluate_kde_script_with_fallback(qdbus: Optional[str], script: str) -> str:
     script = with_desktops_fallback(script)
     if qdbus:
         try:
-            return base.evaluate_kde_script(qdbus, script)
+            return backend.evaluate_kde_script(qdbus, script)
         except Exception as exc:
             logger.debug("qdbus CLI failed (%s), trying dbus-python fallback.", exc)
     try:

@@ -178,7 +178,7 @@ def test_admission_budget_alert_and_calibration():
 
 
 def test_rule_store_layers_user_edits(tmp_path):
-    pytest.importorskip("base")
+    pytest.importorskip("backend")
     from middleware.src.cloud.risk import RuleStore
     from middleware.src.cloud.store import CloudJobStore
 

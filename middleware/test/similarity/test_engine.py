@@ -6,7 +6,7 @@ avoid pulling torch into the test session.
 
 import pytest
 
-pytest.importorskip("base")
+pytest.importorskip("backend")
 
 from middleware.src.core.similarity.config import SimilarityConfig  # noqa: E402
 from middleware.src.core.similarity.engine import (  # noqa: E402

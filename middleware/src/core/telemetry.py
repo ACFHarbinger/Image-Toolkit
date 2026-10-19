@@ -78,7 +78,7 @@ MANGA_COLORIZE_LOCK = threading.Lock()
 # time because the native `base` extension failed to import in that
 # session) turned out to target the wrong function once the C++ source was
 # actually readable: `base::image::scan_files`/`scan_files_multi`
-# (base/src/image/scan_files.cpp) only touches local `std::vector`s and
+# (backend/src/image/scan_files.cpp) only touches local `std::vector`s and
 # `std::filesystem` iterators -- no global/static mutable state -- so it is
 # reentrant by construction and was never the real race. This lock is kept
 # anyway (cheap, harmless, and scans are infrequent) rather than removed,
@@ -86,7 +86,7 @@ MANGA_COLORIZE_LOCK = threading.Lock()
 # gap purely on static-code-reading confidence.
 
 # Serializes calls into the native `base.load_image_batch()` boundary
-# (base/src/image/image_batch.cpp, called from
+# (backend/src/image/image_batch.cpp, called from
 # gui/src/helpers/image/batch_image_loader_worker.py::native_load_batch,
 # which both `BatchImageLoaderWorker` and `ImageLoaderWorker` funnel
 # through) -- the actual root cause this project's SIGSEGV/QSocketNotifier

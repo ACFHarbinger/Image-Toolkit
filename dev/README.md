@@ -64,7 +64,7 @@ priming, login success, `MainWindow` construction/show),
 start/stop/wait/deleteLater transition), the Extractor tab's equivalent
 scan path (`extractor_tab/_directory_scanning.py`), and the suspected
 native-crash boundary: `gui/src/helpers/video/video_thumbnailer.py`'s
-`QImage().loadFromData(...)` calls plus `base.scan_files_multi()` /
+`QImage().loadFromData(...)` calls plus `backend.scan_files_multi()` /
 `ThreadPoolExecutor` dispatch in the scan workers.
 
 To add more instrumentation at a new call site:

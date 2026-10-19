@@ -26,7 +26,7 @@ def _assert_held(lock, value):
 
 
 class TestDuplicateFinderSerialized:
-    @patch("middleware.src.core.duplicate_finder.base.find_duplicate_images")
+    @patch("middleware.src.core.duplicate_finder.backend.find_duplicate_images")
     def test_find_duplicate_images_holds_lock(self, mock_find):
         mock_find.side_effect = _assert_held(
             NATIVE_IMAGE_BATCH_LOCK, {"hashA": ["/a.jpg", "/b.jpg"]}
@@ -37,7 +37,7 @@ class TestDuplicateFinderSerialized:
 
 
 class TestSimilarityFinderSerialized:
-    @patch("middleware.src.core.similarity_finder.base.find_similar_images_phash")
+    @patch("middleware.src.core.similarity_finder.backend.find_similar_images_phash")
     def test_find_similar_phash_holds_lock(self, mock_find):
         mock_find.side_effect = _assert_held(
             NATIVE_IMAGE_BATCH_LOCK, {"group_0": ["a.jpg", "b.jpg"]}
@@ -50,7 +50,7 @@ class TestSimilarityFinderSerialized:
 
 
 class TestImageConverterSerialized:
-    @patch("middleware.src.core.image.image_converter.base.convert_single_image")
+    @patch("middleware.src.core.image.image_converter.backend.convert_single_image")
     def test_convert_single_image_holds_lock(self, mock_convert, tmp_path):
         src = tmp_path / "in.png"
         src.write_bytes(b"placeholder")
@@ -64,7 +64,7 @@ class TestImageConverterSerialized:
 
 class TestImageMergerSerialized:
     @patch("middleware.src.core.image.image_merger.Image.open")
-    @patch("middleware.src.core.image.image_merger.base.merge_images_horizontal")
+    @patch("middleware.src.core.image.image_merger.backend.merge_images_horizontal")
     def test_merge_horizontal_holds_lock(self, mock_merge, mock_open):
         mock_merge.side_effect = _assert_held(NATIVE_IMAGE_BATCH_LOCK, None)
         mock_open.return_value = object()
@@ -75,7 +75,7 @@ class TestImageMergerSerialized:
 
 
 class TestFileSystemEntriesSerialized:
-    @patch("middleware.src.core.file_system_entries.base.get_files_by_extension")
+    @patch("middleware.src.core.file_system_entries.backend.get_files_by_extension")
     def test_get_files_by_extension_holds_scan_lock(self, mock_get, tmp_path):
         mock_get.side_effect = _assert_held(NATIVE_SCAN_LOCK, [str(tmp_path / "a.jpg")])
         result = file_system_entries.FSETool.get_files_by_extension(

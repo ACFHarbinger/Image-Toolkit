@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-base = pytest.importorskip("base")
+backend = pytest.importorskip("backend")
 
 _RE_DIR = Path(__file__).resolve().parents[3] / "submodules" / "CRE"
 
@@ -49,7 +49,7 @@ sys.modules.update(_saved_src_modules)
 
 @pytest.fixture()
 def db(tmp_path):
-    handle = base.database.Database(str(tmp_path / "lib.db"), "pw", "salt")
+    handle = backend.database.Database(str(tmp_path / "lib.db"), "pw", "salt")
     yield handle
     handle.close()
 

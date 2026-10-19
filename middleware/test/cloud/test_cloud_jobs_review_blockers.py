@@ -6,7 +6,7 @@ import datetime as dt
 
 import pytest
 
-pytest.importorskip("base")
+pytest.importorskip("backend")
 
 from middleware.src.cloud import fakes  # noqa: E402
 from middleware.src.cloud.adapter import CapabilityManifest  # noqa: E402
@@ -209,11 +209,11 @@ def test_service_revalidates_fallbacks_with_the_accepted_acknowledgements(store)
 
 
 def test_v1_store_is_migrated_to_v2(tmp_path):
-    import base
+    import backend
     from middleware.src.cloud.store.db import CLOUD_SCHEMA_VERSION, schema_version
 
     path = str(tmp_path / "v1.db")
-    raw = base.database.Database(path, "m" * 40, "salt-0123456789ab")
+    raw = backend.database.Database(path, "m" * 40, "salt-0123456789ab")
     raw.apply_ddl("CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);"
                   "INSERT INTO schema_meta VALUES ('version', '1');"
                   "CREATE TABLE shards (job_id TEXT NOT NULL, idx INTEGER NOT NULL, collected INTEGER NOT NULL "

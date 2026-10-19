@@ -13,7 +13,7 @@ from __future__ import annotations
 import os
 
 try:
-    import base as _batch_render
+    import backend as _batch_render
     if (
         getattr(_batch_render, "__file__", None) is None
         or not hasattr(_batch_render, "canvas")

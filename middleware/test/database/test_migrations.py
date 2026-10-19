@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-base = pytest.importorskip("base")
+backend = pytest.importorskip("backend")
 
 from middleware.backups import backup_all  # noqa: E402
 from middleware.migrations import (  # noqa: E402
@@ -39,7 +39,7 @@ def legacy_db(tmp_path):
     path = str(tmp_path / "listings_secure.db")
 
     def put(listing_id, category, title, meta, date_added="2026-07-01"):
-        base.secret.insert_listing_secure(
+        backend.secret.insert_listing_secure(
             path, PASSWORD, SALT, listing_id, category, title,
             json.dumps(meta, ensure_ascii=False), date_added, [],
         )
@@ -124,7 +124,7 @@ def test_002_migrate_listings_round_trip(tmp_path, legacy_db):
     assert report["media_migrated"] == 2
     assert report["entities_migrated"] == 2
 
-    db = base.database.Database(lib, PASSWORD, SALT)
+    db = backend.database.Database(lib, PASSWORD, SALT)
     try:
         media = MediaRepo(db)
         entities = EntityRepo(db)
@@ -184,7 +184,7 @@ def test_003_migrate_pgvector_with_provider(tmp_path):
     assert report["migrated"]["images"] == 3
     assert report["migrated"]["image_tags"] == 2
 
-    db = base.database.Database(lib, PASSWORD, SALT)
+    db = backend.database.Database(lib, PASSWORD, SALT)
     try:
         rows = db.query(
             "SELECT i.file_path, i.file_size, i.phash, g.name, s.name, "
@@ -242,7 +242,7 @@ def test_004_verify_passes_and_catches_loss(tmp_path, legacy_db):
     assert "entities:ent-2" in report["internal"]["dangling_parked"]
 
     # Simulate data loss → verification must fail.
-    db = base.database.Database(lib, PASSWORD, SALT)
+    db = backend.database.Database(lib, PASSWORD, SALT)
     db.execute("DELETE FROM media_items WHERE id = 'm-2'", ())
     db.close()
     report = verify_migration.run(
@@ -319,7 +319,7 @@ def test_runner_fails_loudly_on_verification_problems(runner_env):
         PASSWORD, SALT, skip_postgres=True, log=lambda *_: None, **runner_env
     )
     # Lose a migrated row, then re-run: 004 must abort the runner.
-    db = base.database.Database(runner_env["db_path"], PASSWORD, SALT)
+    db = backend.database.Database(runner_env["db_path"], PASSWORD, SALT)
     db.execute("DELETE FROM entities WHERE id = 'ent-1'", ())
     db.close()
     with pytest.raises(RuntimeError, match="verification FAILED"):

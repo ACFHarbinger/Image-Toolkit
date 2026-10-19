@@ -419,7 +419,7 @@ class TestLSDCollinearity:
 # ---------------------------------------------------------------------------
 
 try:
-    import base as _batch_fgreg_test  # noqa: F401
+    import backend as _batch_fgreg_test  # noqa: F401
     if (
         getattr(_batch_fgreg_test, "__file__", None) is None
         or not hasattr(_batch_fgreg_test, "fg_register")

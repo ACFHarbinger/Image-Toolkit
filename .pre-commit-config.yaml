@@ -85,10 +85,10 @@ repos:
   - repo: local
     hooks:
       - id: clang-format-base
-        name: clang-format (base/ C++ sources)
+        name: clang-format (backend/ C++ sources)
         language: system
         entry: bash -c 'clang-format --dry-run --Werror "$@"' --
-        files: ^base/(src|include)/.*\.(cpp|hpp|h)$
+        files: ^backend/(src|include)/.*\.(cpp|hpp|h)$
         pass_filenames: true
 
   # ── TypeScript: type check ────────────────────────────────────────────────

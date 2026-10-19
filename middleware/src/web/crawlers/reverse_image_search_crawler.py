@@ -24,7 +24,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
-import base  # Native C++ extension  # noqa: E402
+import backend  # Native C++ extension  # noqa: E402
 
 from middleware.src.constants import (
     ENGINE_BING,
@@ -60,7 +60,7 @@ def resolve_search_image(
     if w <= 0 or h <= 0:
         return image_path
     try:
-        result = base.roi.crop_roi(image_path, int(x), int(y), int(w), int(h))
+        result = backend.roi.crop_roi(image_path, int(x), int(y), int(w), int(h))
     except Exception as exc:
         log.warning("ROI crop failed (%s); using full image instead.", exc)
         return image_path
@@ -160,7 +160,7 @@ class GoogleSearchStrategy(ReverseSearchEngine):
             # _StatusProxy is used so C++ can call on_status_emitted without
             # the strategy itself needing Qt (plain duck-type, no QObject).
             proxy = _StatusProxy(self._emit_status)
-            results_json: str = base.run_reverse_image_search(json.dumps(config), proxy)
+            results_json: str = backend.run_reverse_image_search(json.dumps(config), proxy)
             raw: List[dict] = json.loads(results_json)
         except Exception as exc:
             log.error("C++ reverse image search failed: %s", exc)

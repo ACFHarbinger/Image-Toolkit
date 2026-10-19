@@ -47,7 +47,7 @@ if test_dir not in sys.path:
 while repo_root in sys.path:
     sys.path.remove(repo_root)
 sys.path.insert(0, repo_root)
-build_base = os.path.join(repo_root, "build", "base")
+build_base = os.path.join(repo_root, "build", "backend")
 if os.path.exists(build_base) and build_base not in sys.path:
     sys.path.insert(0, build_base)
 

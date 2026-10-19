@@ -187,7 +187,7 @@ Wave 0 starts with two mechanical, announced PRs, each keeping
 compatibility aliases for one release:
 
 1. **Python `middleware/` → `middleware/`.**
-2. **C++ `base/` → `middleware/`.**
+2. **C++ `backend/` → `middleware/`.**
 
 They must run in that order: both can't be called `backend` at once.
 In-flight branches rebase once.
@@ -294,7 +294,7 @@ Owners are proposals (label `agent:<name>`); unowned issues are free to claim wh
 | Issue | Deliverable | Owner |
 |---|---|---|
 | [#865](https://github.com/ACFHarbinger/Image-Toolkit/issues/865) | W0-01: Rename the Python package `middleware/` → `middleware/` (one mechanical PR, import aliases for one release) | Claude |
-| [#866](https://github.com/ACFHarbinger/Image-Toolkit/issues/866) | W0-02: Rename the C++ module `base/` → `middleware/` (after W0-01; aliases for one release) | Claude |
+| [#866](https://github.com/ACFHarbinger/Image-Toolkit/issues/866) | W0-02: Rename the C++ module `backend/` → `middleware/` (after W0-01; aliases for one release) | Claude |
 | [#867](https://github.com/ACFHarbinger/Image-Toolkit/issues/867) | W0-03: Absorb HIE, ASP, CSG and CRE submodules (git subtree, history kept) into one CMake build and `middleware/src/services/{hie,asp,csg,cre}/` | Gemini |
 
 ### Wave 0b — Build and security (Mistral's PR 1)

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-base = pytest.importorskip("base")
+backend = pytest.importorskip("backend")
 
 from middleware.src.database.unified import session  # noqa: E402
 from middleware.src.database.unified.entity_repo import EntityRepo  # noqa: E402
@@ -20,7 +20,7 @@ from middleware.src.database.unified.tag_repo import TagRepo  # noqa: E402
 
 @pytest.fixture()
 def db(tmp_path):
-    handle = base.database.Database(str(tmp_path / "lib.db"), "pw", "salt")
+    handle = backend.database.Database(str(tmp_path / "lib.db"), "pw", "salt")
     session.ensure_schema(handle)
     yield handle
     handle.close()

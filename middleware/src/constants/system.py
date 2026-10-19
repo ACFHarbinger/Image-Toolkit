@@ -12,9 +12,9 @@ IS_DARWIN = platform.system() == "Darwin"
 # monitor hotplug/suspend, surviving a plasmashell restart).
 USE_OS_DISPLAY_MAPPING = False
 try:
-    import base as base  # type: ignore
-    if getattr(base, "__file__", None) is None:
-        raise ImportError("base is a namespace package, not the compiled extension")
+    import backend  # type: ignore
+    if getattr(backend, "__file__", None) is None:
+        raise ImportError("backend is a namespace package (the C++ source dir), not the compiled extension")
     HAS_NATIVE_IMAGING = True
 except ImportError:
     HAS_NATIVE_IMAGING = False

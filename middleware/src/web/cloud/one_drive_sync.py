@@ -1,7 +1,7 @@
 import json
 from typing import Any, Callable
 
-import base  # Native extension
+import backend  # Native extension
 
 
 class OneDriveSync:
@@ -44,7 +44,7 @@ class OneDriveSync:
         try:
             config_json = json.dumps(self.config)
             # Use the C++ runner
-            result_json = base.run_sync("one_drive", config_json, self)
+            result_json = backend.run_sync("one_drive", config_json, self)
             stats = json.loads(result_json)
 
             summary = f"Completed with {stats['uploaded'] + stats['downloaded'] + stats['deleted_local'] + stats['deleted_remote']} actions. (Up: {stats['uploaded']}, Down: {stats['downloaded']}, Del-L: {stats['deleted_local']}, Del-R: {stats['deleted_remote']})"

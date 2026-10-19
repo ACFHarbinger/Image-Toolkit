@@ -8,7 +8,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-cmake -B "${REPO_ROOT}/build/base" "${REPO_ROOT}/base/" \
+cmake -B "${REPO_ROOT}/build/backend" "${REPO_ROOT}/base/" \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_PREFIX_PATH="${REPO_ROOT}/opencv/install" \
     -DCMAKE_INSTALL_PREFIX="${REPO_ROOT}"
@@ -16,5 +16,5 @@ cmake -B "${REPO_ROOT}/build/base" "${REPO_ROOT}/base/" \
 # macOS uses sysctl instead of nproc to get the core count
 CORES=$(sysctl -n hw.logicalcpu)
 
-cmake --build "${REPO_ROOT}/build/base" -j"${CORES}"
-cmake --install "${REPO_ROOT}/build/base"
+cmake --build "${REPO_ROOT}/build/backend" -j"${CORES}"
+cmake --install "${REPO_ROOT}/build/backend"

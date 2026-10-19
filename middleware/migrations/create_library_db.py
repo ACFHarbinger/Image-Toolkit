@@ -21,12 +21,12 @@ def run(
     db_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create/upgrade the library DB. Returns a small report dict."""
-    import base
+    import backend
 
     path = str(db_path if db_path is not None else session.DEFAULT_DB_PATH)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
 
-    db = base.database.Database(path, password, salt)
+    db = backend.database.Database(path, password, salt)
     try:
         session.ensure_schema(db)
         report = {

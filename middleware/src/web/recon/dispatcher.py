@@ -140,9 +140,9 @@ class ReverseSearchDispatcher:
         self.limiter = RateLimiter(config.min_request_interval)
 
     def cutout_hash(self, cutout_png: bytes) -> str:
-        import base
+        import backend
 
-        return base.recon.cutout_hash(cutout_png)
+        return backend.recon.cutout_hash(cutout_png)
 
     def dispatch(self, cutout_png: bytes) -> DispatchResult:
         result = DispatchResult(cutout_hash=self.cutout_hash(cutout_png))

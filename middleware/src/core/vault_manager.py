@@ -12,7 +12,7 @@ from middleware.src.utils.decorators import require_path
 
 class CryptographyLibNotBuiltError(RuntimeError):
     """Raised when libitk_crypto.so (built as part of `just build-base`, since
-    base/CMakeLists.txt compiles base/src/secret/itk_crypto.c alongside the
+    backend/CMakeLists.txt compiles backend/src/secret/itk_crypto.c alongside the
     rest of base::secret -- no longer a separate build step) is missing.
     Kept distinct from FileNotFoundError so it isn't mistaken by callers for
     a missing/deleted account file."""

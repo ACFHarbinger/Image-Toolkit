@@ -31,5 +31,5 @@ npm run lint
 
 ```bash
 just build-base
-# ctest under base/build when enabled
+# ctest under backend/build when enabled
 ```

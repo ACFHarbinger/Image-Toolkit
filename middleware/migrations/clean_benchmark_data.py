@@ -73,10 +73,10 @@ def run(
     dry_run: bool = False,
 ) -> Dict[str, Any]:
     """Delete benchmark rows from the live DB. Returns a report dict."""
-    import base
+    import backend
 
     path = str(db_path if db_path is not None else session.DEFAULT_DB_PATH)
-    db = base.database.Database(path, password, salt)
+    db = backend.database.Database(path, password, salt)
     try:
         images = find_matching_images(db)
         groups = find_matching_groups(db)

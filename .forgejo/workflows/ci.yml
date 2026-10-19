@@ -130,15 +130,15 @@ jobs:
           sudo apt-get install -y libopencv-dev libssl-dev libfftw3-dev libsodium-dev libsqlcipher-dev ninja-build libeigen3-dev
 
       - name: Build native crypto library
-        run: cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so base/src/secret/itk_crypto.c -lcrypto
+        run: cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so backend/src/secret/itk_crypto.c -lcrypto
 
       - name: Build and install C++ base extension
         run: |
-          uv run cmake -B build/base base/ -G Ninja -DCMAKE_BUILD_TYPE=Release
-          uv run cmake --build build/base --parallel
-          uv run cmake --install build/base --prefix .
+          uv run cmake -B build/backend backend/ -G Ninja -DCMAKE_BUILD_TYPE=Release
+          uv run cmake --build build/backend --parallel
+          uv run cmake --install build/backend --prefix .
           SITE_PKGS=$(uv run python -c "import site; print(site.getsitepackages()[0])")
-          cp -f base*.so "$SITE_PKGS/" || true
+          cp -f backend*.so "$SITE_PKGS/" || true
 
       - name: Run pytest
         run: uv run pytest --skip-gpu -m "not slow" -q --tb=short
@@ -185,15 +185,15 @@ jobs:
           sudo apt-get install -y libopencv-dev libssl-dev libfftw3-dev libsodium-dev libsqlcipher-dev ninja-build libeigen3-dev
 
       - name: Build native crypto library
-        run: cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so base/src/secret/itk_crypto.c -lcrypto
+        run: cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so backend/src/secret/itk_crypto.c -lcrypto
 
       - name: Build and install C++ base extension
         run: |
-          uv run cmake -B build/base base/ -G Ninja -DCMAKE_BUILD_TYPE=Release
-          uv run cmake --build build/base --parallel
-          uv run cmake --install build/base --prefix .
+          uv run cmake -B build/backend backend/ -G Ninja -DCMAKE_BUILD_TYPE=Release
+          uv run cmake --build build/backend --parallel
+          uv run cmake --install build/backend --prefix .
           SITE_PKGS=$(uv run python -c "import site; print(site.getsitepackages()[0])")
-          cp -f base*.so "$SITE_PKGS/" || true
+          cp -f backend*.so "$SITE_PKGS/" || true
 
       - name: Run slow pytest
         run: uv run pytest --skip-gpu -m "slow" -q --tb=short

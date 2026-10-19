@@ -16,7 +16,7 @@ import json
 import pytest
 
 try:
-    import base as _base
+    import backend as _base
 
     HAS_BASE = hasattr(_base, "utils") and hasattr(_base, "web")
 except ImportError:

@@ -2,7 +2,7 @@
 
 The actual scheduling (advancing through the queue on each entry's own
 duration) runs natively in ``base.run_monitor_slideshow`` -- see
-``base/src/utils/monitor_slideshow.cpp``. That native scheduler owns a
+``backend/src/utils/monitor_slideshow.cpp``. That native scheduler owns a
 background ``std::thread`` independent of the Python GIL/Qt event loop, so
 it keeps ticking reliably whether this module is used:
 
@@ -31,7 +31,7 @@ _ROOT = Path(__file__).resolve().parents[4]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-import base  # noqa: E402  Native extension (base/src/utils/monitor_slideshow.cpp)
+import backend  # noqa: E402  Native extension (backend/src/utils/monitor_slideshow.cpp)
 
 from middleware.src.constants import (  # noqa: E402
     MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH,
@@ -55,7 +55,7 @@ from middleware.src.utils.display.slideshow_daemon import (  # noqa: E402
 def _stop_scheduler_at_exit() -> None:
     # Unbuilt trees have no native scheduler, so resolve at exit time and
     # skip instead of raising AttributeError into every test log (R0.9).
-    stop = getattr(base, "run_monitor_slideshow", None)
+    stop = getattr(backend, "run_monitor_slideshow", None)
     if stop is not None:
         stop("stop")
 
@@ -189,16 +189,16 @@ def start(
     cb = callback if callback is not None else make_apply_callback(monitors, style, video_style, other_paths, qdbus)
     if skip_first_apply:
         cb = skip_first_call(cb)
-    return base.run_monitor_slideshow("start", json.dumps(config), cb) # pyrefly: ignore [missing-attribute]
+    return backend.run_monitor_slideshow("start", json.dumps(config), cb) # pyrefly: ignore [missing-attribute]
 
 
 def stop() -> str:
-    return base.run_monitor_slideshow("stop") # pyrefly: ignore [missing-attribute]
+    return backend.run_monitor_slideshow("stop") # pyrefly: ignore [missing-attribute]
 
 
 def status() -> Optional[dict]:
     try:
-        return json.loads(base.run_monitor_slideshow("status")) # pyrefly: ignore [missing-attribute]
+        return json.loads(backend.run_monitor_slideshow("status")) # pyrefly: ignore [missing-attribute]
     except Exception:
         return None
 
