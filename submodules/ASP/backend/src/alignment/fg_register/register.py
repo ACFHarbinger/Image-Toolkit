@@ -30,10 +30,10 @@ import os
 
 import cv2
 import numpy as np
-from backend.src.constants import (
+from middleware.src.constants import (
     FG_REG_MAX_RESIDUAL as _FG_REG_MAX_RESIDUAL_DEFAULT,
 )
-from backend.src.constants import (
+from middleware.src.constants import (
     FG_REG_MIN_FG_PIXELS,
     FG_REG_SMOOTH_SIGMA,
     FG_REG_TAPER_PX,

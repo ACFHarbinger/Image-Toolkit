@@ -51,8 +51,8 @@ from asp_backend.models.pipeline.stitch_losses import StitchNetLoss
 
 # --- Relocated Nested Imports ---
 from asp_backend.models.stitch_net import AnimeStitchNet
-from backend.src.constants.pipeline import DEFAULT_CONFIG
-from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
+from middleware.src.constants.pipeline import DEFAULT_CONFIG
+from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 from torch.cuda.amp import GradScaler, autocast
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, random_split
@@ -203,7 +203,7 @@ class StitchTrainer:
         self.loftr = None
         if cfg.get("loftr_distill"):
             try:
-                # relocated: from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
+                # relocated: from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 
                 self.loftr = LoFTRWrapper()
                 self._log("  LoFTR distillation enabled.")

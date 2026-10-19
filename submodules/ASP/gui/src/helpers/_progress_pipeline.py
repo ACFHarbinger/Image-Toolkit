@@ -38,11 +38,11 @@ from asp_backend.core.pipeline import _build_manual_edge
 from asp_backend.hitl.hitl_session import autosave_path
 from asp_backend.hitl.hitl_session import save_session as _save_session_impl
 from asp_backend.rendering.compositing import _compute_initial_boundaries
-from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+from middleware.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
 from PIL import Image as _Image
 
 if TYPE_CHECKING:
-    from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
+    from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 
 _STAGE_LABELS = [
     "Loading and trimming frames",  # 1

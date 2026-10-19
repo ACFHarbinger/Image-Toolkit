@@ -38,7 +38,7 @@ import warnings
 from pathlib import Path
 from typing import Any
 
-from backend.src.errors import ConfigError
+from middleware.src.errors import ConfigError
 
 __all__ = ["load_asp_config", "validate_asp_config", "dump_asp_config", "get_asp", "asp_schema"]
 

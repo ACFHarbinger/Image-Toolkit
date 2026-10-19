@@ -32,7 +32,7 @@ import numpy as np
 # --- Relocated Nested Imports ---
 import ptlflow
 import torch
-from backend.src.constants import FLOW_MAX_DRIFT, FLOW_PATCH_SIZE
+from middleware.src.constants import FLOW_MAX_DRIFT, FLOW_PATCH_SIZE
 
 
 def _load_sea_raft(device: str = "cpu"):

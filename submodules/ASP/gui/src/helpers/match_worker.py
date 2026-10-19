@@ -24,8 +24,8 @@ class MatchWorker(QThread):
 
     def run(self):
         try:
-            from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
-            from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
+            from middleware.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+            from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 
             img_a = cv2.imread(self._path_a)
             img_b = cv2.imread(self._path_b)

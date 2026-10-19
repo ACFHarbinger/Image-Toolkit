@@ -2,7 +2,7 @@
 
 Synthetic coverage maps only — no GPU, no fixtures, no pipeline run.
 Loaded from the module file so this does not pull wallpaper/__init__.py
-(and the Image-Toolkit ``backend.src.constants`` import chain).
+(and the Image-Toolkit ``middleware.src.constants`` import chain).
 """
 
 from __future__ import annotations

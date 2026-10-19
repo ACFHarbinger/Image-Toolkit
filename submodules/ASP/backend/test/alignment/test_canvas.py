@@ -28,7 +28,7 @@ from asp_backend.alignment.canvas import (  # noqa: E402
     _telea_fill_gaps,
 )
 from asp_backend.core.pipeline import _compute_row_coverage  # noqa: E402
-from backend.src.constants import CANVAS_MAX_DIM as _CANVAS_MAX_DIM  # noqa: E402
+from middleware.src.constants import CANVAS_MAX_DIM as _CANVAS_MAX_DIM  # noqa: E402
 from conftest import make_frame, make_translation_affine  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -441,7 +441,7 @@ class TestPanoramaStitchFallback:
         """Non-OK status from stitcher → CanvasError (caller falls through to SCANS)."""
         from unittest.mock import MagicMock, patch
 
-        from backend.src.errors import CanvasError
+        from middleware.src.errors import CanvasError
 
         mock_stitcher = MagicMock()
         mock_stitcher.stitch.return_value = (cv2.Stitcher_ERR_NEED_MORE_IMGS, None)

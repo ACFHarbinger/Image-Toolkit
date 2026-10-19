@@ -7,7 +7,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 from asp_backend.core.stateless import _luma
-from backend.src.constants import (
+from middleware.src.constants import (
     ECC_EPS,
     ECC_MAX_DRIFT,
     ECC_MAX_ITER,

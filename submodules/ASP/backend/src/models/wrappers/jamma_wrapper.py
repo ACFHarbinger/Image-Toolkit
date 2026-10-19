@@ -36,8 +36,8 @@ import cv2
 import numpy as np
 import torch
 from asp_backend.alignment.matching._estimators import estimate_affine_partial2d
-from backend.src.constants.models import _CKPT_FILE, _HF_REPO, _JAMMA_ERR, _JAMMA_OK, _MIN_INLIERS
-from backend.src.models.core.base import ModelWrapper, lazy_load
+from middleware.src.constants.models import _CKPT_FILE, _HF_REPO, _JAMMA_ERR, _JAMMA_OK, _MIN_INLIERS
+from middleware.src.models.core.base import ModelWrapper, lazy_load
 from huggingface_hub import hf_hub_download
 
 _VENDOR_PATH = os.path.join(

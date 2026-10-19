@@ -18,7 +18,7 @@ from asp_backend.core.config import (
     load_asp_config,
     validate_asp_config,
 )
-from backend.src.errors import ConfigError
+from middleware.src.errors import ConfigError
 
 
 class TestLoadAspConfig:

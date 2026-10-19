@@ -17,7 +17,7 @@ from asp_backend.core.pipeline.session import (
     snapshot_pipeline_config,
 )
 from asp_gui.helpers._progress_pipeline import _ProgressPipeline
-from backend.src.errors import PipelineError
+from middleware.src.errors import PipelineError
 from PIL import Image
 
 
@@ -211,8 +211,8 @@ class TestPipelineSession:
         assert session.inputs.image_paths == ["a.png", "b.png"]
 
     def test_stages_emit_host_telemetry_spans_when_enabled(self, tmp_path, monkeypatch):
-        pytest.importorskip("backend.src.core.telemetry")
-        from backend.src.core import telemetry
+        pytest.importorskip("middleware.src.core.telemetry")
+        from middleware.src.core import telemetry
 
         monkeypatch.setattr(telemetry, "TELEMETRY_DIR", tmp_path)
         previous = telemetry.is_enabled()

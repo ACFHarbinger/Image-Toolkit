@@ -455,7 +455,7 @@ class PipelineSession:
     def _host_telemetry(self) -> Any | None:
         """Image-Toolkit writer when present; no-op in standalone ASP."""
         try:
-            from backend.src.core import telemetry as host_telemetry
+            from middleware.src.core import telemetry as host_telemetry
         except ImportError:
             return None
         return host_telemetry

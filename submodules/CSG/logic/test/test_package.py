@@ -28,4 +28,4 @@ def test_flattened_packages_use_top_level_namespaces() -> None:
 
 def test_runtime_coordination_is_owned_by_core_package() -> None:
     assert NATIVE_COMPUTE_LOCK.__class__.__module__ == "_thread"
-    assert "backend.src.core.telemetry" not in sys.modules
+    assert "middleware.src.core.telemetry" not in sys.modules

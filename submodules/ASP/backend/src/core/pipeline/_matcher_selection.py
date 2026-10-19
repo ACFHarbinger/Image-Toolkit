@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from asp_backend.models.wrappers.aliked_lg_wrapper import ALIKEDLightGlueWrapper
     from asp_backend.models.wrappers.efficient_loftr_wrapper import EfficientLoFTRWrapper
     from asp_backend.models.wrappers.roma_wrapper import RoMaWrapper as _RoMaWrapperT
-    from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
+    from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 
     # Type-checking-only base: gives mypy visibility into attributes set by
     # AnimeStitchPipeline.__init__ / sibling mixins (see _pipeline_protocol.py).
@@ -103,7 +103,7 @@ class _MatcherSelectionMixin(_Base):
                 _active_loftr = self._eloftr
         if _active_loftr is None and self.use_loftr:
             if self._loftr is None:
-                from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper  # §3.14 lazy
+                from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper  # §3.14 lazy
 
                 self._loftr = LoFTRWrapper()
                 logger.info("[Stitch]   LoFTR matcher constructed (loads on first pair).")

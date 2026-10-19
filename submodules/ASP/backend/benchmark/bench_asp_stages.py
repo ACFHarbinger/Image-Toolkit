@@ -49,10 +49,10 @@ from asp_backend.alignment.bundle_adjust import (  # noqa: E402
 from asp_backend.alignment.ecc import _ecc_refine  # noqa: E402
 from asp_backend.alignment.matching import _pairwise_match  # noqa: E402
 from asp_backend.rendering.compositing import _composite_foreground  # noqa: E402
-from backend.benchmark.managers import BenchmarkManager, measure_memory  # noqa: E402
+from middleware.benchmark.managers import BenchmarkManager, measure_memory  # noqa: E402
 
 try:
-    from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper  # type: ignore[import]
+    from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper  # type: ignore[import]
 
     _LOFTR_AVAILABLE = True
 except Exception:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
-from backend.src.constants import LUMINANCE_WEIGHTS
+from middleware.src.constants import LUMINANCE_WEIGHTS
 
 from ._flags import _JOINT_GAIN_SIGMA_G, _JOINT_GAIN_SIGMA_N
 from ._native import BATCH_AVAILABLE, batch

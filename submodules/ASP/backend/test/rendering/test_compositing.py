@@ -49,13 +49,13 @@ from asp_backend.rendering.compositing import (  # noqa: E402
     _single_pose_soft_edge,
     _soft_seam_weight,
 )
-from backend.src.constants import (  # noqa: E402
+from middleware.src.constants import (  # noqa: E402
     FEATHER_MAX as _FEATHER_MAX,
 )
-from backend.src.constants import (  # noqa: E402
+from middleware.src.constants import (  # noqa: E402
     FEATHER_MIN as _FEATHER_MIN,
 )
-from backend.src.constants import (  # noqa: E402
+from middleware.src.constants import (  # noqa: E402
     FEATHER_TABLE as _FEATHER_TABLE,  # noqa: F401
 )
 from conftest import make_frame, make_translation_affine  # noqa: E402

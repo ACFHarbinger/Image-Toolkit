@@ -41,7 +41,7 @@ except ImportError:
 
 # BaSiCWrapper only uses cv2/numpy/torch — safe to import at module level.
 try:
-    from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
+    from middleware.src.models.wrappers.basic_wrapper import BaSiCWrapper
 
     _BASIC_OK = True
 except ImportError:

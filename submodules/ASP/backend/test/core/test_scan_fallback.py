@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from asp_backend.alignment.canvas import _reuse_simple_stitch, _scan_stitch_fallback
-from backend.src.errors import CanvasError
+from middleware.src.errors import CanvasError
 
 
 def test_reuse_simple_stitch_copies_sibling(tmp_path: Path) -> None:

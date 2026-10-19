@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 try:
-    from backend.src.constants.animation import LAPLACIAN_BANDS
+    from middleware.src.constants.animation import LAPLACIAN_BANDS
 except ImportError:
     LAPLACIAN_BANDS = 5
 
@@ -30,8 +30,8 @@ if TYPE_CHECKING:
     from asp_backend.models.stitch_net import AnimeStitchNet
     from asp_backend.models.wrappers.aliked_lg_wrapper import ALIKEDLightGlueWrapper
     from asp_backend.models.wrappers.efficient_loftr_wrapper import EfficientLoFTRWrapper
-    from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
-    from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
+    from middleware.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+    from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper
     from .session import PauseHook
 
 

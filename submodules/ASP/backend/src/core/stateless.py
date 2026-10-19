@@ -9,7 +9,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 try:
-    from backend.src.constants.animation import LAPLACIAN_BANDS
+    from middleware.src.constants.animation import LAPLACIAN_BANDS
 except ImportError:
     LAPLACIAN_BANDS = 5
 

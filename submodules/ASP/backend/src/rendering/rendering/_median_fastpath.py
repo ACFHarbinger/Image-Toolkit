@@ -13,7 +13,7 @@ import logging
 import warnings
 
 import numpy as np
-from backend.src.constants import LANCZOS_BLEED, RENDERING_FADE_ROWS
+from middleware.src.constants import LANCZOS_BLEED, RENDERING_FADE_ROWS
 
 from . import _native
 from ._animation_repaint import _render_animation_repaint

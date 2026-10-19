@@ -5,14 +5,14 @@ from __future__ import annotations
 
 import numpy as np
 try:
-    from backend.src.constants.animation import (
+    from middleware.src.constants.animation import (
         ADAPTIVE_MIN_DISP_FRAC,
         HIGH_CONF_EDGE_THRESH,
         STATIC_EDGE_MIN_DISP_PX,
     )
 except ImportError:
     try:
-        from backend.src.constants import (
+        from middleware.src.constants import (
             ADAPTIVE_MIN_DISP_FRAC,
             HIGH_CONF_EDGE_THRESH,
             STATIC_EDGE_MIN_DISP_PX,

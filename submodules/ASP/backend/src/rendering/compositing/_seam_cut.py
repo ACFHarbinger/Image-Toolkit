@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
-from backend.src.constants import LUMINANCE_WEIGHTS
+from middleware.src.constants import LUMINANCE_WEIGHTS
 from scipy.ndimage import minimum_filter1d as _min_filt1d
 
 from ._native import BATCH_AVAILABLE, batch

@@ -31,7 +31,7 @@ from PySide6.QtWidgets import (
 )
 
 try:
-    from backend.src.constants.animation import RLHF_FLAW_TYPES
+    from middleware.src.constants.animation import RLHF_FLAW_TYPES
 except Exception:
     RLHF_FLAW_TYPES = ["seam", "ghosting", "misalignment", "color_mismatch", "blur"]
 

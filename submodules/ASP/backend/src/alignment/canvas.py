@@ -9,8 +9,8 @@ import logging
 import cv2
 import numpy as np
 from asp_backend.core.stateless import _largest_valid_rect, _trim_dark_border
-from backend.src.constants import CANVAS_MAX_DIM
-from backend.src.errors import CanvasError
+from middleware.src.constants import CANVAS_MAX_DIM
+from middleware.src.errors import CanvasError
 from PIL import Image
 
 logger = logging.getLogger(__name__)

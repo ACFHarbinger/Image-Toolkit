@@ -56,8 +56,8 @@ from asp_backend.ingestion.masking import _compute_fg_masks
 from asp_backend.rendering.compositing import _composite_foreground
 from asp_backend.rendering.photometric import _apply_basic, _correct_vignetting
 from asp_backend.rendering.rendering import _render
-from backend.src.constants import SPATIAL_DEDUP_PX
-from backend.src.errors import CanvasError, PipelineError
+from middleware.src.constants import SPATIAL_DEDUP_PX
+from middleware.src.errors import CanvasError, PipelineError
 
 from ._affine_recovery import _recover_affine_health
 from ._content_trim import _trim_content_crop
@@ -145,9 +145,9 @@ if TYPE_CHECKING:
     from asp_backend.models.wrappers.aliked_lg_wrapper import ALIKEDLightGlueWrapper
     from asp_backend.models.wrappers.efficient_loftr_wrapper import EfficientLoFTRWrapper
     from asp_backend.models.wrappers.roma_wrapper import RoMaWrapper
-    from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper as _BaSiCWrapperT
-    from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
-    from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
+    from middleware.src.models.wrappers.basic_wrapper import BaSiCWrapper as _BaSiCWrapperT
+    from middleware.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+    from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 
     # Type-checking-only base: gives mypy visibility into attributes set by
     # AnimeStitchPipeline.__init__ / sibling mixins (see _pipeline_protocol.py).
@@ -286,7 +286,7 @@ class _RunStageMixin(_Base):
         # ── Stage 4: Foreground masking ──────────────────────────────────────
         _mask_memory_before = _stage4_memory_snapshot()
         if self.use_birefnet and self._birefnet is None:
-            from backend.src.models.wrappers.birefnet_wrapper import (
+            from middleware.src.models.wrappers.birefnet_wrapper import (
                 BiRefNetWrapper,
             )  # §3.14 lazy
 

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
-from backend.src.constants import SEAM_OVERLAY_AMBER_THRESH, SEAM_OVERLAY_RED_THRESH
+from middleware.src.constants import SEAM_OVERLAY_AMBER_THRESH, SEAM_OVERLAY_RED_THRESH
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
