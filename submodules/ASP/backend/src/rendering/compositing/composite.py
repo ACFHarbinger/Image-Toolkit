@@ -1,0 +1,305 @@
+"""``_composite_foreground`` -- the Stage 11 Laplacian-blend composite entry point."""
+
+from __future__ import annotations
+
+import os
+
+import numpy as np
+
+from ...ingestion.frame_selection.phases import phase_spans
+from ._audit import _adapt_feathers_and_synthesize, _audit_and_annotate_composite
+from ._boundaries import _optimize_boundaries_and_feathers
+from ._fg_pose import _register_foreground_poses
+from ._fill import _initial_hard_partition_fill, _process_single_seam
+from ._flags import _GLOBAL_GAIN_COMP, _JOINT_GAIN_ROBUST, _JOINT_GAIN_SOLVE
+from ._gain_compensation import (
+    _apply_joint_gain_solve,
+    _confirmed_background,
+    _equalize_warped_gains,
+)
+from ._graphcut import _try_global_seam_composite
+from ._normalization import _normalize_warped_frames, _warp_inputs
+from ._seam_cache import _precompute_seam_paths
+from .coherence_v2 import coherence_v2_enabled
+
+
+def _multiphase_plate_plan(
+    phase_ids: list[int] | None,
+    affines: list[np.ndarray],
+    n_frames: int,
+) -> tuple[list[tuple[int, int, int]], list[int], str] | None:
+    """Return selection spans and physical phase order, or reject unsafe input."""
+    _dbg = os.environ.get("ASP_PLATE_MULTIPHASE_DEBUG", "0") == "1"
+    if phase_ids is None or len(phase_ids) != n_frames:
+        if _dbg:
+            print(
+                f"[Stitch]   plate_multiphase plan: reject (phase_ids len "
+                f"{None if phase_ids is None else len(phase_ids)} vs n_frames {n_frames})"
+            )
+        return None
+    spans = phase_spans(phase_ids)
+    if not spans or any(end - start + 1 < 2 for _phase, start, end in spans):
+        if _dbg:
+            print(
+                f"[Stitch]   plate_multiphase plan: reject (thin/empty span; "
+                f"phase_ids={list(phase_ids)} spans={spans})"
+            )
+        return None
+    sorted_indices = sorted(range(n_frames), key=lambda index: float(affines[index][1, 2]))
+    physical_order: list[int] = []
+    for index in sorted_indices:
+        phase = phase_ids[index]
+        if not physical_order or phase != physical_order[-1]:
+            physical_order.append(phase)
+    # A phase may own exactly one canvas band. Repeated runs mean its plate
+    # cannot be represented by the vertical-band join model.
+    if len(set(physical_order)) != len(physical_order) or len(physical_order) != len(spans):
+        if _dbg:
+            print(
+                f"[Stitch]   plate_multiphase plan: reject (interleaved ty order; "
+                f"phase_ids={list(phase_ids)} physical_order={physical_order} spans={spans})"
+            )
+        return None
+    deltas = np.diff(np.asarray(physical_order, dtype=np.int64))
+    if np.all(deltas >= 0):
+        direction = "forward"
+    elif np.all(deltas <= 0):
+        direction = "reverse"
+    else:
+        if _dbg:
+            print(
+                f"[Stitch]   plate_multiphase plan: reject (non-monotone physical_order "
+                f"{physical_order})"
+            )
+        return None
+    if _dbg:
+        print(
+            f"[Stitch]   plate_multiphase plan: ACCEPT ({len(spans)} phases, "
+            f"{direction}, physical_order={physical_order})"
+        )
+    return spans, physical_order, direction
+
+
+def _composite_foreground(
+    warped_corr: list[np.ndarray],
+    warped_fgs: list[np.ndarray],
+    canvas: np.ndarray,
+    H: int,
+    W: int,
+    frames: list[np.ndarray],
+    affines: list[np.ndarray],
+    bg_masks: list[np.ndarray | None],
+    frame_keys: tuple[str, ...] | None = None,
+    seam_path_cache: dict | None = None,
+    exclusion_masks: list[np.ndarray] | None = None,
+    preset_boundaries: np.ndarray | None = None,
+    paint_mask: np.ndarray | None = None,
+    seam_meta_out: dict | None = None,
+    seam_overrides: dict | None = None,
+    phase_ids: list[int] | None = None,
+    source_has_multiple_phases: bool = False,
+) -> np.ndarray:
+    N = len(frames)
+    print("[Stitch]   Laplacian-blend composite (foreground-only deghost)...")
+
+    # Scroll check
+    tys = np.array([float(affines[i][1, 2]) for i in range(N)])
+    txs = np.array([float(affines[i][0, 2]) for i in range(N)])
+    ty_range = float(tys.max() - tys.min())
+    tx_range = float(txs.max() - txs.min())
+    if tx_range > 0 and ty_range / max(tx_range, 1.0) < 0.1:
+        print(
+            "[Stitch]   Horizontal scroll — temporal median is already optimal, "
+            "skipping zone composite."
+        )
+        return canvas.copy()
+
+    # Strip centres and ownership ordering
+    strip_center_ys = np.array(
+        [float(affines[i][1, 2]) + frames[i].shape[0] / 2.0 for i in range(N)],
+        dtype=np.float64,
+    )
+    order = np.argsort(strip_center_ys)
+    sorted_centers = strip_center_ys[order]
+    initial_boundaries = (sorted_centers[:-1] + sorted_centers[1:]) / 2.0
+    if preset_boundaries is not None and len(preset_boundaries) == N - 1:
+        initial_boundaries = np.asarray(preset_boundaries, dtype=np.float64)
+
+    # Warp inputs. Preserve P4's uncertain-mask state for the P1/P2 plate;
+    # the legacy compositor retains its boolean-mask contract.
+    warped_list, warped_bg, warped_valid = _warp_inputs(
+        frames,
+        affines,
+        bg_masks,
+        H,
+        W,
+        N,
+        include_valid=True,
+        preserve_ternary=(
+            os.environ.get("ASP_PLATE_SINGLE_POSE", "0") == "1"
+            or os.environ.get("ASP_PLATE_MULTIPHASE", "0") == "1"
+        ),
+    )
+
+    # P1/P2 candidate: default-off canvas-aligned background plate + single foreground pose
+    from ._plate_compositor import (
+        composite_plate_multiphase,
+        composite_plate_single_pose,
+        plate_multiband_enabled,
+        plate_multiphase_enabled,
+        plate_single_pose_enabled,
+        plate_single_pose_safe_for_phases,
+    )
+
+    if plate_single_pose_enabled() and N >= 2 and plate_single_pose_safe_for_phases(
+        phase_ids, N, source_has_multiple_phases
+    ):
+        edge_preserve = os.environ.get("ASP_PLATE_EDGE_PRESERVE", "1") != "0"
+        multiband = plate_multiband_enabled()
+        result, claimed, plate_meta = composite_plate_single_pose(
+            warped_list,
+            warped_bg,
+            canvas,
+            warped_valid=warped_valid,
+            edge_preserve=edge_preserve,
+            multiband=multiband,
+        )
+        if seam_meta_out is not None:
+            seam_meta_out["plate_single_pose"] = True
+            seam_meta_out["n_claimed"] = int((claimed >= 0).sum())
+            seam_meta_out["plate_ownership"] = plate_meta
+        print(
+            "[Stitch]   plate_single_pose composite "
+            f"(ASP_PLATE_SINGLE_POSE=1, multiband={multiband})."
+        )
+        return result
+    if plate_single_pose_enabled() and plate_multiphase_enabled() and N >= 2:
+        plan = _multiphase_plate_plan(phase_ids, affines, N)
+        if plan is not None:
+            spans, physical_order, direction = plan
+            n_phases = len(spans)
+            estimate = 2.0 + 3.0 * n_phases
+            print(
+                f"[Stitch]   plate_multiphase: {n_phases} phases -> "
+                f"~{estimate:.1f} GiB peak RSS estimated"
+            )
+            edge_preserve = os.environ.get("ASP_PLATE_EDGE_PRESERVE", "1") != "0"
+            multiband = plate_multiband_enabled()
+            result, claimed, plate_meta = composite_plate_multiphase(
+                warped_list,
+                warped_bg,
+                canvas,
+                warped_valid,
+                spans,
+                physical_order,
+                edge_preserve=edge_preserve,
+                multiband=multiband,
+            )
+            if seam_meta_out is not None:
+                seam_meta_out["plate_multiphase"] = True
+                seam_meta_out["plate_multiphase_direction"] = direction
+                seam_meta_out["n_claimed"] = int((claimed >= 0).sum())
+                seam_meta_out["plate_ownership"] = plate_meta
+            print(
+                "[Stitch]   plate_multiphase composite "
+                f"({n_phases} phases, direction={direction}, multiband={multiband})."
+            )
+            return result
+    if plate_single_pose_enabled() and N >= 2:
+        print("[Stitch]   plate_single_pose skipped for multi-phase sequence.")
+        if seam_meta_out is not None:
+            seam_meta_out["plate_single_pose_skipped"] = "multiple_phases"
+
+    # M3 candidate: default-off §9.2 single-pose apply. Live seam loop below.
+    if coherence_v2_enabled() and N >= 2:
+        from .coherence_v2 import composite_coherence_v2, fg_mask_from_warped
+
+        fgs = [
+            fg_mask_from_warped(warped_list[i], warped_bg[i] if i < len(warped_bg) else None)
+            for i in range(N)
+        ]
+        result, claimed, claimed_meta = composite_coherence_v2(warped_list, fgs, canvas)
+        if seam_meta_out is not None:
+            seam_meta_out["coherence_v2"] = True
+            seam_meta_out["n_claimed"] = int((claimed >= 0).sum())
+            seam_meta_out["coherence_ownership"] = claimed_meta
+        print("[Stitch]   coherence_v2 single-pose composite (ASP_COHERENCE_V2=1).")
+        return result
+
+    # P4 ternary masks are only consumed by P1/M3. Legacy seam code has a
+    # boolean-mask contract, so normalize the handoff after a plate skip.
+    warped_bg = [
+        _confirmed_background(mask) if mask is not None else None
+        for mask in warped_bg
+    ]
+
+    # Normalise warped frames
+    warped_norm, frame_gains = _normalize_warped_frames(
+        canvas, warped_list, warped_bg, order, N, H, W
+    )
+
+    # Optimize boundary placement and feathers
+    boundaries, feathers = _optimize_boundaries_and_feathers(
+        warped_norm, order, initial_boundaries, bg_masks, affines, frames,
+        frame_gains, warped_bg, H, W, N,
+    )
+
+    # Foreground pose registration
+    seam_single_pose, seam_post_diffs, seam_synthesized = _register_foreground_poses(
+        warped_norm, warped_bg, order, boundaries, feathers, affines, frames,
+        seam_overrides, ty_range, tx_range, H, W, N, phase_ids,
+    )
+
+    # Adaptive feather refinement and canonical crop synthesis
+    seam_canonical_crops = _adapt_feathers_and_synthesize(
+        seam_post_diffs, seam_single_pose, seam_synthesized, feathers,
+        boundaries, order, affines, frames, warped_norm, H, W,
+    )
+
+    # Equalise inter-frame luminance before seam finding.
+    if _GLOBAL_GAIN_COMP and len(warped_norm) >= 2:
+        if _JOINT_GAIN_SOLVE:
+            warped_norm = _apply_joint_gain_solve(
+                warped_norm, warped_bg, robust=_JOINT_GAIN_ROBUST
+            )
+        else:
+            warped_norm = _equalize_warped_gains(warped_norm, block_size=32)
+
+    # Try global GraphCut / Canvas-space DP composite
+    global_res = _try_global_seam_composite(
+        warped_norm, warped_bg, canvas, H, W, N, boundaries,
+        seam_post_diffs, seam_single_pose, seam_meta_out
+    )
+    if global_res is not None:
+        return global_res
+
+    # Hard-partition fill
+    result = _initial_hard_partition_fill(
+        canvas, warped_norm, warped_bg, order, boundaries, N, H
+    )
+
+    # Pre-compute seam DP paths
+    _precomp_paths, _eff_exclusion = _precompute_seam_paths(
+        result, boundaries, order, feathers, warped_norm, warped_bg,
+        frame_keys, seam_path_cache, exclusion_masks, seam_overrides, paint_mask, H, W
+    )
+
+    # Laplacian blend at each boundary seam zone
+    for k in range(len(boundaries)):
+        by = boundaries[k]
+        _process_single_seam(
+            k, by, result, order, feathers, warped_norm, warped_bg,
+            seam_single_pose, seam_post_diffs, seam_synthesized, seam_canonical_crops,
+            seam_overrides, _precomp_paths, _eff_exclusion, seam_meta_out, H, W
+        )
+
+    # Post-composite audit and annotations
+    result = _audit_and_annotate_composite(
+        result, boundaries, order, feathers, warped_norm, _precomp_paths,
+        seam_post_diffs, seam_single_pose, seam_meta_out
+    )
+
+    return result
+
+
+__all__ = ["_composite_foreground"]
