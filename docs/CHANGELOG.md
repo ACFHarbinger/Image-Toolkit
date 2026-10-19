@@ -55,6 +55,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   - **Engine:** `engine.py` runs the reconciler's decisions. Teardown stays owed until the provider confirms nothing is billing.
   - **Store:** an encrypted `~/.image-toolkit/cloud_jobs.db` (SQLCipher via `base.database`) in `store/`. It holds jobs, attempts, shards, an append-only event log, and a spend ledger that history pruning never deletes. PoC usage rows can be imported into the ledger. Opening the store retries when two processes open it at the same moment.
   - **Tests:** `fakes.py` adds a scripted `FakeProvider` that can simulate ambiguous submits, out-of-stock, quota errors, preemption and failed teardowns, so no test spends money. Tests: `backend/test/cloud/test_cloud_jobs_engine.py` and `test_cloud_jobs_spec.py`.
+- Cloud Jobs staging storage (#833):
+  - **Strategies:** `storage/` has one strategy interface over a bucket with presigned URLs, provider-native storage (region-bound volumes), and Cloud Sync remotes. Cloud Sync uses the remote's own temporary links where it has them; otherwise it goes through a transit bucket that is emptied after outputs are copied to the remote. Inputs are content-addressed and uploaded once.
+  - **Workers:** a worker's manifest holds only presigned URLs, never credentials.
+  - **Live events:** the worker re-uploads `events.jsonl` through one presigned PUT, and the daemon reads only the new bytes from its last offset.
+  - **Retention:** planning covers staged inputs, LRU model caches under a storage budget, and outputs.
+  - **Engine admission:** now uses `CloudSettings` limits on concurrent jobs, GPU instances and reserved spend. Only admitted jobs count toward reserved spend, so queued jobs can't block each other.
 - Cloud Jobs safeguards (#830–#832), Qt-free:
   - **Settings:** `settings.py` holds one `CloudSettings` for caps, warning thresholds, admission limits, retries, regions, packing and retention.
   - **Risk rules:** `risk/` ships the rules as YAML (`rules.yaml`). Each rule targets form fields to recolour, lists fields to grey out, and has a ⚠ message filled from the job. User edits are stored in `cloud_jobs.db`, and every rule can be edited. Disabling a capability rule leaves a warning on each job it would have blocked, and that warning must be acknowledged.
