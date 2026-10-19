@@ -40,12 +40,12 @@
 | `gui/src/components/dialogs/thumbnail_file_picker.py` | 386 | 4 | 7 | 397 |
 | `gui/src/tabs/core/extractor_tab/_directory_scanning.py` | 385 | 35 | 24 | 444 |
 | `gui/src/windows/settings/_relaunch_settings.py` | 382 | 33 | 9 | 424 |
-| `backend/src/cloud/engine.py` | 381 | 10 | 9 | 400 |
 | `backend/src/core/wallpaper/_kde.py` | 381 | 106 | 31 | 518 |
+| `backend/src/cloud/engine.py` | 381 | 10 | 9 | 400 |
 | `backend/src/utils/display/slideshow_daemon.py` | 379 | 37 | 34 | 450 |
 | `gui/src/tabs/web/web_requests_tab.py` | 377 | 39 | 6 | 422 |
-| `gui/src/components/dialogs/dataset_advisor_panel.py` | 371 | 12 | 16 | 399 |
 | `gui/src/windows/settings/_profile_management.py` | 371 | 34 | 18 | 423 |
+| `gui/src/components/dialogs/dataset_advisor_panel.py` | 371 | 12 | 16 | 399 |
 | `backend/src/core/vault_manager.py` | 368 | 31 | 77 | 476 |
 | `gui/src/tabs/models/guidance_diff_widget.py` | 366 | 4 | 21 | 391 |
 | `backend/src/core/dataset_advisor.py` | 365 | 9 | 31 | 405 |
@@ -53,7 +53,7 @@
 | `backend/src/models/core/comfy_provenance.py` | 357 | 16 | 32 | 405 |
 | `gui/src/tabs/core/extractor_tab/_extraction_workers.py` | 355 | 11 | 9 | 375 |
 | `backend/src/models/tuning/cbir_tuner.py` | 352 | 32 | 76 | 460 |
-| `gui/src/tabs/core/extractor_tab/_queue_panel.py` | 346 | 36 | 32 | 414 |
 | `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
+| `gui/src/tabs/core/extractor_tab/_queue_panel.py` | 346 | 36 | 32 | 414 |
 | `gui/src/windows/settings/settings_window.py` | 345 | 28 | 10 | 383 |
 | **TOTALS** | **105633** | **6624** | **10724** | **122981** |
