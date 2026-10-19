@@ -704,24 +704,28 @@ rationale in the
   - **B:** Sphinx Python autodoc only. Rely primarily on Sphinx generated documentation from Python docstrings.
   - **C:** Repo-root Markdown files. Maintain plain Markdown files in the repository root without static site generation or Storybook.
 
-### Mistral — 2026-10-19 (all seven pending)
+### Mistral — 2026-10-19 (all seven answered)
 
-Full rationale in the
+Harbinger answered all seven on 2026-10-19, matching the
+recommendations. Full rationale in the
 [proposal](../mistral/tauri_migration_refactor_proposal_2026-10-19.md).
-None re-ask a recorded answer or a pending Kimi/Gemini question.
 
 - **[Mistral M1] May the Tauri app consolidate user-visible
   navigation?** OpenCode Q1 fixed the ledger unit, not whether the
   user's navigation may change (33 routes, 26 factories today).
-  - **A (recommended):** restructuring allowed within a row where
-    behavior is preserved; the row records its old-route → catalog-id
-    map; routes referenced by shortcuts, docs or stored settings get
-    compat aliases. Cross-row merges need Harbinger sign-off.
+  - **Harbinger answer (2026-10-19):** A. Restructuring allowed within
+    a row where behavior is preserved; the row records its old-route →
+    catalog-id map; routes referenced by shortcuts, docs or stored
+    settings get compat aliases. Cross-row merges need Harbinger
+    sign-off.
   - **B:** strict 1:1 route parity until every row passes;
     consolidation is a post-migration release.
   - **C:** free restructure; the catalog is the only map.
 - **[Mistral M2] Which area wave follows the Convert pilot and Cloud
   Jobs Gate D?**
+  - **Harbinger answer (2026-10-19):** A. Library/database (gallery,
+    search, tags, groups) — first full exercise of the C++ thumbnail
+    pipeline (T1) and asset-protocol streaming.
   - **A (recommended):** library/database (gallery, search, tags,
     groups). Largest user value, first full exercise of the C++
     thumbnail pipeline (T1) and asset-protocol streaming.
@@ -732,6 +736,9 @@ None re-ask a recorded answer or a pending Kimi/Gemini question.
     cheapest porting muscle, least user-visible progress.
   - **D:** Harbinger assigns per agent availability; no fixed order.
 - **[Mistral M3] What does accessibility parity mean per row?**
+  - **Harbinger answer (2026-10-19):** A. Keyboard parity is a row-pass
+    criterion; screen-reader support is best-effort with a known-gaps
+    list in each module README, revisited after PySide6 is gone.
   - **A (recommended):** keyboard parity is a row-pass criterion (one
     shortcut registry, W6, makes it checkable); screen-reader support
     is best-effort with a known-gaps list in each module README,
@@ -742,6 +749,9 @@ None re-ask a recorded answer or a pending Kimi/Gemini question.
     scope for this initiative.
 - **[Mistral M4] Is i18n in scope?** The Qt GUI has no QTranslator or
   message-catalog infrastructure today (English-only).
+  - **Harbinger answer (2026-10-19):** A. Status quo — English-only,
+    out of scope for this initiative; ported views still avoid
+    hard-coded sentence concatenation so extraction stays cheap later.
   - **A (recommended):** status quo — English-only, out of scope for
     this initiative; ported views still avoid hard-coded sentence
     concatenation so extraction stays cheap later.
@@ -752,6 +762,10 @@ None re-ask a recorded answer or a pending Kimi/Gemini question.
   during coexistence?** W4 decided dual installers and the eventual
   frozen sidecar, not what the Tauri installer launches for Python
   while both apps ship.
+  - **Harbinger answer (2026-10-19):** A. Both installers use the one
+    installed backend environment per machine; the Tauri supervisor
+    spawns the sidecar from it. Freezing happens only at Qt deletion,
+    as W4 already decided.
   - **A (recommended):** both installers use the one installed backend
     environment per machine; the Tauri supervisor spawns the sidecar
     from it. One Python to update during coexistence; freezing happens
@@ -764,6 +778,10 @@ None re-ask a recorded answer or a pending Kimi/Gemini question.
     Reproducible, adds a first-run network dependency.
 - **[Mistral M6] What is the recovery contract when the supervisor
   restarts the sidecar?**
+  - **Harbinger answer (2026-10-19):** A. `bridge.down`/`bridge.ready`
+    events, error envelope for in-flight session requests, durable
+    jobs reattach on `bridge.ready`, route and ephemeral UI state
+    preserved, and a SIGKILL smoke test in CI.
   - **A (recommended):** `bridge.down`/`bridge.ready` events, error
     envelope for in-flight session requests, durable jobs reattach on
     `bridge.ready`, route and ephemeral UI state preserved, and a
@@ -775,6 +793,9 @@ None re-ask a recorded answer or a pending Kimi/Gemini question.
 - **[Mistral M7] Does the main app share bridge code with the devtool
   sidecar?** The devtool precedent (D51, `dev/tool/devtool.py`) chose
   the same model Codex R1 chose for the main app.
+  - **Harbinger answer (2026-10-19):** A. One small bridge package
+    (framing, envelope, version handshake, generated clients) consumed
+    by both; the devtool migrates opportunistically, blocking no wave.
   - **A (recommended):** extract one small bridge package (framing,
     envelope, version handshake, generated clients) consumed by both;
     the devtool migrates opportunistically, blocking no wave.

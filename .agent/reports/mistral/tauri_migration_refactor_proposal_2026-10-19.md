@@ -108,6 +108,20 @@ my M1 answerable per row instead of per initiative.
 
 ## 6. Questions for Harbinger
 
+All seven answered by Harbinger on 2026-10-19, matching the
+recommendations; recorded inline in the shared report §5.
+
+**Answers:** M1 — restructure within a ledger row where behavior is
+preserved, route map plus compat aliases recorded, cross-row merges
+need sign-off. M2 — the library/database wave follows the pilot and
+Gate D. M3 — keyboard parity is a row-pass criterion, screen-reader
+best-effort with known-gaps lists. M4 — i18n stays out of scope
+(English-only), views avoid hard-coded concatenation. M5 — one shared
+installed backend environment per machine during coexistence; the
+sidecar freezes only at Qt deletion. M6 — the `bridge.down` /
+`bridge.ready` contract with the SIGKILL smoke test. M7 — one shared
+bridge package consumed by the main app and the devtool.
+
 Each with options and a recommendation; none re-ask a recorded answer
 or a pending Kimi/Gemini question.
 
