@@ -23,6 +23,8 @@ what you add.
    and is empty) that submits, tracks, and collects heavy jobs on:
    - **CPU:** AWS, GCP, Azure.
    - **GPU:** RunPod, Hyperstack, Thunder Compute.
+   - **Also in scope (added 2026-10-19):** Cloudflare and Oracle. How to
+     classify them is still open; see §5 Q10.
 2. **A manager UI** (a new window or tab) to monitor and manage cloud jobs:
    status, logs, progress, cost, cancel and retry, outputs, and the live
    cloud resources the jobs created.
@@ -172,8 +174,37 @@ directly in chat on 2026-10-19, and their answers are recorded here:
     release.
   - The Cloud Run adapter becomes the first managed-batch backend.
 
-Claude's Q8 (spot/preemptible instances) and Q10 (whether the Cloudflare
-and Oracle stubs stay in scope) are still open.
+- **[Claude Q8] Spot/preemptible → handled through risk feedback in the
+  UI, not a fixed policy.** The job configuration UI reacts to the
+  parameters set for a job in three ways:
+  - It **recolours the background and text** of the affected controls or
+    sections according to the risk level.
+  - It shows a **textual warning** in bright colours with a ⚠ sign. This
+    warns the user about using certain resources for that job, for
+    example spot instances for a job that can't resume, an expensive GPU
+    class, a long max runtime, or a large egress.
+  - It **greys out options entirely** where the combination is invalid or
+    unsupported, for example spot for a kind that can't resume from a
+    checkpoint, or a storage method the selected provider and mode can't
+    use.
+
+  This applies to every job option, not only spot. Proposals should
+  define the rule set for warnings and disabled options (which job
+  parameters trigger which level) and where the rules live. The rules
+  should be data-driven and testable without Qt. They should share their
+  thresholds with the Q7 cost safeguards in Settings.
+- **[Claude Q10] Cloudflare and Oracle → IN SCOPE as providers too.**
+  - The provider list is now AWS, GCP, Azure, Cloudflare, Oracle, RunPod,
+    Hyperstack and Thunder Compute.
+  - Proposals should classify each provider:
+    - **Oracle** has CPU and GPU shapes.
+    - **Cloudflare:** check what it can actually run today. Workers,
+      Queues and R2 are the obvious pieces. Check current docs for its
+      container and GPU offerings.
+  - The existing stubs, `infra/cloud/cloudflare/` and
+    `infra/cloud/oracle/`, are the starting point.
+
+All ten of Claude's questions are now answered.
 
 ## 6. Design axes to cover (suggestions, not a checklist)
 
