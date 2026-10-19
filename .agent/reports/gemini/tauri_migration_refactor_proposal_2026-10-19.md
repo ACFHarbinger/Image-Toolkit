@@ -157,40 +157,46 @@ To fulfill Goal 5 ("Documentation for human developers"):
 
 ---
 
-## 9. Questions for Harbinger (Refactoring Brainstorming)
+## 9. Questions and Recorded Answers
 
-### [Gemini G1] C++ Core (`base/`) Binding Architecture
-*Harbinger decided that the C++ core (`base/`) holds vault unlock and the database key (Grok T6). We must decide which process runtime hosts `base/`.*
+Harbinger answered all six questions on 2026-10-19. The recorded answers below govern the refactoring and migration:
+
+### [Gemini G1] C++ Core (`base/`) Binding Architecture & Module Renaming
+- **Harbinger answer (2026-10-19; recorded by Gemini):** **Option A, with architectural module renames.**
+  1. The Python sidecar exclusively hosts the C++ native engine via pybind11, keeping Rust a thin native shell. Vault unlock and the SQLCipher database key are secured in C++ memory.
+  2. **Module Renaming Mandate:**
+     - Rename the Python backend module (`backend/`) to **`middleware/`** (reflecting its role as the service middleware and sidecar orchestration tier).
+     - Rename the base C++ module (`base/`) to **`backend/`** (establishing the high-performance C++ core as the true backend engine).
 - **Option A (Recommended): Python Sidecar Exclusively Hosts `base/`.** The compiled `base` pybind11 module remains exclusively in the Python sidecar process. Rust remains a lightweight native shell without C++ linkage. Vault unlock is passed from webview to sidecar over stdio, where C++ secures the credentials in memory.
 - **Option B: Dual Linkage.** Rust links directly to `base/` via C FFI for vault and database key management, while Python links to `base/` via pybind11 for image processing and computer vision algorithms.
 - **Option C: Native Rust Crypto Re-implementation.** Rust calls `libitk_crypto.so` directly via Rust FFI to manage vault unlocking, bypassing both Python and `base/`.
 
 ### [Gemini G2] High-Throughput Binary & Canvas Tile IPC Protocol
-*Transferring multi-megabyte image tiles, video frame scrubs, or audio buffers through JSON-RPC over stdio incurs a 33% base64 encoding penalty and blocks the stdio command queue.*
+- **Harbinger answer (2026-10-19; recorded by Gemini):** **Option A.** Zero-copy local file cache + Tauri asset streaming protocol: services write rendered tiles/frames to a bounded scratch cache (`~/.image-toolkit/cache/render/`), returning local URIs streamed via `asset://` to avoid stdio base64 bloat.
 - **Option A (Recommended): Zero-Copy Local File Cache + Tauri Asset Streaming Protocol.** Services write rendered tiles/frames to a bounded scratch cache (`~/.image-toolkit/cache/render/`). JSON-RPC responses return local URIs, which the webview streams directly via Tauri's hardware-accelerated `asset://` protocol.
 - **Option B: Length-Prefixed Binary Multiplexing on Stdio.** Custom binary framing interleaved with JSON-RPC over the stdio stream.
 - **Option C: Pure Base64 in JSON-RPC.** Encode all image buffers directly into standard JSON-RPC payloads, accepting CPU and memory overhead for simplicity.
 
 ### [Gemini G3] Shared Canvas Host Rendering Engine
-*Manga and image stitching require panning, deep zooming, split-wipe diffs, and seam editing across panoramas exceeding 30,000–50,000 pixels, exceeding standard HTML5 canvas size limits.*
+- **Harbinger answer (2026-10-19; recorded by Gemini):** **Option A.** WebGL2 / WebGPU dynamic tile-pyramid canvas: off-screen Web Worker calculates viewport frustum culling and requests dynamic LoD tiles rendered via WebGL2/WebGPU texture shader.
 - **Option A (Recommended): WebGL2 / WebGPU Dynamic Tile-Pyramid Canvas.** An off-screen Web Worker calculates viewport frustum culling and requests dynamic level-of-detail tiles, rendered via a custom WebGL2 texture shader.
 - **Option B: HTML5 Canvas 2D with Viewport Windowing.** Use standard 2D canvas context with software-based coordinate slicing.
 - **Option C: Embedded OpenSeadragon / Leaflet Library.** Adapt an off-the-shelf deep-zoom viewer library for stitching and editing canvases.
 
 ### [Gemini G4] Service Extraction Pattern for Qt Workers & Controllers
-*42 of 73 files in `gui/src/helpers/` are `QThread` workers, and tab controllers currently mix UI logic with domain orchestration.*
+- **Harbinger answer (2026-10-19; recorded by Gemini):** **Option A.** Command/Handler pattern with Protocol interfaces: extract pure Python services accepting/returning dataclasses; PySide6 `QThread` workers become 15-line shims delegating to services until deleted.
 - **Option A (Recommended): Command/Handler Pattern with Protocol Interfaces.** Extract domain logic into pure Python `Service` classes implementing `@runtime_checkable` `Protocol`s with frozen dataclasses. PySide6 `QThread` workers become 15-line shims delegating to the service, and the sidecar exposes the identical service methods over stdio.
 - **Option B: Internal Event Bus Refactor.** Replace worker threads with a decoupled internal event queue where UI and services communicate purely via message events.
 - **Option C: Direct Procedural Function Extraction.** Extract worker `run()` bodies into procedural helper functions without formal interfaces or dependency injection.
 
 ### [Gemini G5] Submodule C++ and Backend Unification (ASP, HIE, CSG)
-*Submodules currently contain independent Python and C++ bindings with separate build setups.*
+- **Harbinger answer (2026-10-19; recorded by Gemini):** **Option A.** Unified CMake & service namespaces: merge submodule C++ build routines into the main CMake build (`backend/CMakeLists.txt`, formerly `base/`) and relocate Python code to `middleware/src/services/{asp,hie,csg}/`.
 - **Option A (Recommended): Unified CMake & Service Namespaces.** Merge submodule C++ build routines into the main `base/CMakeLists.txt` and relocate Python backend code to `backend/src/services/{asp,hie,csg}/`, sharing OpenCV and crypto linkages.
 - **Option B: Independent Python Wheels.** Package each submodule as a distinct Python wheel installed into the runtime venv.
 - **Option C: Child Subprocess Sidecars.** Keep submodules as independent external processes spawned and controlled via stdio child processes.
 
 ### [Gemini G6] Developer Documentation & Architecture Knowledge Base
-*To make the codebase accessible to future human developers and prevent architectural rot.*
+- **Harbinger answer (2026-10-19; recorded by Gemini):** **Option A.** MkDocs Material documentation + ADRs in `docs/adr/` + C4 model diagrams + "Adding a Capability" guide + React component Storybook in `frontend/`, all validated in CI.
 - **Option A (Recommended): MkDocs Material Documentation + ADRs + Component Storybook.** Establish `docs/adr/` for decision records, C4 model diagrams in MkDocs, a concrete "Adding a Capability" guide, and Storybook in `frontend/` for React components, all validated in CI.
 - **Option B: Sphinx Python Autodoc Only.** Rely primarily on Sphinx generated documentation from Python docstrings.
 - **Option C: Repo-Root Markdown Files.** Maintain plain Markdown files in the repository root without static site generation or Storybook.
