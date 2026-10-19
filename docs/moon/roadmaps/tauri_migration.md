@@ -1,0 +1,304 @@
+# Tauri Migration and Architecture Refactor
+
+**Status:** LOCKED 2026-10-19. Harbinger and Claude locked this after an
+eight-agent proposal round (Claude, Codex, Gemini, Grok, Cursor, Mistral,
+Kimi, OpenCode) and a final brainstorming round.
+
+- **Tracking:** two GitHub milestones, **Tauri Migration — Wave 0
+  (Platform & Feasibility)** and **Tauri Migration — Feature Waves**.
+  The issues are listed in §3.
+- **This document** holds the design and the order; the issues hold
+  status and owners.
+
+**Origin:** Harbinger asked for four things:
+
+1. migrate every feature of the PySide6 GUI (`gui/`) to the Tauri app
+   (`frontend/`);
+2. refactor for DRY and SOLID;
+3. make the architecture modular, with boundaries enforced by tooling;
+4. write documentation that serves future human developers.
+
+It runs alongside the Cloud Jobs Service (`cloud_jobs.md`).
+
+**Sources:**
+
+- The brief, all 54 recorded answers, and the final round (§7):
+  `.agent/reports/team/tauri_migration_refactor_2026-10-19.md`.
+- Each agent's proposal:
+  `.agent/reports/<agent>/tauri_migration_refactor_proposal_2026-10-19.md`.
+
+**Supersedes:** the "Tri-Interface Strategy" in `docs/moon/ROADMAP.md`.
+There, PySide6 was the pro desktop and Tauri a companion hub; now Tauri
+is the only desktop UI.
+
+---
+
+## 1. Target architecture
+
+```
+React (Vite) webview ─┬─ Rust shell: windows, tray, dialogs, DnD, asset:// (no logic)
+                      └─ JSON-RPC/stdio ─▶ Python sidecar ─▶ middleware/src/services/<feature>/
+                                                               └─▶ C++ core (`backend/`, pybind11)
+Supervisor (outside the webview) ─▶ sidecar · Cloud Jobs daemon · slideshow daemon   (siblings)
+Django (`api/`) ─▶ the same services, for remote clients: Cloud Jobs G1 phone/web, mobile
+```
+
+### Bridge (Codex R1, R6; Mistral M5–M7; Kimi Q1, Q3)
+
+- **Transport:** a supervised Python sidecar speaks versioned JSON-RPC
+  over stdio.
+  - stdout carries only framed protocol messages; stderr carries
+    redacted diagnostics.
+  - The UI and the sidecar ship as one tested version pair, confirmed by
+    a startup handshake.
+  - Django exposes the same services remotely, within a documented
+    compatibility range.
+- **Contracts:** one JSON Schema per capability in `contracts/`, plus a
+  method-routing table. CI generates the TypeScript, Python and Rust
+  types and a contract hash.
+- **One `HostClient`** sits over transport adapters (sidecar, Django,
+  native Rust). Retiring a duplicate Rust command (`db.rs`,
+  `auth_commands.rs`, `video_commands.rs`, `core_commands.rs`) is then a
+  routing-table edit with a conformance suite, not a rewrite. The
+  `postgresql://localhost` default in `db.rs` is deleted, not ported.
+- **Error envelope:** `{code, retryable, message_key, details}`, mapped
+  onto `backend/src/errors/`. No tracebacks reach the webview.
+- **Cancel:** one idempotent `job.cancel` with a cooperative token and
+  escalation.
+- **Event bus:** EventHub intents and facts are generated from the
+  contracts. Each channel keeps a snapshot plus a bounded tail with
+  sequence numbers; a gap triggers a resnapshot. Durable jobs replay
+  from `job_events` / `events.jsonl`. `appStore.ts` keeps only
+  ephemeral UI state.
+- **Restart contract:** the supervisor emits `bridge.down` and
+  `bridge.ready`.
+  - In-flight session requests fail with the error envelope.
+  - Durable jobs reattach.
+  - The current route and the UI state survive.
+  - A SIGKILL smoke test in CI exercises all of this.
+- **Shared bridge package:** framing, envelope, handshake and the
+  generated clients form one small package. The devtool sidecar
+  migrates to it when convenient; it blocks no wave.
+
+### Processes and state (Codex R2–R3; Grok T5–T6; Kimi Q2; final round)
+
+- **Supervisor:** runs outside the webview and starts the sidecar, the
+  Cloud Jobs daemon and the slideshow daemon as siblings.
+  - Closing every window doesn't stop durable work.
+  - A sidecar crash doesn't drop daemon leases.
+  - Previews and interactive requests belong to the UI session.
+- **Single-instance gate** on the data directory, for **GUI apps only**:
+  launching a second app focuses the one already running. During
+  coexistence that applies to the PySide6 and Tauri apps alike.
+- **Vault and keys:**
+  - The **C++ core** holds vault unlock and the database keys. The
+    webview gets a session handle.
+  - Daemons receive **sealed per-store leases** that only the C++ core
+    can unseal.
+  - No plaintext key passes through Python, Rust or the webview. This
+    replaces the Cloud Jobs #827 plan of handing the store secret over
+    IPC.
+- **Settings:** one settings service shared by both GUIs. It keeps the
+  existing keys and scopes (DEVICE / ACCOUNT / SESSION, from
+  `gui/src/preferences/store.py`), detects conflicts, and migrates
+  legacy settings with a backup first.
+- **Schema migrations:** additive-only while a PySide6 row still lives,
+  checked in CI. Destructive steps go in that row's deletion PR.
+
+### Frontend platform (OpenCode Q6; Cursor W1–W8; Grok T2–T4; Mistral)
+
+- **Build:** CRA becomes Vite (React 19) and the Electron leftovers are
+  deleted, in one announced Wave 0 PR. No feature work merges until the
+  build is green.
+- **Security** comes before any new UI:
+  - a real CSP;
+  - one Tauri 2 capability file per labeled window;
+  - asset scope declared per capability and denied by default;
+  - original files never in scope.
+
+  A CI check fails on wildcard scopes, `csp: null`, or a capability with
+  no ledger row.
+- **Shell and navigation:**
+  - One serializable module catalog, split out of `descriptor.py` (which
+    imports `QWidget` today), is rendered by both shells. Its ids match
+    the ledger.
+  - It replaces `App.tsx`'s `TabId` union. No feature adds a `TabId`.
+  - Rail, ribbon, inspector and status bar are all driven by the
+    catalog.
+  - Navigation may be restructured within a ledger row (Mistral M1).
+    Each row keeps an old-route → catalog-id map with compatibility
+    aliases.
+- **Windows:** one main webview. A WindowManager role map handles
+  labels, hide-all and pop-out.
+  - Extra native windows exist only for the tray, the slideshow
+    presenter, OS file dialogs, or where parity needs a separate window
+    (Grok T4).
+  - Cloud Jobs Gate D is a panel in the main window that can pop out
+    into a labeled `cloud.jobs` webview.
+- **Tray:** a native tray lands in Wave 0. Closing the main window hides
+  every labeled window, ported from `collect_background_windows()`.
+- **Design tokens:** CSS variables are generated from
+  `gui/src/theming/tokens/{light,dark}.json`, and both shells use them.
+  QSS is not ported by hand.
+- **Shortcuts:** one registry lifted from `shortcut_manager.py` /
+  `keybindings.json`. Global OS shortcuts are used only for showing and
+  hiding the tray.
+- **Media:**
+  - Gallery stills come from a **C++ thumbnail service**: bounded stills,
+    using the **middle** frame by default. They are written to
+    `~/.image-toolkit/cache/render/` and streamed over `asset://`.
+  - Animated preview is a separate, cancellable request.
+  - Large images are never base64-encoded over stdio.
+- **Canvases:** one shared canvas host. It is a WebGL2/WebGPU tile
+  pyramid, with an off-screen worker that does culling and requests
+  level-of-detail tiles.
+- **ComfyUI:** an isolated embedded view with no native privileges. It
+  is enabled after compatibility and security checks, and the external
+  browser stays as a fallback.
+
+### Service layer, DRY and SOLID (OpenCode Q4; Gemini G4–G5; final round)
+
+- **Layout:** each feature lives in
+  `middleware/src/services/<feature>/`. It delegates to the existing
+  Python modules and the C++ core. `gui/`, `frontend/` and `api/` are its
+  clients.
+- **Pattern:** Command/Handler with `@runtime_checkable` `Protocol`
+  interfaces and frozen dataclasses.
+  - Dependencies are injected through the constructor: repositories,
+    settings, clients.
+  - No singletons reached through globals.
+  - Features talk to each other only through contracts or EventHub.
+- **Qt workers** become thin shims that delegate to the service until
+  their row is deleted.
+- **Boundaries are enforced:**
+  - Python: `import-linter` contracts (extending the existing
+    `[tool.importlinter]`).
+  - TypeScript: `eslint-plugin-boundaries`.
+  - The LoC gate extends to TS/TSX.
+  - Only `services/<x>/api.py` is public.
+- **Submodules:** HIE, ASP, CSG and CRE are absorbed. Their C++ joins the
+  main CMake build, their Python moves to
+  `middleware/src/services/{hie,asp,csg,cre}/`, and their frontends fold
+  into `frontend/`.
+
+### Renames (Gemini G1/G5; final round)
+
+Wave 0 starts with two mechanical, announced PRs, each keeping
+compatibility aliases for one release:
+
+1. **Python `backend/` → `middleware/`.**
+2. **C++ `base/` → `backend/`.**
+
+They must run in that order: both can't be called `backend` at once.
+In-flight branches rebase once.
+
+### Documentation (OpenCode Q7; Gemini G6; Mistral M3–M4)
+
+- **Site:** MkDocs Material.
+- **Decision records:** `docs/adr/`, with one ADR per locked decision
+  above, seeded from this roadmap and from `cloud_jobs.md`.
+- **Diagrams:** C4 diagrams for processes, containers and components.
+- **Guides:**
+  - an "Adding a capability" guide, which is the Convert pilot written
+    up;
+  - `docs/DEVELOPMENT.md` (50 lines today) becomes a real onboarding
+    path.
+- **Module READMEs** are required by CI and carry the contract hash. A
+  contract change without a README update fails the docs build.
+- **Checks:** generated references (sphinx, typedoc, contract schemas),
+  plus `mkdocs --strict` and `lychee`.
+- **Storybook** for the React component library.
+- **`docs/ARCHITECTURE.md`** is really the ASP stitch-pipeline
+  reference. It gets renamed to say so, and a real app architecture
+  page replaces it.
+- **Accessibility:** keyboard parity is required for a row to pass.
+  Screen-reader support is best effort, with a known-gaps list in each
+  module README.
+- **Language:** English-only. i18n is out of scope, but views avoid
+  concatenating sentences.
+
+## 2. Migration mechanics
+
+- **Migration ledger:** `migration/features.toml` has **one record per
+  capability**, not per route. Stitch is one record covering 8 routes;
+  Deep Learning is one record covering 5.
+  - Each record holds routes and the route map, PySide6 and Tauri paths,
+    service and contract, scenarios, docs, owner, wave, status, and an
+    OS checklist.
+  - Status is one of `pyside-only`, `both`, `parity-passed` or
+    `pyside-deleted`.
+  - CI checks coverage both ways (every route in exactly one record, no
+    unowned PySide6 file), that paths exist, and that scenarios are
+    present.
+  - It generates `docs/migration/parity.md`.
+- **Parity:** first characterize current behaviour, then diff the old
+  path against the new service on the same fixtures, in CI, while both
+  apps ship. Semantic acceptance specs, manual checks or pixel checks are
+  added where a row needs them.
+- **Old tests:** the 224 PySide6 test files are the parity oracle. A
+  test is deleted only together with the code it covers.
+- **Performance:** responsiveness and memory budgets on representative
+  datasets. Where optimising proves intractable for a specific area, that
+  area may be deferred case by case.
+- **OS checks:** agents automate what they can and attach a checklist.
+  **Harbinger** runs it and ticks the row.
+- **Deleting a row:**
+  1. the parity evidence is green;
+  2. any OS checklist is ticked;
+  3. Harbinger signs off;
+  4. one PR deletes that row's PySide6 code and tests, plus any
+     destructive migration, and nothing else.
+- **Freeze:** all of `gui/src` takes reviewed bugfixes only. This is a
+  written rule in AGENTS.md and the PR template; the ledger records
+  exceptions. All new UI is Tauri-only.
+- **Testing layers:**
+  - Playwright against the Vite build with contract mocks runs on every
+    PR.
+  - `tauri-driver` / WebDriver runs as a per-release smoke.
+  - Parity evidence still comes from the pytest scenarios.
+- **Branching:** one branch per capability, merged by PR to main, gated
+  by CI (build, LoC gate, docs freshness).
+- **Claiming:**
+  - Owners are proposed on the issues.
+  - Unowned or backlog issues are free to claim: comment on the issue.
+  - Deletions need a second reviewer.
+- **Spikes:** Harbinger decides go/no-go per spike, on Codex's review.
+  A no-go keeps that feature's PySide6 row alive past its wave, as a
+  bounded exception in the ledger; it is never a re-scope.
+- **Packaging:**
+  - While both apps ship, there are two installers: the PyInstaller
+    build and the Tauri bundle. Both use the one installed backend
+    environment per machine, and the Tauri supervisor starts the sidecar
+    from it.
+  - When the last Qt row is deleted, there is one Tauri installer with a
+    frozen sidecar, and `ImageToolkit.spec` is retired.
+  - The canonical version stays in `pyproject.toml`.
+- **Platforms:** Linux first for Wave 0, Convert and Cloud Jobs Gate D.
+  Windows and macOS follow per capability once its Linux row passes.
+- **Mobile:** contracts only; the apps consume them through Django
+  later.
+- **Cloud Jobs:**
+  - Gate D (#847–#852) is the first Tauri-only feature, after the Convert
+    pilot.
+  - Gate B (#834–#840) starts after Wave 0's renames, supervisor and
+    sealed leases.
+  - Gate A and C backend work isn't blocked.
+
+## 3. Issues
+
+<!-- ISSUE-TABLES -->
+
+## 4. Attribution
+
+| Agent | Contributions |
+|---|---|
+| **Claude** | Logic before UI; one contract with generated clients; the parity matrix as the deletion gate; the pilot and waves; enforced boundaries; the final-round reconciliations |
+| **Codex** | Sidecar plus Django; sessions versus durable jobs; settings ownership; isolated ComfyUI; performance gates; version pairs |
+| **OpenCode** | The migration ledger; characterize-then-diff parity; `HostClient` with transport adapters; the services seam; docs freshness from the contract hash |
+| **Grok** | The C++ thumbnail service; the Wave 0 security lockdown; the serializable catalog; one main webview; sibling supervisor; the vault in the C++ core; the shared canvas host |
+| **Cursor** | WindowManager role map; generated EventHub; catalog shell; tokens; shortcut registry; tray; dual installers |
+| **Kimi** | JSON Schema contracts; single-instance gate; event catch-up; error and cancel envelopes; all-hard-parts spikes; layered end-to-end tests; additive-only migrations |
+| **Gemini** | The C++ boundary; zero-copy asset streaming; the WebGL canvas; Command/Handler services; submodule unification; the docs spine |
+| **Mistral** | Capability ACL lockdown; Wave 0 as three ordered PRs; the bridge restart contract; the route map; accessibility, i18n and packaging scoping |
+
+*Last updated: 2026-10-19. Scope locked and issues created.*

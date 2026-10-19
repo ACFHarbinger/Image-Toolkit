@@ -924,4 +924,82 @@ recommendations. Full rationale in the
 
 ## 7. Final round and decision
 
-*(empty until the final brainstorming round)*
+### Final round (Harbinger + Claude, 2026-10-19)
+
+Claude read all eight proposals and the 54 recorded answers, and found
+eight conflicts or gaps. Harbinger's answers:
+
+1. **The renames happen first, in Wave 0** (Gemini G1/G5).
+   - Python `backend` becomes `middleware` first, then C++ `base` becomes
+     `backend`. Each is one mechanical, announced PR, with temporary
+     import aliases for one release.
+   - New services are created under `middleware/src/services/<feature>/`.
+     That replaces OpenCode Q4's `backend/src/services/`; same layering,
+     new name.
+   - In-flight branches rebase once.
+2. **Submodules are absorbed and their repos archived, and that includes
+   CRE.**
+   - HIE, ASP, CSG and CRE come in through `git subtree`, keeping their
+     history, and get one CMake build and one services tree.
+   - Archiving the GitHub repos is irreversible and outward-facing, so
+     Harbinger confirms it again when the issue gets there.
+3. **Delegation:** Claude proposes an owner per issue. Unassigned and
+   backlog issues are free to claim on the issue itself (OpenCode Q8).
+4. **Wave order:**
+   1. Convert pilot.
+   2. Cloud Jobs Gate D.
+   3. Library.
+   4. System.
+   5. Web.
+   6. Deep Learning.
+   7. Wallpaper.
+   8. Editors.
+   9. Settings, auth and the vault.
+5. **Store key handoff (with Grok T6):** the C++ core issues an opaque,
+   **sealed lease** per store, bound to the daemon process and the
+   supervisor session. No plaintext key passes through Python, Rust or
+   the webview. This replaces the Cloud Jobs #827 plan, in which the GUI
+   handed the daemon the store secret over IPC.
+6. **Mobile:** contracts only. The apps later consume the generated
+   contracts through Django; there is no mobile UI work in this
+   milestone.
+7. **OS-specific parity** (tray, wallpaper, multi-monitor, Wayland):
+   agents automate what they can and attach a checklist to the row.
+   Harbinger runs it and ticks the row before the PySide6 code is
+   deleted.
+8. **Cloud Jobs Gate B starts after Wave 0's renames and supervisor.**
+   The Cloud Jobs daemon is one of the supervisor's sibling processes,
+   lives under `middleware/`, and uses the C++ sealed lease.
+
+Reconciled in the write-up:
+
+- **The canvas host moves ahead of stitch.** Grok T7's "stitch is the
+  first real editor after the Convert pilot" conflicts with editors
+  coming late.
+  - Merge and frame-slice (System wave) need the shared canvas host.
+  - So the host is built as the System wave's first issue, with Merge as
+    its first consumer. Stitch leads the Editors wave.
+  - The Wave 0 canvas spike (fake document) is unchanged.
+- **The single-instance gate** (Kimi Q2) covers GUI apps only. The
+  sidecar, Cloud Jobs daemon and slideshow daemon are supervisor
+  siblings, not app instances.
+- **Branching:** migration work lands as per-capability PRs to main
+  (Kimi Q6). Claude's own direct-to-main habit doesn't apply to
+  migration rows.
+- **The freeze** (OpenCode Q3 B) is a written rule (AGENTS.md and the PR
+  template), not automation. The ledger still records exceptions.
+- **Sequencing inside Wave 0:**
+  1. the renames, then absorbing the submodules;
+  2. Mistral's three ordered PRs (build/security, shell, bridge spine);
+  3. the foundations: vault, settings, contracts, ledger, docs;
+  4. the feasibility spikes, each go/no-go by Harbinger on Codex's
+     review.
+
+### Decision: LOCKED
+
+Scope, design and order are in **`docs/moon/roadmaps/tauri_migration.md`**.
+That file also covers ownership; issues and owners are on GitHub. This
+section is only a pointer. The implementation gate is open for Wave 0,
+starting with the renames.
+
+— Claude, 2026-10-19

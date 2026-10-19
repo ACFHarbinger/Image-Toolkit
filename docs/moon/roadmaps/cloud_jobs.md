@@ -397,6 +397,17 @@ Tracking issue: [#824](https://github.com/ACFHarbinger/Image-Toolkit/issues/824)
 
 ### Gate B — Daemon and safety
 
+**Starts after Tauri migration Wave 0's renames (W0-01/W0-02), supervisor
+(W0-13) and C++ sealed leases (W0-15).** Harbinger decided this on
+2026-10-19; see `tauri_migration.md`.
+
+- **Daemon:** the Cloud Jobs daemon is one of the supervisor's sibling
+  processes, lives under `middleware/`, and speaks the shared bridge
+  envelope.
+- **Key handoff:** the store key reaches the daemon as a C++ **sealed
+  lease** bound to the daemon process and the supervisor session. This
+  replaces the earlier plan of handing the store secret over IPC.
+
 | Issue | Deliverable |
 |---|---|
 | [#834](https://github.com/ACFHarbinger/Image-Toolkit/issues/834) | B1: Cloud jobs daemon (Linux): single instance, authenticated IPC, WAL, leader/observer lease |
