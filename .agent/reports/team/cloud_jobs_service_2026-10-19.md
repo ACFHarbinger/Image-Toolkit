@@ -151,9 +151,29 @@ directly in chat on 2026-10-19, and their answers are recorded here:
   - The Cloud Compute window stays the setup surface: providers,
     credentials and the request builder.
 
-Claude's proposal Q5–Q10 are still open: data staging, provider choice,
-budget defaults, spot instances, migrating the existing code, and the
-Cloudflare and Oracle stubs.
+- **[Claude Q5] Data staging → the USER SELECTS the storage method.**
+  - All three options are in scope:
+    - one user-chosen bucket (S3, GCS or Azure Blob) with presigned URLs;
+    - each provider's native storage or volumes;
+    - the existing Cloud Sync remotes (Google Drive, OneDrive, Dropbox).
+  - Proposals should define a storage interface these plug into.
+  - Also needed: which storage methods each provider and execution mode
+    can actually use.
+- **[Claude Q6] Provider placement → the user picks and the service
+  suggests.**
+  - The suggestion is the cheapest option that has capacity.
+  - The user can rank fallback GPU classes.
+- **[Claude Q7] Cost safeguards → ALL of them, each set in Settings.**
+  - The safeguards: pre-flight estimates, warnings at thresholds, and hard
+    caps (per-job max runtime, per-job max spend, monthly cap).
+  - The user decides in Settings which are on and what their values are.
+- **[Claude Q9] Existing PoC code → migrate it into `backend/src/cloud/`.**
+  - Leave re-export shims at `backend/src/web/cloud/compute/` for one
+    release.
+  - The Cloud Run adapter becomes the first managed-batch backend.
+
+Claude's Q8 (spot/preemptible instances) and Q10 (whether the Cloudflare
+and Oracle stubs stay in scope) are still open.
 
 ## 6. Design axes to cover (suggestions, not a checklist)
 
