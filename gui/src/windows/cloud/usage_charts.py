@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import List, Sequence, Tuple
 
-from backend.src.web.cloud.compute.usage import UsageRow, UsageSummary
+from backend.src.cloud.poc.usage import UsageRow, UsageSummary
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPalette, QPen
 from PySide6.QtWidgets import QWidget
