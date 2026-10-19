@@ -19,9 +19,10 @@ CLOUD_SCHEMA_VERSION = 1
 SCHEMA_SQL = Path(__file__).with_name("schema.sql")
 
 # base.database verifies the key with a read *before* setting busy_timeout,
-# so two processes opening at the same instant can see "database is locked".
-_OPEN_RETRIES = 20
-_OPEN_BACKOFF_S = 0.1
+# so an open can see "database is locked" while another process writes. Keep
+# retrying past the engine's own 5 s busy_timeout before giving up.
+_OPEN_DEADLINE_S = 8.0
+_OPEN_BACKOFF_S = (0.05, 0.5)  # first, max
 
 
 class StoreUnavailable(RuntimeError):
@@ -45,23 +46,33 @@ def open_store_db(
         raise StoreUnavailable("no store secret: unlock the vault in the app first")
     target = Path(path) if path is not None else DEFAULT_STORE_PATH
     target.parent.mkdir(parents=True, exist_ok=True)
-    last: Optional[Exception] = None
-    for _ in range(_OPEN_RETRIES):
+    waited, delay = 0.0, _OPEN_BACKOFF_S[0]
+    while True:
         try:
             db = factory(str(target), secret, salt)
             break
         except RuntimeError as exc:
             if "locked" not in str(exc):
                 raise StoreUnavailable(str(exc)) from exc
-            last = exc
-            sleep(_OPEN_BACKOFF_S)
-    else:
-        raise StoreUnavailable(f"store stayed locked: {last}")
-    ensure_schema(db)
+            if waited >= _OPEN_DEADLINE_S:
+                raise StoreUnavailable(f"store stayed locked for {waited:.1f}s: {exc}") from exc
+            sleep(delay)
+            waited += delay
+            delay = min(delay * 2, _OPEN_BACKOFF_S[1])
+    try:
+        ensure_schema(db)
+    except StoreUnavailable:
+        db.close()
+        raise
     return db
 
 
 def ensure_schema(db: Any) -> None:
+    has_meta = db.query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_meta'", ())
+    found = schema_version(db) if has_meta else 0
+    if found > CLOUD_SCHEMA_VERSION:
+        # A newer build wrote this store; applying our older DDL over it could lose data.
+        raise StoreUnavailable(f"cloud_jobs.db is schema v{found}; this build understands v{CLOUD_SCHEMA_VERSION}")
     db.apply_ddl(SCHEMA_SQL.read_text(encoding="utf-8"))
     db.execute(
         "INSERT OR IGNORE INTO schema_meta(key, value) VALUES ('version', ?)",

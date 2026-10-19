@@ -67,3 +67,12 @@ def test_planners(tmp_path):
 def test_default_modes_follow_the_recorded_answer():
     assert default_mode(WorkloadKind.EXTRACT) is ExecutionMode.MANAGED_BATCH
     assert default_mode(WorkloadKind.COMFY_BATCH) is ExecutionMode.INSTANCE
+
+
+def test_shard_count_is_bounded():
+    from backend.src.cloud.spec import MAX_SHARDS
+
+    spec = JobSpec(WorkloadKind.INDEX, PL, tuple(ShardSpec(i) for i in range(MAX_SHARDS + 1)))
+    with pytest.raises(SpecError, match="limit"):
+        spec.validate()
+

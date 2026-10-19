@@ -307,3 +307,24 @@ def test_gpu_and_reserved_spend_admission(store):
     _run(eng, 4)
     assert store.jobs.state(b) is JobState.SUCCEEDED
 
+
+def test_store_written_by_a_newer_build_refuses_to_open(tmp_path):
+    path = tmp_path / "future.db"
+    s = CloudJobStore.open("s" * 40, "salt-0123456789ab", path)
+    s.db.execute("UPDATE schema_meta SET value = '99' WHERE key = 'version'")
+    s.close()
+    with pytest.raises(StoreUnavailable, match="v99"):
+        CloudJobStore.open("s" * 40, "salt-0123456789ab", path)
+
+
+def test_open_keeps_retrying_past_the_busy_timeout(tmp_path):
+    slept = []
+
+    def always_locked(path, secret, salt):
+        raise RuntimeError("database is locked")
+
+    with pytest.raises(StoreUnavailable, match="stayed locked"):
+        open_store_db("s" * 40, "salt-0123456789ab", tmp_path / "z.db", factory=always_locked,
+                      sleep=slept.append)
+    assert sum(slept) >= 5.0
+

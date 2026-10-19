@@ -128,6 +128,8 @@ class JobEngine:
             changed = self._apply(job_id, actions, ts)
             if not changed:
                 return
+        # Not an error (the next tick continues), but make a slow-moving job visible.
+        self.store.jobs.event(job_id, "step_limit", {"max_steps": _MAX_STEPS})
 
     # --- helpers ------------------------------------------------------------
 
