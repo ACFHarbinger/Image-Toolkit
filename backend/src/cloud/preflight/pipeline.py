@@ -153,7 +153,7 @@ def _secrets(spec: JobSpec, decisions: Mapping[Tuple[str, str], str],
     strip = [h for h in hits if decisions.get((h.node_id, h.field)) == STRIP]
     for h in hits:
         choice = decisions.get((h.node_id, h.field))
-        if choice is None:
+        if choice not in (KEEP, STRIP):
             issues.append(Issue("secrets", Severity.BLOCK,
                                 f"Node {h.node_id} field {h.field!r} looks like a secret ({h.reason}). "
                                 "Strip it or explicitly keep it.", targets=(f"workflow.{h.node_id}",)))

@@ -93,8 +93,12 @@ def estimate(spec: JobSpec, catalogue: PriceCatalogue, placement: Optional[Place
 
     ages = [a for a in (age_days(r.last_verified, today) for r in (price, eg, st) if r is not None)
             if a is not None]
-    missing = tuple(m for m, r in (("egress", eg), ("storage", st)) if r is None and egress_gb + upload_gb > 0)
-    return Estimate(True, round(total, 4), compute_usd, startup_usd, ipv4_usd, storage_usd, egress_usd,
+    missing = tuple(m for m, needed in (
+        ("egress", eg is None and egress_gb > 0),
+        ("storage", st is None and egress_gb + upload_gb > 0),
+        ("runtime", runtime <= 0),
+    ) if needed)
+    return Estimate(not missing, round(total, 4), compute_usd, startup_usd, ipv4_usd, storage_usd, egress_usd,
                     retries_usd, runtime, billed, egress_gb, upload_gb,
                     max(ages) if ages else None, tuple(snapshot((price, eg, st))), missing)
 

@@ -50,7 +50,7 @@ def test_all_stages_run_in_order_and_a_clean_job_only_needs_acks():
     assert not rep.ok_to_submit()  # private-data warning is fine, but reduced protection needs an ack
     assert rep.ok_to_submit(rep.needs_ack)
     sheet = rep.sheet()
-    assert sheet["provider"] == "fake" and sheet["estimate_known"] and sheet["staging_bytes"] == 100
+    assert sheet["provider"] == "fake" and not sheet["estimate_known"] and sheet["staging_bytes"] == 100
 
 
 def test_validation_error_stops_before_anything_else():
@@ -103,3 +103,9 @@ def test_estimates_off_skips_costing():
                         adapter=FakeProvider())
     assert not rep.estimate.known
     assert "pol.no_estimate" not in rep.needs_ack
+
+
+def test_invalid_secret_decision_does_not_authorize_upload():
+    rep = _run(_spec(workflow=WORKFLOW), secret_decisions={("9", "api_key"): "typo", ("11", "url"): STRIP})
+    assert any(i.stage == "secrets" for i in rep.blocking)
+    assert not rep.ok_to_submit(rep.needs_ack)
