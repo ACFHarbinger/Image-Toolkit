@@ -126,7 +126,34 @@ change quickly.
 Claude's questions are in its proposal (§Q). The first four were asked
 directly in chat on 2026-10-19, and their answers are recorded here:
 
-- *(answers pending)*
+- **[Claude Q1] First workloads → ALL FOUR:**
+  - ComfyUI batch generation (GPU);
+  - LoRA/LyCORIS training (GPU);
+  - extraction, ported from the PoC (CPU);
+  - embedding and indexing: CLIP backfill and phash/dedup (CPU or GPU).
+
+  Proposals should say how to sequence these, since all four are in v1.
+- **[Claude Q2] Execution model → the USER CHOOSES how each job runs.**
+  Harbinger picked none of the fixed options (batch on CPU clouds with
+  instances on GPU clouds, instances everywhere, or managed only).
+  - Both backend families (instance and managed batch/serverless) are in
+    scope, and the user picks per job.
+  - Open point for proposals: which provider supports which mode.
+    Hyperstack and Thunder look instance-only; RunPod has Pods and
+    Serverless; the CPU clouds have VMs and managed batch.
+  - Also open: should the UI suggest a default mode per job kind?
+- **[Claude Q3] Lifetime → jobs KEEP RUNNING after the app closes.**
+  A local daemon keeps watching them, collects outputs and guarantees
+  teardown. The wallpaper slideshow daemons are the precedent.
+- **[Claude Q4] Manager UI → a STANDALONE "Cloud Jobs" window.**
+  - It opens from the header and shows a badge with running jobs and
+    spend.
+  - The Cloud Compute window stays the setup surface: providers,
+    credentials and the request builder.
+
+Claude's proposal Q5–Q10 are still open: data staging, provider choice,
+budget defaults, spot instances, migrating the existing code, and the
+Cloudflare and Oracle stubs.
 
 ## 6. Design axes to cover (suggestions, not a checklist)
 
