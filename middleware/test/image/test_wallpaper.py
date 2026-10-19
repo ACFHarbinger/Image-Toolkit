@@ -25,9 +25,9 @@ class TestWallpaperManager:
     def mock_base(self):
         shared = MagicMock()
         with (
-            patch("src.core.wallpaper._dbus.base", shared),
-            patch("src.core.wallpaper._gnome.base", shared),
-            patch("src.core.wallpaper.manager.base", shared),
+            patch("src.core.wallpaper._dbus.backend", shared),
+            patch("src.core.wallpaper._gnome.backend", shared),
+            patch("src.core.wallpaper.manager.backend", shared),
         ):
             yield shared
 

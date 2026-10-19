@@ -123,7 +123,7 @@ class TestBatchImageLoaderWorker:
         with patch(
             "gui.src.helpers.image.batch_image_loader_worker.HAS_NATIVE_IMAGING", True
         ), patch(
-            "gui.src.helpers.image.batch_image_loader_worker.base"
+            "gui.src.helpers.image.batch_image_loader_worker.backend"
         ) as mock_base:
             mock_arr = np.zeros((10, 10, 3), dtype=np.uint8)
             mock_base.load_image_batch.return_value = [("/tmp/mp.jpg", mock_arr, "")]

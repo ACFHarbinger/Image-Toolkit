@@ -21,7 +21,7 @@ class TestDuplicateFinder:
             h = DuplicateFinder.get_file_hash("dummy.txt")
             assert h is None
 
-    @patch("middleware.src.core.duplicate_finder.base.find_duplicate_images")
+    @patch("middleware.src.core.duplicate_finder.backend.find_duplicate_images")
     def test_find_duplicate_images(self, mock_find_duplicates):
         mock_find_duplicates.return_value = {
             "hashA": ["/dir/img1.jpg", "/dir/img2.jpg"]
@@ -38,7 +38,7 @@ class TestDuplicateFinder:
 
 
 class TestSimilarityFinder:
-    @patch("middleware.src.core.similarity_finder.base.find_similar_images_phash")
+    @patch("middleware.src.core.similarity_finder.backend.find_similar_images_phash")
     def test_find_similar_phash(self, mock_find_similar_phash):
         mock_find_similar_phash.return_value = {
             "group_0": ["img1.jpg", "img2.jpg"]

@@ -132,16 +132,16 @@ jobs:
             -DBACKEND_BUILD_TESTS=OFF
           pixi run -e dev cmake --build build/backend --parallel
           # Stage the built .pyd where imports and the PyInstaller spec expect it.
-          copy build\base\base*.pyd .
+          copy build\backend\backend*.pyd .
           $sitePkgs = pixi run -e dev python -c "import site; print(site.getsitepackages()[0])"
-          copy build\base\base*.pyd "$sitePkgs\" || true
+          copy build\backend\backend*.pyd "$sitePkgs\" || true
         shell: pwsh
 
       - name: Build native crypto library
         run: |
           New-Item -ItemType Directory -Force -Path build\crypto
           $condaPrefix = pixi run -e dev python -c "import sys,os; print(os.path.dirname(os.path.dirname(sys.executable)))"
-          pixi run -e dev cl /O2 /LD /I"$condaPrefix\include" base\src\secret\itk_crypto.c /Fe:build\crypto\libitk_crypto.dll /link /LIBPATH:"$condaPrefix\lib" libcrypto.lib
+          pixi run -e dev cl /O2 /LD /I"$condaPrefix\include" backend\src\secret\itk_crypto.c /Fe:build\crypto\libitk_crypto.dll /link /LIBPATH:"$condaPrefix\lib" libcrypto.lib
         shell: pwsh
 
       - name: Package Windows release (zip)

@@ -61,7 +61,7 @@ def test_normal_status_message_not_miscounted():
     assert crawler.telemetry["error_count"] == 0
 
 
-@patch("middleware.src.web.crawlers.image_board_crawler.base")
+@patch("middleware.src.web.crawlers.image_board_crawler.backend")
 def test_run_records_elapsed_and_throughput(mock_base):
     def _fake_run(crawler_name, config_json, callback_obj):
         callback_obj.on_image_saved.publish("/tmp/a.jpg")
@@ -84,7 +84,7 @@ def test_run_records_elapsed_and_throughput(mock_base):
     assert crawler.telemetry["images_per_sec"] is not None
 
 
-@patch("middleware.src.web.crawlers.image_board_crawler.base")
+@patch("middleware.src.web.crawlers.image_board_crawler.backend")
 def test_run_failure_still_records_elapsed(mock_base):
     mock_base.run_board_crawler.side_effect = Exception("C++ crawler crash")
     crawler = ImageBoardCrawler({"url": "http://example.com"})
@@ -96,7 +96,7 @@ def test_run_failure_still_records_elapsed(mock_base):
     assert crawler.telemetry["error_count"] == 1  # "Critical Error..." status emitted
 
 
-@patch("middleware.src.web.crawlers.image_board_crawler.base")
+@patch("middleware.src.web.crawlers.image_board_crawler.backend")
 def test_rating_filter_normalization(mock_base):
     mock_base.run_board_crawler.return_value = 0
     crawler = ImageBoardCrawler({"url": "http://example.com", "tags": "scenery", "rating": "general"})
@@ -109,7 +109,7 @@ def test_rating_filter_normalization(mock_base):
     )
 
 
-@patch("middleware.src.web.crawlers.image_board_crawler.base")
+@patch("middleware.src.web.crawlers.image_board_crawler.backend")
 def test_safebooru_crawler_backend_name_and_preset(mock_base):
     from middleware.src.web.crawlers.safebooru_crawler import SafebooruCrawler
 
