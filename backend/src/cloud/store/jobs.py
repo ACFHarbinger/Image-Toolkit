@@ -200,6 +200,26 @@ class JobRepo:
         self._db.execute("UPDATE attempts SET submit_unknown = ? WHERE attempt_id = ?",
                          (int(unknown), attempt_id))
 
+    def record_cost(self, attempt_id: str, cost_usd: float) -> None:
+        self._db.execute("UPDATE attempts SET cost_usd = MAX(cost_usd, ?) WHERE attempt_id = ?",
+                         (cost_usd, attempt_id))
+
+    def submit_error(self, job_id: str) -> Optional[str]:
+        att = self.current_attempt(job_id)
+        if att is None or att.ended_at is None or att.submitted:
+            return None
+        rows = self._db.query(
+            "SELECT data_json FROM job_events WHERE job_id = ? AND type = 'submit_failed' "
+            "ORDER BY id DESC LIMIT 1", (job_id,))
+        data = json.loads(rows[0][0]) if rows else {}
+        return data.get("code") if data.get("attempt_id") == att.attempt_id else None
+
+    def pending_restart(self, job_id: str) -> Optional[Dict[str, Any]]:
+        rows = self._db.query(
+            "SELECT type, data_json FROM job_events WHERE job_id = ? "
+            "AND type IN ('restart_pending', 'restart_resumed') ORDER BY id DESC LIMIT 1", (job_id,))
+        return json.loads(rows[0][1]) if rows and rows[0][0] == "restart_pending" else None
+
     def end_attempt(self, attempt_id: str, cost_usd: float, teardown_done: bool) -> None:
         self._db.execute(
             "UPDATE attempts SET cost_usd = ?, teardown_done = ?, ended_at = COALESCE(ended_at, ?) "

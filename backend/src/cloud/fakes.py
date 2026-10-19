@@ -24,6 +24,7 @@ from .adapter import (
     ResourceRef,
     ShardStatus,
     SubmitReceipt,
+    SubmitRejected,
 )
 from .spec import ExecutionMode, JobSpec, StorageMethod
 
@@ -96,7 +97,7 @@ class FakeProvider:
         if fault == QUOTA:
             raise QuotaExceeded("GPU quota is 0", "https://example.invalid/quota")
         if fault == ERROR:
-            raise RuntimeError("bad request")
+            raise SubmitRejected("bad request")
         return SubmitReceipt((self._create(ctx),))
 
     def observe(self, ctx: AttemptContext, resources: Sequence[ResourceRef]) -> Observation:

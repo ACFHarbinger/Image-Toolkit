@@ -127,11 +127,15 @@ class AmbiguousSubmit(RuntimeError):
     """The provider may or may not have created resources (timeout, dropped connection)."""
 
 
-class OutOfStock(RuntimeError):
+class SubmitRejected(RuntimeError):
+    """Definitive rejection: the adapter guarantees no resources were created."""
+
+
+class OutOfStock(SubmitRejected):
     """The chosen GPU/flavour has no capacity right now."""
 
 
-class QuotaExceeded(RuntimeError):
+class QuotaExceeded(SubmitRejected):
     def __init__(self, message: str, request_url: str = ""):
         super().__init__(message)
         self.request_url = request_url

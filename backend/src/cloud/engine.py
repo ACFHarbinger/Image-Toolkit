@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+from dataclasses import dataclass, replace
+from typing import Callable, List, Mapping, Optional, Sequence, Tuple
 
 from .adapter import (
     AmbiguousSubmit,
@@ -19,6 +19,7 @@ from .adapter import (
     OutOfStock,
     ProviderAdapter,
     QuotaExceeded,
+    SubmitRejected,
     find_by_idempotency,
 )
 from .cost.caps import AdmissionSnapshot, admission_blockers
@@ -40,8 +41,8 @@ from .reconciler import (
     reconcile,
 )
 from .settings import CloudSettings
-from .spec import JobSpec, Placement
-from .state import ACTIVE, CancelRequest, JobState
+from .spec import ExecutionMode, JobSpec, Placement
+from .state import ACTIVE, TERMINAL, CancelRequest, JobState
 from .store import KIND_ACTUAL, KIND_RESERVED, CloudJobStore, LedgerEntry, transaction
 from .store.jobs import AttemptRow
 
@@ -59,6 +60,8 @@ class EngineSettings:
     cap_margin_s: float = 60.0
     expiry_grace_s: float = 900.0
     default_max_runtime_s: float = 6 * 3600.0
+    default_max_spend_usd: float = 10.0
+    hard_caps_enabled: bool = True
     max_concurrent_jobs: int = 4
     max_concurrent_gpu_instances: int = 2
     max_reserved_usd: float = float("inf")
@@ -70,6 +73,8 @@ class EngineSettings:
         return cls(owner=owner, max_attempts=settings.max_attempts,
                    fallback_enabled=settings.fallback_enabled, fallback_candidates=fallback_candidates,
                    default_max_runtime_s=float(settings.default_max_runtime_s),
+                   default_max_spend_usd=settings.default_max_spend_usd,
+                   hard_caps_enabled=settings.hard_caps_enabled,
                    max_concurrent_jobs=settings.max_concurrent_jobs,
                    max_concurrent_gpu_instances=settings.max_concurrent_gpu_instances,
                    max_reserved_usd=settings.max_reserved_usd)
@@ -87,7 +92,6 @@ class JobEngine:
     adapters: Mapping[str, ProviderAdapter]
     settings: EngineSettings
     clock: Callable[[], float] = time.time
-    _last_cost: Dict[str, float] = field(default_factory=dict)
 
     # --- public -------------------------------------------------------------
 
@@ -119,7 +123,21 @@ class JobEngine:
         ts = _TickState()
         for _ in range(_MAX_STEPS):
             view = self.store.jobs.view(job_id, self._admitted(job_id), self._prior_spend(job_id))
-            ts.obs = self._observe(job_id, view.state) if ts.obs is None else ts.obs
+            pending = self.store.jobs.pending_restart(job_id)
+            if pending is not None and view.cancel is None and view.state not in TERMINAL:
+                if not self._resume_restart(job_id, pending, ts):
+                    return
+                continue
+            if self.settings.hard_caps_enabled:
+                view = replace(view,
+                               max_runtime_s=view.max_runtime_s or self.settings.default_max_runtime_s,
+                               max_spend_usd=view.max_spend_usd or self.settings.default_max_spend_usd)
+            else:
+                view = replace(view, max_runtime_s=None, max_spend_usd=None)
+            if ts.obs is None and view.cancel is not CancelRequest.FORCE:
+                ts.obs = self._observe(job_id, view.state)
+            if ts.submit_error is None and view.state is JobState.SUBMITTING:
+                ts.submit_error = self.store.jobs.submit_error(job_id)
             actions = reconcile(view, ts.obs, self._reconcile_settings(job_id), self.clock(),
                                 ts.submit_error)
             if not actions:
@@ -146,7 +164,9 @@ class JobEngine:
     def _admitted(self, job_id: str) -> bool:
         if self.store.jobs.state(job_id) is not JobState.QUEUED:
             return True
-        active = [j for j in self.store.jobs.job_ids(ACTIVE) if j != job_id]
+        active = [j for j in self.store.jobs.needing_work()
+                  if j != job_id and (self.store.jobs.state(j) in ACTIVE
+                                     or self.store.jobs.view(j).teardown_pending)]
         gpu = sum(1 for j in active if self.store.jobs.spec(j).resources.needs_gpu)
         own = self.store.ledger.total(KIND_RESERVED, job_id=job_id)
         # Only admitted jobs hold reserved spend; counting queued ones lets them block each other forever.
@@ -179,14 +199,17 @@ class JobEngine:
         if att is None or not att.submitted or att.ended_at is not None:
             return None
         obs = self._adapter(job_id).observe(self._ctx(att), att.resources)
-        self._last_cost[att.attempt_id] = obs.cost_so_far_usd
+        self.store.jobs.record_cost(att.attempt_id, obs.cost_so_far_usd)
         return obs
 
     def _apply(self, job_id: str, actions: Sequence[Action], ts: _TickState) -> bool:
         changed = False
         for action in actions:
             if isinstance(action, Transition):
-                self.store.jobs.transition(job_id, action.to, action.reason)
+                with transaction(self.store.db):
+                    self.store.jobs.transition(job_id, action.to, action.reason)
+                    if action.to in TERMINAL:
+                        self.store.ledger.release_reservation(job_id)
                 changed = True
             elif isinstance(action, BeginAttempt):
                 att = self.store.jobs.begin_attempt(job_id, action.shards)
@@ -203,14 +226,15 @@ class JobEngine:
             elif isinstance(action, Teardown):
                 changed |= self._teardown(job_id)
             elif isinstance(action, SetOutcome):
-                self.store.jobs.set_outcome(job_id, action.outcome, action.reason)
-                self.store.ledger.release_reservation(job_id)
+                # Record settlement before destructive IO; restart must not rerun completed work.
+                with transaction(self.store.db):
+                    self.store.jobs.set_outcome(job_id, action.outcome, action.reason)
+                    self.store.jobs.set_teardown_pending(job_id, bool(self.store.jobs.open_teardowns(job_id)))
+                    self.store.jobs.transition(job_id, JobState.SETTLING, action.reason)
             elif isinstance(action, Retry):
-                self._restart(job_id, action.reason, ts)
-                return True
+                return self._restart(job_id, action.reason, ts)
             elif isinstance(action, Fallback):
-                self._fallback(job_id, action.reason, ts)
-                return True
+                return self._fallback(job_id, action.reason, ts)
         return changed
 
     def _submit(self, att: AttemptRow) -> Optional[str]:
@@ -225,15 +249,22 @@ class JobEngine:
             return self._submit_failed(att, SUBMIT_OUT_OF_STOCK, str(exc))
         except QuotaExceeded as exc:
             return self._submit_failed(att, SUBMIT_QUOTA, str(exc), request_url=exc.request_url)
-        except Exception as exc:  # definitive rejection: nothing was created
+        except SubmitRejected as exc:
             return self._submit_failed(att, SUBMIT_FAILED, str(exc))
+        except Exception as exc:
+            # Parsing/transport failures can happen after provisioning succeeded.
+            self.store.jobs.mark_submit_unknown(att.attempt_id)
+            self.store.jobs.event(att.job_id, "submit_unknown", {"error": str(exc)})
+            return None
         self.store.jobs.mark_submitted(att.attempt_id, receipt.resources)
         self.store.jobs.event(att.job_id, "submitted", {"resources": [r.resource_id for r in receipt.resources]})
         return None
 
     def _submit_failed(self, att: AttemptRow, code: str, message: str, **extra: str) -> str:
-        self.store.jobs.end_attempt(att.attempt_id, 0.0, teardown_done=True)
-        self.store.jobs.event(att.job_id, "submit_failed", {"code": code, "error": message, **extra})
+        with transaction(self.store.db):
+            self.store.jobs.end_attempt(att.attempt_id, 0.0, teardown_done=True)
+            self.store.jobs.event(att.job_id, "submit_failed", {
+                "attempt_id": att.attempt_id, "code": code, "error": message, **extra})
         return code
 
     def _resolve(self, job_id: str, ts: _TickState) -> None:
@@ -277,13 +308,13 @@ class JobEngine:
         for att in self.store.jobs.open_teardowns(job_id):
             ok = self.adapters[att.provider].teardown(att.resources)
             if ok:
-                cost = self._last_cost.pop(att.attempt_id, att.cost_usd)
-                self.store.jobs.end_attempt(att.attempt_id, cost, teardown_done=True)
-                self.store.ledger.add(LedgerEntry(
-                    job_id, att.provider, KIND_ACTUAL, cost, attempt_id=att.attempt_id,
-                    task=spec.kind.value, status="torn_down",
-                    duration_s=max(0.0, self.clock() - att.started_at)))
-                self.store.jobs.event(job_id, "torn_down", {"attempt_id": att.attempt_id})
+                with transaction(self.store.db):
+                    self.store.jobs.end_attempt(att.attempt_id, att.cost_usd, teardown_done=True)
+                    self.store.ledger.add(LedgerEntry(
+                        job_id, att.provider, KIND_ACTUAL, att.cost_usd, attempt_id=att.attempt_id,
+                        task=spec.kind.value, status="torn_down",
+                        duration_s=max(0.0, self.clock() - att.started_at)))
+                    self.store.jobs.event(job_id, "torn_down", {"attempt_id": att.attempt_id})
             else:
                 pending = True
                 self.store.jobs.event(job_id, "teardown_failed", {"attempt_id": att.attempt_id})
@@ -291,22 +322,36 @@ class JobEngine:
         self.store.jobs.set_teardown_pending(job_id, pending)
         return was != pending or not pending
 
-    def _restart(self, job_id: str, reason: str, ts: _TickState) -> None:
+    def _restart(self, job_id: str, reason: str, ts: _TickState,
+                 target: Optional[Placement] = None) -> bool:
+        intent = {"reason": reason, "placement": self.store.jobs.spec(job_id).with_placement(
+            target or self.store.jobs.spec(job_id).placement).to_dict()["placement"],
+                  "fallback": target is not None}
+        self.store.jobs.event(job_id, "restart_pending", intent)
+        return self._resume_restart(job_id, intent, ts)
+
+    def _resume_restart(self, job_id: str, intent: dict, ts: _TickState) -> bool:
         self._teardown(job_id)
-        self.store.jobs.event(job_id, "retry", {"reason": reason})
-        if self.store.jobs.state(job_id) is not JobState.SUBMITTING:
+        if self.store.jobs.view(job_id).teardown_pending:
+            return False
+        pl = intent["placement"]
+        target = Placement(**{**pl, "mode": ExecutionMode(pl["mode"])})
+        reason = intent["reason"]
+        with transaction(self.store.db):
+            if intent["fallback"]:
+                self.store.jobs.replace_spec(self.store.jobs.spec(job_id).with_placement(target))
+                self.store.jobs.note_fallback(job_id, _placement_key(target))
+                self.store.jobs.event(job_id, "fallback", {"reason": reason, "to": _placement_key(target)})
+            self.store.jobs.event(job_id, "retry", {"reason": reason})
             self.store.jobs.transition(job_id, JobState.SUBMITTING, f"retry: {reason}")
-        att = self.store.jobs.begin_attempt(job_id, self.store.jobs.view(job_id).pending_shards)
+            att = self.store.jobs.begin_attempt(job_id, self.store.jobs.view(job_id).pending_shards)
+            self.store.jobs.event(job_id, "restart_resumed", {"attempt_id": att.attempt_id})
         ts.submit_error = self._submit(att)
         ts.obs = None
+        return True
 
-    def _fallback(self, job_id: str, reason: str, ts: _TickState) -> None:
-        target = self._remaining_fallbacks(job_id)[0]
-        spec = self.store.jobs.spec(job_id)
-        self.store.jobs.replace_spec(spec.with_placement(target))
-        self.store.jobs.note_fallback(job_id, _placement_key(target))
-        self.store.jobs.event(job_id, "fallback", {"reason": reason, "to": _placement_key(target)})
-        self._restart(job_id, f"fallback: {reason}", ts)
+    def _fallback(self, job_id: str, reason: str, ts: _TickState) -> bool:
+        return self._restart(job_id, reason, ts, self._remaining_fallbacks(job_id)[0])
 
 
 def _placement_key(p: Placement) -> str:

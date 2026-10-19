@@ -155,7 +155,7 @@ def _stop(job: JobView, obs: Optional[Observation], outcome: Outcome, reason: st
     if checkpoint and job.state is JobState.RUNNING:
         actions.append(Checkpoint())
     actions += [Collect(i) for i in _succeeded_uncollected(job, obs)]
-    actions += [Teardown(), SetOutcome(outcome, reason), Transition(JobState.SETTLING, reason)]
+    actions += [SetOutcome(outcome, reason), Transition(JobState.SETTLING, reason), Teardown()]
     return actions
 
 
@@ -195,8 +195,8 @@ def _observed(job: JobView, obs: Observation, settings: ReconcileSettings, now: 
             return head + [Collect(i) for i in ready]
         failed = [s.index for s in job.shards if not s.collected]
         if not failed:
-            return [Teardown(), SetOutcome(Outcome.SUCCEEDED, "all shards collected"),
-                    Transition(JobState.SETTLING, "all shards collected")]
+            return [SetOutcome(Outcome.SUCCEEDED, "all shards collected"),
+                    Transition(JobState.SETTLING, "all shards collected"), Teardown()]
         return _attempt_failed(job, obs, settings, f"{len(failed)} shard(s) failed")
 
     reason = {ProviderStatus.PREEMPTED: "preempted",
@@ -208,13 +208,13 @@ def _attempt_failed(job: JobView, obs: Observation, settings: ReconcileSettings,
     # A failure on a job that overrode a capability rule is structural: retrying
     # or moving it would spend money reproducing the same failure.
     if obs.structural or job.capability_override:
-        return [Teardown(), SetOutcome(Outcome.FAILED, f"structural: {reason}"),
-                Transition(JobState.SETTLING, reason)]
+        return [SetOutcome(Outcome.FAILED, f"structural: {reason}"),
+                Transition(JobState.SETTLING, reason), Teardown()]
     if job.attempts_used < settings.max_attempts:
         return [Retry(reason)]
     if settings.fallback_enabled and settings.fallback_available:
         return [Fallback(reason)]
-    return [Teardown(), SetOutcome(Outcome.FAILED, reason), Transition(JobState.SETTLING, reason)]
+    return [SetOutcome(Outcome.FAILED, reason), Transition(JobState.SETTLING, reason), Teardown()]
 
 
 def describe(actions: Sequence[Action]) -> List[str]:

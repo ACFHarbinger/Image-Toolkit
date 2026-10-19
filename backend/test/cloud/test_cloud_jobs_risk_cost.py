@@ -193,3 +193,12 @@ def test_rule_store_layers_user_edits(tmp_path):
     with pytest.raises(ValueError):
         Rule.from_dict({"id": "bad", "kind": "policy", "severity": "warn", "when": {"op": "eq"}})
     store.close()
+
+
+def test_missing_cost_components_are_not_a_complete_estimate():
+    partial = PriceCatalogue([ComputePrice("gcp", "*", "managed_batch", "L4", 0.72)])
+    result = estimate(_spec(), partial, today=TODAY)
+    assert not result.known
+    assert set(result.missing) == {"egress", "storage"}
+    assert result.compute_usd > 0
+    assert not estimate(_spec(runtime=0), CAT, today=TODAY).known
