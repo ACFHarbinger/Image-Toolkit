@@ -29,27 +29,41 @@ class StoreUnavailable(RuntimeError):
     """The store can't be opened (no secret, wrong secret, or held locked)."""
 
 
-def _default_factory(path: str, secret: str, salt: str) -> Any:
+def _default_factory(path: str, *args: Any, **kwargs: Any) -> Any:
     import backend  # compiled extension; imported lazily so pure modules stay importable
 
-    return backend.database.Database(path, secret, salt)
+    if len(args) == 1 and isinstance(args[0], str) and args[0].startswith("itkl_"):
+        return backend.database.Database.from_lease(path, args[0], expected_store="cloud_jobs")
+    if "lease" in kwargs and kwargs["lease"]:
+        return backend.database.Database.from_lease(path, kwargs["lease"], expected_store="cloud_jobs")
+    return backend.database.Database(path, *args, **kwargs)
 
 
 def open_store_db(
-    secret: str,
-    salt: str,
+    secret: Optional[str] = None,
+    salt: Optional[str] = None,
     path: Optional[Path] = None,
-    factory: Callable[[str, str, str], Any] = _default_factory,
+    lease: Optional[str] = None,
+    factory: Optional[Callable[..., Any]] = None,
     sleep: Callable[[float], None] = time.sleep,
 ) -> Any:
-    if not secret or not salt:
-        raise StoreUnavailable("no store secret: unlock the vault in the app first")
+    actual_factory = factory or _default_factory
     target = Path(path) if path is not None else DEFAULT_STORE_PATH
     target.parent.mkdir(parents=True, exist_ok=True)
+
+    lease_token = lease or (secret if secret and secret.startswith("itkl_") else None)
+
+    if lease_token:
+        open_args: tuple[Any, ...] = (str(target), lease_token)
+    elif secret and salt:
+        open_args = (str(target), secret, salt)
+    else:
+        raise StoreUnavailable("no store secret or lease: unlock the vault in the app first")
+
     waited, delay = 0.0, _OPEN_BACKOFF_S[0]
     while True:
         try:
-            db = factory(str(target), secret, salt)
+            db = actual_factory(*open_args)
             break
         except RuntimeError as exc:
             if "locked" not in str(exc):
