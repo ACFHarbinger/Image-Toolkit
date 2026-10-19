@@ -56,4 +56,4 @@
 | `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
 | `gui/src/tabs/core/extractor_tab/_queue_panel.py` | 346 | 36 | 32 | 414 |
 | `gui/src/windows/settings/settings_window.py` | 345 | 28 | 10 | 383 |
-| **TOTALS** | **105633** | **6624** | **10724** | **122981** |
+| **TOTALS** | **105646** | **6624** | **10729** | **122999** |
