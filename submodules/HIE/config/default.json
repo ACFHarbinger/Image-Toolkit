@@ -1,0 +1,6 @@
+{
+  "app": {
+    "name": "hybrid-image-editor",
+    "log_level": "info"
+  }
+}

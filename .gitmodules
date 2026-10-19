@@ -30,18 +30,6 @@
 	url = https://github.com/ACFHarbinger/ComfyUI.git
 
 # Personal Submodules
-[submodule "submodules/CRE"]
-	path = submodules/CRE
-	url = https://github.com/ACFHarbinger/Content-Recommendation-Engine.git
-[submodule "submodules/CSG"]
-	path = submodules/CSG
-	url = https://github.com/ACFHarbinger/Cel-Shaded-Generator.git
-[submodule "submodules/ASP"]
-	path = submodules/ASP
-	url = https://github.com/ACFHarbinger/Anime-Stitch-Pipeline.git
-[submodule "submodules/HIE"]
-	path = submodules/HIE
-	url = https://github.com/ACFHarbinger/Hybrid-Image-Editor.git
 [submodule "vendor/UDIS2"]
 	path = vendor/UDIS2
 	url = https://github.com/nie-lang/UDIS2.git

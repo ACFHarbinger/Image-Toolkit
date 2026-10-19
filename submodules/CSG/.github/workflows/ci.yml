@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-test-src:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --all-packages --all-extras --dev
+      - run: uv run ruff check logic/src logic/test
+      - run: cd logic && uv run mypy src
+      - run: uv run pytest logic/test -v --cov=logic/src --cov-report=xml
+      - run: uv build --all-packages
+      - name: Smoke-test built wheels in a clean environment
+        run: |
+          uv venv --python 3.11 /tmp/cel-shaded-generator-wheel-smoke
+          uv pip install --python /tmp/cel-shaded-generator-wheel-smoke/bin/python \
+            dist/cel_shaded_generator-*.whl \
+            dist/cel_shaded_generator_gui-*.whl
+          QT_QPA_PLATFORM=offscreen \
+            /tmp/cel-shaded-generator-wheel-smoke/bin/python -c \
+            'from PySide6.QtWidgets import QApplication; from cel_shaded_generator_gui.app import build_window; app = QApplication([]); window = build_window(); window.close()'
+          test -x /tmp/cel-shaded-generator-wheel-smoke/bin/cel-shaded-generator
+      - uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+
+  lint-test-gui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --all-packages --all-extras --dev
+      - run: uv run --package cel-shaded-generator-gui ruff check gui
+      - run: cd gui && uv run mypy src
+      - run: uv run --package cel-shaded-generator-gui pytest gui/test -v

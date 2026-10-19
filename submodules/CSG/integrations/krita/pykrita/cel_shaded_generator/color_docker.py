@@ -1,0 +1,928 @@
+"""Separate offline Krita Docker for semantic character-color authoring."""
+
+from __future__ import annotations
+
+import uuid
+from pathlib import Path
+
+from krita import DockWidget, Krita
+from PyQt5.QtCore import QByteArray
+from PyQt5.QtWidgets import (
+    QComboBox,
+    QFileDialog,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+from .color_masks import (
+    ACCEPTED_GROUP_NAME,
+    ACCEPTED_PREFIX,
+    MASK_GROUP_NAME,
+    PREVIEW_PREFIX,
+    material_mask_name,
+    material_mask_parts,
+    overlapping_materials,
+    palette_preview_bgra,
+    region_id_from_layer_name,
+    union_alpha_buffers,
+)
+from .engine_client import EngineClient
+from .engine_worker import WorkerBusyMixin
+from .segmentation_masks import region_adjacency_bytes, region_labels_and_names
+from .value_masks import find_named_node
+
+
+class CharacterColorsDocker(WorkerBusyMixin, DockWidget):
+    """Author bibles and preview explicit material-mask palette roles.
+
+    Every engine subprocess round trip and every pure-Python buffer
+    computation runs on an EngineWorker (issue #23). Krita's document/node
+    API stays on the UI thread: pixel buffers are extracted here and handed
+    to the worker, and any document mutation is applied back in the finished
+    handler.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Character Colors")
+        container = QWidget(self)
+        layout = QVBoxLayout(container)
+        self._status = QLabel("Bind a portable project to begin.", container)
+        self._status.setWordWrap(True)
+        self._bibles = QComboBox(container)
+        actions = (
+            ("Bind Portable Project", self._bind_project),
+            ("Import Reference Image", self._import_reference),
+            ("Create / Replace Style Bible", self._author_bible),
+            ("Create Material Mask Layers", self._create_masks),
+            ("Create Material Mask Variant", self._create_mask_variant),
+            ("Assign Region Correspondence", self._assign_correspondence),
+            ("Propagate Correspondence to Regions", self._propagate_correspondence),
+            ("Preview Region Correspondence Color", self._preview_correspondence),
+            ("Preview Active Mask Palette Role", self._preview_palette),
+            ("Accept Color Preview", self._accept_preview),
+            ("Reject Color Preview", self._reject_preview),
+        )
+        layout.addWidget(self._bibles)
+        self._buttons = []
+        for label, callback in actions:
+            button = QPushButton(label, container)
+            button.clicked.connect(callback)
+            layout.addWidget(button)
+            self._buttons.append(button)
+        layout.addWidget(self._status)
+        self.setWidget(container)
+        self._project_directory = None
+        self._references = []
+        self._preview = None
+        self._init_worker_state(self._buttons)
+
+    def _bind_project(self):
+        directory = QFileDialog.getExistingDirectory(self, "Select Portable Project")
+        if not directory:
+            return
+        if not (Path(directory) / "project.json").is_file():
+            self._status.setText("Selected directory has no portable project.json.")
+            return
+        self._project_directory = directory
+        self._refresh_bibles()
+
+    def _refresh_bibles(self):
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().project_progress_snapshot(
+                str(uuid.uuid4()), project_directory
+            ),
+            self._show_bibles,
+            "Could not read project: ",
+        )
+
+    def _show_bibles(self, snapshot):
+        self._bibles.clear()
+        for bible in snapshot.get("style_bibles", []):
+            self._bibles.addItem(
+                bible["character_name"] + " — " + bible["style_name"], bible["asset_path"]
+            )
+        self._status.setText(f"Bound project with {self._bibles.count()} style bible(s).")
+
+    def _import_reference(self):
+        if self._project_directory is None:
+            self._status.setText("Bind a portable project first.")
+            return
+        source, _ = QFileDialog.getOpenFileName(
+            self, "Import Reference", "", "Images (*.png *.jpg *.jpeg *.webp *.tif *.tiff)"
+        )
+        if not source:
+            return
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().import_reference_asset(
+                str(uuid.uuid4()), project_directory, source
+            ),
+            lambda result: self._finish_import_reference(result, source),
+            "Could not import reference: ",
+        )
+
+    def _finish_import_reference(self, result, source):
+        label = self._text("Reference", "Reference label:", Path(source).stem)
+        if label is None:
+            return
+        view_type, accepted = QInputDialog.getItem(
+            self,
+            "Reference",
+            "Reference view type:",
+            self._reference_view_types(),
+            0,
+            False,
+        )
+        if not accepted:
+            return
+        notes = self._text("Reference", "Reference notes (optional):", allow_empty=True)
+        if notes is None:
+            return
+        self._references.append(
+            {
+                "asset_path": result["asset_path"],
+                "label": label,
+                "view_type": view_type,
+                **({"notes": notes} if notes else {}),
+            }
+        )
+        self._status.setText("Imported project reference: " + result["asset_path"])
+
+    def _author_bible(self):
+        if self._project_directory is None:
+            self._status.setText("Bind a portable project first.")
+            return
+        if self._bibles.count():
+            self._with_selected_bible(self._author_bible_dialogs)
+        else:
+            self._author_bible_dialogs(None)
+
+    def _author_bible_dialogs(self, existing):
+        bible_id = self._text(
+            "Style Bible",
+            "Lowercase kebab-case bible ID:",
+            existing["id"] if existing else "",
+        )
+        character = self._text(
+            "Style Bible", "Character name:", existing["character_name"] if existing else ""
+        )
+        style = self._text("Style Bible", "Style name:", existing["style_name"] if existing else "")
+        if None in (bible_id, character, style):
+            return
+        count, accepted = QInputDialog.getInt(
+            self,
+            "Materials",
+            "Number of semantic materials:",
+            len(existing["materials"]) if existing else 1,
+            1,
+            50,
+            1,
+        )
+        if not accepted:
+            return
+        materials = []
+        for index in range(count):
+            prior = (
+                existing["materials"][index]
+                if existing and index < len(existing["materials"])
+                else None
+            )
+            material_id = self._text(
+                "Material", f"Material {index + 1} canonical ID:", prior["id"] if prior else ""
+            )
+            label = self._text(
+                "Material", f"Material {index + 1} label:", prior["label"] if prior else ""
+            )
+            aliases = self._text(
+                "Material",
+                "Comma-separated aliases (optional):",
+                ", ".join(prior.get("aliases", [])) if prior else "",
+                allow_empty=True,
+            )
+            local = self._text(
+                "Palette", "Local color (#RRGGBB):", prior["palette"]["local"] if prior else ""
+            )
+            light = self._text(
+                "Palette", "Light color (#RRGGBB):", prior["palette"]["light"] if prior else ""
+            )
+            shadow = self._text(
+                "Palette", "Shadow color (#RRGGBB):", prior["palette"]["shadow"] if prior else ""
+            )
+            accent = self._text(
+                "Palette",
+                "Optional accent color (#RRGGBB or empty):",
+                prior["palette"].get("accent") or "" if prior else "",
+                allow_empty=True,
+            )
+            if None in (material_id, label, local, light, shadow):
+                return
+            palette = {"local": local, "light": light, "shadow": shadow}
+            if accent:
+                palette["accent"] = accent
+            materials.append(
+                {
+                    "id": material_id,
+                    "label": label,
+                    "aliases": [item.strip() for item in aliases.split(",") if item.strip()],
+                    "palette": palette,
+                }
+            )
+        references = []
+        for reference in existing.get("reference_views", []) if existing else []:
+            edited = self._edit_reference(reference)
+            if edited is None:
+                return
+            references.append(edited)
+        used_reference_ids = {reference["id"] for reference in references}
+        for reference in self._references:
+            number = 1
+            while f"reference-{number}" in used_reference_ids:
+                number += 1
+            reference_id = f"reference-{number}"
+            used_reference_ids.add(reference_id)
+            references.append({"id": reference_id, **reference})
+        payload = {
+            "id": bible_id,
+            "character_name": character,
+            "style_name": style,
+            "materials": materials,
+            "reference_views": references,
+            "recovery_revisions": 10,
+            "schema_version": 2,
+        }
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().upsert_project_style_bible(
+                str(uuid.uuid4()), project_directory, payload
+            ),
+            lambda _result: self._after_bible_saved(),
+            "Could not save style bible: ",
+        )
+
+    def _after_bible_saved(self):
+        self._references.clear()
+        self._refresh_bibles()
+
+    def _create_masks(self):
+        document = Krita.instance().activeDocument()
+        if document is None:
+            self._status.setText("Open a document and select a bound style bible first.")
+            return
+        self._with_selected_bible(lambda bible: self._create_masks_with(document, bible))
+
+    def _create_masks_with(self, document, bible):
+        if bible is None:
+            self._status.setText("Open a document and select a bound style bible first.")
+            return
+        root = document.rootNode()
+        group = find_named_node(root, MASK_GROUP_NAME)
+        if group is None:
+            group = document.createNode(MASK_GROUP_NAME, "grouplayer")
+            if group is None or not root.addChildNode(group, None):
+                self._status.setText("Krita could not create the Material Masks group.")
+                return
+        for material in bible["materials"]:
+            name = material_mask_name(material["id"])
+            if find_named_node(group, name) is None:
+                layer = document.createNode(name, "paintlayer")
+                if layer is None or not group.addChildNode(layer, None):
+                    self._status.setText("Krita could not create a material mask layer.")
+                    return
+        document.refreshProjection()
+        self._status.setText("Material mask layers are ready; paint alpha to define regions.")
+
+    def _create_mask_variant(self):
+        document = Krita.instance().activeDocument()
+        if document is None:
+            self._status.setText("Open a document and select a bound style bible first.")
+            return
+        self._with_selected_bible(lambda bible: self._create_mask_variant_with(document, bible))
+
+    def _create_mask_variant_with(self, document, bible):
+        if bible is None:
+            self._status.setText("Open a document and select a bound style bible first.")
+            return
+        material_id, accepted = QInputDialog.getItem(
+            self,
+            "Material Mask Variant",
+            "Canonical material:",
+            [item["id"] for item in bible["materials"]],
+            0,
+            False,
+        )
+        if not accepted:
+            return
+        variant = self._text("Material Mask Variant", "Variant name:")
+        if variant is None:
+            return
+        root = document.rootNode()
+        group = find_named_node(root, MASK_GROUP_NAME)
+        if group is None:
+            group = document.createNode(MASK_GROUP_NAME, "grouplayer")
+            if group is None or not root.addChildNode(group, None):
+                self._status.setText("Krita could not create the Material Masks group.")
+                return
+        name = material_mask_name(material_id, variant)
+        if find_named_node(group, name) is not None:
+            self._status.setText("That material-mask variant already exists.")
+            return
+        layer = document.createNode(name, "paintlayer")
+        if layer is None or not group.addChildNode(layer, None):
+            self._status.setText("Krita could not create the material-mask variant.")
+            return
+        document.refreshProjection()
+        self._status.setText("Created " + name + "; paint alpha to define its region.")
+
+    def _preview_palette(self):
+        document = Krita.instance().activeDocument()
+        if document is None:
+            return
+        self._with_selected_bible(lambda bible: self._preview_palette_with(document, bible))
+
+    def _preview_palette_with(self, document, bible):
+        if bible is None:
+            return
+        node = document.activeNode()
+        try:
+            material_id, _variant = material_mask_parts(node)
+        except ValueError:
+            self._status.setText("Select a Material — <canonical-id> mask layer.")
+            return
+        material = next((item for item in bible["materials"] if item["id"] == material_id), None)
+        if material is None:
+            self._status.setText("Active mask does not exist in the selected bible.")
+            return
+        if self._preview is not None:
+            self._status.setText("Accept or reject the current color preview first.")
+            return
+        role, accepted = QInputDialog.getItem(
+            self,
+            "Palette Role",
+            "Preview role:",
+            [key for key, value in material["palette"].items() if value is not None],
+            0,
+            False,
+        )
+        if not accepted:
+            return
+        width, height = document.width(), document.height()
+        raw = bytes(node.pixelData(0, 0, width, height))
+        if len(raw) != width * height * 4:
+            self._status.setText("Krita returned an unexpected mask buffer.")
+            return
+        mask_group = find_named_node(document.rootNode(), MASK_GROUP_NAME)
+        # Extract every material-mask buffer on the UI thread (Krita API), then
+        # combine/overlap/preview them off the UI thread (pure Python, issue #23).
+        masks_raw = {}
+        for item in bible["materials"]:
+            mask_buffers = self._mask_buffers(mask_group, item["id"], width, height)
+            if mask_buffers:
+                masks_raw[item["id"]] = mask_buffers
+        self._run_worker(
+            lambda: self._compute_palette_preview(
+                raw[3::4], material, role, masks_raw
+            ),
+            lambda pixels: self._apply_palette_preview(
+                document, bible, material_id, role, pixels, width, height
+            ),
+            "Could not build color preview: ",
+        )
+
+    def _compute_palette_preview(self, alpha, material, role, masks_raw):
+        masks = {}
+        for item_id, buffers in masks_raw.items():
+            try:
+                masks[item_id] = union_alpha_buffers(buffers)
+            except ValueError as error:
+                raise ValueError("Could not combine material mask variants: " + str(error)) from None
+        try:
+            conflicts = overlapping_materials(material["id"], masks)
+        except ValueError as error:
+            raise ValueError("Could not compare material masks: " + str(error)) from None
+        if conflicts:
+            details = ", ".join(
+                f"{conflict_id} ({count} px)" for conflict_id, count in conflicts.items()
+            )
+            raise ValueError("Mask overlaps must be corrected: " + details + ".")
+        return palette_preview_bgra(alpha, material["palette"][role])
+
+    def _apply_palette_preview(self, document, bible, material_id, role, pixels, width, height):
+        if self._create_preview_layer(document, bible, material_id, role, pixels, width, height):
+            self._status.setText("Preview created; source mask and artwork are unchanged.")
+
+    def _assign_correspondence(self):
+        document = Krita.instance().activeDocument()
+        if document is None:
+            self._status.setText("Open a document and select a bound style bible first.")
+            return
+        self._with_selected_bible(
+            lambda bible: self._assign_correspondence_with(document, bible)
+        )
+
+    def _assign_correspondence_with(self, document, bible):
+        if bible is None:
+            self._status.setText("Open a document and select a bound style bible first.")
+            return
+        node = document.activeNode()
+        if node is None:
+            self._status.setText("Select the layer representing the target region.")
+            return
+        try:
+            region_id = region_id_from_layer_name(node.name())
+        except ValueError as error:
+            self._status.setText("Could not derive a region id: " + str(error))
+            return
+        material_ids = [item["id"] for item in bible["materials"]]
+        self._with_correspondence_set(
+            bible["id"],
+            lambda correspondence_set: self._assign_rank(
+                document, bible, node, region_id, material_ids, correspondence_set
+            ),
+        )
+
+    def _assign_rank(self, document, bible, node, region_id, material_ids, correspondence_set):
+        adjacency_agreements = self._adjacency_agreement_by_material(
+            document, region_id, correspondence_set
+        )
+        project_directory = self._project_directory
+        bible_asset = self._bibles.currentData()
+
+        def continue_with(ranked_candidates):
+            if ranked_candidates:
+                ordered_material_ids = [item["material_id"] for item in ranked_candidates]
+                default_material_index = 0
+            else:
+                ordered_material_ids = material_ids
+                default_material_index = self._suggested_material_index(
+                    document, region_id, correspondence_set, material_ids
+                )
+            material_id, accepted = QInputDialog.getItem(
+                self,
+                "Region Correspondence",
+                "Canonical material (ranked by confidence):",
+                ordered_material_ids,
+                default_material_index,
+                False,
+            )
+            if not accepted:
+                return
+            role, accepted = QInputDialog.getItem(
+                self,
+                "Region Correspondence",
+                "Palette role:",
+                ["local", "light", "shadow", "accent"],
+                0,
+                False,
+            )
+            if not accepted:
+                return
+            panel_id = self._text(
+                "Region Correspondence",
+                "Optional panel/page id (kebab-case):",
+                allow_empty=True,
+            )
+            if panel_id is None:
+                return
+            entry = {
+                "id": "correspondence-" + uuid.uuid4().hex[:8],
+                "region_id": region_id,
+                "material_id": material_id,
+                "role": role,
+            }
+            if panel_id:
+                entry["panel_id"] = panel_id
+            # Re-read rather than reuse the set loaded before the three modal
+            # dialogs above: a stale in-memory copy would silently discard any
+            # write that landed on disk while those dialogs were open.
+            self._with_correspondence_set(
+                bible["id"],
+                lambda fresh_set: self._assign_save(
+                    fresh_set, entry, ranked_candidates, region_id, material_id, role
+                ),
+            )
+
+        self._run_worker(
+            lambda: EngineClient().rank_correspondence_materials(
+                str(uuid.uuid4()),
+                project_directory,
+                bible_asset,
+                region_id,
+                adjacency_agreements,
+            )["candidates"],
+            continue_with,
+            "Could not rank correspondence materials: ",
+            on_error=lambda _message: continue_with(None),
+        )
+
+    def _assign_save(self, correspondence_set, entry, ranked_candidates, region_id, material_id, role):
+        correspondence_set["correspondences"].append(entry)
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().upsert_project_correspondence_set(
+                str(uuid.uuid4()), project_directory, correspondence_set
+            ),
+            lambda _result: self._assign_record(
+                ranked_candidates, region_id, material_id, role
+            ),
+            "Could not save region correspondence: ",
+        )
+
+    def _assign_record(self, ranked_candidates, region_id, material_id, role):
+        if not ranked_candidates:
+            self._status.setText(f"Assigned region '{region_id}' to {material_id}/{role}.")
+            return
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().record_correspondence_choice(
+                str(uuid.uuid4()), project_directory, material_id, ranked_candidates
+            ),
+            lambda _result: self._status.setText(
+                f"Assigned region '{region_id}' to {material_id}/{role}."
+            ),
+            "Could not record correspondence choice: ",
+            on_error=lambda _message: self._status.setText(
+                f"Assigned region '{region_id}' to {material_id}/{role}."
+            ),
+        )
+
+    def _propagate_correspondence(self):
+        self._with_selected_bible(self._propagate_correspondence_with)
+
+    def _propagate_correspondence_with(self, bible):
+        if bible is None:
+            self._status.setText("Select a bound style bible first.")
+            return
+        asset_path = f"correspondence/{bible['id']}.json"
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().project_correspondence_set_payload(
+                str(uuid.uuid4()), project_directory, asset_path
+            ),
+            lambda correspondence_set: self._propagate_choose(
+                bible, asset_path, correspondence_set
+            ),
+            "Assign at least one region correspondence first: ",
+        )
+
+    def _propagate_choose(self, bible, asset_path, correspondence_set):
+        entries = correspondence_set.get("correspondences", [])
+        if not entries:
+            self._status.setText("No region correspondences exist to propagate.")
+            return
+        choices = [
+            f"{item['id']} ({item['region_id']} → {item['material_id']}/{item['role']})"
+            for item in entries
+        ]
+        choice, accepted = QInputDialog.getItem(
+            self, "Propagate Correspondence", "Source assignment:", choices, 0, False
+        )
+        if not accepted:
+            return
+        source_id = choice.split(" ", 1)[0]
+        source_entry = next(item for item in entries if item["id"] == source_id)
+        document = Krita.instance().activeDocument()
+        suggested = self._adjacent_region_names(document, source_entry["region_id"])
+        targets_text = self._text(
+            "Propagate Correspondence",
+            "Comma-separated target region ids (adjacency-suggested; edit as needed):",
+            ", ".join(suggested),
+        )
+        if targets_text is None:
+            return
+        target_region_ids = [item.strip() for item in targets_text.split(",") if item.strip()]
+        if not target_region_ids:
+            self._status.setText("Enter at least one explicit target region id.")
+            return
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().propagate_project_correspondence(
+                str(uuid.uuid4()),
+                project_directory,
+                asset_path,
+                source_id,
+                target_region_ids,
+            ),
+            lambda propagated: self._status.setText(
+                f"Propagated to {len(target_region_ids)} region(s); set now has "
+                f"{len(propagated['correspondences'])} correspondence(s)."
+            ),
+            "Could not propagate correspondence: ",
+        )
+
+    def _preview_correspondence(self):
+        document = Krita.instance().activeDocument()
+        if document is None:
+            self._status.setText("Open a document and select a bound style bible first.")
+            return
+        self._with_selected_bible(
+            lambda bible: self._preview_correspondence_with(document, bible)
+        )
+
+    def _preview_correspondence_with(self, document, bible):
+        if bible is None:
+            self._status.setText("Open a document and select a bound style bible first.")
+            return
+        if self._preview is not None:
+            self._status.setText("Accept or reject the current color preview first.")
+            return
+        node = document.activeNode()
+        if node is None:
+            self._status.setText("Select the layer representing the target region.")
+            return
+        try:
+            region_id = region_id_from_layer_name(node.name())
+        except ValueError as error:
+            self._status.setText("Could not derive a region id: " + str(error))
+            return
+        asset_path = f"correspondence/{bible['id']}.json"
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().project_correspondence_set_payload(
+                str(uuid.uuid4()), project_directory, asset_path
+            ),
+            lambda correspondence_set: self._preview_correspondence_compute(
+                document, node, bible, region_id, correspondence_set
+            ),
+            "No region correspondences are bound: ",
+        )
+
+    def _preview_correspondence_compute(
+        self, document, node, bible, region_id, correspondence_set
+    ):
+        matches = [
+            item
+            for item in correspondence_set.get("correspondences", [])
+            if item["region_id"] == region_id
+        ]
+        if len(matches) != 1:
+            self._status.setText("Active region has no unambiguous correspondence assignment.")
+            return
+        correspondence = matches[0]
+        material = next(
+            (item for item in bible["materials"] if item["id"] == correspondence["material_id"]),
+            None,
+        )
+        if material is None:
+            self._status.setText("Assigned material no longer exists in the style bible.")
+            return
+        color = material["palette"].get(correspondence["role"])
+        if color is None:
+            self._status.setText("Assigned palette role is not defined for this material.")
+            return
+        width, height = document.width(), document.height()
+        raw = bytes(node.pixelData(0, 0, width, height))
+        if len(raw) != width * height * 4:
+            self._status.setText("Krita returned an unexpected mask buffer.")
+            return
+        self._run_worker(
+            lambda: palette_preview_bgra(raw[3::4], color),
+            lambda pixels: self._apply_correspondence_preview(
+                document,
+                bible,
+                correspondence["material_id"],
+                correspondence["role"],
+                pixels,
+                width,
+                height,
+            ),
+            "Could not build color preview: ",
+        )
+
+    def _apply_correspondence_preview(
+        self, document, bible, material_id, role, pixels, width, height
+    ):
+        if self._create_preview_layer(document, bible, material_id, role, pixels, width, height):
+            self._status.setText(
+                "Correspondence preview created; source region and artwork are unchanged."
+            )
+
+    def _with_selected_bible(self, on_ok):
+        if self._project_directory is None or self._bibles.currentData() is None:
+            on_ok(None)
+            return
+        project_directory = self._project_directory
+        bible_asset = self._bibles.currentData()
+        self._run_worker(
+            lambda: EngineClient().project_style_bible_payload(
+                str(uuid.uuid4()), project_directory, bible_asset
+            ),
+            on_ok,
+            "Could not load style bible: ",
+            on_error=lambda _message: on_ok(None),
+        )
+
+    def _with_correspondence_set(self, bible_id, on_ok):
+        asset_path = f"correspondence/{bible_id}.json"
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().project_correspondence_set_payload(
+                str(uuid.uuid4()), project_directory, asset_path
+            ),
+            on_ok,
+            "Could not load correspondence set: ",
+            on_error=lambda _message: on_ok(
+                {
+                    "id": bible_id,
+                    "style_bible_id": bible_id,
+                    "correspondences": [],
+                    "recovery_revisions": 10,
+                    "schema_version": 1,
+                }
+            ),
+        )
+
+    def _create_preview_layer(self, document, bible, material_id, role, pixels, width, height):
+        preview = document.createNode(PREVIEW_PREFIX + material_id + " — " + role, "paintlayer")
+        color_group = find_named_node(document.rootNode(), ACCEPTED_GROUP_NAME)
+        if color_group is None:
+            color_group = document.createNode(ACCEPTED_GROUP_NAME, "grouplayer")
+            if color_group is None or not document.rootNode().addChildNode(color_group, None):
+                self._status.setText("Krita could not create the Character Colors group.")
+                return False
+        if preview is None or not color_group.addChildNode(preview, None):
+            self._status.setText("Krita could not create the color preview layer.")
+            return False
+        if not preview.setPixelData(QByteArray(pixels), 0, 0, width, height):
+            preview.remove()
+            self._status.setText("Krita could not write the color preview safely.")
+            return False
+        preview.setLocked(True)
+        set_property = getattr(preview, "setProperty", None)
+        if callable(set_property):
+            set_property("cel_shaded_generator.style_bible_id", bible["id"])
+        self._preview = preview
+        document.refreshProjection()
+        return True
+
+    def _accept_preview(self):
+        if self._preview is None:
+            return
+        self._preview.setName(self._preview.name().replace(PREVIEW_PREFIX, ACCEPTED_PREFIX, 1))
+        self._preview.setLocked(False)
+        self._preview = None
+        self._status.setText("Color accepted as a separate editable Character Colors layer.")
+
+    def _reject_preview(self):
+        if self._preview is None:
+            return
+        if not self._preview.remove():
+            self._status.setText("Krita could not remove the owned color preview.")
+            return
+        self._preview = None
+        self._status.setText("Color preview rejected; artist layers were unchanged.")
+
+    def _text(self, title, prompt, default="", allow_empty=False):
+        value, accepted = QInputDialog.getText(self, title, prompt, QLineEdit.Normal, default)
+        if not accepted:
+            return None
+        value = value.strip()
+        return value if value or allow_empty else None
+
+    @staticmethod
+    def _reference_view_types():
+        return ["front", "profile", "three-quarter", "expression", "costume-detail", "other"]
+
+    def _edit_reference(self, reference):
+        label = self._text("Reference", "Reference label:", reference["label"])
+        if label is None:
+            return None
+        choices = self._reference_view_types()
+        current = reference.get("view_type", "other")
+        index = choices.index(current) if current in choices else choices.index("other")
+        view_type, accepted = QInputDialog.getItem(
+            self, "Reference", "Reference view type:", choices, index, False
+        )
+        if not accepted:
+            return None
+        notes = self._text(
+            "Reference",
+            "Reference notes (optional):",
+            reference.get("notes") or "",
+            allow_empty=True,
+        )
+        if notes is None:
+            return None
+        edited = {**reference, "label": label, "view_type": view_type}
+        if notes:
+            edited["notes"] = notes
+        else:
+            edited.pop("notes", None)
+        return edited
+
+    @staticmethod
+    def _adjacent_region_names(document, region_id):
+        """Suggest (never auto-apply) propagation targets from G1's Regions group.
+
+        Reads the currently segmented Regions group the same way the Line
+        Art Segmentation Docker's Report Region Adjacency action does, and
+        returns the names of regions touching region_id. Returns an empty
+        list rather than raising if no Regions group exists, since manual
+        typed target ids remain fully supported without one.
+
+        Performance note: like Report Region Adjacency, this does a
+        pure-Python per-pixel scan of every region layer's alpha (no numpy
+        dependency, matching this Krita-boundary module's existing
+        constraint) -- O(width * height * region count) per call. Assign
+        Region Correspondence now pays this cost on every click rather than
+        only on Propagate's less-frequent calls; on a large canvas with many
+        regions this may add noticeable latency. Not yet session-cached
+        pending a decision on the staleness tradeoff a cache would introduce
+        (a repainted region's alpha changing without its layer being
+        renamed).
+        """
+        if document is None:
+            return []
+        scan = region_labels_and_names(document)
+        if scan is None:
+            return []
+        labels, names, width, height = scan
+        source_label = next((label for label, name in names.items() if name == region_id), None)
+        if source_label is None:
+            return []
+        adjacent = set()
+        for left, right in region_adjacency_bytes(labels, width, height):
+            if left == source_label:
+                adjacent.add(right)
+            elif right == source_label:
+                adjacent.add(left)
+        return sorted(names[label] for label in adjacent if label in names)
+
+    @classmethod
+    def _suggested_material_index(cls, document, region_id, correspondence_set, material_ids):
+        """Default the material dropdown to an adjacent region's material.
+
+        Only suggests when adjacent already-assigned regions agree on
+        exactly one material; ambiguous or absent adjacency falls back to
+        index 0, leaving the artist's own explicit choice as the default.
+        Never assigns anything itself -- the dropdown remains editable.
+        """
+        adjacent = set(cls._adjacent_region_names(document, region_id))
+        if not adjacent:
+            return 0
+        adjacent_materials = {
+            item["material_id"]
+            for item in correspondence_set.get("correspondences", [])
+            if item["region_id"] in adjacent
+        }
+        if len(adjacent_materials) == 1:
+            (material_id,) = adjacent_materials
+            if material_id in material_ids:
+                return material_ids.index(material_id)
+        return 0
+
+    @classmethod
+    def _adjacency_agreement_by_material(cls, document, region_id, correspondence_set):
+        """Per-material adjacency-agreement scores for milestone 4's ranked
+        suggestion (roadmap milestone 4, issue #24).
+
+        Unlike _suggested_material_index's unanimous-or-nothing default,
+        this returns a fraction in [0, 1] per material -- how many of
+        region_id's adjacent regions are already assigned to it, out of
+        all adjacent regions (assigned or not) -- so
+        colorization.confidence.score_candidate can combine partial
+        agreement with the name-similarity signal instead of only ever
+        seeing "unanimous" or "no suggestion". Returns an empty dict (every
+        material scores zero adjacency agreement) when there is no adjacency
+        information, same as _suggested_material_index's empty-adjacency
+        fallback.
+        """
+        adjacent = cls._adjacent_region_names(document, region_id)
+        if not adjacent:
+            return {}
+        assigned = {
+            item["region_id"]: item["material_id"]
+            for item in correspondence_set.get("correspondences", [])
+        }
+        counts: dict[str, int] = {}
+        for name in adjacent:
+            material_id = assigned.get(name)
+            if material_id is not None:
+                counts[material_id] = counts.get(material_id, 0) + 1
+        return {material_id: count / len(adjacent) for material_id, count in counts.items()}
+
+    @staticmethod
+    def _mask_buffers(root, material_id, width, height):
+        if root is None:
+            return []
+        buffers = []
+        for node in root.childNodes():
+            try:
+                node_material, _variant = material_mask_parts(node)
+            except (AttributeError, ValueError):
+                node_material = None
+            if node_material == material_id:
+                raw = bytes(node.pixelData(0, 0, width, height))
+                if len(raw) != width * height * 4:
+                    raise ValueError("Krita returned an unexpected material-mask buffer.")
+                buffers.append(raw[3::4])
+            buffers.extend(CharacterColorsDocker._mask_buffers(node, material_id, width, height))
+        return buffers
+
+    def canvasChanged(self, canvas) -> None:  # noqa: N802
+        """Krita callback; this docker does not inspect the canvas."""

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 300" role="img" aria-labelledby="title desc">
+  <title id="title">Five-view head rotation ladder</title>
+  <desc id="desc">Two profiles, two three-quarter views, and a front view showing progressive centerline movement.</desc>
+  <rect width="1100" height="300" fill="#f7f4ed"/>
+  <g fill="none" stroke="#30343b" stroke-width="5" stroke-linecap="round">
+    <circle cx="110" cy="125" r="80"/><path d="M45 78c-18 35-18 75 0 105M31 125h156"/>
+    <circle cx="330" cy="125" r="80"/><path d="M300 49c34 44 34 108 0 152M252 125c48-16 105-16 156 0"/>
+    <circle cx="550" cy="125" r="80"/><path d="M550 45v190M470 125h160"/>
+    <circle cx="770" cy="125" r="80"/><path d="M800 49c-34 44-34 108 0 152M692 125c51-16 108-16 156 0"/>
+    <circle cx="990" cy="125" r="80"/><path d="M1055 78c18 35 18 75 0 105M913 125h156"/>
+  </g>
+  <g fill="#30343b" font-family="sans-serif" font-size="20" text-anchor="middle">
+    <text x="110" y="245">Left profile</text><text x="330" y="245">Left ¾</text><text x="550" y="245">Front</text><text x="770" y="245">Right ¾</text><text x="990" y="245">Right profile</text>
+    <text x="550" y="280">Move the facial centerline progressively; preserve the cranial mass.</text>
+  </g>
+</svg>

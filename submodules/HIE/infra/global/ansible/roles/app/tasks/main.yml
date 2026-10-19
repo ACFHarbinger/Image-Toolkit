@@ -1,0 +1,12 @@
+---
+- name: Ensure app directory exists
+  ansible.builtin.file:
+    path: /opt/hybrid-image-editor
+    state: directory
+    mode: "0755"
+
+- name: Template environment file
+  ansible.builtin.template:
+    src: env.j2
+    dest: /opt/hybrid-image-editor/.env
+    mode: "0600"

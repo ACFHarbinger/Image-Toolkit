@@ -1,0 +1,1 @@
+"""Temporal colorization algorithms."""

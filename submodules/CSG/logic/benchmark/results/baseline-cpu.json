@@ -1,0 +1,73 @@
+{
+  "all_correct": true,
+  "cases": {
+    "arap_deformation": {
+      "correctness": {
+        "maximum_absolute_error": 0.0,
+        "maximum_tolerance": 1e-05,
+        "mean_absolute_error": 0.0,
+        "mean_tolerance": 1e-06,
+        "passed": true,
+        "shape_matches": true
+      },
+      "median_ms": 31.525521000730805,
+      "minimum_ms": 31.280508999770973,
+      "peak_python_memory_mib": 0.043570518493652344,
+      "repeats": 5
+    },
+    "reference_colorization": {
+      "correctness": {
+        "maximum_absolute_error": 0.0,
+        "maximum_tolerance": 2.0,
+        "mean_absolute_error": 0.0,
+        "mean_tolerance": 0.25,
+        "passed": true,
+        "shape_matches": true
+      },
+      "median_ms": 9.501401997113135,
+      "minimum_ms": 9.378594993904699,
+      "peak_python_memory_mib": 0.4104747772216797,
+      "repeats": 5
+    },
+    "scribble_colorization": {
+      "correctness": {
+        "maximum_absolute_error": 0.0,
+        "maximum_tolerance": 2.0,
+        "mean_absolute_error": 0.0,
+        "mean_tolerance": 0.25,
+        "passed": true,
+        "shape_matches": true
+      },
+      "median_ms": 43.14301499834983,
+      "minimum_ms": 42.823185001907405,
+      "peak_python_memory_mib": 2.398343086242676,
+      "repeats": 5
+    },
+    "temporal_propagation": {
+      "correctness": {
+        "maximum_absolute_error": 0.0,
+        "maximum_tolerance": 2.0,
+        "mean_absolute_error": 0.0,
+        "mean_tolerance": 0.25,
+        "passed": true,
+        "shape_matches": true
+      },
+      "median_ms": 107.87078999419464,
+      "minimum_ms": 104.82605199649697,
+      "peak_python_memory_mib": 8.987577438354492,
+      "repeats": 5
+    }
+  },
+  "environment": {
+    "hardware_class": "CPU-only baseline",
+    "os_class": "Linux x86_64",
+    "python": "3.11.14"
+  },
+  "isolation_overhead": {
+    "cold_ms": 311.0005979979178,
+    "direct_ms": 8.745243001612835,
+    "warm_ms": 8.7829670010251,
+    "warm_overhead_ms": 0.037723999412264675
+  },
+  "schema_version": 1
+}

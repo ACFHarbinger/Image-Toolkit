@@ -32,7 +32,7 @@ def main() -> None:
     if not asp_dispatch.is_file():
         raise SystemExit(
             f"ASP eval_dispatch not found at {asp_dispatch}. "
-            "Initialize the submodules/ASP git submodule."
+            "submodules/ASP is missing from this checkout."
         )
     # Ensure both roots are importable when this shim is the entry script.
     for p in (str(it_root), str(it_root / "submodules" / "ASP")):
