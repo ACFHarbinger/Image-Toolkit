@@ -147,10 +147,17 @@ lease. No full suite. No live cloud spend.
 
 ## 3. Questions for Harbinger
 
-Recommendation first.
+Harbinger's answers below supersede the original recommendations where
+they differ. Recorded by Grok, 2026-10-19. T1 is a C++ still writer
+with the middle frame as the default. T4 is mostly A, with B where
+parity needs a separate window. T6 is the C++ core, not A, B, or C.
 
 ### Grok T1 — Where do gallery pixels come from?
 
+- **Harbinger answer (2026-10-19):** A C++ service writes the bounded
+  stills. The default frame number is the middle frame. The webview
+  displays those cache files. This replaces the Python service and the
+  first-frame default in A. B, C, and D were not selected.
 - **A (recommended).** A Qt-free thumbnail service writes bounded
   stills (first frame, max edge). The webview displays those cache
   files only. Animated preview is a separate, cancellable request for
@@ -164,6 +171,9 @@ Recommendation first.
 
 ### Grok T2 — When do we close the open asset scope and null CSP?
 
+- **Harbinger answer (2026-10-19):** A. Wave 0, before Cloud Jobs Gate D
+  or any other new UI. Default deny. Each feature declares roots.
+  Originals are not in the scope.
 - **A (recommended).** Wave 0, before Cloud Jobs Gate D or any other
   new UI. Default deny. Each feature declares roots. Originals are not
   in the scope.
@@ -173,6 +183,9 @@ Recommendation first.
 
 ### Grok T3 — What is the navigation source of truth while both shells ship?
 
+- **Harbinger answer (2026-10-19):** A. One serializable catalog, split
+  out of `descriptor.py` so it does not import `QWidget`. Qt and Tauri
+  both render it. Ids match the migration ledger.
 - **A (recommended).** One serializable catalog, split out of
   `descriptor.py` so it does not import `QWidget`. Qt and Tauri both
   render it. Ids match the migration ledger.
@@ -183,6 +196,10 @@ Recommendation first.
 
 ### Grok T4 — How many native windows does the desktop have?
 
+- **Harbinger answer (2026-10-19):** Mostly A, and B where a separate
+  window is required for full feature parity. Default is one main
+  webview. Add a dedicated Tauri window when a PySide6 window cannot
+  reach parity as a route or panel.
 - **A (recommended).** One main webview. Preview, compare, settings,
   and Cloud Jobs are routes or panels. Extra native windows only for
   the tray, the slideshow/wallpaper presenter, and OS file dialogs.
@@ -191,6 +208,10 @@ Recommendation first.
 
 ### Grok T5 — Who starts the sidecar and the long-lived daemons?
 
+- **Harbinger answer (2026-10-19):** A. A supervisor outside the webview
+  starts the sidecar, the cloud-jobs daemon, and the slideshow daemon
+  as siblings. Closing the window does not stop them. A sidecar crash
+  does not drop daemon leases.
 - **A (recommended).** A supervisor outside the webview starts the
   sidecar, the cloud-jobs daemon, and the slideshow daemon as
   siblings. Closing the window does not stop them. A sidecar crash
@@ -202,6 +223,9 @@ Recommendation first.
 
 ### Grok T6 — Where may the vault password and database key live?
 
+- **Harbinger answer (2026-10-19):** The C++ core module (`base/`) holds
+  vault unlock and the database key. Not the Python sidecar (A), not
+  the Tauri OS keychain (B), and not Rust (C).
 - **A (recommended).** Unlock stays in the sidecar. The webview holds a
   session handle only. Daemons hold leases, as Cloud Jobs already
   requires. Logs never contain the password or the SQLCipher key.
@@ -212,6 +236,10 @@ Recommendation first.
 
 ### Grok T7 — How should stitch, merge, and frame-slice canvases be ported?
 
+- **Harbinger answer (2026-10-19):** A. One shared canvas host. A Wave 0
+  spike uses a fake document. Stitch is the first real editor after the
+  Convert pilot. A failed budget uses the Codex R5 case-specific
+  deferral.
 - **A (recommended).** One shared canvas host. A Wave 0 spike uses a
   fake document. Stitch is the first real editor after the Convert
   pilot. A failed budget uses the Codex R5 case-specific deferral.
@@ -221,6 +249,9 @@ Recommendation first.
 
 ### Grok T8 — What happens to Deep Learning UI that has not been built yet?
 
+- **Harbinger answer (2026-10-19):** A. Freeze new Qt panels. Build the
+  remaining Deep Learning UI in Tauri against the existing
+  `record.json` / `events.jsonl` contract.
 - **A (recommended).** Freeze new Qt panels. Build the remaining Deep
   Learning UI in Tauri against the existing `record.json` /
   `events.jsonl` contract.

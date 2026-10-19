@@ -228,18 +228,22 @@ DRY problem to resolve, not to copy forward.
   Builds on the recorded sidecar, settings, and submodule answers.
   Adds:
   - a **bounded thumbnail service** so the webview never decodes
-    original huge or animated files (the `PixmapBudget` failure mode);
+    original huge or animated files (the `PixmapBudget` failure mode).
+    Harbinger: a **C++ service** writes the stills, and the default
+    frame is the **middle** frame;
   - **Wave 0 lockdown** of `tauri.conf.json` (`csp: null`, asset scope
     `**`) before Cloud Jobs Gate D;
   - a **serializable module catalog** split from `descriptor.py`'s
     `QWidget` factories, shared by both shells and aligned with the
     migration ledger;
   - **one main webview**, with extra native windows only for tray,
-    slideshow, and file dialogs;
+    slideshow, and file dialogs. Harbinger: also a separate window
+    where that is required for feature parity;
   - a **supervisor that siblings** the sidecar, cloud-jobs daemon, and
     slideshow daemon, so a window close does not drop leases;
   - **vault unlock inside the sidecar**, session handle in the webview,
-    leases in daemons;
+    leases in daemons. Harbinger: the **C++ core** (`base/`) holds
+    unlock and the database key instead;
   - **one shared canvas host** for stitch, merge, and frame-slice;
   - **new Deep Learning panels in Tauri** against `record.json` /
     `events.jsonl`. No PostgreSQL.
@@ -397,40 +401,48 @@ Claude's remaining questions are in its proposal (§Q).
   - **D:** one agent at a time. Simplest coordination, slowest by roughly
     the number of agents available.
 
-### Grok — 2026-10-19
+### Grok — 2026-10-19 (all eight answered)
 
-Recommendation first in each list.
+Harbinger's answers below supersede the original recommendations where they differ. Recorded by Grok, 2026-10-19. T1 uses a C++ still writer and the middle frame. T4 is mostly A, with B where parity requires a separate window. T6 places unlock and the database key in the C++ core. Scope still awaits the team final round.
 
 - **[Grok T1] Where do gallery pixels come from?**
+  - **Harbinger answer (2026-10-19; recorded by Grok):** A C++ service writes the bounded stills. The default frame number is the middle frame. The webview displays those cache files. This replaces the Python service and the first-frame default in A. B, C, and D were not selected.
   - **A (recommended):** A Qt-free thumbnail service writes bounded stills (first frame, max edge). The webview displays those cache files only. Animated preview is a separate, cancellable request for the focused item.
   - **B:** A Rust thumbnail command decodes for the grid, so the grid does not wait on the Python sidecar.
   - **C:** The webview decodes original files directly through the asset protocol.
   - **D:** Keep today's Rust `db.rs` / image commands as the thumbnail path until the library wave.
 - **[Grok T2] When do we close the open asset scope and null CSP?**
+  - **Harbinger answer (2026-10-19; recorded by Grok):** A. Wave 0, before Cloud Jobs Gate D or any other new UI. Default deny. Each feature declares roots. Originals are not in the scope.
   - **A (recommended):** Wave 0, before Cloud Jobs Gate D or any other new UI. Default deny. Each feature declares roots. Originals are not in the scope.
   - **B:** Tighten the scope as each feature migrates. Gate D may ship on the current `**` scope.
   - **C:** Leave `csp: null` and `scope: ["**"]` until PySide6 is gone.
 - **[Grok T3] What is the navigation source of truth while both shells ship?**
+  - **Harbinger answer (2026-10-19; recorded by Grok):** A. One serializable catalog, split out of `descriptor.py` so it does not import `QWidget`. Qt and Tauri both render it. Ids match the migration ledger.
   - **A (recommended):** One serializable catalog, split out of `descriptor.py` so it does not import `QWidget`. Qt and Tauri both render it. Ids match the migration ledger.
   - **B:** Tauri routes are handwritten. `ModuleCatalog` stays Qt-only until that area is deleted.
   - **C:** The React router becomes the source of truth now. The Qt registry is frozen and edited only to delete rows.
 - **[Grok T4] How many native windows does the desktop have?**
+  - **Harbinger answer (2026-10-19; recorded by Grok):** Mostly A, and B where a separate window is required for full feature parity. Default is one main webview. Add a dedicated Tauri window when a PySide6 window cannot reach parity as a route or panel.
   - **A (recommended):** One main webview. Preview, compare, settings, and Cloud Jobs are routes or panels. Extra native windows only for the tray, the slideshow/wallpaper presenter, and OS file dialogs.
   - **B:** One Tauri window for each current PySide6 window.
   - **C:** Several webviews inside one native frame, one per major area.
 - **[Grok T5] Who starts the sidecar and the long-lived daemons?**
+  - **Harbinger answer (2026-10-19; recorded by Grok):** A. A supervisor outside the webview starts the sidecar, the cloud-jobs daemon, and the slideshow daemon as siblings. Closing the window does not stop them. A sidecar crash does not drop daemon leases.
   - **A (recommended):** A supervisor outside the webview starts the sidecar, the cloud-jobs daemon, and the slideshow daemon as siblings. Closing the window does not stop them. A sidecar crash does not drop daemon leases.
   - **B:** The sidecar parents the daemons. The supervisor only restarts the sidecar, which then reattaches.
   - **C:** The Tauri shell starts all of them as `externalBin` children. Their lifetime follows the shell.
 - **[Grok T6] Where may the vault password and database key live?**
+  - **Harbinger answer (2026-10-19; recorded by Grok):** The C++ core module (`base/`) holds vault unlock and the database key. Not the Python sidecar (A), not the Tauri OS keychain (B), and not Rust (C).
   - **A (recommended):** Unlock stays in the sidecar. The webview holds a session handle only. Daemons hold leases, as Cloud Jobs already requires. Logs never contain the password or the SQLCipher key.
   - **B:** The Tauri shell stores the password in the OS keychain and passes it to the sidecar at launch.
   - **C:** Rust holds the unwrapped database key for the process lifetime and proxies queries itself.
 - **[Grok T7] How should stitch, merge, and frame-slice canvases be ported?**
+  - **Harbinger answer (2026-10-19; recorded by Grok):** A. One shared canvas host. A Wave 0 spike uses a fake document. Stitch is the first real editor after the Convert pilot. A failed budget uses the Codex R5 case-specific deferral.
   - **A (recommended):** One shared canvas host. A Wave 0 spike uses a fake document. Stitch is the first real editor after the Convert pilot. A failed budget uses the Codex R5 case-specific deferral.
   - **B:** Each editor keeps its own canvas. No shared host.
   - **C:** Leave the editor canvases on PySide6 until every other area has been deleted.
 - **[Grok T8] What happens to Deep Learning UI that has not been built yet?**
+  - **Harbinger answer (2026-10-19; recorded by Grok):** A. Freeze new Qt panels. Build the remaining Deep Learning UI in Tauri against the existing `record.json` / `events.jsonl` contract.
   - **A (recommended):** Freeze new Qt panels. Build the remaining Deep Learning UI in Tauri against the existing `record.json` / `events.jsonl` contract.
   - **B:** Finish the open Qt issue first, then freeze `gui/` Deep Learning panels.
   - **C:** Make the Deep Learning workspace the migration pilot, ahead of Convert.
