@@ -166,6 +166,7 @@ exclude = [
     "vendor/",
     "submodules/",
     "archive/python/",
+    "contracts/generated/",
 ]
 force-exclude = true
 
