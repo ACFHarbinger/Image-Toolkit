@@ -49,7 +49,7 @@ class TestLoginWindowNoTemplateSeeding:
     def test_login_unknown_account_seeds_nothing(self, q_app, tmp_path, monkeypatch):
         from unittest.mock import patch
 
-        from backend.src.constants import crypto as crypto_consts
+        from middleware.src.constants import crypto as crypto_consts
 
         secrets_dir = tmp_path / "secrets"
         secrets_dir.mkdir()
@@ -84,7 +84,7 @@ class TestLoginWindowCreateAccount:
         """
         from unittest.mock import patch
 
-        from backend.src.constants import crypto as crypto_consts
+        from middleware.src.constants import crypto as crypto_consts
 
         secrets_dir = tmp_path / "secrets"
         secrets_dir.mkdir()
@@ -361,7 +361,7 @@ class TestGuestMode:
             window.close.assert_not_called()
 
     def test_guest_vault_memory_operations(self):
-        from backend.src.core.vault_manager import VaultManager
+        from middleware.src.core.vault_manager import VaultManager
 
         vault = VaultManager.create_guest_vault("volatile_guest")
         assert vault.is_guest is True

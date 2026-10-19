@@ -24,7 +24,7 @@ import os
 import threading
 from pathlib import Path
 
-from backend.src.constants import THUMBNAIL_CACHE_DIR
+from middleware.src.constants import THUMBNAIL_CACHE_DIR
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QImage, QImageReader
 

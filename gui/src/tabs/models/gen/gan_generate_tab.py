@@ -95,7 +95,7 @@ class GANGenerateTab(QWidget):
 
         try:
             import torch
-            from backend.src.models.core.gan import GAN
+            from middleware.src.models.core.gan import GAN
 
             for i in reversed(range(self.gen_grid.count())):
                 self.gen_grid.itemAt(i).widget().setParent(None)  # pyrefly: ignore [missing-attribute]

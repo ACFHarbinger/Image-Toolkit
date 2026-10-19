@@ -31,7 +31,7 @@ test-batch-cpp: test-base-cpp
 test-base-py:
     @echo "Running Python base parity + import tests..."
     source .venv/bin/activate \
-    && pytest backend/test/animation/batch/ --skip-gpu -q --tb=short -m "not slow"
+    && pytest middleware/test/animation/batch/ --skip-gpu -q --tb=short -m "not slow"
     @echo "Python base parity tests complete."
 
 # Alias kept for backwards compatibility during transition
@@ -41,7 +41,7 @@ test-batch-py: test-base-py
 test-base-bench:
     @echo "Running base speedup benchmarks (slow)..."
     source .venv/bin/activate \
-    && pytest backend/test/animation/batch/test_batch_benchmarks.py -v -m slow
+    && pytest middleware/test/animation/batch/test_batch_benchmarks.py -v -m slow
     @echo "Base benchmarks complete."
 
 # Alias kept for backwards compatibility during transition

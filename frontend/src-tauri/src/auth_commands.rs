@@ -32,7 +32,7 @@ import hashlib
 _orig_stdout = sys.stdout
 sys.stdout = sys.stderr
 
-sys.path.insert(0, '../../backend/src')
+sys.path.insert(0, '../../middleware/src')
 
 result = {{'success': False, 'message': 'Unknown error'}}
 
@@ -117,7 +117,7 @@ import os
 _orig_stdout = sys.stdout
 sys.stdout = sys.stderr
 
-sys.path.insert(0, '../../backend/src')
+sys.path.insert(0, '../../middleware/src')
 result = {{'success': False, 'message': 'Unknown error'}}
 
 try:
@@ -191,7 +191,7 @@ import json
 _original_stdout = sys.stdout
 sys.stdout = sys.stderr
 
-sys.path.insert(0, '../../backend/src')
+sys.path.insert(0, '../../middleware/src')
 try:
     from core.vault_manager import VaultManager
     import constants as udef
@@ -249,7 +249,7 @@ import json
 _original_stdout = sys.stdout
 sys.stdout = sys.stderr
 
-sys.path.insert(0, '../../backend/src')
+sys.path.insert(0, '../../middleware/src')
 try:
     from core.vault_manager import VaultManager
     import constants as udef
@@ -298,7 +298,7 @@ import json
 _original_stdout = sys.stdout
 sys.stdout = sys.stderr
 
-sys.path.insert(0, '../../backend/src')
+sys.path.insert(0, '../../middleware/src')
 try:
     from core.vault_manager import VaultManager
     import constants as udef

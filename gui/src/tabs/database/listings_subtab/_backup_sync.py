@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, List
 
-import backend.src.constants as udef
+import middleware.src.constants as udef
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import QMessageBox, QProgressDialog
 

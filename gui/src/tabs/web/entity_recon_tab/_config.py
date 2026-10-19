@@ -5,7 +5,7 @@ Extracted from ``entity_recon_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-from backend.src.web.recon.config import EMBED_FACE, SCOPE_BOTH, SCOPE_LOCAL, SCOPE_WEB
+from middleware.src.web.recon.config import EMBED_FACE, SCOPE_BOTH, SCOPE_LOCAL, SCOPE_WEB
 from PySide6.QtWidgets import QMessageBox
 
 from ._tab_bound import TabBoundController

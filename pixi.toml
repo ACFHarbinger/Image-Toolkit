@@ -201,8 +201,8 @@ build-base-win = { cmd = "cmake -B build/base base/ -G Ninja -DCMAKE_BUILD_TYPE=
 test-base = { cmd = "cmake --build build/base --target test", depends-on = ["build-base"], description = "Runs native C++ Catch2 unit tests" }
 
 # ── Python backend ────────────────────────────────────────────────────────────
-start-backend = { cmd = "python backend/main.py server", depends-on = ["build-base"], description = "Starts the Django/FastAPI backend" }
-test-python   = { cmd = "pytest backend/test", description = "Runs Python test suite" }
+start-backend = { cmd = "python middleware/main.py server", depends-on = ["build-base"], description = "Starts the Django/FastAPI backend" }
+test-python   = { cmd = "pytest middleware/test", description = "Runs Python test suite" }
 lint          = { cmd = "ruff check . && ruff format --check .", description = "Lints all Python source files" }
 
 # ── Tauri / React frontend ────────────────────────────────────────────────────

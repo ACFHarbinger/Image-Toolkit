@@ -42,7 +42,7 @@ _SCENARIOS: Dict[str, Scenario] = {
     "telemetry-span-test": Scenario(
         name="telemetry-span-test",
         description="Run core telemetry nested span allocation and verification tests",
-        command=[sys.executable, "-m", "pytest", "backend/test/core/test_telemetry.py", "-v"],
+        command=[sys.executable, "-m", "pytest", "middleware/test/core/test_telemetry.py", "-v"],
         tags=["telemetry", "core", "spans"],
     ),
 }

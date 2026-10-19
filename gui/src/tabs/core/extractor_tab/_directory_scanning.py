@@ -22,8 +22,8 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from backend.src.constants import SUPPORTED_VIDEO_FORMATS
-from backend.src.core import telemetry
+from middleware.src.constants import SUPPORTED_VIDEO_FORMATS
+from middleware.src.core import telemetry
 from PySide6.QtCore import QPoint, Qt, QTimer, Slot
 from PySide6.QtGui import QAction, QImage, QPixmap
 from PySide6.QtWidgets import (

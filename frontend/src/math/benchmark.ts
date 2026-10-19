@@ -1,7 +1,7 @@
 /** Benchmark analytics computation layer.
  *
  *  All pure-function analytics derived from the JSON schemas produced by
- *  `backend/benchmark/utils.py` (general) and `bench_anime_stitch.py` (ASP).
+ *  `middleware/benchmark/utils.py` (general) and `bench_anime_stitch.py` (ASP).
  *  Uses the math backbone (stats.ts, colormap.ts) for computation; the
  *  dashboard component calls these functions and renders SVG from the results.
  */

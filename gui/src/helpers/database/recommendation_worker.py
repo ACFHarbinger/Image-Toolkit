@@ -177,7 +177,7 @@ class RecommendationWorker(BaseQThreadWorker):
         # to the legacy plaintext store only if no session is open yet
         # (e.g. this worker somehow ran before login) -- recommendations
         # still work either way, just not encrypted in that edge case.
-        from backend.src.database.unified import session as unified_session
+        from middleware.src.database.unified import session as unified_session
         from src.data.store import EncryptedSQLiteStore, SQLiteStore  # pyrefly: ignore [missing-import]
 
         if unified_session.is_open():
@@ -260,7 +260,7 @@ class RecommendationWorker(BaseQThreadWorker):
         try:
             _ensure_re_on_path()
 
-            from backend.src.constants import IMAGE_TOOLKIT_DIR
+            from middleware.src.constants import IMAGE_TOOLKIT_DIR
             from src.config import Settings  # pyrefly: ignore [missing-import]
             from src.embedder import Embedder  # pyrefly: ignore [missing-import]
             from src.query_parser import _build_sql_filter  # pyrefly: ignore [missing-import]

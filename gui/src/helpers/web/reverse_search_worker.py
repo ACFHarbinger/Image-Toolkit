@@ -2,7 +2,7 @@
 
 The worker accepts an ``engine_type`` string (``"google"``, ``"tineye"``, or
 ``"local_cbir"``) and routes the request to the appropriate strategy via
-:class:`~backend.src.web.ReverseImageSearchManager`.
+:class:`~middleware.src.web.ReverseImageSearchManager`.
 
 All three engines return the same ``List[dict]`` payload through the
 ``finished`` signal, keeping downstream result-display code engine-agnostic.
@@ -10,7 +10,7 @@ All three engines return the same ``List[dict]`` payload through the
 
 from typing import Optional
 
-from backend.src.web import (
+from middleware.src.web import (
     ENGINE_GOOGLE,
     ENGINE_LOCAL_CBIR,
     ENGINE_TINEYE,

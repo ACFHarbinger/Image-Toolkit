@@ -7,7 +7,7 @@ iterations the structural-steer hint replaces another parameter nudge.
 """
 from __future__ import annotations
 
-from backend.src.core.guidance_trajectory import (
+from middleware.src.core.guidance_trajectory import (
     STRUCTURAL_HINT,
     VERDICTS,
     GuidanceTrajectory,

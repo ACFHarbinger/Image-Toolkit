@@ -26,7 +26,7 @@
 #
 # Usage:
 #   IMAGE_TOOLKIT_TELEMETRY=1 dev/run_with_gdb.sh
-#   dev/run_with_gdb.sh --no-dropdown            # extra args forwarded to backend/main.py
+#   dev/run_with_gdb.sh --no-dropdown            # extra args forwarded to middleware/main.py
 #   RUN_ARGS="dev/repro_guest_startup.py" dev/run_with_gdb.sh   # alternate inferior target
 #
 # Output: an all-thread backtrace, written to

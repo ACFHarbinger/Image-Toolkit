@@ -1,7 +1,5 @@
 """#753: evidence chips, confidence badge, abstention panel."""
 import pytest
-from backend.src.core import guidance_evidence as ge
-from backend.src.core.guidance_schema import EvidenceRef
 from gui.src.components.guidance.guidance_evidence_widgets import (
     TRAIN_MODULE_ID,
     AbstentionPanel,
@@ -9,6 +7,8 @@ from gui.src.components.guidance.guidance_evidence_widgets import (
     EvidenceChipBar,
     EvidenceRowExtras,
 )
+from middleware.src.core import guidance_evidence as ge
+from middleware.src.core.guidance_schema import EvidenceRef
 from PySide6.QtWidgets import QLabel, QToolButton
 
 pytestmark = pytest.mark.gui

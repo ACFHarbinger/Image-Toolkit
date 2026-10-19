@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from backend.src.comfy_matrix import gpu_lease
+from middleware.src.comfy_matrix import gpu_lease
 
 from gui.src.components.dialogs.training_experiment_dialog import OWNER, ExperimentWorker, TrainingExperimentDialog
 

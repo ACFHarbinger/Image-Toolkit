@@ -5,7 +5,7 @@
  * grayscale + 2D DCT-II + median threshold), matching the algorithm the app
  * server uses (`imagehash.phash`, per
  * https://www.hackerfactor.com/blog/index.php?/archives/432-Looks-Like-It.html
- * — see `backend/src/core/dir_phash_index.py::compute_phash_bytes`), and
+ * — see `middleware/src/core/dir_phash_index.py::compute_phash_bytes`), and
  * sweeps it against a snapshot of the library's hashes cached in
  * `storage.local` (`getPhashSnapshot()`, refreshed periodically or on
  * demand) for an instant, no-round-trip "probably already have this" hint.

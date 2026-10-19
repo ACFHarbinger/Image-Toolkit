@@ -5,7 +5,7 @@ Extracted from ``entity_recon_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-from backend.src.web.recon.config import (
+from middleware.src.web.recon.config import (
     EMBED_CLIP,
     EMBED_FACE,
     SCOPE_BOTH,

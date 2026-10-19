@@ -31,7 +31,7 @@ members = [
     "cel-shaded-generator",
     "cel-shaded-generator-gui",
     "content-recommendation-engine",
-    "image-toolkit-backend",
+    "image-toolkit-middleware",
     "image-toolkit-git",
     "image-toolkit-gui",
     "image-toolkit-workspace",
@@ -3366,9 +3366,9 @@ wheels = [
 ]
 
 [[package]]
-name = "image-toolkit-backend"
+name = "image-toolkit-middleware"
 version = "1.0.0"
-source = { editable = "backend" }
+source = { editable = "middleware" }
 dependencies = [
     { name = "accelerate" },
     { name = "aiohttp" },

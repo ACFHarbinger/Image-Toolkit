@@ -5,7 +5,7 @@ Extracted from ``sampler_subtab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from middleware.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QButtonGroup,

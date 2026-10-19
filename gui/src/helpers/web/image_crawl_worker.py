@@ -2,7 +2,7 @@ import contextlib
 import json
 import os
 
-from backend.src.web import (
+from middleware.src.web import (
     DanbooruCrawler,
     GelbooruCrawler,
     ImageCrawler,

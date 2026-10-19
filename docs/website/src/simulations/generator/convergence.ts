@@ -1,6 +1,6 @@
 // Deterministic Lloyd's-algorithm (k-means) generator — a framework-neutral
 // stand-in illustrating what happens *conceptually* behind pgvector's ANN
-// index building (backend/src/database/image_database.py) without touching
+// index building (middleware/src/database/image_database.py) without touching
 // real embeddings. Pure functions + a generator; the Aurelia island
 // (src/frameworks/aurelia/ann-convergence-app.ts) is the only consumer that
 // knows how to draw it.

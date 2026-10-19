@@ -48,12 +48,12 @@ suggestion:
 | :--- | :--- |
 | **Sync Environment** | `bash desktop/linux/scripts/setup_env.sh` |
 | **Activate Venv** | `source .venv/bin/activate` |
-| **Launch Desktop App** | `python backend/main.py` |
+| **Launch Desktop App** | `python middleware/main.py` |
 | **Frontend Dev** | `npm run start-all` |
 | **Frontend Build** | `npm run start-electron` |
 | **Mobile Build** | `./gradlew assembleDebug` |
-| **Single Conversion** | `python backend/main.py convert --output_format png --input_path <path>` |
-| **Batch Conversion** | `python backend/main.py convert --output_format png --input_path <dir> --input_formats webp` |
+| **Single Conversion** | `python middleware/main.py convert --output_format png --input_path <path>` |
+| **Batch Conversion** | `python middleware/main.py convert --output_format png --input_path <dir> --input_formats webp` |
 | **Helper Conversion** | `bash desktop/linux/cli/convert_images.sh` |
 | **Build Desktop App** | `pyinstaller --clean ImageToolkit.spec` |
 | **Run Python Tests** | `pytest` |
@@ -66,7 +66,8 @@ suggestion:
 *   **Debugging**: Search for WebDriver conflicts if crawlers fail.
 
 ### Global Coding Standards
-*   **Database**: Keep `backend/src/database/unified/schema.sql` compatible (migrations, not ad-hoc DDL). Use transactions for group/image integrity.
+*   **Rename (W0-01, #865):** the Python package is `middleware` (was `backend`). `import backend.…` still works through a deprecated alias until W0-02 (#866) gives `backend` to the C++ core; write new code against `middleware`.
+*   **Database**: Keep `middleware/src/database/unified/schema.sql` compatible (migrations, not ad-hoc DDL). Use transactions for group/image integrity.
 *   **Security**: **NEVER** hardcode credentials. Use `VaultManager`.
 *   **Threading**: All heavy computations must run off the main thread (QThread/QRunnable).
 *   **Versioning**: The single source of truth is the root `pyproject.toml`
@@ -76,7 +77,7 @@ suggestion:
     `app/android/build.gradle.kts` `versionName` + derived `versionCode`,
     and the `backend`/`gui`/`git` member `pyproject.toml`s) to match, prints
     the diff, and never commits. The running app reads
-    `backend.src._version.__version__` (installed package metadata, falling
+    `middleware.src._version.__version__` (installed package metadata, falling
     back to the canonical root file), so About / `--version` stays truthful.
 *   **Verbosity**: Keep code comments, markdown docs, and git commit messages
     tight. A comment only earns its place if it explains non-obvious *why*
@@ -127,7 +128,7 @@ suggestion:
 *   **Utils**: Standalone binaries like `slideshow_daemon`.
 *   **Interface**: `base/src/bindings.cpp` (pybind11 entry point).
 
-#### Backend Module (`backend/`)
+#### Middleware Module (`middleware/`, formerly `backend/`)
 **Python Orchestrator**. Wraps C++ core, handles DB and ML.
 *   **Core**: Wrappers for C++ functions, `image_database.py` (DB), `vault_manager.py` (Security).
 *   **Models**: Pure Python/PyTorch ML implementations.
@@ -138,7 +139,7 @@ suggestion:
 **Django/Celery Layer**. Bridge between synchronous API and heavy backend logic.
 *   **API**: Root Django config (`settings.py`, `urls.py`).
 *   **Tasks**: Celery workers (`tasks.py`). **Idempotency** is key.
-*   **Standards**: No business logic in tasks; import from `backend/src`.
+*   **Standards**: No business logic in tasks; import from `middleware/src`.
 
 #### Cryptography (`cryptography/`)
 **Security Module**. Kotlin-based credential management.

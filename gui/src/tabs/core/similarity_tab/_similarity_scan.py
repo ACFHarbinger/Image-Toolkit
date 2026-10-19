@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 from typing import List
 
-from backend.src.core.similarity import SimilarityEngine, SimilarityReport, auto_select
+from middleware.src.core.similarity import SimilarityEngine, SimilarityReport, auto_select
 from PySide6.QtCore import Qt, Slot
 
 from gui.src.helpers.core.similarity_scan_worker import SimilarityScanWorker

@@ -106,7 +106,7 @@ class AppSettings:
     def mal_fetch_method(cls) -> str:
         """Which client "Auto-Fill from MAL" uses: 'jikan' | 'official_api' | 'scrape'.
 
-        See backend/src/web/clients/mal_dispatcher.py for what each means.
+        See middleware/src/web/clients/mal_dispatcher.py for what each means.
         """
         from gui.src.preferences import PreferenceStore, PrefKeys
         return str(PreferenceStore.instance().get(PrefKeys.MAL_FETCH_METHOD))

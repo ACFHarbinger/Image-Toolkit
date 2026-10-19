@@ -53,16 +53,16 @@ jobs:
           PYTHONPATH: .
 
       - name: Run gui init-boundary checks (issue #530 / D9)
-        run: uv run python backend/validation/check_init_boundaries.py
+        run: uv run python middleware/validation/check_init_boundaries.py
 
       - name: Run worker-base adoption check (R1.1 / #556)
-        run: uv run python backend/validation/check_worker_base.py
+        run: uv run python middleware/validation/check_worker_base.py
 
       - name: mypy — strict modules (§5.5A / A.10)
         run: >
           uv run mypy
-          backend/src/errors/exceptions.py
-          backend/src/models/core/base.py
+          middleware/src/errors/exceptions.py
+          middleware/src/models/core/base.py
           --ignore-missing-imports
           --no-error-summary
         env:
@@ -98,16 +98,16 @@ jobs:
         run: git submodule update --init submodules/ASP
 
       - name: Install project dependencies (frozen)
-        # backend/test/conftest.py eagerly imports src.core / src.web at
+        # middleware/test/conftest.py eagerly imports src.core / src.web at
         # collection, which pull the backend's real runtime deps (yaml,
         # loguru, cv2, scipy, pyside6, bs4, screeninfo, ...). --no-install-project
         # skips workspace-member deps, so those must be installed.
-        run: uv sync --frozen --package image-toolkit-backend --group dev
+        run: uv sync --frozen --package image-toolkit-middleware --group dev
 
       - name: Run model contract tests (§5.16A / A.9)
         # Heavy deps are patched into sys.modules by the tests themselves;
         # --skip-gpu drops the few that need a real CUDA device.
-        run: uv run pytest backend/test/models/ -q --tb=short --skip-gpu
+        run: uv run pytest middleware/test/models/ -q --tb=short --skip-gpu
         env:
           PYTHONPATH: .
 
@@ -139,7 +139,7 @@ jobs:
       - name: Install project dependencies (frozen)
         # conftest collection imports the backend's real deps; the C++ base
         # extension is still built explicitly in a later step.
-        run: uv sync --frozen --package image-toolkit-backend --package image-toolkit-gui --group dev
+        run: uv sync --frozen --package image-toolkit-middleware --package image-toolkit-gui --group dev
 
       - name: Install system C++ dependencies
         run: |
@@ -167,15 +167,15 @@ jobs:
 
       - name: Run backend pytest
         # Separate process from gui/test: gui conftest replaces cv2 and
-        # backend.src.models with MagicMocks, which leaks into backend
+        # middleware.src.models with MagicMocks, which leaks into backend
         # collection in a combined run (mock imread / ComfyUIManager).
-        run: uv run pytest backend/test --skip-gpu -m "not slow" -q --tb=short --timeout=120
+        run: uv run pytest middleware/test --skip-gpu -m "not slow" -q --tb=short --timeout=120
         env:
           PYTHONPATH: .
           QT_QPA_PLATFORM: offscreen
 
       - name: Run GUI pytest
-        # --skip-gpu lives in backend/test/conftest.py and is unregistered
+        # --skip-gpu lives in middleware/test/conftest.py and is unregistered
         # in a gui-only process. --run-gui keeps @pytest.mark.gui tests.
         # timeout-method=thread: a wedged Qt event loop ignores SIGALRM, so
         # the default signal method never fires — the watchdog thread dumps
@@ -213,7 +213,7 @@ jobs:
       - name: Install project dependencies (frozen)
         # conftest collection imports the backend's real deps; the C++ base
         # extension is still built explicitly in a later step.
-        run: uv sync --frozen --package image-toolkit-backend --package image-toolkit-gui --group dev
+        run: uv sync --frozen --package image-toolkit-middleware --package image-toolkit-gui --group dev
 
       - name: Install system C++ dependencies
         run: |
@@ -243,7 +243,7 @@ jobs:
         # exit 5 = "no tests collected": there are currently no in-tree
         # @pytest.mark.slow tests (all live under submodules/*/test), so an
         # empty selection is not a failure.
-        run: uv run pytest backend/test --skip-gpu -m "slow" -q --tb=short --timeout=600 || [ $? -eq 5 ]
+        run: uv run pytest middleware/test --skip-gpu -m "slow" -q --tb=short --timeout=600 || [ $? -eq 5 ]
         env:
           PYTHONPATH: .
           QT_QPA_PLATFORM: offscreen
@@ -255,7 +255,7 @@ jobs:
           QT_QPA_PLATFORM: offscreen
 
   # ── §5.17A: CI-enforced LoC gate ───────────────────────────────────────
-  # Fails if any .py file under backend/src or gui/src exceeds 500 code
+  # Fails if any .py file under middleware/src or gui/src exceeds 500 code
   # lines, unless listed in docs/loc_exceptions.txt. Checked on every PR
   # and push to main.
   loc-gate:
@@ -287,8 +287,8 @@ jobs:
 
       - name: Run LoC gate
         run: >
-          uv run python backend/validation/count_loc.py
-          backend/src gui/src
+          uv run python middleware/validation/count_loc.py
+          middleware/src gui/src
           --max-code-lines 500
           --exceptions-file docs/loc_exceptions.txt
           --fail-over
@@ -332,8 +332,8 @@ jobs:
 
       - name: Generate LoC report
         run: >
-          uv run python backend/validation/count_loc.py
-          backend/src gui/src
+          uv run python middleware/validation/count_loc.py
+          middleware/src gui/src
           --sort code --limit 50
           --markdown-out docs/loc_report.md
         env:

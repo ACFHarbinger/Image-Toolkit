@@ -28,20 +28,20 @@ _ASP_ENV := "PYTHONPATH='" + _IT_ROOT + ":" + _ASP_ROOT + "' " + \
 # Run benchmarks
 benchmark:
     @echo "🏃 Running benchmarks..."
-    source .venv/bin/activate && python backend/benchmark/run_all.py
+    source .venv/bin/activate && python middleware/benchmark/run_all.py
     just test-base-cpp
 
 # Run benchmarks and save detailed reports
 benchmark-save:
     @echo "🏃 Running benchmarks with detailed reporting..."
-    source .venv/bin/activate && python backend/benchmark/run_all.py --save --report
-    @echo "✅ Benchmark reports saved to backend/benchmark/results/"
+    source .venv/bin/activate && python middleware/benchmark/run_all.py --save --report
+    @echo "✅ Benchmark reports saved to middleware/benchmark/results/"
 
 # Launch benchmark analysis dashboard
 benchmark-dashboard:
     @echo "📊 Launching Benchmark Dashboard..."
     @echo "Dashboard will open at http://localhost:8501"
-    source .venv/bin/activate && streamlit run backend/ui/benchmark_dashboard.py
+    source .venv/bin/activate && streamlit run middleware/ui/benchmark_dashboard.py
 
 # Aggregate ASP automated runs + human ratings into docs/website/public/data/
 # for the ratings dashboard (/dashboard/ratings).
@@ -51,7 +51,7 @@ dashboard-data:
 
 # --- ASP quality benchmark (submodules/ASP) ---
 
-# Full corpus run. Script path (not -m backend.benchmark.*) avoids colliding
+# Full corpus run. Script path (not -m middleware.benchmark.*) avoids colliding
 # with Image-Toolkit's own top-level `backend` package (ASP issue #3 pattern).
 asp-benchmark *ARGS:
     @echo "🎞️  Running ASP benchmark on all datasets..."
@@ -114,7 +114,7 @@ asp-benchmark-clean:
 #   just asp-benchmark-assess --data-dir dump --redo
 #   just asp-benchmark-assess --start-at asp_test09
 #
-# Dispatch lives in submodules/ASP (not backend/controllers/ after the ASP
+# Dispatch lives in submodules/ASP (not middleware/controllers/ after the ASP
 # git-submodule migration). Do not use bare `uv run` here — workspace uv
 # resolution breaks on CSG's workspace-only pyproject.
 asp-benchmark-assess *ARGS:

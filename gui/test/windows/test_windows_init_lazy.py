@@ -1,7 +1,7 @@
 """Regression tests for the lazy gui.src.windows facade (issue #530, D9).
 
 Importing the package must stay cheap (no eager submodule imports — pinned
-structurally by backend/validation/check_init_boundaries.py in CI); these
+structurally by middleware/validation/check_init_boundaries.py in CI); these
 tests pin the other half: the public surface resolves to the exact same
 objects as direct submodule imports.
 """

@@ -7,10 +7,10 @@ standalone Genres/Tags text fields).
 
 from __future__ import annotations
 
-from backend.src.database.unified.media_repo import MediaRepo
-from backend.src.database.unified.tag_repo import TagRepo
 from gui.src.components.dialogs import AddTagDialog
 from gui.src.helpers.database.library_session import get_library_db
+from middleware.src.database.unified.media_repo import MediaRepo
+from middleware.src.database.unified.tag_repo import TagRepo
 from PySide6.QtWidgets import QMessageBox
 
 

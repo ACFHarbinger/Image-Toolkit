@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from backend.src.constants import DEFAULT_TRANSITION_DELAY_SECONDS, MAX_TRANSITION_DELAY_SECONDS
+from middleware.src.constants import DEFAULT_TRANSITION_DELAY_SECONDS, MAX_TRANSITION_DELAY_SECONDS
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QCheckBox,

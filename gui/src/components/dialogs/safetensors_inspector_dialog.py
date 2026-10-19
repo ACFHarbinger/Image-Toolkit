@@ -52,7 +52,7 @@ class _LoadWorker(QRunnable):
     @gc_disabled_run
     def run(self) -> None:
         try:
-            from backend.src.utils.data.safetensors_metadata import read_metadata
+            from middleware.src.utils.data.safetensors_metadata import read_metadata
             data = read_metadata(self.path)
             self.signals.finished.emit(data)
         except Exception as exc:
@@ -73,7 +73,7 @@ class _HashWorker(QRunnable):
     @gc_disabled_run
     def run(self) -> None:
         try:
-            from backend.src.utils.data.safetensors_metadata import calculate_file_hash
+            from middleware.src.utils.data.safetensors_metadata import calculate_file_hash
             h = calculate_file_hash(self.path)
             self.signals.finished.emit(h)
         except Exception as exc:

@@ -2,7 +2,7 @@
 import threading
 
 import pytest
-from backend.src.comfy_matrix import gpu_lease
+from middleware.src.comfy_matrix import gpu_lease
 from PySide6.QtWidgets import QPushButton
 
 from gui.src.tabs.models import upscale_handoff as uh
@@ -78,7 +78,7 @@ def test_latest_output_paths_missing_is_empty(tmp_path):
 
 
 def test_run_upscale_file_refuses_without_touching_model(monkeypatch):
-    import backend.src.models.wrappers.esrgan_wrapper as esrgan_mod
+    import middleware.src.models.wrappers.esrgan_wrapper as esrgan_mod
 
     touched = []
 
@@ -98,7 +98,7 @@ def test_run_upscale_file_refuses_without_touching_model(monkeypatch):
 
 
 def test_run_upscale_file_holds_lease_during_work(monkeypatch, tmp_path):
-    import backend.src.models.wrappers.esrgan_wrapper as esrgan_mod
+    import middleware.src.models.wrappers.esrgan_wrapper as esrgan_mod
 
     seen = {}
     src = tmp_path / "in.png"
@@ -194,7 +194,7 @@ def test_lora_upscale_reports_missing_output(q_app, monkeypatch, tmp_path):
 def test_generate_surface_upscale_needs_selection(q_app):
     from unittest.mock import MagicMock
 
-    from backend.src.constants.comfy import ServerState
+    from middleware.src.constants.comfy import ServerState
 
     from gui.src.modules.comfy_workspace_controller import ComfyWorkspaceController
     from gui.src.tabs.models.gen.generate_surface import GenerateSurface
@@ -215,7 +215,7 @@ def test_generate_surface_upscale_finished_lands_in_filmstrip(q_app, tmp_path):
     from types import SimpleNamespace
     from unittest.mock import MagicMock
 
-    from backend.src.constants.comfy import ServerState
+    from middleware.src.constants.comfy import ServerState
 
     from gui.src.modules.comfy_workspace_controller import ComfyWorkspaceController
     from gui.src.tabs.models.gen.generate_surface import GenerateSurface

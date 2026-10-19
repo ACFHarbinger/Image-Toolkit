@@ -3,7 +3,7 @@ a successful training run (Qwen's proposal §4.2). Non-modal by design: it
 is a summary panel, not a blocking question."""
 from __future__ import annotations
 
-from backend.src.core.training_report import (
+from middleware.src.core.training_report import (
     STATUS_BAD,
     STATUS_GOOD,
     STATUS_INFO,
@@ -129,7 +129,7 @@ class TrainingReportCardDialog(QDialog):
     def _tournament_inputs_available(run_dir: str) -> bool:
         """Cheap filesystem probe so the button never offers a tournament
         the run cannot deliver (needs ≥2 checkpoints and ≥2 sample grids)."""
-        from backend.src.core import checkpoint_tournament as ct
+        from middleware.src.core import checkpoint_tournament as ct
 
         try:
             return (

@@ -136,8 +136,8 @@ class DbVocabulary:
 
 
 def _default_tag_rows() -> list[tuple[str, str, int]]:
-    from backend.src.database.unified import session
-    from backend.src.database.unified.tag_repo import TagRepo
+    from middleware.src.database.unified import session
+    from middleware.src.database.unified.tag_repo import TagRepo
 
     return TagRepo(session.get_session()).popular_tags_with_uses()
 
@@ -149,7 +149,7 @@ def model_prefix_for(model_id: str) -> str | None:
     absurdres'. Imported lazily — the captioner chain is backend-heavy.
     """
     try:
-        from backend.src.models.data.captioner import HybridCaptioner
+        from middleware.src.models.data.captioner import HybridCaptioner
     except Exception as exc:
         logger.info("captioner prefixes unavailable: %s", exc)
         return None
@@ -166,7 +166,7 @@ def default_vocabulary(run_dirs: tuple[str, ...] | None = None) -> VocabularyPro
     chips + train-time negatives — since #741 the default reads the real
     training-runs root, so trained trigger words surface as chips."""
     if run_dirs is None:
-        from backend.src.core.training_runs import default_runs_root
+        from middleware.src.core.training_runs import default_runs_root
 
         run_dirs = (str(default_runs_root()),)
     return CompositeVocabulary(

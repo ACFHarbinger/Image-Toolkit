@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 from typing import List, Optional
 
-from backend.src.constants import SUPPORTED_IMG_FORMATS
+from middleware.src.constants import SUPPORTED_IMG_FORMATS
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import (
     QFileDialog,

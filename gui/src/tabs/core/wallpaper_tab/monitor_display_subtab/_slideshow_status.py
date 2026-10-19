@@ -9,7 +9,7 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Optional
 
-from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
+from middleware.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
 
 from .....styles import set_button_role
 from ._tab_bound import TabBoundController

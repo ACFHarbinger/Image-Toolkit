@@ -70,7 +70,7 @@ heap corruption; see `dev/README.md`, `docs/TROUBLESHOOTING.md`, and
 real instrumentation foundation (paths below are post-D40; `debug/` no
 longer exists as a separate directory):
 
-- `backend/src/core/telemetry.py`: toggleable JSONL logger (`emit` /
+- `middleware/src/core/telemetry.py`: toggleable JSONL logger (`emit` /
   `span`), `IMAGE_TOOLKIT_TELEMETRY=1`, flush-every-line so a SIGABRT a
   moment later still leaves the last completed event.
 - `dev/telemetry_analyzer.py` → a shim over `tool.debug`.
@@ -139,7 +139,7 @@ honours the dual-access contract.
   `docs/website/public/data/` stays untouched by this tool).
 - Promoting ASP algorithm flags. This tool observes and compares; it
   does not flip product defaults.
-- A rewrite of `backend/src/core/telemetry.py` or of the ASP evaluator
+- A rewrite of `middleware/src/core/telemetry.py` or of the ASP evaluator
   internals. Both are foundations the host consumes.
 
 ---
@@ -552,11 +552,11 @@ keeps the product's name as a module even though the package itself is
 | `debug/run_with_gdb.sh` | `dev/run_with_gdb.sh` | Same gdb flags, SIGABRT-only stop, `hs_err` preserved |
 | `debug/resolve_qt_offset.py` | `dev/resolve_qt_offset.py` | Unchanged logic, moved |
 | `debug/README.md` | Merged into `dev/README.md` | One README for the whole tool now |
-| `backend/src/core/telemetry.py` | Unchanged writer | Grows optional span IDs; still no-op when unset |
+| `middleware/src/core/telemetry.py` | Unchanged writer | Grows optional span IDs; still no-op when unset |
 | ASP `evaluation/` | Plugin `asp_evaluator` | Adapter, not a fork. Evaluator remains the rating UI of record |
 | `docs/website` dashboard | Out of scope | May *read* the same JSON the plugin writes; this tool does not own it |
 | Rust / C++ / TS math backbones | Track B primitives | Already shipped; plugins call them, do not rewrite them |
-| Parent `backend/benchmark/` | Plugin `benchmarks` | Phase 12 benches stay where they are; the host charts them |
+| Parent `middleware/benchmark/` | Plugin `benchmarks` | Phase 12 benches stay where they are; the host charts them |
 
 ---
 
@@ -830,7 +830,7 @@ Historical implementation status (unchanged by the fold):
 | 9 TLA+ / concolic | Research; not v1. |
 | 10 TDA | Research; not v1. |
 | 11 ASP charts | **v1 plugin** — wrap evaluator diagnostics rather than reimplement. |
-| 12 Coverage benches | **v1 plugin** — discover existing `backend/benchmark/bench_*.py` JSON. |
+| 12 Coverage benches | **v1 plugin** — discover existing `middleware/benchmark/bench_*.py` JSON. |
 
 The original Phase 1–12 specification text is preserved below so no
 accepted detail is lost. Section headings keep their historical names
@@ -845,7 +845,7 @@ so citations such as `§12.5` and `Phase 11` still resolve.
 **Goal:** Build a semantic "graph of graphs" allowing zooming from high-level architecture down to granular function execution and AST parsing.
 
 * **1.1 Rust-Powered AST & Dependency Parser:**
-  * Develop a Rust CLI/daemon utilizing **tree-sitter** to statically parse the Python (`backend/src/animation`) and Rust codebases.
+  * Develop a Rust CLI/daemon utilizing **tree-sitter** to statically parse the Python (`middleware/src/animation`) and Rust codebases.
   * Extract semantic relationships: module imports, class inheritance, function calls, and data flow.
   * **Option A — SCIP Semantic Indexing:** Emit a **SCIP** (Source Code Intelligence Protocol) protobuf index via `scip-python` and `rust-analyzer`. Ingest into Rust via `nusy-codegraph` / `code-graph-cli` — produces Apache Arrow RecordBatches enabling sub-millisecond blast-radius queries (e.g., transitive impact of modifying `bundle_adjust.py`).
   * **Option B — tree-sitter-graph DSL:** Use the declarative `tree-sitter-graph` crate to write AST-to-graph mapping rules that extract pipeline-specific semantics (stage transitions, telemetry emission sites) without full SCIP indexing.
@@ -863,7 +863,7 @@ so citations such as `§12.5` and `Phase 11` still resolve.
   * Render as a topographic map rather than a node-link diagram — modules become landmasses, dependencies become edges on geographic terrain.
 
 * **1.4 Dependency Structure Matrix (DSM) — DONE, already implemented, 2026-07-27.** Checked before building anything (per this session's established discipline): a full equivalent already exists and is actively enforced, just not via the imagined Lattix/IntelliJ tooling or a literal matrix rendering — a stronger, automated form of the same idea.
-  * **Cyclic-dependency detection** (the matrix's "above-diagonal" violations): `backend/src/utils/validation/check_circular_imports.py` — full AST-based module-import graph builder + iterative Tarjan's SCC algorithm, with an optional interactive `pyvis` HTML visualization. Wired into `just check-circular-imports` and `just module-graph`. Verified working end-to-end this session: 0 cycles across 210 `backend/src` modules and 0 cycles across 236 `gui/src` modules.
+  * **Cyclic-dependency detection** (the matrix's "above-diagonal" violations): `middleware/src/utils/validation/check_circular_imports.py` — full AST-based module-import graph builder + iterative Tarjan's SCC algorithm, with an optional interactive `pyvis` HTML visualization. Wired into `just check-circular-imports` and `just module-graph`. Verified working end-to-end this session: 0 cycles across 210 `middleware/src` modules and 0 cycles across 236 `gui/src` modules.
   * **Layered-architecture violations** (the matrix's "valid layered dependencies" half): `import-linter` (`pyproject.toml [tool.importlinter]`, §5.11A/A.17) already declares 3 `forbidden`-type contracts (backend core must not import GUI; `gui.src.utils` must not import other GUI layers; `gui.src.classes` must not import `gui.src.tabs`) and enforces them via `lint-imports`. Verified working this session: 578 files / 1147 dependencies analyzed, all 3 contracts kept, 0 broken.
   * Not done, out of scope for this item: any ISO 26262 compliance-report generation (no evidence this project targets that certification) — flagged as an unsupported claim in the original text, not something to build speculatively.
 
@@ -1110,7 +1110,7 @@ so citations such as `§12.5` and `Phase 11` still resolve.
 > rather than here, because those five charts answer "why did *this* test score
 > badly" while a human is looking at that test, which is precisely the moment
 > the answer is useful. They live in
-> `backend/benchmark/evaluation/logic/diagnostics.py`, render in the inspector's
+> `middleware/benchmark/evaluation/logic/diagnostics.py`, render in the inspector's
 > Diagnostics tab (`just asp-benchmark-assess`), and are built from
 > `evaluation/other/metrics_view.py`'s flattened series — no metric is
 > recomputed, so a chart can never disagree with the report or the verdict logic.
@@ -1207,7 +1207,7 @@ fields (`metrics_asp.composite_quality`, `metrics_asp.ghosting_siqe`,
 `detect_regressions()` (Python) is a same-threshold reimplementation (5%
 quality drop / 10% ghosting increase / 20% time increase, this item's own
 numbers) against those fields instead. `_find_latest_baseline()` picks the
-most recent prior `anime_stitch_*.json` from `backend/benchmark/output/`
+most recent prior `anime_stitch_*.json` from `middleware/benchmark/output/`
 (there's no `--baseline` CLI flag — this auto-discovers it, since
 `generate_report()` always runs before the current run's own JSON is
 written). `_report_regression_dashboard()` renders a 🔴/🟢 per-dataset table
@@ -1238,9 +1238,9 @@ get a one-line note instead of an empty table.
 | `base/src/image_finder.rs` | ❌ None | File-system scan performance on large directories |
 | `base/src/file_system.rs` | ❌ None | Bulk file enumeration bottlenecks |
 | `gui/src/helpers/image/image_loader_worker.py` | ❌ None | LRU thumbnail cache RAM/throughput unknowns |
-| `backend/src/animation/compositing.py` (isolated) | ⚠️ Via ASP | Seam DP, DSFN ramp, Poisson blend not individually profiled |
-| `backend/src/animation/matching.py` (isolated) | ⚠️ Via ASP | LoFTR vs phase-correlation trade-off not quantified |
-| `backend/src/animation/bundle_adjust.py` (isolated) | ⚠️ Via ASP | Spanning-tree filter and GNC re-solve overhead unknown |
+| `middleware/src/animation/compositing.py` (isolated) | ⚠️ Via ASP | Seam DP, DSFN ramp, Poisson blend not individually profiled |
+| `middleware/src/animation/matching.py` (isolated) | ⚠️ Via ASP | LoFTR vs phase-correlation trade-off not quantified |
+| `middleware/src/animation/bundle_adjust.py` (isolated) | ⚠️ Via ASP | Spanning-tree filter and GNC re-solve overhead unknown |
 | PostgreSQL + pgvector query latency | ⚠️ Partial | Vector similarity search at 10k/100k image scale not benchmarked |
 | App startup time | ❌ None | JVM + Qt + Rust cold-start latency unmonitored |
 | App memory (full lifecycle) | ❌ None | Gallery RAM with 100/500/1000 images not tracked |
@@ -1249,10 +1249,10 @@ get a one-line note instead of an empty table.
 
 ### 12.1 Rust Core Image Processing Benchmarks (HIGH PRIORITY) — **DONE, 2026-07-27**
 **Stale premise found and corrected before implementing**: this bullet's
-"Create `backend/benchmark/bench_rust_image_processing.py`" is wrong on two
+"Create `middleware/benchmark/bench_rust_image_processing.py`" is wrong on two
 counts — the Rust `base` module was fully retired to C++ well before this
 phase was written (see `project_cpp_migration` history), and the file it
-asks to create already exists as `backend/benchmark/bench_cpp_image_processing.py`.
+asks to create already exists as `middleware/benchmark/bench_cpp_image_processing.py`.
 That file was silently broken: 5 of its 8 benchmarks called C++ binding
 names that don't exist (`cpp_core.convert_image`, `cpp_core.merge_images`,
 `cpp_core.scan_directory`), each suppressed with a `# pyrefly: ignore
@@ -1267,7 +1267,7 @@ exceptions), confirming this is a genuine fix, not just a name swap that
 happens to parse.
 
 ### 12.2 ASP Stage Isolation Benchmarks (HIGH PRIORITY) — **DONE, 2026-07-30**
-Created `backend/benchmark/bench_asp_stages.py`, 9 benchmarks on synthetic
+Created `middleware/benchmark/bench_asp_stages.py`, 9 benchmarks on synthetic
 panning frames: `_pairwise_match` classical-chain vs with a real
 `LoFTRWrapper` attached (guarded — skips cleanly if no GPU/weights);
 `_bundle_adjust_affine` with vs without `_spanning_tree_inlier_filter`
@@ -1279,14 +1279,14 @@ without touching the pipeline). **Stale premise found**: "with/without
 Poisson seam blend" isn't benchmarkable — `_poisson_seam_blend` was removed
 from the active compositing module in the 2026-07-09 "great trim" (S200)
 along with GraphCut (measured worse than the DP seam path by that same
-trim); it survives only in `backend/src/core/image_merger/_legacy_compositing.py`,
+trim); it survives only in `middleware/src/core/image_merger/_legacy_compositing.py`,
 a different (non-ASP) feature. Not implemented; documented in the file's
 own module docstring rather than silently dropped. **Verified**: ran the
 file end-to-end, all 9 benchmarks pass (LoFTR variant included — a real
 GPU+weights were available in the verifying environment).
 
 ### 12.3 GUI Thumbnail Loading Benchmarks (HIGH PRIORITY) — **DONE, 2026-07-27**
-Created `backend/benchmark/bench_gui_thumbnails.py` exactly per spec:
+Created `middleware/benchmark/bench_gui_thumbnails.py` exactly per spec:
 time/memory for `base.load_image_batch()` at N={100, 500, 1000}; LRU
 cache miss-then-fill (1000 images through a maxsize=300
 `LRUImageCache`, exercising eviction) vs a warm-cache hit path (100
@@ -1311,7 +1311,7 @@ forward-looking target instead: `search_repo.py`'s `filter_media()`/
 `filter_entities()` SQL methods (issue #63 / `unified_database.md`
 §DB.5), which had correctness tests but no scale benchmark.
 
-**Shipped 2026-08-22**: `backend/benchmark/bench_search_repo_scale.py` —
+**Shipped 2026-08-22**: `middleware/benchmark/bench_search_repo_scale.py` —
 a standalone, deterministic scale benchmark (seeded data bulk-inserted
 via `base.database` `executemany`; the FTS5 external-content triggers
 keep the shadow tables in sync). It measures, at 10k and 100k
@@ -1339,10 +1339,10 @@ for, and the numbers confirm the two known-expensive shapes (search box,
 tags sort) are the ones worth watching if the library grows past 100k.
 
 ### 12.5 App Lifecycle Memory Profiling (MEDIUM) — **DONE, 2026-07-30**
-New `backend/src/core/lifecycle_memory.py`: a phase-tagged RSS logger
+New `middleware/src/core/lifecycle_memory.py`: a phase-tagged RSS logger
 (`snapshot(phase)`, `history()`, `alerts()`) mirroring the ASP pipeline's own
 `_log_resource()` pattern but for the GUI app's lifecycle. Wired into
-`backend/src/app.py::launch_app` at the three phases that fire on every real
+`middleware/src/app.py::launch_app` at the three phases that fire on every real
 run without needing synthetic credentials: `qt_init` (right after
 `QApplication(sys.argv)`), `login_window_shown`, and `main_window_shown`
 (which, since `VaultManager`/JVM start happens inside the login flow between
@@ -1351,18 +1351,18 @@ cost). Alerts when a phase grows RSS by more than `LIFECYCLE_RSS_ALERT_MB`
 (default 200MB, this item's own number; env-var overridable). The "after
 gallery load (100/500/1000 images)" phase this item also names can't be
 driven from a fixed app.py lifecycle point (it depends on whatever
-tab/directory a user opens first) — instead, `backend/benchmark/bench_app_lifecycle.py`
+tab/directory a user opens first) — instead, `middleware/benchmark/bench_app_lifecycle.py`
 covers it in a controlled, repeatable way via the same `base.load_image_batch()`
 path §12.3 already benchmarks for throughput, now wrapped in
 `lifecycle_memory.snapshot()` so the alert logic runs against real RSS
 deltas. **Verified**: both files run end-to-end (unit tests for the alert
-threshold logic in `backend/test/core/test_lifecycle_memory.py`; the
+threshold logic in `middleware/test/core/test_lifecycle_memory.py`; the
 benchmark script ran live, e.g. observed +16MB/+26MB/+12MB for the
 100/500/1000-image phases on real image batches — under the 200MB
 threshold, so no alert fired, which is itself a useful negative result).
 
 ### 12.6 Compositing Component Isolation (MEDIUM) — **DONE, 2026-07-30**
-New `backend/benchmark/bench_compositing_components.py`: `_seam_cut()` (S10
+New `middleware/benchmark/bench_compositing_components.py`: `_seam_cut()` (S10
 vectorized DP) at the item's own 96-seam count, across three canvas heights
 (100/500/2000px); `_soft_seam_weight()` (S17 per-pixel DSFN) at canvas
 widths 500/2000/5000px; `_build_seam_cost_map()` (S33 column barrier) at
@@ -1381,18 +1381,18 @@ and via free-form `on_status` progress strings — there is no per-request
 hook crossing the pybind boundary, so true per-request timing and
 response-code tracking isn't available from Python without new C++-side
 instrumentation (out of scope here). What's built instead, in
-`ImageBoardCrawler` (`backend/src/web/crawlers/image_board_crawler.py`):
+`ImageBoardCrawler` (`middleware/src/web/crawlers/image_board_crawler.py`):
 exact whole-crawl `elapsed_sec`/`images_per_sec` (from the real
 `on_image_saved` count), plus best-effort `timeout_count`/`captcha_count`/
 `error_count` derived by substring-matching `on_status` text — coarse (only
 as good as whatever the C++ side happens to emit), documented as such in
 the module docstring rather than presented as real response-code data.
-`backend/benchmark/bench_web_crawlers.py` drives this against the three
+`middleware/benchmark/bench_web_crawlers.py` drives this against the three
 real crawlers and saves a General-suite JSON, gated behind
 `RUN_LIVE_CRAWLER_BENCHMARK=1` (unset by default — this file makes real
 outbound requests to third-party image boards, not something to run
 unattended/in CI). **Verified**: 8 unit tests on the telemetry counters
-(`backend/test/web/test_image_board_crawler.py`) pass with a mocked
+(`middleware/test/web/test_image_board_crawler.py`) pass with a mocked
 `base.run_board_crawler`; the benchmark script's default (opted-out) path
 ran end-to-end with zero network calls made.
 
@@ -1505,8 +1505,8 @@ for history:
 
 ### C6 — Benchmarks plugin
 
-- Discover `backend/benchmark/output/` and ASP
-  `backend/benchmark/output/`.
+- Discover `middleware/benchmark/output/` and ASP
+  `middleware/benchmark/output/`.
 - Chart runners already covered by Phase 11–12.
 - Emit the access-contract sidecar next to any new plot.
 - **First plugin workflow after C1/C3:** select two compatible benchmark runs,
@@ -1638,7 +1638,7 @@ Existing foundation:
 
 | Artifact | Status |
 |---|---|
-| `backend/src/core/telemetry.py` | ✅ Complete (IDs not yet) |
+| `middleware/src/core/telemetry.py` | ✅ Complete (IDs not yet) |
 | `debug/telemetry_analyzer.py` | ✅ Shim |
 | `debug/run_with_gdb.sh` | ✅ Complete |
 | `debug/resolve_qt_offset.py` | ✅ Complete |

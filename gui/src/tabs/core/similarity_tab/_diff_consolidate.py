@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import os
 
-from backend.src.core.similarity import auto_select, consolidate_cluster
+from middleware.src.core.similarity import auto_select, consolidate_cluster
 from PySide6.QtCore import Slot
 
 from ._tab_bound import TabBoundController

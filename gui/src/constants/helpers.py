@@ -1,9 +1,9 @@
-"""Constants relocated from backend/src or gui/src modules under this subpackage (module-level ALL_CAPS assignments)."""
+"""Constants relocated from middleware/src or gui/src modules under this subpackage (module-level ALL_CAPS assignments)."""
 
 import re
 from typing import Dict, Tuple
 
-from backend.src.constants import IMAGE_TOOLKIT_DIR
+from middleware.src.constants import IMAGE_TOOLKIT_DIR
 
 # --- from gui/src/helpers/video/storyboard.py ---
 _OUT_TIME_RE = re.compile('out_time_ms=(\\d+)')

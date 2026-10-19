@@ -1,7 +1,7 @@
 """#746: training report card dialog — verdict rows, suggestion banner,
 non-modal behavior, run-folder shortcut."""
 import pytest
-from backend.src.core.training_report import (
+from middleware.src.core.training_report import (
     STATUS_GOOD,
     STATUS_WARN,
     ReportCard,

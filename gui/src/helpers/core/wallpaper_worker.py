@@ -6,7 +6,7 @@ if platform.system() == "Windows":
 
 from typing import Any, Dict, List, Optional
 
-from backend.src.core import WallpaperManager
+from middleware.src.core import WallpaperManager
 from screeninfo import Monitor
 
 from gui.src.helpers.base import BaseQRunnableWorker

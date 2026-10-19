@@ -28,7 +28,7 @@ def tab(q_app):
 
 def _write_run(tmp_path, monkeypatch, losses, run_id="cardrun"):
     monkeypatch.setenv("ITK_TRAINING_RUNS_ROOT", str(tmp_path))
-    from backend.src.core import training_runs
+    from middleware.src.core import training_runs
 
     run_dir = training_runs.start_run(
         runs_root=tmp_path, run_id=run_id, output_name="o", engine="loha", model_id="m",
@@ -65,7 +65,7 @@ def test_success_with_events_shows_card_instead_of_message_box(tab, tmp_path, mo
 
 def test_success_without_events_falls_back_to_message_box(tab, tmp_path, monkeypatch, _no_modal_dialogs):
     monkeypatch.setenv("ITK_TRAINING_RUNS_ROOT", str(tmp_path))
-    from backend.src.core import training_runs
+    from middleware.src.core import training_runs
 
     run_dir = training_runs.start_run(
         runs_root=tmp_path, run_id="emptyrun", output_name="o", engine="loha", model_id="m",

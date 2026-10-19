@@ -1,8 +1,8 @@
 import os
 from typing import List, Optional, Tuple, Union
 
-from backend.src.constants import HAS_NATIVE_IMAGING, SUPPORTED_VIDEO_FORMATS
-from backend.src.core import telemetry
+from middleware.src.constants import HAS_NATIVE_IMAGING, SUPPORTED_VIDEO_FORMATS
+from middleware.src.core import telemetry
 from PySide6.QtCore import Signal
 
 from gui.src.helpers.base import BaseQThreadWorker

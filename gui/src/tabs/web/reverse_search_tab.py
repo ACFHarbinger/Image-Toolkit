@@ -2,7 +2,7 @@ import contextlib
 import os
 from typing import Dict, List, Optional
 
-from backend.src.web import ENGINE_GOOGLE, ENGINE_LOCAL_CBIR, ENGINE_TINEYE
+from middleware.src.web import ENGINE_GOOGLE, ENGINE_LOCAL_CBIR, ENGINE_TINEYE
 from PySide6.QtCore import Property, Qt, QThread, QThreadPool, Signal, Slot
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
@@ -164,7 +164,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         tineye_layout.addWidget(
             QLabel(
                 "Credentials via TINEYE_API_KEY / TINEYE_API_SECRET env vars "
-                "or backend/config/api_keys.yaml"
+                "or middleware/config/api_keys.yaml"
             )
         )
         tineye_layout.addStretch()

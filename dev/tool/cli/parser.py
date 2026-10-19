@@ -282,7 +282,7 @@ def cmd_wallpaper(args: Any) -> int:
     """Generate a wallpaper from a clip via ASP Hero-Cel compositing (#430).
 
     Bootstraps the ASP submodule alias (asp_backend) the same way
-    backend/main.py and the tests do, then runs the wallpaper pipeline
+    middleware/main.py and the tests do, then runs the wallpaper pipeline
     under a PipelineSession. --estimate prints the predicted wall-clock
     for the current parameters and exits without running (per Harbinger:
     runtime depends on the params, with an estimate given).
@@ -295,7 +295,7 @@ def cmd_wallpaper(args: Any) -> int:
     estimate = getattr(args, "estimate", False)
     output = getattr(args, "output", None)
 
-    # ASP submodule alias + package roots (same as backend/main.py). The
+    # ASP submodule alias + package roots (same as middleware/main.py). The
     # git/scripts bootstrap is not on sys.path when running the devtool CLI,
     # so add the repo root (parents[3] of this file) first.
     repo_root = str(Path(__file__).resolve().parents[3])

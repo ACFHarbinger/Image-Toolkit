@@ -57,7 +57,7 @@ class LoRATrainingWorker(BaseQThreadWorker):
         """
         Executes the LoRA training loop.
         """
-        from backend.src.models.tuning.lo_ra_tuner import LoRATuner
+        from middleware.src.models.tuning.lo_ra_tuner import LoRATuner
 
         self.log_signal.emit(f"Initializing LoRATuner for {self.model_id}...")
 
@@ -100,7 +100,7 @@ class LoRATrainingWorker(BaseQThreadWorker):
         """
         Triggers graceful cancellation of the training process.
         """
-        from backend.src.models.tuning.lo_ra_tuner import LoRATuner
+        from middleware.src.models.tuning.lo_ra_tuner import LoRATuner
 
         LoRATuner.cancel_process()
         self.requestInterruption()

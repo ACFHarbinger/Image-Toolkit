@@ -4,7 +4,7 @@ Lazily re-exported (issues #530, #564, #573): importing this package must
 not pull ``palette`` (numpy/PIL) or ``theme_api`` → ``styles``. Leaf
 imports such as ``gui.src.theming.theme_api`` stay cheap; palette
 extraction loads only when asked. Guarded by
-``backend/validation/check_init_boundaries.py``.
+``middleware/validation/check_init_boundaries.py``.
 """
 
 from __future__ import annotations

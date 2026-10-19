@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, List
 
-from backend.src.constants import IMAGE_TOOLKIT_DIR
+from middleware.src.constants import IMAGE_TOOLKIT_DIR
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox
 

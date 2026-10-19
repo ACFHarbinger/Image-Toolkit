@@ -1,8 +1,8 @@
 import contextlib
 import json
 
-from backend.src.comfy_matrix import gpu_lease
-from backend.src.constants.comfy import ServerState
+from middleware.src.comfy_matrix import gpu_lease
+from middleware.src.constants.comfy import ServerState
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (

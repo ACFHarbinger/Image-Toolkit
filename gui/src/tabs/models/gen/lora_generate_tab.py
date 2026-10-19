@@ -2,11 +2,11 @@ import os
 import threading
 from types import SimpleNamespace
 
-from backend.src.comfy_matrix import gpu_lease, try_admit
-from backend.src.constants import LOCAL_SOURCE_PATH
-from backend.src.core.gpu_vram_estimate import estimate_job_gb
-from backend.src.models.tuning.lo_ra_tuner import LoRATuner
-from backend.src.models.wrappers.gan_wrapper import GanWrapper
+from middleware.src.comfy_matrix import gpu_lease, try_admit
+from middleware.src.constants import LOCAL_SOURCE_PATH
+from middleware.src.core.gpu_vram_estimate import estimate_job_gb
+from middleware.src.models.tuning.lo_ra_tuner import LoRATuner
+from middleware.src.models.wrappers.gan_wrapper import GanWrapper
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import (
     QComboBox,

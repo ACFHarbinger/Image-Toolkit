@@ -6,11 +6,11 @@ import shutil
 import subprocess
 import threading
 
-from backend.src.constants import (
+from middleware.src.constants import (
     IS_LINUX,
     THUMBNAIL_CACHE_DIR,
 )
-from backend.src.core import telemetry
+from middleware.src.core import telemetry
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage
 

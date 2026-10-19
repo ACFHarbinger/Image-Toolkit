@@ -11,7 +11,7 @@ import logging
 import os
 from typing import TYPE_CHECKING, Optional
 
-from backend.src.constants import DAEMON_CONFIG_PATH
+from middleware.src.constants import DAEMON_CONFIG_PATH
 from PySide6.QtCore import QThread, QTimer
 from shiboken6 import Shiboken as sip
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from backend.src.comfy_matrix import (
+from middleware.src.comfy_matrix import (
     AXES,
     AxisNotInWorkflow,
     UnknownWorkflowNodeError,
@@ -14,7 +14,7 @@ from backend.src.comfy_matrix import (
     prepare_sweep,
     run_matrix_sweep,
 )
-from backend.src.constants.comfy import ServerState
+from middleware.src.constants.comfy import ServerState
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,

@@ -137,7 +137,7 @@ class TestBatchImageLoaderWorker:
             worker.run()
 
             # Native fast path passes rgb=True and the disk cache dir
-            from backend.src.constants import THUMBNAIL_CACHE_DIR
+            from middleware.src.constants import THUMBNAIL_CACHE_DIR
 
             mock_base.load_image_batch.assert_called_once_with(
                 paths, 100, 100, True, True, str(THUMBNAIL_CACHE_DIR)

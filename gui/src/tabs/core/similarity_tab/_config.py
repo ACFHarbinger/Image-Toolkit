@@ -10,8 +10,8 @@ import logging
 import os
 from typing import Any, Dict
 
-from backend.src.constants import SUPPORTED_IMG_FORMATS
-from backend.src.core.similarity import SimilarityConfig, TriageRules
+from middleware.src.constants import SUPPORTED_IMG_FORMATS
+from middleware.src.core.similarity import SimilarityConfig, TriageRules
 from PySide6.QtWidgets import QMessageBox
 
 from ._tab_bound import TabBoundController

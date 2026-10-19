@@ -70,10 +70,10 @@ pub fn toggle_slideshow_daemon(app: tauri::AppHandle, running: bool) -> Result<(
 
     // 2. Start process if running
     if running {
-        // We assume 'python' is in path and we are in project root or can find backend/main.py
+        // We assume 'python' is in path and we are in project root or can find middleware/main.py
         // In a real app, we'd use sidecars or properly bundled python.
         Command::new("python")
-            .arg("backend/main.py")
+            .arg("middleware/main.py")
             .arg("slideshow")
             .spawn()
             .map_err(|e| e.to_string())?;

@@ -1,4 +1,4 @@
-from backend.src.core.vault_manager import VaultManager  # noqa: F401
+from middleware.src.core.vault_manager import VaultManager  # noqa: F401
 from PySide6.QtWidgets import (
     QTabWidget,
     QVBoxLayout,

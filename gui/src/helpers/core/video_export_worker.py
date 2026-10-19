@@ -1,6 +1,6 @@
 from typing import Optional, Tuple
 
-from backend.src.core import ImageMerger
+from middleware.src.core import ImageMerger
 from PySide6.QtCore import Signal
 
 from gui.src.helpers.base import BaseQThreadWorker

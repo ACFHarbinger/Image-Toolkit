@@ -1,7 +1,7 @@
 """Shared guard against the Qt Multimedia startup-probe race (issue #81).
 
 Qt Multimedia's FFmpeg/PipeWire backend probes audio devices on its own
-thread the first time anything triggers it (see backend/src/app.py's
+thread the first time anything triggers it (see middleware/src/app.py's
 _startup_audio_prime). Starting any other QThread (a gallery scanner
 worker, for example) while that probe is still in flight -- with the
 JPype JVM already loaded in-process -- reliably corrupts the heap
@@ -32,7 +32,7 @@ This module now does two things instead of guessing a bigger number:
 import time
 from typing import Optional
 
-from backend.src.core import telemetry
+from middleware.src.core import telemetry
 
 from gui.src.constants.utils import _STARTUP_SETTLE_CEILING_SECONDS
 

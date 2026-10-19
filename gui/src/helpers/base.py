@@ -137,7 +137,7 @@ class BaseQThreadWorker(QThread):
         Tier 3 — unexpected ``Exception``: logged at ERROR with full traceback.
         """
         try:
-            from backend.src.errors import (
+            from middleware.src.errors import (
                 AlignmentFailedError,
                 CanvasError,
                 ConfigError,

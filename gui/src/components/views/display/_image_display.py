@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 from typing import Optional
 
-from backend.src.constants import SUPPORTED_VIDEO_FORMATS
+from middleware.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap, QResizeEvent
 

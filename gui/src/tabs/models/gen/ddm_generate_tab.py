@@ -1,8 +1,8 @@
 import os
 import threading
 
-from backend.src.constants import LOCAL_SOURCE_PATH
-from backend.src.models.wrappers.sd3_wrapper import SD3Wrapper
+from middleware.src.constants import LOCAL_SOURCE_PATH
+from middleware.src.models.wrappers.sd3_wrapper import SD3Wrapper
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import (
     QCheckBox,

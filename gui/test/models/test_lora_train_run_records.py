@@ -3,7 +3,7 @@
 LoRATuner, DiagnosticsLogger, and the LyCORIS subprocess are stubbed — no
 model loads, no GPU, no real subprocess. The runs root is monkeypatched to
 tmp_path. The real JSONL sink behavior is covered in the backend suite
-(backend/test/models/test_diagnostics_jsonl.py); here we assert the GUI
+(middleware/test/models/test_diagnostics_jsonl.py); here we assert the GUI
 hands the right path to the logger and the logger reaches tuner.train().
 """
 import json
@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from backend.src.core.training_runs import (
+from middleware.src.core.training_runs import (
     EVENTS_FILE_NAME,
     RECORD_FILE_NAME,
     read_run_record,

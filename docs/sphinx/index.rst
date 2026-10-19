@@ -1,7 +1,7 @@
 Image Toolkit — Python Backend Reference
 =========================================
 
-This Sphinx reference is generated from the ``backend/src/`` module tree by
+This Sphinx reference is generated from the ``middleware/src/`` module tree by
 `sphinx-autoapi <https://sphinx-autoapi.readthedocs.io>`_ and documents every
 public class, function, and constant via their Google-style docstrings.
 

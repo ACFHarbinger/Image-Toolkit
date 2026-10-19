@@ -8,14 +8,14 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
-from backend.src.comfy_matrix import gpu_lease, try_admit
-from backend.src.core.gpu_vram_estimate import estimate_job_gb
+from middleware.src.comfy_matrix import gpu_lease, try_admit
+from middleware.src.core.gpu_vram_estimate import estimate_job_gb
 from PySide6.QtWidgets import QMessageBox
 
 from ._tab_bound import TabBoundController
 
 try:
-    from backend.src.models.tuning.cbir_tuner import CBIRTuner
+    from middleware.src.models.tuning.cbir_tuner import CBIRTuner
 
     _TRAINER_OK = True
 except ImportError:

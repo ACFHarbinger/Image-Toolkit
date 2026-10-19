@@ -49,8 +49,8 @@ jobs:
       - name: mypy — strict modules (§5.5A / A.10)
         run: >
           uv run mypy
-          backend/src/errors/exceptions.py
-          backend/src/models/core/base.py
+          middleware/src/errors/exceptions.py
+          middleware/src/models/core/base.py
           --ignore-missing-imports
           --no-error-summary
         env:
@@ -86,7 +86,7 @@ jobs:
       - name: Run model contract tests (§5.16A / A.9)
         # All heavy deps (torch, kornia, etc.) are patched into sys.modules
         # by the tests themselves — no GPU required, <1 s per test.
-        run: uv run pytest backend/test/models/ -q --tb=short
+        run: uv run pytest middleware/test/models/ -q --tb=short
         env:
           PYTHONPATH: .
 

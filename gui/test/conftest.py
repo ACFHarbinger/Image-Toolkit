@@ -24,12 +24,12 @@ if "ITK_TRAINING_RUNS_ROOT" not in os.environ:
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 # --- BLOCK HEAVY IMPORTS ---
-# Build the mocked backend.src.models tree as REAL package modules (with
+# Build the mocked middleware.src.models tree as REAL package modules (with
 # __path__) whose leaf submodules are MagicMock. A flat
-# sys.modules["backend.src.models.wrappers"] = MagicMock() made any later
-# "from backend.src.models.wrappers.X import Y" in the SAME pytest process
-# fail with "'...wrappers' is not a package" — which broke backend/test/
-# models collection when gui/test/models and backend/test/models were
+# sys.modules["middleware.src.models.wrappers"] = MagicMock() made any later
+# "from middleware.src.models.wrappers.X import Y" in the SAME pytest process
+# fail with "'...wrappers' is not a package" — which broke middleware/test/
+# models collection when gui/test/models and middleware/test/models were
 # collected together (#375). Real packages + mocked leaves let both sides
 # import: gui gets the mock (heavy torch/diffusers never load), backend
 # tests that import BEFORE the gui session still resolve... (see restore
@@ -66,14 +66,14 @@ def _mock_package(fullname: str) -> "types.ModuleType":
 
 
 def _mock_model_tree():
-    """Mock backend.src.models.* (and asp_backend.models.stitch_net) as a
+    """Mock middleware.src.models.* (and asp_backend.models.stitch_net) as a
     real-package tree so gui tests import quickly AND backend tests can
     still collect in the same process."""
-    models_pkg = _mock_package("backend.src.models")
-    core_pkg = _mock_package("backend.src.models.core")
-    tuning_pkg = _mock_package("backend.src.models.tuning")
-    wrappers_pkg = _mock_package("backend.src.models.wrappers")
-    gen_pkg = _mock_package("backend.src.models.gen")
+    models_pkg = _mock_package("middleware.src.models")
+    core_pkg = _mock_package("middleware.src.models.core")
+    tuning_pkg = _mock_package("middleware.src.models.tuning")
+    wrappers_pkg = _mock_package("middleware.src.models.wrappers")
+    gen_pkg = _mock_package("middleware.src.models.gen")
     # Attach packages to their parents for attribute-style access.
     models_pkg.core = core_pkg
     models_pkg.tuning = tuning_pkg
@@ -81,25 +81,25 @@ def _mock_model_tree():
     models_pkg.gen = gen_pkg
     # Leaf modules (each a MagicMock) — the names gui code imports.
     leaves = [
-        "backend.src.models.core.comfy_manager",
-        "backend.src.models.core.gan",
-        "backend.src.models.core.siamese_network",
-        "backend.src.models.full_finetune",
-        "backend.src.models.hooks",
-        "backend.src.models.lora_diffusion",
-        "backend.src.models.stable_diffusion",
-        "backend.src.models.tuning.lo_ra_tuner",
-        "backend.src.models.wrappers.basic_wrapper",
-        "backend.src.models.wrappers.birefnet_wrapper",
-        "backend.src.models.wrappers.esrgan_wrapper",
-        "backend.src.models.wrappers.gan_wrapper",
-        "backend.src.models.wrappers.loftr_wrapper",
-        "backend.src.models.wrappers.sd3_wrapper",
+        "middleware.src.models.core.comfy_manager",
+        "middleware.src.models.core.gan",
+        "middleware.src.models.core.siamese_network",
+        "middleware.src.models.full_finetune",
+        "middleware.src.models.hooks",
+        "middleware.src.models.lora_diffusion",
+        "middleware.src.models.stable_diffusion",
+        "middleware.src.models.tuning.lo_ra_tuner",
+        "middleware.src.models.wrappers.basic_wrapper",
+        "middleware.src.models.wrappers.birefnet_wrapper",
+        "middleware.src.models.wrappers.esrgan_wrapper",
+        "middleware.src.models.wrappers.gan_wrapper",
+        "middleware.src.models.wrappers.loftr_wrapper",
+        "middleware.src.models.wrappers.sd3_wrapper",
         "asp_backend.models.stitch_net",
     ]
     for leaf in leaves:
         sys.modules[leaf] = _mock_submodule(leaf)
-    # Sentinel: lets backend/test/conftest.py detect and restore the real
+    # Sentinel: lets middleware/test/conftest.py detect and restore the real
     # packages when both suites share one pytest process (#375).
     sys.modules.setdefault("_devtool_mocked_backend_models", True)
     return models_pkg
@@ -252,8 +252,8 @@ def mock_image_toolkit_paths(tmp_path, monkeypatch):
     """
     Ensure all tests run in a completely isolated sandbox and never write to the user's home directory.
     """
-    import backend.src.constants as constants
-    from backend.src.constants import paths
+    import middleware.src.constants as constants
+    from middleware.src.constants import paths
 
     fake_config_path = tmp_path / ".slideshow_config.json"
 

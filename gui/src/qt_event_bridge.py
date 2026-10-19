@@ -1,6 +1,6 @@
-"""Qt adapter for backend :class:`~backend.src.events.Observable` channels.
+"""Qt adapter for backend :class:`~middleware.src.events.Observable` channels.
 
-Issue #529 (D7): backend classes under ``backend/src/web/`` publish plain
+Issue #529 (D7): backend classes under ``middleware/src/web/`` publish plain
 (non-Qt) events, potentially from worker threads. A crawler thread must
 never invoke a GUI slot directly (this repo's ``QSocketNotifier`` SIGSEGV
 crash class). ``QtEventBridge`` is the single allowed crossing point: it is

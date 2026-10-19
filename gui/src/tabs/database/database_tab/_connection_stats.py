@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from backend.src.database.unified.facade import UnifiedImageDatabase as ImageDatabase
+from middleware.src.database.unified.facade import UnifiedImageDatabase as ImageDatabase
 from PySide6.QtWidgets import QInputDialog, QMessageBox
 
 from gui.src.constants.elements import EMBED_MODEL

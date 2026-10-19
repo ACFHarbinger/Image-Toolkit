@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from backend.src.core import checkpoint_tournament as ct
+from middleware.src.core import checkpoint_tournament as ct
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QLabel, QPushButton
 
@@ -235,7 +235,7 @@ def test_forward_promoted_pin_no_spine_is_silent():
 # ---------------------------------------------------------------------------
 
 def test_report_card_shows_tournament_button_for_ready_run(q_app, run_dir):
-    from backend.src.core.training_report import (
+    from middleware.src.core.training_report import (
         STATUS_GOOD,
         ReportCard,
         ReportVerdict,
@@ -255,7 +255,7 @@ def test_report_card_shows_tournament_button_for_ready_run(q_app, run_dir):
 
 
 def test_report_card_hides_tournament_button_without_inputs(q_app, tmp_path):
-    from backend.src.core.training_report import (
+    from middleware.src.core.training_report import (
         STATUS_GOOD,
         ReportCard,
         ReportVerdict,

@@ -305,8 +305,8 @@ def resolve_model_adapter(name: str) -> Optional[Any]:
     """
     adapters = {
         "animestitchnet": ("submodules.ASP.backend.src.models.stitch_net", "AnimeStitchNet"),
-        "birefnet": ("backend.src.models.wrappers.birefnet_wrapper", "BiRefNetWrapper"),
-        "loftr": ("backend.src.models.wrappers.loftr_wrapper", "LoFTRWrapper"),
+        "birefnet": ("middleware.src.models.wrappers.birefnet_wrapper", "BiRefNetWrapper"),
+        "loftr": ("middleware.src.models.wrappers.loftr_wrapper", "LoFTRWrapper"),
     }
     target = adapters.get(name.lower())
     if target is None:

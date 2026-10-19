@@ -1,13 +1,13 @@
 """Tests for TagReviewWorker (new_features.md §4.4C, WD-tagger review queue).
 
 Note on mocking: `gui/test/conftest.py` deliberately stubs
-`sys.modules["backend.src.models.wrappers"]` as a bare `MagicMock` (no
+`sys.modules["middleware.src.models.wrappers"]` as a bare `MagicMock` (no
 `__path__`) to keep GUI test collection fast — meaning `unittest.mock.patch`
 can't resolve a dotted path *through* it (Python's import machinery needs a
 real package there). Since the worker imports `WDTaggerWrapper` lazily
 inside `run()`, we instead pre-register the exact leaf module name in
 `sys.modules` ourselves — the import machinery finds it there directly
-without ever needing `backend.src.models.wrappers` to be a real package.
+without ever needing `middleware.src.models.wrappers` to be a real package.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from gui.src.helpers.models.tag_review_worker import TagReviewWorker
 
 pytestmark = pytest.mark.gui
 
-_MODULE_NAME = "backend.src.models.wrappers.wd_tagger_wrapper"
+_MODULE_NAME = "middleware.src.models.wrappers.wd_tagger_wrapper"
 
 
 def _install_fake_wd_module(auto=None, review=None, available=True):

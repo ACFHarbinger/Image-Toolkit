@@ -9,7 +9,7 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
-from backend.src.core.guidance_vision import (
+from middleware.src.core.guidance_vision import (
     ChatVlmAdvisor,
     TesseractOcrBackend,
     run_ocr,

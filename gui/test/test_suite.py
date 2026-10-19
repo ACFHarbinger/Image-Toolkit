@@ -2,7 +2,7 @@
 Test Runner for GUI Test Suite
 
 This script provides a convenient interface to run all GUI tests.
-Based on backend/test/test_suite.py
+Based on middleware/test/test_suite.py
 """
 
 import argparse

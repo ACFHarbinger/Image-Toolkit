@@ -13,7 +13,7 @@ class DataBrowserQueryController(TabBoundController):
     """Open the store, list tables, and run/paginate the read-only grid query."""
 
     def connect_browser(self, silent: bool = False) -> None:
-        from backend.src.database.unified.browser_repo import BrowserRepo
+        from middleware.src.database.unified.browser_repo import BrowserRepo
 
         from gui.src.helpers.database.library_session import get_library_db
 

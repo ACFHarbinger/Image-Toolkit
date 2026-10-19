@@ -28,8 +28,8 @@ const OUT_DIR = path.join(WEBSITE_ROOT, "public", "data");
 
 const RUN_GLOBS = [
   path.join(REPO_ROOT, "submodules/ASP/backend/benchmark/output"),
-  path.join(REPO_ROOT, "backend/benchmark/results"),
-  path.join(REPO_ROOT, "backend/benchmark/output"),
+  path.join(REPO_ROOT, "middleware/benchmark/results"),
+  path.join(REPO_ROOT, "middleware/benchmark/output"),
 ];
 
 const EVAL_DIRS = [

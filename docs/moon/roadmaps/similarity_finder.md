@@ -21,7 +21,7 @@ no rescan.
 
 ## Persistence & incremental scans
 
-`~/.image-toolkit/similarity_cache.db` (SQLite, `backend/src/core/similarity/cache.py`):
+`~/.image-toolkit/similarity_cache.db` (SQLite, `middleware/src/core/similarity/cache.py`):
 
 ```
 file_index(filepath PK, modified_timestamp, file_size, xxh64,
@@ -59,7 +59,7 @@ base/
     hnsw.cpp                           # HNSW (cosine)
     visual.cpp                         # SSIM, ORB/SIFT+RANSAC, diff mask
     bindings.cpp                       # pybind11 → base.similarity
-backend/
+middleware/
   src/core/similarity/
     config.py                          # SimilarityConfig + TriageRules (all GUI hyperparams)
     cache.py                           # SQLite incremental cache

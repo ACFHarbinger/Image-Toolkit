@@ -115,7 +115,7 @@ Each section describes a proposed feature, all viable implementation options wit
 
 **Pain point:** Users with large screenshot libraries (e.g., 50+ groups of frames from novel-reading sessions) currently process each group one at a time in the StitchTab.
 
-**Status:** Options C (CLI batch mode) and E (resume support) were already fully implemented in `backend/src/utils/io/dispatcher.py::dispatch_stitch` before this item was picked up — `python main.py stitch --batch-dir /path --resume` scans immediate subdirectories, runs `AnimeStitchPipeline` on each via `_run_single_stitch()`, and persists `.stitch_progress.json` after every sequence. This wasn't reflected in the roadmap text (it read as an open TODO). Option A (the GUI counterpart the roadmap's own recommendation calls for "once C is validated") is now implemented too:
+**Status:** Options C (CLI batch mode) and E (resume support) were already fully implemented in `middleware/src/utils/io/dispatcher.py::dispatch_stitch` before this item was picked up — `python main.py stitch --batch-dir /path --resume` scans immediate subdirectories, runs `AnimeStitchPipeline` on each via `_run_single_stitch()`, and persists `.stitch_progress.json` after every sequence. This wasn't reflected in the roadmap text (it read as an open TODO). Option A (the GUI counterpart the roadmap's own recommendation calls for "once C is validated") is now implemented too:
 
 - **`gui/src/helpers/animation/batch_stitch_worker.py::BatchStitchWorker`** (`QThread`): runs the same batch loop as the CLI, reusing `dispatcher.py`'s `_collect_image_paths`/`_run_single_stitch` directly rather than re-implementing "run one sequence" a second time, so the two entry points can never silently diverge. Reads/writes the identical `.stitch_progress.json`, so a batch interrupted from one entry point resumes correctly from the other. Runs the plain (non-HITL) pipeline path — unattended batch runs don't pause for interactive review, unlike the single-sequence StitchTab/`StitchWorker` flow. `cancel()` is checked between items (a single `AnimeStitchPipeline.run()` call isn't interruptible mid-stage, matching this project's existing §2.7B cancellation granularity).
 - **`gui/src/components/dialogs/batch_stitch_dialog.py::BatchStitchDialog`**: root-directory picker (`QFileDialog` with `DontUseNativeDialog`), renderer/output-suffix/resume options, and the progress list the roadmap asks for — one row per subdirectory with a status icon (queued/running/done/skipped/failed), backed by a progress bar. Its `closeEvent()` deliberately uses an *unbounded* `QThread.wait()` rather than a fixed timeout when cancelling mid-run — the gallery crash fixed earlier this same session (`.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`) is the exact same class of bug (a worker's signals connected to widgets that a bounded wait can let outlive), so this dialog was built to avoid it from the start rather than needing the same fix applied twice.
@@ -160,9 +160,9 @@ Extend C with a `results.json` that records which groups have been processed. Re
 
 **Status:** Option B (FFmpeg pipe, full-resolution/quality) is implemented. C (animated WebP) and E (easing/hold) are not — left as future follow-ons, not blocking.
 
-- `ImageMerger.export_scrolling_video(image_path, output_path, scroll_speed_px_per_frame=10, fps=30, resolution=None, scroll_axis=None, codec="libx264")` in `backend/src/core/image_merger.py`. Auto-detects scroll axis from aspect ratio (tall -> vertical, wide -> horizontal) unless `scroll_axis` is given explicitly. Auto-derives a 16:9-ish viewport (clamped to the source, forced even for `yuv420p`) when `resolution` is `None`. Crops a sliding window across the panorama and pipes raw RGB24 frame bytes to `ffmpeg` via stdin (`-f rawvideo -pix_fmt rgb24 -s {W}x{H} -r {fps} -i pipe:0 -c:v {codec} -pix_fmt yuv420p out.mp4`), reusing the same bare-`ffmpeg`-on-PATH convention as `backend/src/core/video_converter.py`. If the panorama is smaller than one viewport's worth of scroll, it exports a short static clip (`fps` frames, ~1s) rather than raising — documented in the function's docstring.
+- `ImageMerger.export_scrolling_video(image_path, output_path, scroll_speed_px_per_frame=10, fps=30, resolution=None, scroll_axis=None, codec="libx264")` in `middleware/src/core/image_merger.py`. Auto-detects scroll axis from aspect ratio (tall -> vertical, wide -> horizontal) unless `scroll_axis` is given explicitly. Auto-derives a 16:9-ish viewport (clamped to the source, forced even for `yuv420p`) when `resolution` is `None`. Crops a sliding window across the panorama and pipes raw RGB24 frame bytes to `ffmpeg` via stdin (`-f rawvideo -pix_fmt rgb24 -s {W}x{H} -r {fps} -i pipe:0 -c:v {codec} -pix_fmt yuv420p out.mp4`), reusing the same bare-`ffmpeg`-on-PATH convention as `middleware/src/core/video_converter.py`. If the panorama is smaller than one viewport's worth of scroll, it exports a short static clip (`fps` frames, ~1s) rather than raising — documented in the function's docstring.
 - GUI entry point: a new "Export as Video…" action in the Merge tab's post-merge confirm dialog (`MergeTab.show_preview_and_confirm` in `gui/src/tabs/core/merge_tab.py`), alongside the existing Copy/Save/Save-and-Add-to-Canvas/Discard actions. Opens `ScrollVideoExportDialog` (`gui/src/components/dialogs/scroll_video_export_dialog.py`) to collect scroll speed, fps, codec (libx264/libx265/libvpx-vp9), and an optional custom resolution; output path uses `QFileDialog.getSaveFileName` with `DontUseNativeDialog` (project hard rule — native GTK dialog + live JVM SIGSEGV). Export runs off the GUI thread via `ScrollVideoExportWorker` (`gui/src/helpers/core/video_export_worker.py`), a `QThread` mirroring `MergeWorker`'s signal pattern. The action doesn't consume the in-progress merge result — the confirm dialog re-appears afterwards so Save/Copy/Discard still work normally.
-- Verified directly (not via GUI) with real `ffmpeg`/`ffprobe`, no mocking of the encode path: `backend/test/core/test_export_scrolling_video.py` (5 tests — vertical auto-detect, horizontal auto-detect, nothing-to-scroll static clip, explicit resolution/axis override, missing-ffmpeg error path). All passing.
+- Verified directly (not via GUI) with real `ffmpeg`/`ffprobe`, no mocking of the encode path: `middleware/test/core/test_export_scrolling_video.py` (5 tests — vertical auto-detect, horizontal auto-detect, nothing-to-scroll static clip, explicit resolution/axis override, missing-ffmpeg error path). All passing.
 
 ### Options
 
@@ -238,7 +238,7 @@ For collections that don't need persistent storage, use FAISS (`faiss-cpu` or `f
 
 **Pain point:** The database supports tags, but tagging is entirely manual. Crawlers fetch Danbooru/Gelbooru tags for downloaded images, but locally-sourced images have no tags.
 
-**Status update (2026-07-27, issue #32):** Option A's backend (`backend/src/models/wrappers/wd_tagger_wrapper.py::WDTaggerWrapper`) was fully built previously but had zero callers anywhere in the codebase (confirmed via repo-wide grep). It now has its first real caller — `backend/src/pipeline/anime_training_pipeline.py`'s captioning stage, via `content_generation.md` §1.1 — as the fallback WD14 backend when no local ONNX path is configured. A category-mapping bug was fixed in the process (WD category `9` is the rating group, not "copyright"). The database-ingest tagging path (this section's actual pain point — tagging locally-sourced images on ingest) and background Celery ingest (§D) are still not built.
+**Status update (2026-07-27, issue #32):** Option A's backend (`middleware/src/models/wrappers/wd_tagger_wrapper.py::WDTaggerWrapper`) was fully built previously but had zero callers anywhere in the codebase (confirmed via repo-wide grep). It now has its first real caller — `middleware/src/pipeline/anime_training_pipeline.py`'s captioning stage, via `content_generation.md` §1.1 — as the fallback WD14 backend when no local ONNX path is configured. A category-mapping bug was fixed in the process (WD category `9` is the rating group, not "copyright"). The database-ingest tagging path (this section's actual pain point — tagging locally-sourced images on ingest) and background Celery ingest (§D) are still not built.
 
 **Status update (2026-07-27, issue #58 — §C shipped):** Built the human-in-the-loop review queue for the LoRA training dataset-prep flow specifically (not the database-ingest path, which is a separate, still-open item). Verified before building: `WDTaggerWrapper.tag_with_review()` (§E's confidence-threshold split) already existed with a full implementation and test coverage, but — like `WDTaggerWrapper` itself before issue #32 — had zero callers anywhere in the codebase. This is now its first real caller.
 - **`gui/src/helpers/models/tag_review_worker.py::TagReviewWorker`**: a `QThread` that runs `tag_with_review()` over a dataset folder's untagged images (skips any image whose `.txt` caption sidecar already exists, matching the training pipeline's own skip logic) and emits `(auto_tags, review_tags)` per image, tagged with which zone each came from.
@@ -368,9 +368,9 @@ When syncing from Dropbox/GDrive (§3.5-adjacent), compare incoming files agains
 
 ## 4.7 Slideshow Improvements — ✅ Option E implemented
 
-**Pain point:** Slideshow daemon exists (`backend/src/utils/display/slideshow_daemon.py`) but has minimal configuration. Users want timing, ordering, and filtering control.
+**Pain point:** Slideshow daemon exists (`middleware/src/utils/display/slideshow_daemon.py`) but has minimal configuration. Users want timing, ordering, and filtering control.
 
-**Status:** Option E (Image health check before rotation) is implemented in `backend/src/utils/display/slideshow_daemon.py::_advance_all` with `_is_valid_image` verifying file existence, regular file status, and non-empty file size, gracefully skipping missing or corrupted images in rotation without crashing or infinite looping (verified by `backend/test/core/test_slideshow_daemon_health_check.py`).
+**Status:** Option E (Image health check before rotation) is implemented in `middleware/src/utils/display/slideshow_daemon.py::_advance_all` with `_is_valid_image` verifying file existence, regular file status, and non-empty file size, gracefully skipping missing or corrupted images in rotation without crashing or infinite looping (verified by `middleware/test/core/test_slideshow_daemon_health_check.py`).
 
 ### Options
 
@@ -447,9 +447,9 @@ Ship a set of pre-built workflow templates (upscale, denoise, colorise, inpaint 
 
 **Status:** Options A (read-only metadata & tensor summary modal dialog) and D (SHA256 model hash verification) are implemented:
 - **`SafetensorsInspectorDialog`** (`gui/src/components/dialogs/safetensors_inspector_dialog.py`): Non-blocking metadata and tensor inspect dialog displaying file size, parameter counts, dtype breakdown, parsed model spec (LoRA rank, alpha, base model, trigger words), user metadata tree, sortable tensor slice tree, copy to clipboard, and asynchronous SHA256 integrity verification with `✓ MATCHED` / `✗ MISMATCH` indicators.
-- **`backend/src/utils/data/safetensors_metadata.py`**: `read_metadata()`, `parse_model_spec()`, and `calculate_file_hash()`.
+- **`middleware/src/utils/data/safetensors_metadata.py`**: `read_metadata()`, `parse_model_spec()`, and `calculate_file_hash()`.
 - **GUI Integration**: "Inspect .safetensors..." buttons wired in `lora_train_tab.py` and `lora_generate_tab.py`.
-- **Tests**: `gui/test/dialogs/test_safetensors_inspector_dialog.py` and `backend/test/test_safetensors_metadata.py`.
+- **Tests**: `gui/test/dialogs/test_safetensors_inspector_dialog.py` and `middleware/test/test_safetensors_metadata.py`.
 
 ### Options
 
@@ -685,12 +685,12 @@ own relevant settings:
   Neural Synthesis Refinement" checkboxes (`use_siamese`/`use_apap`/`use_lsd`/
   `use_gan` — dead parameters `perfect_stitch()`'s own docstring already
   flagged as ignored) and the entire "MFSR Super-Resolution" group (no `mfsr_*`
-  reference exists anywhere in `backend/src/animation/`). Both removed rather
+  reference exists anywhere in `middleware/src/animation/`). Both removed rather
   than left as non-functional UI. Kept: renderer, motion model, BiRefNet/BaSiC/
   LoFTR/ECC toggles, composite-foreground toggle, edge crop, and pyramid
   (Laplacian band) levels — all genuinely consumed by the pipeline.
 
-Backend: `backend/src/core/image_merger.py` gained `_merge_images_hugin` and
+Backend: `middleware/src/core/image_merger.py` gained `_merge_images_hugin` and
 `_merge_images_overmix` (subprocess wrappers, matching the benchmark scripts'
 settings) alongside the existing `_merge_images_opencv` (now parameterized by
 stitcher mode + registration resolution instead of two near-duplicate
@@ -704,9 +704,9 @@ button that runs every engine on the current canvas selection side by side.
 
 ## 4.17 Media Loader — Web Media Downloader ✅ Reddit + nhentai shipped (2026-08-03, issue #182) {: #417-media-loader--web-media-downloader }
 
-**Shipped: a new "Media Loader" tab under Web Integration** for downloading media (images/videos) from the web, with two initial source integrations. `backend/src/web/downloaders/reddit_downloader.py` (`RedditDownloader`) supports subreddit/user/single-post modes and downloads direct images, gallery posts, and `v.redd.it` video (video-only stream, no audio remux — modeled on, and sharing this exact trade-off with, the [RedDownloader](https://pypi.org/project/RedDownloader/) PyPI package). `backend/src/web/downloaders/nhentai_downloader.py` (`NhentaiDownloader`) scrapes a gallery page's embedded JSON metadata and downloads each page from nhentai's image CDN — modeled on the [nhentai-downloader](https://pypi.org/project/nhentai-downloader/) PyPI package. Both use the synchronous `requests` library (a plain `QObject`, no C++ `base` module dependency). **Not** `asyncio`/`aiohttp`/`asyncpraw`: an initial version of both downloaders used that combination and crashed the app on its first real download (`QSocketNotifier`/SIGSEGV/heap corruption — the extensively-documented off-main-thread-native-lib-with-JVM-loaded crash class, see `architecture.md` and `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`); fixed same-day by switching to `requests` — the same pattern already proven safe in this exact QThread+JVM environment by `ImageCrawler`/`WebRequestsLogic`/the MAL sync workers. `RedditDownloader` hits Reddit's public `.json` listing endpoints (no OAuth app registration needed). `NhentaiDownloader` parses nhentai's current SvelteKit-embedded gallery JSON, with a fallback parser for the older markup.
+**Shipped: a new "Media Loader" tab under Web Integration** for downloading media (images/videos) from the web, with two initial source integrations. `middleware/src/web/downloaders/reddit_downloader.py` (`RedditDownloader`) supports subreddit/user/single-post modes and downloads direct images, gallery posts, and `v.redd.it` video (video-only stream, no audio remux — modeled on, and sharing this exact trade-off with, the [RedDownloader](https://pypi.org/project/RedDownloader/) PyPI package). `middleware/src/web/downloaders/nhentai_downloader.py` (`NhentaiDownloader`) scrapes a gallery page's embedded JSON metadata and downloads each page from nhentai's image CDN — modeled on the [nhentai-downloader](https://pypi.org/project/nhentai-downloader/) PyPI package. Both use the synchronous `requests` library (a plain `QObject`, no C++ `base` module dependency). **Not** `asyncio`/`aiohttp`/`asyncpraw`: an initial version of both downloaders used that combination and crashed the app on its first real download (`QSocketNotifier`/SIGSEGV/heap corruption — the extensively-documented off-main-thread-native-lib-with-JVM-loaded crash class, see `architecture.md` and `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`); fixed same-day by switching to `requests` — the same pattern already proven safe in this exact QThread+JVM environment by `ImageCrawler`/`WebRequestsLogic`/the MAL sync workers. `RedditDownloader` hits Reddit's public `.json` listing endpoints (no OAuth app registration needed). `NhentaiDownloader` parses nhentai's current SvelteKit-embedded gallery JSON, with a fallback parser for the older markup.
 
-GUI: `gui/src/elements/web/media_loader_tab/` (manager.py + mixins, same composition pattern as `image_crawler_tab`/`drive_sync_tab`) with a source picker, per-source settings pages, and shared download-dir/run/cancel/progress controls; `gui/src/helpers/web/media_loader_worker.py` (`MediaLoaderWorker`, a `QThread` mirroring `image_crawl_worker.py`) dispatches to the selected downloader. Registered as `"Media Loader"` in `_tab_registry.py`'s Web Integration category. Both downloaders emit `backend/src/core/telemetry.py` events (`media-loader` category) around every HTTP call and the overall run.
+GUI: `gui/src/elements/web/media_loader_tab/` (manager.py + mixins, same composition pattern as `image_crawler_tab`/`drive_sync_tab`) with a source picker, per-source settings pages, and shared download-dir/run/cancel/progress controls; `gui/src/helpers/web/media_loader_worker.py` (`MediaLoaderWorker`, a `QThread` mirroring `image_crawl_worker.py`) dispatches to the selected downloader. Registered as `"Media Loader"` in `_tab_registry.py`'s Web Integration category. Both downloaders emit `middleware/src/core/telemetry.py` events (`media-loader` category) around every HTTP call and the overall run.
 
 **Possible follow-ups** (tracked in issue #182): ffmpeg audio remux for Reddit video; Cloudflare-challenge handling for nhentai; wiring Reddit credentials into the Vault/credentials system instead of env-vars only; automated tests for the two downloader classes; additional source integrations (Twitter/X, Pixiv, generic gallery-dl-style sites).
 
@@ -728,10 +728,10 @@ tracked separately (ASP's `asp_sfw_corpus_roadmap_2026q3.md`); this section
 is the crawler-engine work that unblocks it.
 
 **Implementation (2026-08-15):**
-- `backend/src/web/crawlers/image_board_crawler.py`: Added automatic rating normalization (`config["rating"]` appends `rating:<val>` to tags if not already present) and added `get_crawler_backend_name()` for polymorphic C++ backend dispatch.
-- `backend/src/web/crawlers/safebooru_crawler.py`: Added `SafebooruCrawler` preset backed by the Gelbooru DAPI engine (`https://safebooru.org`).
-- `backend/src/web/crawlers/__init__.py`: Re-exported all active crawler classes.
-- `backend/test/web/test_image_board_crawler.py`: Added unit tests covering Safebooru preset and rating normalization.
+- `middleware/src/web/crawlers/image_board_crawler.py`: Added automatic rating normalization (`config["rating"]` appends `rating:<val>` to tags if not already present) and added `get_crawler_backend_name()` for polymorphic C++ backend dispatch.
+- `middleware/src/web/crawlers/safebooru_crawler.py`: Added `SafebooruCrawler` preset backed by the Gelbooru DAPI engine (`https://safebooru.org`).
+- `middleware/src/web/crawlers/__init__.py`: Re-exported all active crawler classes.
+- `middleware/test/web/test_image_board_crawler.py`: Added unit tests covering Safebooru preset and rating normalization.
 
 
 ---
@@ -755,7 +755,7 @@ only target in scope right now. Everything else in `~/.image-toolkit/`
 scope for this entry — regenerable/large data has different sync
 requirements and isn't part of this draft.
 
-**Existing foundation, not starting from zero:** `backend/src/web/cloud/`
+**Existing foundation, not starting from zero:** `middleware/src/web/cloud/`
 already has a working `GoogleDriveSync` (+ Dropbox/OneDrive siblings) with
 both Service Account and personal OAuth flows, a native C++ implementation,
 and a GUI worker (`gui/src/helpers/web/cloud/google_drive_sync_worker.py`).

@@ -9,7 +9,7 @@ from __future__ import annotations
 import contextlib
 from typing import TYPE_CHECKING, Optional
 
-from backend.src.constants import SUPPORTED_VIDEO_FORMATS
+from middleware.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QColor, QPainter, QPixmap
 from PySide6.QtWidgets import QLabel, QWidget

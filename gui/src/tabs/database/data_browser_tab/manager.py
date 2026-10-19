@@ -32,7 +32,7 @@ class DataBrowserTab(QWidget):
     def __init__(self, vault_manager=None):
         super().__init__()
         self.vault_manager = vault_manager
-        self.browser_repo = None  # backend.src.database.unified.browser_repo.BrowserRepo
+        self.browser_repo = None  # middleware.src.database.unified.browser_repo.BrowserRepo
         self.current_table: Optional[str] = None
         self.current_offset: int = 0
         self.current_row_count: int = 0

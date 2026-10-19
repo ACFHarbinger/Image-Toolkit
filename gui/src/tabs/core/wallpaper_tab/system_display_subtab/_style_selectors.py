@@ -9,7 +9,7 @@ from __future__ import annotations
 import platform
 from typing import TYPE_CHECKING, Mapping, Optional, Tuple, Union, cast
 
-from backend.src.constants import WALLPAPER_BACKGROUND_BLUR, WALLPAPER_STYLES
+from middleware.src.constants import WALLPAPER_BACKGROUND_BLUR, WALLPAPER_STYLES
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QColorDialog

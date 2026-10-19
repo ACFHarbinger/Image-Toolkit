@@ -5,7 +5,7 @@ Extracted from ``entity_recon_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-from backend.src.web.recon import export_provenance
+from middleware.src.web.recon import export_provenance
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from ....constants import DIALOG_OPTS

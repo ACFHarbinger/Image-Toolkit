@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 import pytest
-from backend.src.core.guidance_schema import (
+from middleware.src.core.guidance_schema import (
     parse_guidance_response,
     validate_guidance,
     workflow_hash,
@@ -182,7 +182,7 @@ def test_requeue_submits_patch_with_variant_meta(q_app, tmp_path, monkeypatch):
     workflow, validation = _ok_validation()
     manager = MagicMock()
     manager.queue_workflow.return_value = "new-pid-1"
-    from backend.src.constants.comfy import ServerState
+    from middleware.src.constants.comfy import ServerState
 
     controller = MagicMock()
     controller.server_state = ServerState.READY
@@ -217,7 +217,7 @@ def test_requeue_submits_patch_with_variant_meta(q_app, tmp_path, monkeypatch):
 def test_requeue_refuses_without_server_ready(q_app):
     from unittest.mock import MagicMock
 
-    from backend.src.constants.comfy import ServerState
+    from middleware.src.constants.comfy import ServerState
 
     workflow, validation = _ok_validation()
     controller = MagicMock()
@@ -235,7 +235,7 @@ def test_requeue_refuses_without_server_ready(q_app):
 def test_requeue_uses_only_checked_rows(q_app, tmp_path):
     from unittest.mock import MagicMock
 
-    from backend.src.constants.comfy import ServerState
+    from middleware.src.constants.comfy import ServerState
 
     workflow = _template()
     cfg = workflow["6"]["inputs"]["cfg"]
@@ -375,7 +375,7 @@ def test_variant_paths_are_unique_and_contained(tmp_path):
 def test_failed_variant_does_not_emit_success(q_app, tmp_path):
     from unittest.mock import MagicMock
 
-    from backend.src.constants.comfy import ServerState
+    from middleware.src.constants.comfy import ServerState
 
     manager, controller = MagicMock(), MagicMock()
     manager.queue_workflow.return_value = "failed-pid"

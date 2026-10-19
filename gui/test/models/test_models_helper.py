@@ -30,7 +30,7 @@ class TestTrainingWorker:
                 "torchvision": mock_torchvision,
                 "torchvision.datasets": mock_datasets,
                 "torch.utils.data": mock_torch_utils_data,
-                "backend.src.models.core.gan": mock_gan_module,
+                "middleware.src.models.core.gan": mock_gan_module,
             },
         ):
             worker = TrainingWorker(
@@ -87,7 +87,7 @@ class TestTrainingWorker:
                 "torchvision": mock_torchvision,
                 "torchvision.datasets": mock_datasets,
                 "torch.utils.data": mock_torch_utils_data,
-                "backend.src.models.core.gan": mock_gan_module,
+                "middleware.src.models.core.gan": mock_gan_module,
             },
         ):
             worker = TrainingWorker("/tmp", "/tmp", 1, 1, 0.1, 10, "cpu")

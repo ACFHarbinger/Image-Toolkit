@@ -11,7 +11,7 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 
-from backend.src.core.training_curve import (
+from middleware.src.core.training_curve import (
     bucket_minmax,
     checkpoint_index,
     latest_epoch,

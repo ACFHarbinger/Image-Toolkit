@@ -37,7 +37,7 @@ source lives, but it builds and ships independently.
 | `itk_vault_decrypt(key, len, path, &out, &len)` | Read + GCM-auth-verify vault |
 | `itk_free(ptr)` / `itk_last_error()` | Free output / last error (thread-local) |
 
-Python consumption: `backend/src/core/vault_manager.py` (`_CryptoAPI` ctypes
+Python consumption: `middleware/src/core/vault_manager.py` (`_CryptoAPI` ctypes
 wrapper). Format compatibility is pinned by fixtures the JVM module generated
-before removal: `backend/test/data/crypto_fixture/java_generated.p12/.vault/
+before removal: `middleware/test/data/crypto_fixture/java_generated.p12/.vault/
 _key.bin` (password `fixture-pass`, alias `fixture-alias`).

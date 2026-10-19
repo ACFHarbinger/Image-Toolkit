@@ -6,8 +6,8 @@ import os
 import tempfile
 from typing import List, Optional
 
-from backend.src.web.recon import ReconConfig, ReconEngine
-from backend.src.web.recon.provenance import ProvenanceReport
+from middleware.src.web.recon import ReconConfig, ReconEngine
+from middleware.src.web.recon.provenance import ProvenanceReport
 from PySide6.QtWidgets import QTreeWidgetItem, QWidget
 
 from ._batch_builder import EntityReconBatchController

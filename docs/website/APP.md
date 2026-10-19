@@ -44,7 +44,7 @@ Each island is real, working functionality tied to something true about Image-To
 placeholder swapped in to tick a box:
 
 - The Astro flow-field visualizes k-nearest-neighbor search, the conceptual shape of the
-  pgvector-backed similarity search in `backend/src/database/image_database.py`.
+  pgvector-backed similarity search in `middleware/src/database/image_database.py`.
 - The React gallery *is* the desktop app's actual UI kit.
 - The Aurelia simulation visualizes k-means convergence, the conceptual shape of building an
   approximate-nearest-neighbor index over a large image library.

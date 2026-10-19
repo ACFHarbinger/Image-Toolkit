@@ -8,7 +8,7 @@ set working-directory := '../..'
 # Run the Selenium WebDriver (chromedriver) required for crawlers
 web-driver:
     @echo "🌐 Starting Managed Selenium WebDriver..."
-    @source .venv/bin/activate && python backend/scripts/manage_webdriver.py start
+    @source .venv/bin/activate && python middleware/scripts/manage_webdriver.py start
 
 # Live Local Directory Sync against Drive folder `.image-toolkit`
 # Scratch local tree; opens a browser for OAuth if no cached token.
@@ -20,4 +20,4 @@ live-gdrive-sync *args:
 # Run the image crawler via CLI
 # Usage: just crawl "https://example.com/gallery" 20 "./downloads"
 crawl query limit="10" output="./downloads":
-    source .venv/bin/activate && python backend/main.py web crawl -q "{{query}}" -l {{limit}} -o "{{output}}"
+    source .venv/bin/activate && python middleware/main.py web crawl -q "{{query}}" -l {{limit}} -o "{{output}}"

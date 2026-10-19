@@ -23,7 +23,7 @@ export const GANTrainTab: React.FC = () => {
       return;
     }
     setIsTraining(true);
-    // Note: 'cuda' detection should happen in the backend/worker, not the frontend.
+    // Note: 'cuda' detection should happen in the middleware/worker, not the frontend.
     setLogs((prev) => [
       ...prev,
       "Initializing training thread...",
@@ -42,7 +42,7 @@ export const GANTrainTab: React.FC = () => {
     let interval: number | undefined;
     if (isTraining) {
       interval = setInterval(() => {
-        // In a real app, fetch the latest image from backend
+        // In a real app, fetch the latest image from middleware
         // This mock call now uses setPreviewUrl, resolving the ESLint warning.
         setPreviewUrl(
           `https://placehold.co/200x200/4c4c4c/ffffff?text=Epoch+${Math.floor(Math.random() * 50)}`,

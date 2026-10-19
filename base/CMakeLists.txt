@@ -138,7 +138,7 @@ endif()
 # Native cryptography library (formerly the retired Kotlin JAR; now plain C
 # living alongside the rest of base::secret). Built as its own shared object
 # rather than folded into the pybind11 `base` extension because it's loaded
-# via ctypes at runtime (backend/src/core/vault_manager.py), not imported as
+# via ctypes at runtime (middleware/src/core/vault_manager.py), not imported as
 # a Python module -- but it's part of the base build now, not a separate
 # `just build-crypto` step someone can forget to run.
 # ---------------------------------------------------------------------------

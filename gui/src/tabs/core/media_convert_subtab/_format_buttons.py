@@ -5,7 +5,7 @@ Extracted from ``format_subtab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from middleware.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QPushButton
 

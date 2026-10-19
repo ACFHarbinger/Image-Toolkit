@@ -10,7 +10,7 @@ import hashlib
 import os
 from typing import TYPE_CHECKING, Optional
 
-from backend.src.constants import THUMBNAIL_CACHE_DIR
+from middleware.src.constants import THUMBNAIL_CACHE_DIR
 from PySide6.QtGui import QImage, QPixmap
 
 from ....helpers.video.video_thumbnailer import VideoThumbnailer

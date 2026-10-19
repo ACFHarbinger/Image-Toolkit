@@ -3,8 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from backend.src.constants import ROOT_DIR
-from backend.src.core.training_runs import (
+from middleware.src.constants import ROOT_DIR
+from middleware.src.core.training_runs import (
     STATUS_CANCEL,
     STATUS_ERROR,
     STATUS_SUCCESS,
@@ -40,9 +40,9 @@ def _rank_utilization_for_run(run_dir: str):
     rank_history result degrades to (None, availability) instead of
     poisoning the card.
     """
-    from backend.src.core.adapter_reports import RankHistoryReport
-    from backend.src.core.training_report import RankUtilization
-    from backend.src.core.training_runs import read_run_record
+    from middleware.src.core.adapter_reports import RankHistoryReport
+    from middleware.src.core.training_report import RankUtilization
+    from middleware.src.core.training_runs import read_run_record
 
     record = read_run_record(run_dir)
     if record is None:
@@ -54,7 +54,7 @@ def _rank_utilization_for_run(run_dir: str):
     if output.is_file():
         output = output.parent
     try:
-        from backend.src.models.hooks.adapter_geometry import rank_history
+        from middleware.src.models.hooks.adapter_geometry import rank_history
 
         report = rank_history(output)
     except Exception:
@@ -77,8 +77,8 @@ class TrainingReportWorker(BaseQThreadWorker):
         self.rank_available = False
 
     def _execute(self):
-        from backend.src.core.training_report import generate_training_report
-        from backend.src.core.training_runs import iter_events
+        from middleware.src.core.training_report import generate_training_report
+        from middleware.src.core.training_runs import iter_events
 
         self.rank, self.rank_available = _rank_utilization_for_run(self.run_dir)
         return generate_training_report(
@@ -97,8 +97,8 @@ class AdapterRankWorker(BaseQThreadWorker):
         self.record = None
 
     def _execute(self) -> object:
-        from backend.src.core.adapter_reports import RankHistoryReport
-        from backend.src.core.training_runs import read_run_record
+        from middleware.src.core.adapter_reports import RankHistoryReport
+        from middleware.src.core.training_runs import read_run_record
 
         self.record = read_run_record(self.run_dir) or {}
         lora_path = str((self.record or {}).get("lora_path") or "")
@@ -108,7 +108,7 @@ class AdapterRankWorker(BaseQThreadWorker):
         if output.is_file():
             output = output.parent
         try:
-            from backend.src.models.hooks.adapter_geometry import rank_history
+            from middleware.src.models.hooks.adapter_geometry import rank_history
 
             report = rank_history(output)
         except Exception as exc:
@@ -215,7 +215,7 @@ class LoRATrainRunsMixin:
         """Content Gen §1.3: LyCORIS (LoCon/LoHa/LoKr) training.
 
         Routes through the already-built LoRATunerV2 pipeline
-        (backend/src/pipeline/anime_training_pipeline.py) via this
+        (middleware/src/pipeline/anime_training_pipeline.py) via this
         project's own Hydra CLI dispatcher, rather than re-implementing
         dataset/tuner construction here — that pipeline already handles
         aspect-ratio bucketing, caption building, and LyCORIS dispatch
@@ -245,7 +245,7 @@ class LoRATrainRunsMixin:
         cmd = [
             sys.executable,
             "-m",
-            "backend.controllers.hydra_dispatch",
+            "middleware.controllers.hydra_dispatch",
             "command=train",
             f"training=lycoris_{engine}",
             f"model.model_id={model_id}",

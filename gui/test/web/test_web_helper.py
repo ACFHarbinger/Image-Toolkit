@@ -10,7 +10,7 @@ from gui.src.helpers.web.web_requests_worker import WebRequestsWorker
 
 class TestWebRequestsWorker:
     def test_run(self, q_app):
-        # web_requests_worker.py imports WebRequestsLogic from backend.src.web
+        # web_requests_worker.py imports WebRequestsLogic from middleware.src.web
         # We need to patch where it is used.
         # But wait, imports in python are weird if we patch sys.modules.
         # Let's patch "gui.src.helpers.web.web_requests_worker.WebRequestsLogic"
@@ -58,7 +58,7 @@ class TestWebRequestsWorker:
 
 class TestReverseSearchWorker:
     def test_run(self, q_app):
-        # Imports ReverseImageSearchCrawler from backend
+        # Imports ReverseImageSearchCrawler from middleware
         with patch(
             "gui.src.helpers.web.reverse_search_worker.ReverseImageSearchManager"
         ) as MockCrawler:
@@ -80,7 +80,7 @@ class TestReverseSearchWorker:
 
 class TestCloudDriveSyncWorker:
     def test_run(self, q_app):
-        # Imports GoogleDriveSync from backend
+        # Imports GoogleDriveSync from middleware
         with patch(
             "gui.src.helpers.web.cloud.cloud_drive_sync_worker.GoogleDriveSync"
         ) as MockLogic:

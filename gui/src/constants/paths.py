@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-# Mirror backend/src/constants/paths.py: under a PyInstaller bundle the repo
+# Mirror middleware/src/constants/paths.py: under a PyInstaller bundle the repo
 # layout lives in sys._MEIPASS, so a __file__-relative walk only works from a
 # source checkout.
 if getattr(sys, "frozen", False):

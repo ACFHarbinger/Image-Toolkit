@@ -5,7 +5,7 @@
  * WebM, optional app-side conversion to GIF/WebP via ffmpeg" — i.e. true
  * GIF/WebP export was explicitly framed as an *optional*, app-side (bridge)
  * follow-on, not required for this pass. This task's own scope discipline
- * excludes new backend/bridge work, so the ffmpeg conversion path isn't
+ * excludes new middleware/bridge work, so the ffmpeg conversion path isn't
  * built here.
  *
  * Instead of stopping at WebM-only, this module gets to genuine animated

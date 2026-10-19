@@ -24,7 +24,7 @@ class SemanticSecurityPlugin:
     def artifacts(self, store: Any) -> List[Artifact]:
         root = Path(getattr(store, "repo_root", Path.cwd()))
         artifacts: List[Artifact] = []
-        for path in root.glob("backend/**/*.py"):
+        for path in root.glob("middleware/**/*.py"):
             findings = scan_python(path)
             if findings:
                 artifacts.append(Artifact("report", f"candidate-findings:{path.relative_to(root)}", path,

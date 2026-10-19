@@ -2,7 +2,7 @@
 """Faithful startup repro for the residual QObject corruption crash.
 
 Runs the real app's startup sequence end-to-end under the SAME process
-conditions as `python backend/main.py` -- QT_FFMPEG_DECODING_HW_DEVICE_TYPES
+conditions as `python middleware/main.py` -- QT_FFMPEG_DECODING_HW_DEVICE_TYPES
 pin, system libpulse/libfontconfig preloads (SONAME-dedup guards), submodule
 package registration, Qt media-backend pin, file-dialog patch -- but then
 auto-triggers a guest login (the real LoginWindow._do_guest_login() path ->
@@ -31,7 +31,7 @@ from pathlib import Path
 
 os.environ.setdefault("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", "cuda")
 
-# Same SONAME-dedup guards as backend/main.py -- must run before any import
+# Same SONAME-dedup guards as middleware/main.py -- must run before any import
 # that pulls in `base`/cv2/Qt.
 with contextlib.suppress(OSError):
     ctypes.CDLL("/usr/lib/x86_64-linux-gnu/libpulse.so.0")
@@ -45,7 +45,7 @@ from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa
 
 register_submodule_packages(repo_root)
 
-from backend.src.qt_runtime_env import pin_qt_media_backend  # noqa: E402
+from middleware.src.qt_runtime_env import pin_qt_media_backend  # noqa: E402
 
 pin_qt_media_backend()
 
@@ -183,7 +183,7 @@ warnings.filterwarnings(
     "ignore", message=".*urllib3.*doesn't match a supported version!.*"
 )
 
-from backend.src.app import launch_app  # noqa: E402
+from middleware.src.app import launch_app  # noqa: E402
 
 if __name__ == "__main__":
     sys.exit(launch_app({"no_dropdown": False, "enable_manager": False}))
