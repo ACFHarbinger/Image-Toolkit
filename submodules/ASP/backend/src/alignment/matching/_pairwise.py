@@ -13,7 +13,7 @@ from typing import Any
 import cv2
 import numpy as np
 import torch
-from backend.src.constants import MATCH_EDGE_CROP, MAX_DX_DRIFT_RATIO
+from middleware.src.constants import MATCH_EDGE_CROP, MAX_DX_DRIFT_RATIO
 
 from ._matchers import _phase_correlate, _segment_guided_match, _template_match
 from ._math import _compute_bg_match_ratio, _compute_translation_spread, _extract_similarity

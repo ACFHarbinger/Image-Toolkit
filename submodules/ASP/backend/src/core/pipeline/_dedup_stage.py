@@ -16,7 +16,7 @@ import logging
 import cv2
 import numpy as np
 from asp_backend.alignment.canvas import _scan_stitch_fallback
-from backend.src.constants import NEAR_DUP_LUMA_THRESH
+from middleware.src.constants import NEAR_DUP_LUMA_THRESH
 from PIL import Image
 
 from ._frame_utils import _reload_scans_frames

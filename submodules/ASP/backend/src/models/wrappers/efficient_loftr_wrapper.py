@@ -30,8 +30,8 @@ from asp_backend.alignment.matching._estimators import (
 )
 import numpy as np
 import torch
-from backend.src.constants.models import WRAPPERS__HF_REPO, WRAPPERS__MIN_INLIERS
-from backend.src.models.core.base import ModelWrapper, lazy_load
+from middleware.src.constants.models import WRAPPERS__HF_REPO, WRAPPERS__MIN_INLIERS
+from middleware.src.models.core.base import ModelWrapper, lazy_load
 
 logger = logging.getLogger(__name__)
 

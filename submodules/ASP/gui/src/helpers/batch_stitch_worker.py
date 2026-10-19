@@ -1,7 +1,7 @@
 import json
 import os
 
-from backend.controllers.backend_dispatch import _collect_image_paths, _run_single_stitch
+from middleware.controllers.backend_dispatch import _collect_image_paths, _run_single_stitch
 from gui.src.helpers.gc_safe import gc_disabled_run
 from PySide6.QtCore import QThread, Signal
 

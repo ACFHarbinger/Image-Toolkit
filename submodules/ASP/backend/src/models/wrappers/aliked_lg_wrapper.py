@@ -29,8 +29,8 @@ try:
 except ImportError:
     _KORNIA_OK = False
 
-from backend.src.constants.models import WRAPPERS_ALIKED_LG_WRAPPER__MIN_INLIERS
-from backend.src.models.core.base import ModelWrapper, lazy_load
+from middleware.src.constants.models import WRAPPERS_ALIKED_LG_WRAPPER__MIN_INLIERS
+from middleware.src.models.core.base import ModelWrapper, lazy_load
 
 logger = logging.getLogger(__name__)
 

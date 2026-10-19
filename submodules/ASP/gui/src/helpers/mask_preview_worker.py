@@ -16,7 +16,7 @@ class MaskPreviewWorker(QThread):
     @gc_disabled_run
     def run(self):
         try:
-            from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+            from middleware.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
 
             img = cv2.imread(self._path)
             if img is None:

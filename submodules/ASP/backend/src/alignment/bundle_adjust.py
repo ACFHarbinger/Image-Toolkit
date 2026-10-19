@@ -18,7 +18,7 @@ import os
 from collections import deque
 
 import numpy as np
-from backend.src.constants import DY_ABS_THRESH, DY_RATIO_THRESH, GNC_C_PX, GNC_MU_ANNEAL
+from middleware.src.constants import DY_ABS_THRESH, DY_RATIO_THRESH, GNC_C_PX, GNC_MU_ANNEAL
 from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
 

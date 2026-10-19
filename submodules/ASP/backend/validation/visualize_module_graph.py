@@ -76,7 +76,7 @@ FORBIDDEN_DIRECTIONS: list[tuple[str, str]] = [
 # startup. Kept as an explicit, reviewable allowlist rather than silently
 # excluding a whole module from violation checking.
 ALLOWED_VIOLATIONS: set[tuple[str, str]] = {
-    ("backend.src.app", "gui.src.windows.main"),
+    ("middleware.src.app", "gui.src.windows.main"),
 }
 
 

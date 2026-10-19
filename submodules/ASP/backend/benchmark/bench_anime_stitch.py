@@ -1410,7 +1410,7 @@ def process_dataset(dataset_dir: str) -> dict | None:  # noqa: C901
     birefnet_ok = False
     _log_resource("before_birefnet", store=stage_memory_rss_mb)
     try:
-        from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+        from middleware.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
 
         birefnet = BiRefNetWrapper()
         if _USE_SAM2:
@@ -1500,7 +1500,7 @@ def process_dataset(dataset_dir: str) -> dict | None:  # noqa: C901
     loftr_ok = False
     _log_resource("before_loftr", store=stage_memory_rss_mb)
     try:
-        from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
+        from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 
         loftr = LoFTRWrapper()
         loftr_ok = True

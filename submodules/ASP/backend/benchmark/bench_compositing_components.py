@@ -37,7 +37,7 @@ from asp_backend.rendering.compositing import (  # noqa: E402
     _seam_cut,
     _soft_seam_weight,
 )
-from backend.benchmark.managers import BenchmarkManager, measure_memory  # noqa: E402
+from middleware.benchmark.managers import BenchmarkManager, measure_memory  # noqa: E402
 
 
 def _make_zone(h: int, w: int, base: int, noise: int = 10, seed: int = 42) -> np.ndarray:

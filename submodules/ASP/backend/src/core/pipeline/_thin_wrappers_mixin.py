@@ -51,9 +51,9 @@ from ._pipeline_protocol import _PipelineHost
 from ._probes import _USE_SAM2, BaSiCWrapper, Image
 
 if TYPE_CHECKING:
-    from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper as _BaSiCWrapperT
-    from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
-    from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
+    from middleware.src.models.wrappers.basic_wrapper import BaSiCWrapper as _BaSiCWrapperT
+    from middleware.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+    from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 
     # Type-checking-only base: gives mypy visibility into attributes set by
     # AnimeStitchPipeline.__init__ / sibling mixins (see _pipeline_protocol.py).
@@ -97,7 +97,7 @@ class _ThinWrappersMixin(_Base):
 
     def _compute_fg_masks(self, frames: list[np.ndarray]) -> list[np.ndarray | None]:
         if self.use_birefnet and self._birefnet is None:
-            from backend.src.models.wrappers.birefnet_wrapper import (
+            from middleware.src.models.wrappers.birefnet_wrapper import (
                 BiRefNetWrapper,
             )  # §3.14 lazy
 
@@ -131,7 +131,7 @@ class _ThinWrappersMixin(_Base):
         bg_masks: list[np.ndarray | None],
     ) -> list[dict]:
         if self.use_loftr and self._loftr is None:
-            from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper  # §3.14 lazy
+            from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper  # §3.14 lazy
 
             self._loftr = LoFTRWrapper()
         return _pairwise_match(

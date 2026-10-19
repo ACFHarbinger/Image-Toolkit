@@ -52,7 +52,7 @@ def _compute_biref_probe_masks(
         return bg_thumb_mask, fg_thumb_mask
 
     try:
-        from backend.src.models.wrappers.birefnet_wrapper import (
+        from middleware.src.models.wrappers.birefnet_wrapper import (
             BiRefNetWrapper as _BiRefNet,
         )  # §3.14 lazy
 

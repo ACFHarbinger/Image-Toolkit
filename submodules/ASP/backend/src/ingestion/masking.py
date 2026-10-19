@@ -20,7 +20,7 @@ try:
 except ImportError:
     torch = None  # type: ignore[assignment]
 
-from backend.src.constants import FOREGROUND_DILATION, FOREGROUND_EROSION
+from middleware.src.constants import FOREGROUND_DILATION, FOREGROUND_EROSION
 
 
 def _disable_opencv_opencl() -> None:

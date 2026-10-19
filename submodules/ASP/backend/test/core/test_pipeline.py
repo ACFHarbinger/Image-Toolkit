@@ -24,7 +24,7 @@ from asp_backend.core.pipeline import (  # noqa: E402
     run_stage,
 )
 from asp_backend.core.pipeline.run_stage import _panorama_fallback_allowed, _refine_masks_for_plate
-from backend.src.constants.animation import (  # noqa: E402
+from middleware.src.constants.animation import (  # noqa: E402
     HIGH_CONF_EDGE_THRESH,
 )
 

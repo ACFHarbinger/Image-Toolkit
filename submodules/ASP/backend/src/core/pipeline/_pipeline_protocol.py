@@ -25,9 +25,9 @@ if TYPE_CHECKING:
     from asp_backend.models.wrappers.aliked_lg_wrapper import ALIKEDLightGlueWrapper
     from asp_backend.models.wrappers.efficient_loftr_wrapper import EfficientLoFTRWrapper
     from asp_backend.models.wrappers.roma_wrapper import RoMaWrapper
-    from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
-    from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
-    from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
+    from middleware.src.models.wrappers.basic_wrapper import BaSiCWrapper
+    from middleware.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+    from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 
 
 class _PipelineHost(Protocol):
