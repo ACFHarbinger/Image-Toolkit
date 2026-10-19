@@ -228,7 +228,7 @@ class _ReviewToolsPage(QWidget):
         self._invalidate_pair_load()
 
     def _on_trajectory_updated(self, traj) -> None:
-        from backend.src.core.guidance_pair import pair_ids_from_trajectory
+        from middleware.src.core.guidance_pair import pair_ids_from_trajectory
 
         self._invalidate_suggestion()
         self._invalidate_pair_load()
@@ -247,7 +247,7 @@ class _ReviewToolsPage(QWidget):
         )
 
     def _on_pair_loaded(self, bound) -> None:
-        from backend.src.core.guidance_pair import pair_files_alive, pair_matches_trajectory
+        from middleware.src.core.guidance_pair import pair_files_alive, pair_matches_trajectory
 
         if bound.generation != self._pair_generation:
             return
@@ -284,13 +284,13 @@ class _ReviewToolsPage(QWidget):
 
     def advisor_trajectory(self):
         """Payload for the next advisor call (#750): trajectory, not just now."""
-        from backend.src.core.guidance_trajectory import format_for_advisor
+        from middleware.src.core.guidance_trajectory import format_for_advisor
 
         traj = self._what_changed.trajectory()
         return format_for_advisor(traj) if traj is not None else None
 
     def _on_guidance_verdict(self, _verdict: str) -> None:
-        from backend.src.core.guidance_pair import pair_matches_trajectory
+        from middleware.src.core.guidance_pair import pair_matches_trajectory
 
         traj = self._what_changed.trajectory()
         bound = self._bound_pair
@@ -300,7 +300,7 @@ class _ReviewToolsPage(QWidget):
             return
         from functools import partial
 
-        from backend.src.core.guidance_trajectory import save_trajectory, trajectory_sidecar_path
+        from middleware.src.core.guidance_trajectory import save_trajectory, trajectory_sidecar_path
 
         from gui.src.tabs.models.guidance_diff_widget import variant_workflow_dir
 
@@ -348,7 +348,7 @@ class _ReviewToolsPage(QWidget):
         self._suggest_approve.setChecked(False)
 
     def _suggestion_key(self):
-        from backend.src.core.guidance_schema import workflow_hash
+        from middleware.src.core.guidance_schema import workflow_hash
         return (
             self._guidance._source_id, workflow_hash(self._guidance._workflow),
             self._vision._generation, self._vision._image,
@@ -423,12 +423,12 @@ class _ReviewToolsPage(QWidget):
         self._suggest_thread.start()
 
     def _suggest_worker(self, snapshot: dict) -> None:
-        from backend.src.core.guidance_request import (
+        from middleware.src.core.guidance_request import (
             GuidanceOutcome,
             build_guidance_request,
             interpret_guidance,
         )
-        from backend.src.core.guidance_vision import run_ocr, vlm_api_key_from_vault
+        from middleware.src.core.guidance_vision import run_ocr, vlm_api_key_from_vault
 
         outcome: GuidanceOutcome | None = None
         error = ""

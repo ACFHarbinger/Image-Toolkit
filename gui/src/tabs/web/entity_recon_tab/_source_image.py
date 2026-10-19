@@ -49,7 +49,7 @@ class EntityReconSourceController(TabBoundController):
     def _on_image_clicked(self, x: int, y: int):
         if self._source_rgb is None:
             return
-        from backend.src.web.recon import segmenter
+        from middleware.src.web.recon import segmenter
 
         try:
             alpha, bbox = segmenter.segment_at_point(self._source_rgb, x, y)

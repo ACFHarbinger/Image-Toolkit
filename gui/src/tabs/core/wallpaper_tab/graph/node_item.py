@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Optional
 
-from backend.src.constants import SUPPORTED_VIDEO_FORMATS
+from middleware.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject

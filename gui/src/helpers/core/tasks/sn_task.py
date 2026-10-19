@@ -12,7 +12,7 @@ class SiameseTask(BaseQRunnableWorker):
 
     def _execute(self) -> object:
         try:
-            from backend.src.models.core.siamese_network import SiameseModelLoader
+            from middleware.src.models.core.siamese_network import SiameseModelLoader
 
             # Get the singleton instance
             loader = SiameseModelLoader()

@@ -12,7 +12,7 @@ import os
 import threading
 from types import SimpleNamespace
 
-from backend.src.comfy_matrix import (
+from middleware.src.comfy_matrix import (
     UnknownWorkflowNodeError,
     build_promoted_submission,
     gpu_lease,
@@ -20,9 +20,9 @@ from backend.src.comfy_matrix import (
     prepare_sweep,
     try_admit,
 )
-from backend.src.constants import LOCAL_SOURCE_PATH
-from backend.src.constants.comfy import ServerState
-from backend.src.core.gpu_vram_estimate import estimate_job_gb
+from middleware.src.constants import LOCAL_SOURCE_PATH
+from middleware.src.constants.comfy import ServerState
+from middleware.src.core.gpu_vram_estimate import estimate_job_gb
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,

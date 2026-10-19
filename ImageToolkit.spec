@@ -33,7 +33,7 @@ _all_submodule_paths = [
 
 pathex = [
     ROOT_DIR,
-    os.path.join(ROOT_DIR, 'backend'),
+    os.path.join(ROOT_DIR, 'middleware'),
     os.path.join(ROOT_DIR, 'gui'),
     os.path.join(ROOT_DIR, 'git'),
 ]
@@ -60,8 +60,8 @@ def find_python_modules(base_dir, prefix=''):
 
 # Enumerate modules
 hidden_modules = set()
-hidden_modules.update(find_python_modules(os.path.join(ROOT_DIR, 'backend', 'src'), 'backend.src.'))
-hidden_modules.update(find_python_modules(os.path.join(ROOT_DIR, 'backend', 'controllers'), 'backend.controllers.'))
+hidden_modules.update(find_python_modules(os.path.join(ROOT_DIR, 'middleware', 'src'), 'middleware.src.'))
+hidden_modules.update(find_python_modules(os.path.join(ROOT_DIR, 'middleware', 'controllers'), 'middleware.controllers.'))
 hidden_modules.update(find_python_modules(os.path.join(ROOT_DIR, 'gui', 'src'), 'gui.src.'))
 hidden_modules.add('gui._cli')  # frozen --version/--help short-circuit (#475)
 hidden_modules.update(find_python_modules(os.path.join(ROOT_DIR, 'git', 'scripts'), 'git.scripts.'))
@@ -98,7 +98,7 @@ third_party_hidden = [
     'json',
     'requests',
     'urllib3',
-    'backend.src._version',
+    'middleware.src._version',
 ]
 hidden_modules.update(third_party_hidden)
 
@@ -112,17 +112,17 @@ datas = [
     (os.path.join(ROOT_DIR, 'configs'), 'configs'),
 ]
 
-# Version: backend.src._version reads installed dist metadata first, then falls
+# Version: middleware.src._version reads installed dist metadata first, then falls
 # back to the canonical root pyproject.toml. Ship both so the frozen app never
 # stamps "0.0.0+unknown" — copy_metadata for the editable-install path,
-# pyproject.toml (at parents[2] of backend/src/_version.py) for the fallback.
+# pyproject.toml (at parents[2] of middleware/src/_version.py) for the fallback.
 # imageio/moviepy read their own dist metadata at import time and hard-fail
 # (PackageNotFoundError) without it.
 from PyInstaller.utils.hooks import collect_data_files as _collect_data_files
 from PyInstaller.utils.hooks import copy_metadata as _copy_metadata
 
 for _dist in (
-    'image-toolkit-backend', 'image-toolkit-gui',
+    'image-toolkit-middleware', 'image-toolkit-gui',
     'imageio', 'imageio-ffmpeg', 'moviepy',
 ):
     try:
@@ -154,7 +154,7 @@ _res_globs = ['**/*.qml', '**/qmldir', '**/*.qss', '**/*.qrc', '**/*.ui',
               '**/*.yaml', '**/*.yml', '**/*.json', '**/*.sql', '**/*.html',
               '**/*.css', '**/*.js', '**/*.svg', '**/*.txt', '**/*.toml',
               '**/*.ini']
-for _pkg in ('gui', 'backend'):
+for _pkg in ('gui', 'middleware'):
     try:
         datas += _collect_data_files(
             _pkg, includes=_res_globs,
@@ -164,9 +164,9 @@ for _pkg in ('gui', 'backend'):
         pass
 
 # Database schemas if not covered by package
-schema_path = os.path.join(ROOT_DIR, 'backend', 'src', 'database', 'unified')
+schema_path = os.path.join(ROOT_DIR, 'middleware', 'src', 'database', 'unified')
 if os.path.isdir(schema_path):
-    datas.append((schema_path, os.path.join('backend', 'src', 'database', 'unified')))
+    datas.append((schema_path, os.path.join('middleware', 'src', 'database', 'unified')))
 
 # Submodules tree if present
 submodules_dir = os.path.join(ROOT_DIR, 'submodules')

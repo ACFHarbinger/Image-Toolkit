@@ -10,7 +10,7 @@ import os
 import subprocess
 import sys
 
-from backend.src.web.recon.config import SCOPE_BOTH, SCOPE_LOCAL
+from middleware.src.web.recon.config import SCOPE_BOTH, SCOPE_LOCAL
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QMessageBox, QTreeWidgetItem
@@ -31,7 +31,7 @@ class EntityReconIdentityController(TabBoundController):
         if self._engine is None:
             QMessageBox.information(self.tab, "No Index", "Build the identity index first.")
             return
-        from backend.src.web.recon import segmenter
+        from middleware.src.web.recon import segmenter
 
         if self._cur_alpha is not None:
             cutout = segmenter.alpha_cutout(self._source_rgb, self._cur_alpha)

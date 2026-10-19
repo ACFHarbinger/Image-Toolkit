@@ -518,15 +518,15 @@ pub async fn load_benchmark_reports(
         // Default: relative to the repo root from the Tauri binary location.
         // In dev mode the CWD is typically the frontend/ directory.
         let mut p = std::env::current_dir().map_err(|e| e.to_string())?;
-        // Walk up until we find backend/benchmark/results or hit the FS root.
+        // Walk up until we find middleware/benchmark/results or hit the FS root.
         loop {
-            let candidate = p.join("backend").join("benchmark").join("results");
+            let candidate = p.join("middleware").join("benchmark").join("results");
             if candidate.exists() {
                 p = candidate;
                 break;
             }
             if !p.pop() {
-                return Err("Could not locate backend/benchmark/results directory".into());
+                return Err("Could not locate middleware/benchmark/results directory".into());
             }
         }
         p

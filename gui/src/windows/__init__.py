@@ -5,7 +5,7 @@ window submodule (that pulls ``MainWindow`` and the world at package-import
 time — half of the import-graph collapse in report §1 finding 5).
 Submodules load on first attribute access via PEP 562 ``__getattr__``; the
 public surface is unchanged. Guarded by
-``backend/validation/check_init_boundaries.py`` (fails CI on any eager
+``middleware/validation/check_init_boundaries.py`` (fails CI on any eager
 submodule import added here).
 """
 

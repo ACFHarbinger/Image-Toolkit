@@ -1,5 +1,5 @@
-from backend.src.comfy_matrix import gpu_lease, try_admit
-from backend.src.core.gpu_vram_estimate import estimate_job_gb
+from middleware.src.comfy_matrix import gpu_lease, try_admit
+from middleware.src.core.gpu_vram_estimate import estimate_job_gb
 from PySide6.QtCore import Signal
 
 from gui.src.helpers.base import BaseQThreadWorker
@@ -41,7 +41,7 @@ class TrainingWorker(BaseQThreadWorker):
 
     def _train_gan(self) -> object:
         import torch
-        from backend.src.models.core.gan import GAN
+        from middleware.src.models.core.gan import GAN
         from torch.utils.data import DataLoader
         from torchvision import datasets, transforms
 

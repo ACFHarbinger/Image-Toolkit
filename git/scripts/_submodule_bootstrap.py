@@ -34,7 +34,7 @@ _PACKAGE_ROOTS = (
 # repo test package (or another submodule). Pre-importing them here caches
 # the correct module in sys.modules so a later bare import (e.g. HIE's
 # "from models import ...") resolves to the submodule's package no matter
-# what pytest later prepends to sys.path (e.g. backend/test/models
+# what pytest later prepends to sys.path (e.g. middleware/test/models
 # shadowing the real models package during combined test collection).
 # Mirrors the _load_package alias pattern: load the real package under its
 # own name so bare imports find it.
@@ -44,14 +44,14 @@ _PRELOAD_PACKAGES = (
 )
 
 # Parent-repo real packages that a test package shadows by name during
-# combined collection (e.g. backend/test/models vs backend/src/models, and
+# combined collection (e.g. middleware/test/models vs middleware/src/models, and
 # gui/test/models). Pre-importing the real package (and its subpackages)
 # caches them so pytest's later package imports resolve to the real code
 # rather than the empty test package.
 _PRELOAD_PARENT_PACKAGES = (
-    "backend.src.models",
-    "backend.src.models.data",
-    "backend.src.models.wrappers",
+    "middleware.src.models",
+    "middleware.src.models.data",
+    "middleware.src.models.wrappers",
 )
 
 

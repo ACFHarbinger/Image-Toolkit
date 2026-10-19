@@ -249,7 +249,7 @@ class TestMainWindowSessionRecovery:
         assert window.tabs.tabText(active_tab_index) == "Image Search"
 
     def test_restore_last_dir_disabled(self, q_app):
-        from backend.src.constants import LOCAL_SOURCE_PATH
+        from middleware.src.constants import LOCAL_SOURCE_PATH
         creds = {
             "account_name": "test_user",
             "preferences": {

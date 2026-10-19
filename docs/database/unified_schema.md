@@ -9,7 +9,7 @@ One SQLCipher-encrypted SQLite database at `~/.image-toolkit/library.db` replace
 | `~/.image-toolkit/listings_secure.db` (`base.secret`) | single `listings` table, everything in a `metadata` JSON blob | `media_items`, `episodes`, `entities`, `credits`, `media_entity`, `entity_entity`, `media_tags` |
 | PostgreSQL + pgvector (`imagedb`) | relational, plaintext, denormalized `group_name`/`subgroup_name` text columns, dead `vector(128)` column | `images` (FK'd to `groups`/`subgroups`), `tags`, `image_tags` |
 
-**DDL source of truth:** [`backend/src/database/unified/schema.sql`](../../backend/src/database/unified/schema.sql) (core, always applied) + [`schema_fts.sql`](../../backend/src/database/unified/schema_fts.sql) (FTS5 layer, applied only when the linked SQLCipher has FTS5; `schema_meta.fts_enabled` records the outcome). Migration `backend/migrations/001_create_library_db.py` applies both and stamps `schema_meta.schema_version = 1`. This document is a mirror — change the `.sql` files first.
+**DDL source of truth:** [`middleware/src/database/unified/schema.sql`](../../middleware/src/database/unified/schema.sql) (core, always applied) + [`schema_fts.sql`](../../middleware/src/database/unified/schema_fts.sql) (FTS5 layer, applied only when the linked SQLCipher has FTS5; `schema_meta.fts_enabled` records the outcome). Migration `middleware/migrations/001_create_library_db.py` applies both and stamps `schema_meta.schema_version = 1`. This document is a mirror — change the `.sql` files first.
 
 ## ER diagram
 

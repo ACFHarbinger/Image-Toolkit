@@ -1,0 +1,527 @@
+"""slideshow_daemon.py — background wallpaper slideshow process.
+
+Launched as a detached subprocess by SystemDisplaySubTab.  Reads the shared
+JSON config file written by the GUI, then advances wallpapers on each monitor
+at the configured interval using the correct DE mechanism:
+
+  • KDE Plasma  → PlasmaShell.evaluateScript via qdbus / dbus-python
+  • GNOME / Cinnamon / etc. → gsettings org.gnome.desktop.background
+
+The daemon is *entirely* Python (no C++ background thread) so it correctly
+inherits the user's session environment (DBUS_SESSION_BUS_ADDRESS, DISPLAY,
+WAYLAND_DISPLAY) and can reach the running desktop compositor.
+"""
+
+import json
+import logging
+import os
+import random
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# sys.path – make sure we can import 'base' and the backend package
+# ---------------------------------------------------------------------------
+_ROOT = Path(__file__).resolve().parents[4]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+from screeninfo import Monitor  # noqa: E402
+
+from middleware.src.constants import (  # noqa: E402
+    DEFAULT_TRANSITION_DELAY_SECONDS,
+    MAX_TRANSITION_DELAY_SECONDS,
+    SUPPORTED_VIDEO_FORMATS,
+)
+from middleware.src.constants.paths import DAEMON_CONFIG_PATH  # noqa: E402
+from middleware.src.constants.utils import _VIDEO_DURATION_CACHE, DISPLAY_LOG_PATH, PID_PATH  # noqa: E402
+from middleware.src.core.wallpaper import WallpaperManager  # noqa: E402
+
+
+def _is_video(path: str) -> bool:
+    return os.path.splitext(path)[1].lower() in SUPPORTED_VIDEO_FORMATS
+
+
+# XDG_SESSION_ID is set by PAM/systemd-logind in every graphical session and
+# is inherited by the daemon subprocess.  loginctl LockedHint is updated by
+# the screen-locker (gnome-screensaver, kscreenlocker, …) synchronously via
+# D-Bus, so it reliably reflects the locked state within ~100 ms.
+# Falls back to False (assume unlocked) on non-systemd or headless systems.
+_SESSION_ID: str = os.environ.get("XDG_SESSION_ID", "")
+
+
+def _is_session_locked() -> bool:
+    """Return True when the current logind session has its LockedHint set."""
+    if not _SESSION_ID:
+        return False
+    try:
+        result = subprocess.run(
+            ["loginctl", "show-session", _SESSION_ID, "--value", "-p", "LockedHint"],
+            capture_output=True, text=True, timeout=2,
+        )
+        return result.stdout.strip().lower() == "yes"
+    except Exception:
+        return False
+
+
+def _get_video_duration(path: str) -> float | None:
+    """Return video duration in seconds via ffprobe, falling back to cv2."""
+    if path in _VIDEO_DURATION_CACHE:
+        return _VIDEO_DURATION_CACHE[path]
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", path],
+            capture_output=True, text=True, timeout=10,
+        )
+        val = result.stdout.strip()
+        if val:
+            dur = float(val)
+            _VIDEO_DURATION_CACHE[path] = dur
+            return dur
+    except Exception:
+        pass
+    try:
+        import cv2  # type: ignore
+
+        cap = cv2.VideoCapture(path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        cap.release()
+        if fps > 0:
+            dur = frames / fps
+            _VIDEO_DURATION_CACHE[path] = dur
+            return dur
+    except Exception:
+        pass
+    return None
+
+# ---------------------------------------------------------------------------
+# Logging – writes to the same log file the GUI "View Logs" button opens
+# ---------------------------------------------------------------------------
+DISPLAY_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+logging.basicConfig(
+    filename=str(DISPLAY_LOG_PATH),
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+
+
+def _atomic_write_json(path: Path, data: dict) -> None:
+    """Write JSON via a temp file + rename so concurrent readers never see a
+    truncated/partial file (plain open(path, "w") is not atomic)."""
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=4)
+    os.replace(tmp, path)
+
+
+def _other_daemon_alive() -> int | None:
+    """PID of another live slideshow_daemon process, if any. Guards against
+    duplicate daemons racing on the same config file (which can clobber each
+    other's interval/flag settings mid-flight)."""
+    try:
+        pid = int(PID_PATH.read_text().strip())
+        if pid == os.getpid():
+            return None
+        os.kill(pid, 0)
+    except Exception:
+        return None
+    return pid
+
+
+# ---------------------------------------------------------------------------
+# DE detection
+# ---------------------------------------------------------------------------
+
+def _detect_de() -> str:
+    """Return 'kde', 'gnome', or 'unknown'."""
+    desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
+    session = os.environ.get("XDG_SESSION_DESKTOP", "").lower()
+    if "kde" in desktop or "plasma" in desktop or "kde" in session:
+        return "kde"
+    if "gnome" in desktop or "gnome" in session or "cinnamon" in desktop:
+        return "gnome"
+    return "unknown"
+
+
+def _find_qdbus() -> str | None:
+    for name in ("qdbus6", "qdbus-qt6", "qdbus", "qdbus-qt5"):
+        if shutil.which(name):
+            return name
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Wallpaper setters
+# ---------------------------------------------------------------------------
+
+def _runtime_interval(monitor_state: dict, fallback: int) -> int:
+    """Longest duration among the currently active videos across monitors,
+    so no monitor's video gets cut off early. Falls back to the configured
+    fixed interval when nothing currently showing is a video (or duration
+    can't be determined)."""
+    durations = []
+    for state in monitor_state.values():
+        path = state["paths"][state["index"]]
+        if _is_video(path):
+            dur = _get_video_duration(path)
+            if dur:
+                durations.append(dur)
+    if not durations:
+        return fallback
+    return max(1, round(max(durations)))
+
+
+def _parse_monitors(config: dict) -> list:
+    monitors = []
+    for mid_str, geom in sorted(config.get("monitor_geometries", {}).items(), key=lambda x: int(x[0])):
+        monitors.append(Monitor(
+            x=geom.get("x", 0),
+            y=geom.get("y", 0),
+            width=geom.get("width", 1920),
+            height=geom.get("height", 1080),
+            name=f"Monitor {mid_str}"
+        ))
+    return monitors
+
+
+# ---------------------------------------------------------------------------
+# Main daemon loop
+# ---------------------------------------------------------------------------
+
+def run() -> None:  # noqa: C901
+    logging.info("Slideshow daemon started.")
+    logging.info(
+        f"DBUS_SESSION_BUS_ADDRESS={os.environ.get('DBUS_SESSION_BUS_ADDRESS', '<not set>')} | "
+        f"DISPLAY={os.environ.get('DISPLAY', '<not set>')} | "
+        f"WAYLAND_DISPLAY={os.environ.get('WAYLAND_DISPLAY', '<not set>')} | "
+        f"XDG_CURRENT_DESKTOP={os.environ.get('XDG_CURRENT_DESKTOP', '<not set>')}"
+    )
+
+    de = _detect_de()
+    qdbus = _find_qdbus() if de == "kde" else None
+    logging.info(f"Detected DE: {de!r}  |  qdbus: {qdbus!r}")
+
+    if not DAEMON_CONFIG_PATH.exists():
+        logging.error(f"Config not found: {DAEMON_CONFIG_PATH}")
+        return
+
+    existing_pid = _other_daemon_alive()
+    if existing_pid:
+        logging.warning(
+            f"Another slideshow daemon is already running (PID {existing_pid}) "
+            "-- exiting to avoid two processes racing on the same config."
+        )
+        return
+    try:
+        PID_PATH.parent.mkdir(parents=True, exist_ok=True)
+        PID_PATH.write_text(str(os.getpid()))
+    except Exception as exc:
+        logging.warning(f"Could not write PID file: {exc}")
+
+    try:
+        with open(DAEMON_CONFIG_PATH) as f:
+            config = json.load(f)
+    except Exception as exc:
+        logging.error(f"Failed to read config: {exc}")
+        return
+
+    if not config.get("running"):
+        logging.info("Config says not running – exiting.")
+        return
+
+    # ---- Build per-monitor playback state --------------------------------
+    interval: int = int(config.get("interval_seconds", 30))
+    playback_order: str = config.get("playback_order", "Sequential")
+    raw_style: str = config.get("style", "Scaled, Keep Proportions")
+    background_color: str | None = config.get("background_color")
+    use_video_runtime: bool = bool(config.get("use_video_runtime_interval", False))
+    # Kept apart from ``interval`` (which _update_config_paths writes back to
+    # the config) so the delay is never folded into the stored interval.
+    transition_delay: int = transition_delay_seconds(config)
+
+    current_paths: dict = config.get("current_paths", {})
+    monitor_indices: dict = config.get("monitor_current_indices", {})
+    monitor_queues: dict = config.get("monitor_queues", {})
+
+    # per-monitor: current index, shuffled list
+    monitor_state: dict[str, dict] = {}
+    for mid, paths in monitor_queues.items():
+        if not paths:
+            continue
+        ordered = list(paths)
+        if playback_order == "Reverse Sequential":
+            ordered.reverse()
+        elif playback_order == "Random":
+            random.shuffle(ordered)
+
+        # Start from the currently active wallpaper if present in queue
+        start_idx = 0
+        active_path = (
+            current_paths.get(mid)
+            or current_paths.get(str(mid))
+            or (current_paths.get(int(mid)) if str(mid).isdigit() else None)
+        )
+        if active_path and active_path in ordered:
+            start_idx = ordered.index(active_path)
+        else:
+            idx_hint = (
+                monitor_indices.get(mid)
+                if mid in monitor_indices
+                else monitor_indices.get(str(mid))
+            )
+            if idx_hint is not None and isinstance(idx_hint, int) and 0 <= idx_hint < len(paths):
+                hinted_path = paths[idx_hint]
+                if hinted_path in ordered:
+                    start_idx = ordered.index(hinted_path)
+
+        monitor_state[mid] = {"paths": ordered, "index": start_idx}
+
+    if not monitor_state:
+        logging.warning("No non-empty monitor queues found – exiting.")
+        return
+
+    logging.info(
+        f"Starting slideshow: interval={interval}s (+{transition_delay}s transition), style={raw_style!r}, "
+        f"monitors={list(monitor_state.keys())}"
+    )
+
+    # Set first wallpaper on each monitor immediately (unless already locked)
+    monitors = _parse_monitors(config)
+    _was_locked = _is_session_locked()
+    if _was_locked:
+        logging.info("Session is locked on startup — deferring first wallpaper apply to unlock.")
+    else:
+        _apply_all(monitor_state, de, qdbus, raw_style, monitors, background_color=background_color)
+    if use_video_runtime:
+        interval = _runtime_interval(monitor_state, interval)
+        logging.info(f"Video-runtime interval: {interval}s")
+    _update_config_paths(monitor_state, interval, use_video_runtime)
+
+    elapsed = 0.0
+    reset_token = config.get("timer_reset_token")
+    last_config_mtime = DAEMON_CONFIG_PATH.stat().st_mtime
+
+    try:
+        while True:
+            time.sleep(1.0)
+
+            # ---- Lock-screen: pause timer while session is locked ---------
+            locked = _is_session_locked()
+            if locked:
+                if not _was_locked:
+                    logging.info("Session locked — pausing slideshow timer.")
+                _was_locked = True
+                continue  # do not accumulate elapsed, do not poll config
+
+            if _was_locked:
+                # Just unlocked: apply the current wallpaper immediately so
+                # the user sees the right image without waiting another full
+                # interval, then reset elapsed so the next advance is on time.
+                logging.info("Session unlocked — applying wallpaper and resetting timer.")
+                _apply_all(monitor_state, de, qdbus, raw_style, monitors, background_color=background_color)
+                _update_config_paths(monitor_state, interval, use_video_runtime)
+                elapsed = 0.0
+            _was_locked = False
+
+            elapsed += 1.0
+
+            # ---- Detect config changes (GUI edited settings) --------------
+            try:
+                mtime = DAEMON_CONFIG_PATH.stat().st_mtime
+            except OSError:
+                mtime = last_config_mtime
+
+            if mtime != last_config_mtime:
+                last_config_mtime = mtime
+                try:
+                    with open(DAEMON_CONFIG_PATH) as f:
+                        gui_cfg = json.load(f)
+                except Exception as exc:
+                    logging.warning(f"Config re-read failed: {exc}")
+                    gui_cfg = {}
+
+                decision = apply_runtime_config(
+                    gui_cfg,
+                    interval=interval,
+                    style=raw_style,
+                    use_video_runtime=use_video_runtime,
+                    reset_token=reset_token,
+                )
+                if decision["stop"]:
+                    logging.info("Stop requested via config file.")
+                    break
+
+                monitors = _parse_monitors(gui_cfg)
+                if decision["reset_elapsed"]:
+                    logging.info(
+                        f"Interval changed: {interval} → {decision['interval']}s"
+                    )
+                    elapsed = 0.0
+                interval = decision["interval"]
+                reset_token = decision.get("reset_token", reset_token)
+                if decision.get("timer_reset"):
+                    logging.info("Timer reset requested; restarting the interval.")
+                    elapsed = 0.0
+                    # Restamp so the GUI countdown restarts from the full period.
+                    _update_config_paths(monitor_state, interval, use_video_runtime)
+                use_video_runtime = decision["use_video_runtime"]
+                raw_style = decision["style"]
+                background_color = gui_cfg.get("background_color")
+                transition_delay = transition_delay_seconds(gui_cfg)
+                # monitor_queues / playback_order stay locked at start time.
+
+            # ---- Advance wallpapers when timer fires ----------------------
+            if elapsed >= interval + transition_delay:
+                elapsed = 0.0
+                _advance_all(monitor_state)
+                _apply_all(monitor_state, de, qdbus, raw_style, monitors, background_color=background_color)
+                if use_video_runtime:
+                    interval = _runtime_interval(monitor_state, interval)
+                    logging.info(f"Video-runtime interval: {interval}s")
+                _update_config_paths(monitor_state, interval, use_video_runtime)
+
+    except KeyboardInterrupt:
+        logging.info("KeyboardInterrupt received.")
+    finally:
+        try:
+            if DAEMON_CONFIG_PATH.exists():
+                with open(DAEMON_CONFIG_PATH) as f:
+                    final = json.load(f)
+                final["running"] = False
+                _atomic_write_json(DAEMON_CONFIG_PATH, final)
+        except Exception:
+            pass
+        try:
+            if PID_PATH.exists() and PID_PATH.read_text().strip() == str(os.getpid()):
+                PID_PATH.unlink()
+        except Exception:
+            pass
+        logging.info("Slideshow daemon stopped.")
+
+
+
+# ---------------------------------------------------------------------------
+def _is_valid_image(path: str) -> bool:
+    """Return True if path exists, is a regular file, and is non-empty."""
+    try:
+        p = Path(path)
+        return p.is_file() and p.stat().st_size > 0
+    except Exception:
+        return False
+
+
+def _advance_all(monitor_state: dict) -> None:
+    for _mid, state in monitor_state.items():
+        total = len(state["paths"])
+        if total == 0:
+            continue
+        for _ in range(total):
+            state["index"] = (state["index"] + 1) % total
+            candidate = state["paths"][state["index"]]
+            if _is_valid_image(candidate):
+                break
+
+
+def _apply_all(
+    monitor_state: dict,
+    de: str,
+    qdbus: str | None,
+    raw_style: str,
+    monitors: list,
+    *,
+    background_color: str | None = None,
+) -> None:
+    path_map = {}
+    for mid, state in monitor_state.items():
+        path = state["paths"][state["index"]]
+        logging.info(f"Monitor {mid}: → {Path(path).name}  (index {state['index']})")
+        path_map[str(mid)] = path
+
+    if not path_map:
+        return
+
+    try:
+        WallpaperManager.apply_wallpaper(
+            path_map, monitors, raw_style, qdbus, background_color=background_color
+        )
+    except Exception as exc:
+        logging.error(f"Failed to apply wallpaper: {exc}")
+
+
+def transition_delay_seconds(cfg: dict) -> int:
+    """Seconds added to every interval for the wallpaper transition itself."""
+    try:
+        delay = int(cfg.get("transition_delay_seconds", DEFAULT_TRANSITION_DELAY_SECONDS))
+    except (TypeError, ValueError):
+        return DEFAULT_TRANSITION_DELAY_SECONDS
+    return max(0, min(delay, MAX_TRANSITION_DELAY_SECONDS))
+
+
+def apply_runtime_config(
+    gui_cfg: dict,
+    *,
+    interval: int,
+    style: str,
+    use_video_runtime: bool,
+    reset_token=None,
+) -> dict:
+    """Apply a GUI config rewrite without touching the locked start-time queue.
+
+    Restarting the app (or loading another profile) must not change what an
+    already-running daemon is showing. Only an explicit stop (``running``
+    cleared) ends the loop. Interval/style may still update.
+    """
+    if not gui_cfg or not gui_cfg.get("running"):
+        return {"stop": True, "interval": interval, "style": style, "use_video_runtime": use_video_runtime}
+    try:
+        new_interval = int(gui_cfg.get("interval_seconds", interval))
+    except (TypeError, ValueError):
+        new_interval = interval
+    new_style = gui_cfg.get("style", style) or style
+    new_video = bool(gui_cfg.get("use_video_runtime_interval", use_video_runtime))
+    # "Reset Timer" bumps timer_reset_token; a rewrite that leaves it out
+    # (or unchanged) is not a reset.
+    new_token = gui_cfg.get("timer_reset_token")
+    timer_reset = new_token is not None and new_token != reset_token
+    return {
+        "stop": False,
+        "interval": new_interval,
+        "style": new_style,
+        "use_video_runtime": new_video,
+        "reset_elapsed": (not new_video and new_interval != interval),
+        "timer_reset": timer_reset,
+        "reset_token": new_token if new_token is not None else reset_token,
+    }
+
+
+def _update_config_paths(monitor_state: dict, interval: int, use_video_runtime: bool) -> None:
+    """Write current_paths + the live interval back into the config so the
+    GUI countdown/display and any config reload stay in sync with what the
+    daemon is actually doing (video-runtime mode recomputes interval every
+    cycle, so the on-disk value must track it, not just the original fixed
+    setting)."""
+    try:
+        with open(DAEMON_CONFIG_PATH) as f:
+            cfg = json.load(f)
+        current_paths = cfg.get("current_paths", {})
+        if not isinstance(current_paths, dict):
+            current_paths = {}
+        for mid, state in monitor_state.items():
+            current_paths[mid] = state["paths"][state["index"]]
+        cfg["current_paths"] = current_paths
+        cfg["last_change_timestamp"] = int(time.time())
+        cfg["interval_seconds"] = interval
+        cfg["use_video_runtime_interval"] = use_video_runtime
+        _atomic_write_json(DAEMON_CONFIG_PATH, cfg)
+    except Exception as exc:
+        logging.warning(f"Could not update config paths: {exc}")
+
+
+if __name__ == "__main__":
+    run()

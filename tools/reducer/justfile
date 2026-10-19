@@ -36,7 +36,7 @@ clean:
 # Clean ASP benchmark output directories
 clean-outputs:
     @echo "🧹 Cleaning ASP benchmark output directories..."
-    rm -rf backend/benchmark/output/*
+    rm -rf middleware/benchmark/output/*
     rm -rf dump/asp_test*/output
     rm -rf dump/output
     @echo "✅ Cleanup complete!"

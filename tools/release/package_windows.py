@@ -21,7 +21,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 def get_app_version() -> str:
     sys.path.insert(0, str(ROOT_DIR))
     try:
-        from backend.src._version import __version__
+        from middleware.src._version import __version__
 
         return __version__
     except Exception:

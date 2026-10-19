@@ -21,8 +21,8 @@ mono_crash.*
 [Dd]ebugPublic/
 [Rr]elease/
 !tools/release/
-!backend/release/
-!backend/release/generate_release_fixtures.py
+!middleware/release/
+!middleware/release/generate_release_fixtures.py
 [Rr]eleases/
 x64/
 x86/
@@ -434,14 +434,14 @@ CMakeFiles/
 models/wd14/
 outputs/**/*.log
 outputs/**/*.yaml
-backend/benchmark/output/*.json
-backend/benchmark/managers/output/
+middleware/benchmark/output/*.json
+middleware/benchmark/managers/output/
 
 # Build directories
 /**/Image_Toolkit.egg-info
 /git/image_toolkit_git.egg-info
 /gui/image_toolkit_gui.egg-info
-/backend/image_toolkit_backend.egg-info
+/middleware/image_toolkit_middleware.egg-info
 /**/build
 /**/dist
 /**/target
@@ -472,7 +472,7 @@ mcp.json
 .mypy_cache/
 
 # Reverse-search engine credentials (keep the .example, ignore the real file)
-backend/config/api_keys.yaml
+middleware/config/api_keys.yaml
 
 # Phase DB pre-migration backups (contain an unencrypted pg_dump of the image index)
 assets/migrations/pre_unified/
@@ -483,7 +483,7 @@ data/benchmarks/
 # Forcefully add to path
 !debug/
 !tools/build/
-!backend/validation/target
+!middleware/validation/target
 
 # JVM fatal-error logs + core dumps (debug/run_with_gdb.sh writes these to
 # the repo root, its cwd -- see .agent/archive/reports/gallery_crash_deleteorphaned_2026-07-27.md

@@ -5,7 +5,7 @@ Extracted from ``drive_sync_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-import backend.src.constants as udef
+import middleware.src.constants as udef
 
 from ._tab_bound import TabBoundController
 

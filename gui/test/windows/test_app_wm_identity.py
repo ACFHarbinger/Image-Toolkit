@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from backend.src.app import APP_DESKTOP_FILE_NAME, set_app_identity
+from middleware.src.app import APP_DESKTOP_FILE_NAME, set_app_identity
 from PySide6.QtWidgets import QApplication
 
 pytestmark = pytest.mark.gui

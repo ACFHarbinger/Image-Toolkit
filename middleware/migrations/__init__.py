@@ -1,0 +1,16 @@
+"""Phase DB migration scripts — unified library database.
+
+Order is mandatory and enforced by :mod:`middleware.migrations.runner`:
+
+    000_backup_all         hard backup gate (cannot be skipped)
+    001_create_library_db  DDL + schema_version stamp
+    002_migrate_listings   listings_secure.db -> library.db
+    003_migrate_pgvector   PostgreSQL -> library.db (skippable if unreachable)
+    004_verify_migration   row-count / integrity / checksum report
+
+Step 000's implementation lives in :mod:`middleware.backups.backup_all`; the
+shared copy-and-manifest helper is :mod:`middleware.backups._backup_utils`.
+One-off, non-sequenced upgrades live in :mod:`middleware.upgrades`.
+
+See docs/moon/roadmaps/unified_database.md (DB.4).
+"""

@@ -7,7 +7,7 @@ set working-directory := '../..'
 
 # Bump the canonical version (root pyproject.toml [project].version) and every
 # derived source (pixi.toml, package.json, app/android/build.gradle.kts, and the
-# backend/gui/git member pyproject.tomls) to match. Validates SemVer, rewrites
+# middleware/gui/git member pyproject.tomls) to match. Validates SemVer, rewrites
 # in place, prints the diff, does NOT commit or tag.
 # Usage: just release::bump 1.2.3
 bump new_version:

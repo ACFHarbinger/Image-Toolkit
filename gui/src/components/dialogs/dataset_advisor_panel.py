@@ -10,8 +10,8 @@ render informational — no button at all.
 """
 from __future__ import annotations
 
-from backend.src.comfy_matrix import gpu_lease, try_admit
-from backend.src.core.dataset_advisor import (
+from middleware.src.comfy_matrix import gpu_lease, try_admit
+from middleware.src.core.dataset_advisor import (
     ACTION_EXCLUDE,
     ACTION_HYDRA,
     ACTION_REVIEW_TAGS,
@@ -21,7 +21,7 @@ from backend.src.core.dataset_advisor import (
     analyze_diversity,
     scan_dataset,
 )
-from backend.src.core.gpu_vram_estimate import estimate_job_gb
+from middleware.src.core.gpu_vram_estimate import estimate_job_gb
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import (
     QFrame,
@@ -45,7 +45,7 @@ def embed_paths(paths, progress=None, cancel=None):
     """Chunked CLIP embedding through the similarity stack. Lazy import
     boundary — torch loads only when the clustering action actually runs —
     and monkeypatchable in tests."""
-    from backend.src.core.similarity import get_embedder
+    from middleware.src.core.similarity import get_embedder
 
     embedder = get_embedder("mobileclip")
     if embedder is None:

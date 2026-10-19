@@ -251,10 +251,10 @@ python -m backend.dispatcher command=comfyui comfyui.port=8188 comfyui.listen=12
 python -m backend.dispatcher command=train training.batch_size=16 training.epochs=50
 
 # Batch image conversion via the main CLI
-python backend/main.py convert --output_format png --input_path /path/to/images --input_formats webp avif
+python middleware/main.py convert --output_format png --input_path /path/to/images --input_formats webp avif
 ```
 
-Config files live in `backend/config/`. Override any key with `key=value` on the command line. `backend/config/asp_config.toml` configures the Anime Stitch Pipeline — see `backend/src/animation/config.py` for the schema.
+Config files live in `middleware/config/`. Override any key with `key=value` on the command line. `middleware/config/asp_config.toml` configures the Anime Stitch Pipeline — see `middleware/src/animation/config.py` for the schema.
 
 ---
 
@@ -268,7 +268,7 @@ The legacy Qt-based desktop application provides a full feature set including th
 source .venv/bin/activate
 
 # Launch the GUI
-python backend/main.py
+python middleware/main.py
 
 # Or via the justfile
 just python
@@ -329,11 +329,11 @@ npm run electron-dev
 npm run start-electron
 ```
 
-The dashboard reads benchmark JSON outputs from `backend/benchmark/results/`. Run the benchmark suite first to populate data:
+The dashboard reads benchmark JSON outputs from `middleware/benchmark/results/`. Run the benchmark suite first to populate data:
 
 ```bash
 source .venv/bin/activate
-python backend/benchmark/run_all.py
+python middleware/benchmark/run_all.py
 ```
 
 Then open the Analytics tab in the running app to see the results.
@@ -391,16 +391,16 @@ xcodebuild test -project ImageToolkit.xcodeproj -scheme ImageToolkit -destinatio
 source .venv/bin/activate
 
 # Run the full 97-test benchmark corpus
-python backend/benchmark/run_all.py
+python middleware/benchmark/run_all.py
 
 # Run with baseline comparison (fails if metrics regress)
-python backend/benchmark/run_all.py --baseline backend/benchmark/results/baseline/
+python middleware/benchmark/run_all.py --baseline middleware/benchmark/results/baseline/
 
 # Run a single test by ID
-python backend/benchmark/run_single.py --test-id 09
+python middleware/benchmark/run_single.py --test-id 09
 
 # Safe animation test suite (no GPU, no heavy model imports)
-pytest backend/test/animation/ --skip-gpu
+pytest middleware/test/animation/ --skip-gpu
 ```
 
 **Rust criterion micro-benchmarks**
@@ -428,7 +428,7 @@ bash desktop/linux/scripts/setup_env.sh
 
 # Check module import times (validates <1.5s threshold for all animation modules)
 source .venv/bin/activate
-python backend/src/utils/check_import_times.py
+python middleware/src/utils/check_import_times.py
 ```
 
 ---
@@ -743,7 +743,7 @@ The compiled application will be in:
 
 ```bash
 source .venv/bin/activate
-python backend/main.py
+python middleware/main.py
 # or: make python-dev
 ```
 
@@ -941,12 +941,12 @@ After installing PostgreSQL, you can use the `psql -U postgres -d img_db` comman
 
 You can either convert a single image at a time:
 ```bash
-python backend/main.py convert --output_format png --input_path <path_to_img> --output_path <path_new_img>
+python middleware/main.py convert --output_format png --input_path <path_to_img> --output_path <path_new_img>
 ```
 
 or batch convert all images in a directory that match one (or more) image formats:
 ```bash
-python backend/main.py convert --output_format png --input_path <path_to_dir> --input_formats webp avif --output_path <path_new_dir>
+python middleware/main.py convert --output_format png --input_path <path_to_dir> --input_formats webp avif --output_path <path_new_dir>
 ```
 
 **Note:** If no `--output_path` argument is given, the new image will have the same name (or the images will be generated in the same directory, in the case of batch conversion), just with a different file extension.

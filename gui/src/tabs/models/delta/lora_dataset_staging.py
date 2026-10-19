@@ -6,10 +6,10 @@ from pathlib import Path
 from typing import NamedTuple
 
 # Content Gen §1.3: LyCORIS variants (LoCon/LoHa/LoKr), each a Hydra config
-# preset under backend/config/training/. "standard" keeps the existing
+# preset under middleware/config/training/. "standard" keeps the existing
 # LoRATuner (legacy) path byte-for-byte unchanged; the three LyCORIS
 # entries route through the already-built LoRATunerV2 pipeline
-# (backend/src/pipeline/anime_training_pipeline.py) via the project's own
+# (middleware/src/pipeline/anime_training_pipeline.py) via the project's own
 # Hydra CLI dispatcher, rather than re-implementing dataset/tuner
 # construction inline here.
 _TRAINING_ENGINES = [

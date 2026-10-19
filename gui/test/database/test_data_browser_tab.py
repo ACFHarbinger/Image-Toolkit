@@ -111,7 +111,7 @@ class TestDataBrowserTab:
             "gui.src.helpers.database.library_session.get_library_db",
             return_value=MagicMock(),
         ), patch(
-            "backend.src.database.unified.browser_repo.BrowserRepo",
+            "middleware.src.database.unified.browser_repo.BrowserRepo",
             return_value=mock_repo,
         ):
             tab.connect_browser(silent=True)

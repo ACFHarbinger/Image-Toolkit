@@ -16,8 +16,8 @@ from __future__ import annotations
 import contextlib
 from typing import TYPE_CHECKING, List, Optional, cast
 
-from backend.src.constants import DEFAULT_TRANSITION_DELAY_SECONDS
-from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
+from middleware.src.constants import DEFAULT_TRANSITION_DELAY_SECONDS
+from middleware.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox
 

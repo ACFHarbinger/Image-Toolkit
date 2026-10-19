@@ -6,7 +6,7 @@ This rewrites every derived source to match, prints the resulting diff, and
 does NOT commit or tag:
 
 * ``pyproject.toml``            (root, ``[project].version`` — canonical)
-* ``backend/pyproject.toml``    (the dist the running app reads at runtime)
+* ``middleware/pyproject.toml``    (the dist the running app reads at runtime)
 * ``gui/pyproject.toml``
 * ``git/pyproject.toml``
 * ``pixi.toml``                 (``[workspace].version``)
@@ -83,7 +83,7 @@ def _targets(version: str) -> list[tuple[Path, Callable[[str], str]]]:
     project = lambda text: _rewrite_toml_version(text, version, "project")  # noqa: E731
     return [
         (REPO_ROOT / "pyproject.toml", project),
-        (REPO_ROOT / "backend/pyproject.toml", project),
+        (REPO_ROOT / "middleware/pyproject.toml", project),
         (REPO_ROOT / "gui/pyproject.toml", project),
         (REPO_ROOT / "git/pyproject.toml", project),
         (REPO_ROOT / "pixi.toml", lambda text: _rewrite_toml_version(text, version, "workspace")),

@@ -1,6 +1,6 @@
 import os
 
-from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
+from middleware.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QPointF
 from PySide6.QtGui import QBrush, QColor, QPainter
 from PySide6.QtWidgets import QGraphicsView

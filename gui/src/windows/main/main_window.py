@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 
-from backend.src._version import __version__
-from backend.src.core.vault_manager import VaultManager
+from middleware.src._version import __version__
+from middleware.src.core.vault_manager import VaultManager
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QGuiApplication, QImageReader
 from PySide6.QtWidgets import (

@@ -10,7 +10,7 @@ import contextlib
 import platform
 from typing import TYPE_CHECKING, Dict, Optional
 
-from backend.src.core import WallpaperManager
+from middleware.src.core import WallpaperManager
 from PySide6.QtCore import QEvent, QObject, QThreadPool, Signal, Slot
 from PySide6.QtWidgets import QApplication, QMessageBox
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 import contextlib
 import os
 
-from backend.src._version import __version__
+from middleware.src._version import __version__
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QMenu, QStyle, QSystemTrayIcon
 

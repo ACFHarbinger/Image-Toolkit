@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, cast
 
-from backend.src.constants import LOCAL_SOURCE_PATH
+from middleware.src.constants import LOCAL_SOURCE_PATH
 from PySide6.QtCore import QEvent, QObject, Qt, QThreadPool, QTimer, Signal
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QPixmap, QResizeEvent, QWheelEvent
 from PySide6.QtWidgets import (

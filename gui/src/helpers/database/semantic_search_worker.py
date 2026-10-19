@@ -48,7 +48,7 @@ class SemanticSearchWorker(BaseQRunnableWorker):
         self.exclude_image_id = exclude_image_id
 
     def _execute(self) -> None:
-        from backend.src.core.similarity.embedder import get_embedder
+        from middleware.src.core.similarity.embedder import get_embedder
 
         embedder = get_embedder(self.model)
         if embedder is None:

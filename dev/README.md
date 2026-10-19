@@ -37,7 +37,7 @@ the 2026-08-17 `devtool` build — a plugin host, MCP server, local web
 viewer, and benchmark/ASP-evaluator adapters. The gallery-crash workflow
 was the first user, not the only one.
 
-## The instrumentation: `backend/src/core/telemetry.py`
+## The instrumentation: `middleware/src/core/telemetry.py`
 
 A toggleable, dependency-light structured event logger. Disabled by default
 (near-zero cost — one boolean check per call site). Enable it for a
@@ -54,10 +54,10 @@ moment later, so a truncated final line is expected on a crashed run, not
 an error. Optional `span_id`/`parent_span_id`/`seq` (D4/D23) let spans nest
 into a real tree when the writer opts in; ASP's `PipelineSession` does.
 
-Call sites already wired up: `backend/src/app.py` (JVM start, JPEG-plugin
+Call sites already wired up: `middleware/src/app.py` (JVM start, JPEG-plugin
 priming, login success, `MainWindow` construction/show),
-`backend/src/core/vault_manager.py` (`jpype.startJVM()`),
-`backend/src/core/lifecycle_memory.py` (RSS snapshots),
+`middleware/src/core/vault_manager.py` (`jpype.startJVM()`),
+`middleware/src/core/lifecycle_memory.py` (RSS snapshots),
 `gui/src/utils/guard/startup_probe_guard.py`, the Wallpaper scan pipeline
 (`_scan_pipeline.py`, `_scanner_lifecycle.py`,
 `system_display_subtab/_config.py` — every scanner-`QThread`
@@ -70,7 +70,7 @@ native-crash boundary: `gui/src/helpers/video/video_thumbnailer.py`'s
 To add more instrumentation at a new call site:
 
 ```python
-from backend.src.core import telemetry
+from middleware.src.core import telemetry
 
 telemetry.emit("category", "event.name", some_field=value)   # one-shot
 with telemetry.span("native", "some_call", path=path):        # start/end/error
@@ -109,11 +109,11 @@ longer a separate top-level import.
 
 ```bash
 python -m tool repro --scenario media-loader-stress
-python -m tool repro -- backend/main.py --no-dropdown   # any command
+python -m tool repro -- middleware/main.py --no-dropdown   # any command
 IMAGE_TOOLKIT_TELEMETRY=1 dev/run_with_gdb.sh
 ```
 
-`run_with_gdb.sh` runs `backend/main.py` under `gdb -batch`, stopping
+`run_with_gdb.sh` runs `middleware/main.py` under `gdb -batch`, stopping
 **only on SIGABRT** — glibc's malloc-corruption abort, the
 `corrupted size vs. prev_size` crash this tool exists for — and dumping an
 all-thread backtrace to
@@ -135,7 +135,7 @@ missing piece either — `just python` runs a uv-managed, already-unstripped
 CPython build, not the system one debug-symbol packages would target.
 
 Requires `gdb` installed (`sudo apt install gdb` on Debian/Ubuntu). Extra
-arguments are forwarded to `backend/main.py`. The script raises the
+arguments are forwarded to `middleware/main.py`. The script raises the
 core-dump size limit (`ulimit -c unlimited`) and collects any
 `hs_err_pid*.log`/`core.<pid>` files into
 `~/.image-toolkit/telemetry/` afterward (both `.gitignore`d, land in the

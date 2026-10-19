@@ -13,7 +13,7 @@ import subprocess
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
-from backend.src.constants import SUPPORTED_VIDEO_FORMATS
+from middleware.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox, QWidget
 

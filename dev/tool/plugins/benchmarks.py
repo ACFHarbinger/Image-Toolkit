@@ -35,7 +35,7 @@ MANIFEST = PluginManifest(
 
 _BENCHMARK_DIRS = [
     Path("submodules/ASP/backend/benchmark/output"),
-    Path("backend/benchmark/output"),
+    Path("middleware/benchmark/output"),
     Path("docs/website/public/data"),
 ]
 

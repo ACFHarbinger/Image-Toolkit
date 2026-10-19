@@ -11,7 +11,7 @@ import re
 import shutil
 from pathlib import Path
 
-from backend.src.constants import API_DIR, IMAGE_TOOLKIT_DIR
+from middleware.src.constants import API_DIR, IMAGE_TOOLKIT_DIR
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,

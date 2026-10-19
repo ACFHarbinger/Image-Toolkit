@@ -2,7 +2,7 @@
 per-layer ΔW, and the explicit ΔW-principal loss slice.
 
 The dialog is data-driven: it receives pure `RankHistoryReport` /
-`LossSliceResult` objects (backend/src/core/adapter_reports.py) computed
+`LossSliceResult` objects (middleware/src/core/adapter_reports.py) computed
 on worker threads, never on the GUI thread. The loss slice is an explicit
 research action with the cost shown before launch and the GPU lease held
 for its duration; its result is labeled a *slice along the leading ΔW
@@ -12,13 +12,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from backend.src.comfy_matrix import gpu_lease, try_admit
-from backend.src.core.adapter_reports import (
+from middleware.src.comfy_matrix import gpu_lease, try_admit
+from middleware.src.core.adapter_reports import (
     SLICE_LABEL,
     LossSliceResult,
     RankHistoryReport,
 )
-from backend.src.core.gpu_vram_estimate import estimate_job_gb
+from middleware.src.core.gpu_vram_estimate import estimate_job_gb
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -84,8 +84,8 @@ class LossSliceWorker(BaseQThreadWorker):
         return result
 
     def _compute(self) -> object:
-        from backend.src.core.adapter_reports import LossSliceResult
-        from backend.src.models.hooks.loss_slice import (
+        from middleware.src.core.adapter_reports import LossSliceResult
+        from middleware.src.models.hooks.loss_slice import (
             build_eval_batches,
             inject_checkpoint,
             load_tuner_for_slice,

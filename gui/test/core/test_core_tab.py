@@ -938,7 +938,7 @@ class TestListingsTab:
     def test_sync_with_mock_vault(self, q_app, monkeypatch, tmp_path):
         import json
 
-        import backend.src.constants as udef
+        import middleware.src.constants as udef
         from PySide6.QtWidgets import QMessageBox
 
         from gui.src.tabs.database.listings_tab import ListingsTab

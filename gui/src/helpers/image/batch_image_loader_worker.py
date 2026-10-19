@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import numpy as np
 
-from backend.src.constants import HAS_NATIVE_IMAGING, THUMBNAIL_CACHE_DIR
-from backend.src.core import telemetry
+from middleware.src.constants import HAS_NATIVE_IMAGING, THUMBNAIL_CACHE_DIR
+from middleware.src.core import telemetry
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QImage
 from shiboken6 import Shiboken
@@ -47,7 +47,7 @@ def native_load_batch(paths: list[str], target_size: int) -> list[tuple[str, QIm
     Returns list of (path, QImage|None, error).
 
     Serialized via ``telemetry.NATIVE_IMAGE_BATCH_LOCK`` -- see that lock's
-    docstring in ``backend/src/core/telemetry.py`` for why concurrent Python-
+    docstring in ``middleware/src/core/telemetry.py`` for why concurrent Python-
     level entries into this native boundary (not just concurrent OpenMP
     work within a single call) are unsafe and were the actual root cause of
     this project's long-running QSocketNotifier/SIGSEGV crash class.

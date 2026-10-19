@@ -12,7 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-from backend.src.constants.comfy import ServerState
+from middleware.src.constants.comfy import ServerState
 
 from gui.src.modules.comfy_workspace_controller import ComfyWorkspaceController
 from gui.src.tabs.models.gen.comfy_generate_tab import (
@@ -211,7 +211,7 @@ class TestPreFlightValidation:
 
     def _issue(self, message, node_id="8", input_name="control_net_name"):
         # Duck-typed stand-in for backend TemplateIssue (gui/test conftest
-        # mocks backend.src.models.core.*, so the real dataclass can't load).
+        # mocks middleware.src.models.core.*, so the real dataclass can't load).
         return SimpleNamespace(
             node_id=node_id, input_name=input_name,
             code="missing_file", message=message,

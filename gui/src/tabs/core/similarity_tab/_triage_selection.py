@@ -6,7 +6,7 @@ Extracted from ``similarity_tab.py`` -- pure code motion, no logic change
 
 from __future__ import annotations
 
-from backend.src.core.similarity import auto_select
+from middleware.src.core.similarity import auto_select
 from PySide6.QtCore import Slot
 
 from ._tab_bound import TabBoundController

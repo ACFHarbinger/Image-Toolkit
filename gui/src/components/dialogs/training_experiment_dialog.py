@@ -4,9 +4,9 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
-from backend.src.comfy_matrix import gpu_lease, try_admit
-from backend.src.core import training_experiments as experiments
-from backend.src.core.gpu_vram_estimate import estimate_job_gb
+from middleware.src.comfy_matrix import gpu_lease, try_admit
+from middleware.src.core import training_experiments as experiments
+from middleware.src.core.gpu_vram_estimate import estimate_job_gb
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QComboBox,

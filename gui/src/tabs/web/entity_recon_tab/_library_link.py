@@ -11,7 +11,7 @@ gui/src/windows/main/_tab_registry.py -- EntityReconTab() takes no
 args), so rather than threading that through (out of scope for this
 round -- another work stream owns gui/src/windows/main/ changes right
 now), this reads the session directly via
-backend.src.database.unified.session.is_open()/get_session(): if the
+middleware.src.database.unified.session.is_open()/get_session(): if the
 vault has already been unlocked and the library opened elsewhere in the
 app (the normal case once any other Library-category tab has run), the
 session is already there to use; if not, this shows a clear message
@@ -48,7 +48,7 @@ class EntityReconLibraryLinkController(TabBoundController):
             self._link_match_to_library(path)
 
     def _link_match_to_library(self, path: str) -> None:
-        from backend.src.database.unified import session
+        from middleware.src.database.unified import session
 
         if not session.is_open():
             QMessageBox.information(
@@ -70,8 +70,8 @@ class EntityReconLibraryLinkController(TabBoundController):
             return
 
         db = session.get_session()
-        from backend.src.database.unified.entity_repo import EntityRepo
-        from backend.src.database.unified.image_repo import ImageRepo
+        from middleware.src.database.unified.entity_repo import EntityRepo
+        from middleware.src.database.unified.image_repo import ImageRepo
 
         image_repo = ImageRepo(db)
         entity_repo = EntityRepo(db)

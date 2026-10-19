@@ -1,5 +1,5 @@
 # Backend Core API
 
-::: backend.src.database.unified.facade
+::: middleware.src.database.unified.facade
 
-::: backend.src.core.vault_manager
+::: middleware.src.core.vault_manager

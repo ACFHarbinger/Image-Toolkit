@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 
-from backend.src.web.recon import ReconEngine
+from middleware.src.web.recon import ReconEngine
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from ....constants import DIALOG_OPTS

@@ -14,7 +14,7 @@ format:
 
 # Pyrefly type checking for backend
 pyrefly-backend:
-    uv run pyrefly check backend/src --output-format min-text --min-severity warn
+    uv run pyrefly check middleware/src --output-format min-text --min-severity warn
 
 # Pyrefly type checking for GUI
 pyrefly-gui:

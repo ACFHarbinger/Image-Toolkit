@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from backend.src.constants import LOCAL_SOURCE_PATH
+from middleware.src.constants import LOCAL_SOURCE_PATH
 from PySide6.QtCore import Property, Signal, Slot
 from PySide6.QtWidgets import QWidget
 

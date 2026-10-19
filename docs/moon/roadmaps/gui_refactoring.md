@@ -68,7 +68,7 @@ outside the Codex/Harbinger chain.
 **Workflow per item.** Claim on the bus → isolated worktree on
 `feature/ui-arch-NN-<slug>` (branched off `milestone/gui-refactoring-roadmap`,
 not `main`) → targeted tests + `ruff` + `py_compile` +
-`backend/validation/check_init_boundaries.py` → bus post with commit hash →
+`middleware/validation/check_init_boundaries.py` → bus post with commit hash →
 Codex review → D12 if gated → merge to `milestone/gui-refactoring-roadmap` →
 shim checklist emptied → close issue. Docs land with the code
 (`docs/moon/CHANGELOG.md` entry, this file's status column). The milestone
@@ -83,7 +83,7 @@ see the note under Status above.
 
 | Item | Issue | Result |
 |---|---|---|
-| Serialized native decode + GIF/animated bypass | #521 | `NATIVE_IMAGE_BATCH_LOCK` / `NATIVE_SCAN_LOCK` (`backend/src/constants/core.py`) guard every native decode; `.gif` routed to `QImageReader` |
+| Serialized native decode + GIF/animated bypass | #521 | `NATIVE_IMAGE_BATCH_LOCK` / `NATIVE_SCAN_LOCK` (`middleware/src/constants/core.py`) guard every native decode; `.gif` routed to `QImageReader` |
 | Visible-first thumbnail dispatch, all four galleries | #522 | `_sort_paths_by_visibility()`, `VirtualGalleryModel.set_visible_range()` / `_reorder_fill_queue()` |
 | One-owner tray preference | #523 | `minimize_to_tray` / `close_to_tray` device-owned by `AppSettings`/QSettings only |
 | Prototype quarantine + WallpaperTab forwarders | #524 | `gui/src/protos/` (now superseded by the re-land, see R0.4) |
@@ -98,8 +98,8 @@ see the note under Status above.
 | `ThumbnailScheduler` interface | #526 | `gui/src/thumbnails/` |
 | `ModuleDescriptor` + `ModuleHost` pilot (Log Panel) | #527 | `gui/src/modules/` |
 | `WindowManager` registry | #528 | `gui/src/windows/window_manager.py` |
-| Backend `Observable` + `QtEventBridge` (no Qt under `backend/src/` except `app.py`) | #529 | `backend/src/events.py`, `gui/src/qt_event_bridge.py` |
-| CI import-boundary guardrails (fail merge) | #530 | import-linter contract + `backend/validation/check_init_boundaries.py` |
+| Backend `Observable` + `QtEventBridge` (no Qt under `middleware/src/` except `app.py`) | #529 | `middleware/src/events.py`, `gui/src/qt_event_bridge.py` |
+| CI import-boundary guardrails (fail merge) | #530 | import-linter contract + `middleware/validation/check_init_boundaries.py` |
 
 ### 2.3 UI shell & module runtime (re-landed 2026-09-06, milestone 8 closed 18/18)
 

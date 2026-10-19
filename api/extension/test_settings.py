@@ -3,7 +3,7 @@
 ``manage.py test`` runs Django's system checks against the *whole* project
 ``ROOT_URLCONF`` (``api.urls``) before executing a single test — that graph
 also pulls in ``tasks.urls`` -> ``tasks.views`` -> ``tasks.tasks``, which
-fails to import (``from backend.src.database import PgvectorImageDatabase``,
+fails to import (``from middleware.src.database import PgvectorImageDatabase``,
 an archived DB.6 symbol; see ``tasks/tasks.py`` line ~15). This is
 pre-existing and unrelated to the extension bridge — but it means even
 ``BridgeTestCase``'s own ``@override_settings(ROOT_URLCONF=...)`` (applied

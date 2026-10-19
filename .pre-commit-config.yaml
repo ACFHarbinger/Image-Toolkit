@@ -37,8 +37,8 @@ repos:
 
   # ── Python: pydoclint — Google-style docstring completeness ───────────────
   # Enforces docstring standards from docs/DOCUMENTATION_STANDARDS.md.
-  # Currently scoped to backend/src/animation/ (highest-traffic, most complex).
-  # Expand to full backend/src/ once existing coverage improves.
+  # Currently scoped to middleware/src/animation/ (highest-traffic, most complex).
+  # Expand to full middleware/src/ once existing coverage improves.
   - repo: https://github.com/jsh9/pydoclint
     rev: 0.5.9
     hooks:
@@ -48,7 +48,7 @@ repos:
           - --arg-type-hints-in-signature=true
           - --check-return-types=false # type annotations in signature are sufficient
           - --require-return-when-returning-nothing=false
-        files: ^backend/src/animation/
+        files: ^middleware/src/animation/
 
   # ── Python: mypy (strict modules) ────────────────────────────────────────
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -59,7 +59,7 @@ repos:
         args:
           - --ignore-missing-imports
           - --no-error-summary
-        files: ^(backend/src/exceptions\.py|backend/src/models/base\.py)$
+        files: ^(middleware/src/exceptions\.py|middleware/src/models/base\.py)$
         additional_dependencies:
           - types-Pillow
           - numpy

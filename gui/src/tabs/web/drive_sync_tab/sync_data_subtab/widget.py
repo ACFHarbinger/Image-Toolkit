@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
-import backend.src.constants as udef
+import middleware.src.constants as udef
 from PySide6.QtCore import QThreadPool, Signal, Slot
 from PySide6.QtWidgets import (
     QButtonGroup,

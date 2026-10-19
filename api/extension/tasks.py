@@ -61,7 +61,7 @@ def cv_bg_remove_task(
             return {"status": "error", "message": "Could not decode image."}
 
         import cv2
-        from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+        from middleware.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
         from PIL import Image
 
         wrapper = BiRefNetWrapper()
@@ -115,7 +115,7 @@ def cv_upscale_task(
         scale = 4 if scale not in (2, 4) else scale
 
         import cv2
-        from backend.src.models.wrappers.esrgan_wrapper import ESRGANWrapper
+        from middleware.src.models.wrappers.esrgan_wrapper import ESRGANWrapper
 
         wrapper = ESRGANWrapper()  # native 4x anime_6B
         out = wrapper.upscale(img)

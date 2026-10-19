@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 
-from backend.src.constants import SUPPORTED_VIDEO_FORMATS
+from middleware.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QTimer, Slot
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 

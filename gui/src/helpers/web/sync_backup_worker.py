@@ -21,9 +21,9 @@ import json
 import zipfile
 from pathlib import Path
 
-import backend.src.constants as udef
-from backend.src.database.unified.entity_repo import EntityRepo
-from backend.src.database.unified.media_repo import MediaRepo
+import middleware.src.constants as udef
+from middleware.src.database.unified.entity_repo import EntityRepo
+from middleware.src.database.unified.media_repo import MediaRepo
 from PySide6.QtCore import Signal
 
 from gui.src.constants.listings import LISTING_IMAGES_DIR

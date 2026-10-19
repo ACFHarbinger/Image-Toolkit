@@ -5,7 +5,7 @@ Extracted from ``image_crawler_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-from backend.src.constants import LOCAL_SOURCE_PATH
+from middleware.src.constants import LOCAL_SOURCE_PATH
 from PySide6.QtWidgets import QMessageBox
 
 from ._tab_bound import TabBoundController

@@ -7,10 +7,6 @@ with :mod:`_entity_panel_form`.
 
 from typing import Any, Dict
 
-from backend.src.database.unified.entity_repo import EntityRepo
-from backend.src.database.unified.image_repo import ImageRepo
-from backend.src.database.unified.media_repo import MediaRepo
-from backend.src.database.unified.tag_repo import TagRepo
 from gui.src.components.dialogs import AddTagDialog
 from gui.src.constants.listings import RATING_STAR_COLOR
 from gui.src.elements.database.dialog import (
@@ -21,6 +17,10 @@ from gui.src.elements.database.dialog.credit_dialog import _CreditDialog
 from gui.src.helpers.database.library_session import get_library_db
 from gui.src.helpers.image import apply_thumbnail_to_label
 from gui.src.theming.theme_api import qss
+from middleware.src.database.unified.entity_repo import EntityRepo
+from middleware.src.database.unified.image_repo import ImageRepo
+from middleware.src.database.unified.media_repo import MediaRepo
+from middleware.src.database.unified.tag_repo import TagRepo
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFileDialog,

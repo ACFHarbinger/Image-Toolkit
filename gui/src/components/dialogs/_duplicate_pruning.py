@@ -8,7 +8,7 @@ import logging
 import os
 from typing import Any, Dict, List, Tuple
 
-from backend.src.core.dir_phash_index import compute_phash_file
+from middleware.src.core.dir_phash_index import compute_phash_file
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (

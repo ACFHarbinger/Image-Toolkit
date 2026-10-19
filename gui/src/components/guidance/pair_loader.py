@@ -4,8 +4,8 @@ from __future__ import annotations
 import os
 import threading
 
-from backend.src.constants import LOCAL_SOURCE_PATH
-from backend.src.core.guidance_pair import PairLoadError, load_comparison_pair, persist_verdict
+from middleware.src.constants import LOCAL_SOURCE_PATH
+from middleware.src.core.guidance_pair import PairLoadError, load_comparison_pair, persist_verdict
 from PySide6.QtCore import QObject, Signal
 
 

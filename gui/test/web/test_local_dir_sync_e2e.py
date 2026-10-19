@@ -153,7 +153,7 @@ def test_worker_live_uploads_only_allowed_files(q_app, tmp_path: Path):
 
 @pytest.mark.skipif(not _LIVE_TOKEN, reason="IT_GDRIVE_ACCESS_TOKEN not set")
 def test_live_gdrive_dry_run_then_sync_excludes_secrets(q_app, tmp_path: Path):
-    from backend.src.web.cloud.gdrive_file_client import GoogleDriveFileClient
+    from middleware.src.web.cloud.gdrive_file_client import GoogleDriveFileClient
 
     root = tmp_path / "itk"
     root.mkdir()

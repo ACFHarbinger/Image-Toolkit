@@ -22,7 +22,7 @@ Usage
 - New workers must subclass :class:`gui.src.helpers.base.BaseQThreadWorker`
   / :class:`gui.src.helpers.base.BaseQRunnableWorker` (R1.1, #556) — raw
   ``QThread``/``QRunnable`` subclasses in ``helpers/`` fail CI
-  (``backend/validation/check_worker_base.py``).
+  (``middleware/validation/check_worker_base.py``).
 """
 
 from __future__ import annotations

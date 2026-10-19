@@ -245,9 +245,9 @@ Native FLUX OOMs; quantisation is mandatory:
 
 ## 15. Implementation Status in Image-Toolkit
 
-- **Trainers:** `backend/src/models/lora_diffusion.py` (`LoRATuner`, SDXL dual-encoder, default Illustrious-XL-v2.0), `full_finetune.py` (DreamBooth/full FT), GAN/R3GAN wrappers.
+- **Trainers:** `middleware/src/models/lora_diffusion.py` (`LoRATuner`, SDXL dual-encoder, default Illustrious-XL-v2.0), `full_finetune.py` (DreamBooth/full FT), GAN/R3GAN wrappers.
 - **Generation:** `sd3_wrapper.py` (`SD3Wrapper`, SD3.5; ControlNet TODO), `comfy_manager.py` + ComfyUI tab.
-- **Data pipeline:** `backend/src/models/data/` — `video_frame_extractor.py`, `captioner.py`, `lora_dataset.py`, `augmentations.py`, `stitch_dataset.py`.
+- **Data pipeline:** `middleware/src/models/data/` — `video_frame_extractor.py`, `captioner.py`, `lora_dataset.py`, `augmentations.py`, `stitch_dataset.py`.
 - **GUI tabs:** `gui/src/tabs/models/{gen,train}/` — LoRA train, SD3 gen, ComfyUI gen, GAN/R3GAN, diagnostics hooks (`models/hooks/`).
 - **Gaps (→ `docs/moon/roadmaps/content_generation.md`):** WD14/Florence-2 captioning, LyCORIS variants, v-pred/ztSNR support, IP-Adapter/ControlNet wiring, FLUX support, AnimateDiff/ToonCrafter video, the guided video→LoRA flow, per-GPU TOML presets, GGUF/FP8 quantised inference.
 

@@ -6,7 +6,7 @@ not ``QObject`` + ``moveToThread`` (see ``upsert_worker.py``'s docstring
 for why: a default per-thread event loop collides with the JPype JVM
 loaded in-process).
 
-Only embedding *computation* (``backend.src.core.similarity.embedder``,
+Only embedding *computation* (``middleware.src.core.similarity.embedder``,
 torch releases the GIL during the forward pass) happens on this
 background thread. The database write is deferred back to the main
 thread via ``finished`` -- the keyed ``base.database.Database``
@@ -34,7 +34,7 @@ class ImageEmbeddingWorker(BaseQThreadWorker):
 
     def _execute(self) -> object:
         try:
-            from backend.src.core.similarity.embedder import get_embedder
+            from middleware.src.core.similarity.embedder import get_embedder
 
             embedder = get_embedder(self.model)
             if embedder is None:
@@ -61,7 +61,7 @@ class ImageEmbeddingWorker(BaseQThreadWorker):
             return results
         finally:
             try:
-                from backend.src.core.similarity.embedder import unload_all
+                from middleware.src.core.similarity.embedder import unload_all
 
 
                 unload_all()

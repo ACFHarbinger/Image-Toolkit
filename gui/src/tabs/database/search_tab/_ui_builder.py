@@ -7,7 +7,7 @@ change, to keep the file under the codebase's 500-code-line convention
 
 from __future__ import annotations
 
-from backend.src.constants import SUPPORTED_IMG_FORMATS
+from middleware.src.constants import SUPPORTED_IMG_FORMATS
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFormLayout,

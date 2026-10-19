@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT))
 from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa: E402
 
 register_submodule_packages(str(ROOT))
-from backend.src.qt_runtime_env import pin_qt_media_backend  # noqa: E402
+from middleware.src.qt_runtime_env import pin_qt_media_backend  # noqa: E402
 
 pin_qt_media_backend()
 from PySide6.QtCore import QObject, QTimer, QUrl  # noqa: E402
@@ -63,7 +63,7 @@ class WebEngineSpike(QObject):
         return sum(p["rss"] for p in memory)
 
     def start(self, window):
-        from backend.src.models.core.comfy_manager import ComfyUIManager
+        from middleware.src.models.core.comfy_manager import ComfyUIManager
 
         self.window = window
         self.setParent(window)
@@ -196,8 +196,8 @@ def run_spike(argv):
         parser.error("the spike requires Chromium's sandbox")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     spike = WebEngineSpike(args.output, args.port)
-    from backend.src import app as application
-    from backend.src.core.vault_manager import VaultManager
+    from middleware.src import app as application
+    from middleware.src.core.vault_manager import VaultManager
 
     class GuestLogin(application.LoginWindow):
         def __init__(self):

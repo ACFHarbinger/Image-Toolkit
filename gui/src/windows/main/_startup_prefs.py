@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from backend.src.constants import LOCAL_SOURCE_PATH
+from middleware.src.constants import LOCAL_SOURCE_PATH
 
 from ...contracts.tab_config import ConfigSettable, apply_tab_config
 from ...utils.cache.lru_image_cache import DEFAULT_PIXMAP_BUDGET, LRUImageCache
@@ -133,10 +133,10 @@ class MainStartupPrefsController(WindowBoundController):
         self._apply_wallpaper_slideshow_prefs()
 
         # §2.16F — logging preferences (GUI/UX §2.9F, issue #48). Local import:
-        # backend.src.app imports from gui.src.windows.main, so a module-level
+        # middleware.src.app imports from gui.src.windows.main, so a module-level
         # import here would be circular.
         try:
-            from backend.src.app import _reconfigure_logging
+            from middleware.src.app import _reconfigure_logging
 
             _reconfigure_logging(
                 prefs.get("log_level", "INFO"),

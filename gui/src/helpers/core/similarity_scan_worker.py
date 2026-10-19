@@ -14,8 +14,8 @@ progress/cancellation flow through Qt signals (queued to the GUI thread).
 """
 import logging
 
-from backend.src.core.similarity import SimilarityConfig, SimilarityEngine
-from backend.src.core.similarity.engine import ScanCancelled
+from middleware.src.core.similarity import SimilarityConfig, SimilarityEngine
+from middleware.src.core.similarity.engine import ScanCancelled
 from PySide6.QtCore import Signal
 
 from gui.src.helpers.base import BaseQThreadWorker
@@ -51,7 +51,7 @@ class SimilarityScanWorker(BaseQThreadWorker):
         finally:
             # Free any embedding model VRAM once the scan ends.
             try:
-                from backend.src.core.similarity.embedder import unload_all
+                from middleware.src.core.similarity.embedder import unload_all
 
                 unload_all()
             except Exception:

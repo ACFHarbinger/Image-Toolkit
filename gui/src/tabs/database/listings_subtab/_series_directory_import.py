@@ -16,7 +16,7 @@ import uuid
 from datetime import date
 from typing import Any, Dict, List
 
-from backend.src.database.unified.media_repo import MediaRepo
+from middleware.src.database.unified.media_repo import MediaRepo
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QDialog, QMessageBox
 

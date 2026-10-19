@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-from backend.src.core.similarity import SimilarityConfig, TriageRules
+from middleware.src.core.similarity import SimilarityConfig, TriageRules
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QFileDialog
 

@@ -1,6 +1,6 @@
 import contextlib
 
-from backend.src.constants import HAS_NATIVE_IMAGING
+from middleware.src.constants import HAS_NATIVE_IMAGING
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QImage
 from shiboken6 import Shiboken

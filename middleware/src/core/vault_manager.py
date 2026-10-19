@@ -1,0 +1,571 @@
+import ctypes
+import hashlib
+import json
+import os
+import sys
+import threading
+from typing import Optional
+
+import middleware.src.constants as udef
+from middleware.src.utils.decorators import require_path
+
+
+class CryptographyLibNotBuiltError(RuntimeError):
+    """Raised when libitk_crypto.so (built as part of `just build-base`, since
+    base/CMakeLists.txt compiles base/src/secret/itk_crypto.c alongside the
+    rest of base::secret -- no longer a separate build step) is missing.
+    Kept distinct from FileNotFoundError so it isn't mistaken by callers for
+    a missing/deleted account file."""
+
+
+class _CryptoAPI:
+    """Lazy ctypes binding of the native crypto library (libitk_crypto.so).
+
+    The library is loaded on first use; the binding methods are plain
+    classmethods so tests can patch them (e.g. with unittest.mock.patch.object).
+    All methods return 0 on success and -1 on failure; the last error message
+    is available via :meth:`last_error`.
+    """
+
+    _lib = None
+
+    @classmethod
+    def _load(cls):
+        if cls._lib is None:
+            crypto_path = udef.resolve_crypto_lib_file()
+            if not os.path.exists(crypto_path):
+                raise CryptographyLibNotBuiltError(
+                    f"Native crypto library not found at: {crypto_path}\n"
+                    "libitk_crypto is built with the base module (`just build-base`), "
+                    "not a separate cryptography package. Run `just build-base` from "
+                    "the repo root, then try again."
+                )
+            lib = ctypes.CDLL(crypto_path)
+
+            lib.itk_keystore_has_alias.argtypes = [
+                ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p
+            ]
+            lib.itk_keystore_has_alias.restype = ctypes.c_int
+
+            lib.itk_keystore_password_valid.argtypes = [
+                ctypes.c_char_p, ctypes.c_char_p
+            ]
+            lib.itk_keystore_password_valid.restype = ctypes.c_int
+
+            lib.itk_keystore_get_key.argtypes = [
+                ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p,
+                ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_size_t),
+            ]
+            lib.itk_keystore_get_key.restype = ctypes.c_int
+
+            lib.itk_keystore_ensure.argtypes = [
+                ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p
+            ]
+            lib.itk_keystore_ensure.restype = ctypes.c_int
+
+            lib.itk_vault_encrypt.argtypes = [
+                ctypes.c_void_p, ctypes.c_size_t,
+                ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t,
+            ]
+            lib.itk_vault_encrypt.restype = ctypes.c_int
+
+            lib.itk_vault_decrypt.argtypes = [
+                ctypes.c_void_p, ctypes.c_size_t, ctypes.c_char_p,
+                ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_size_t),
+            ]
+            lib.itk_vault_decrypt.restype = ctypes.c_int
+
+            lib.itk_free.argtypes = [ctypes.c_void_p]
+            lib.itk_free.restype = None
+
+            lib.itk_last_error.argtypes = []
+            lib.itk_last_error.restype = ctypes.c_char_p
+
+            cls._lib = lib
+        return cls._lib
+
+    @classmethod
+    def keystore_has_alias(cls, path: str, alias: str, password: str) -> int:
+        return cls._load().itk_keystore_has_alias(
+            path.encode(), alias.encode(), password.encode()
+        )
+
+    @classmethod
+    def keystore_password_valid(cls, path: str, password: str) -> int:
+        return cls._load().itk_keystore_password_valid(
+            path.encode(), password.encode()
+        )
+
+    @classmethod
+    def keystore_get_key(cls, path: str, alias: str, password: str):
+        """Returns (key_bytes, error_message); one of the two is None."""
+        out = ctypes.c_void_p()
+        out_len = ctypes.c_size_t()
+        rc = cls._load().itk_keystore_get_key(
+            path.encode(), alias.encode(), password.encode(),
+            ctypes.byref(out), ctypes.byref(out_len),
+        )
+        if rc != 0:
+            return None, cls.last_error()
+        try:
+            return ctypes.string_at(out, out_len.value), None
+        finally:
+            cls._load().itk_free(out)
+
+    @classmethod
+    def keystore_ensure(cls, path: str, alias: str, password: str) -> int:
+        return cls._load().itk_keystore_ensure(
+            path.encode(), alias.encode(), password.encode()
+        )
+
+    @classmethod
+    def vault_encrypt(cls, key: bytes, path: str, plaintext: bytes) -> int:
+        key_buf = ctypes.create_string_buffer(key)
+        return cls._load().itk_vault_encrypt(
+            key_buf, len(key), path.encode(), plaintext, len(plaintext)
+        )
+
+    @classmethod
+    def vault_decrypt(cls, key: bytes, path: str):
+        """Returns (plaintext_bytes, error_message); one of the two is None."""
+        out = ctypes.c_void_p()
+        out_len = ctypes.c_size_t()
+        key_buf = ctypes.create_string_buffer(key)
+        rc = cls._load().itk_vault_decrypt(
+            key_buf, len(key), path.encode(),
+            ctypes.byref(out), ctypes.byref(out_len),
+        )
+        if rc != 0:
+            return None, cls.last_error()
+        try:
+            return ctypes.string_at(out, out_len.value), None
+        finally:
+            cls._load().itk_free(out)
+
+    @classmethod
+    def last_error(cls) -> str:
+        err = cls._load().itk_last_error()
+        return err.decode() if err else "unknown error"
+
+
+class SecureJsonVault:
+    """A single encrypted-JSON file, keyed by an already-derived secret key.
+
+    Used for standalone encrypted files outside the main account vault
+    (session-recovery snapshots, sync-backup exports, per-file API
+    credential caches) — the same purpose the JVM-era Kotlin
+    ``SecureJsonVault`` class served. Kept as a `VaultManager.SecureJsonVault`
+    attribute with the same `(secret_key, file_path)` constructor and
+    `saveData`/`loadData` method names so call sites across gui/ didn't need
+    to change when #435 replaced the JVM with this native ctypes binding.
+    """
+
+    def __init__(self, secret_key: bytes, file_path: str):
+        self.secret_key = secret_key
+        self.file_path = file_path
+
+    def saveData(self, json_string: str) -> None:
+        if _CryptoAPI.vault_encrypt(self.secret_key, self.file_path, json_string.encode("utf-8")) != 0:
+            raise RuntimeError(f"Failed to save data: {_CryptoAPI.last_error()}")
+
+    def loadData(self) -> str:
+        plaintext, error = _CryptoAPI.vault_decrypt(self.secret_key, self.file_path)
+        if plaintext is None and error and (
+            "not found" in error.lower() or "empty or truncated" in error.lower()
+        ):
+            return "{}"
+        if plaintext is None:
+            raise RuntimeError(f"Failed to load data: {error}")
+        return plaintext.decode("utf-8")
+
+
+class VaultManager:
+    """
+    A Python wrapper to manage the SecureJsonVault by calling the native
+    cryptography library (libitk_crypto.so) through ctypes.
+    """
+
+    # Exposed so callers can do `self.vault_manager.SecureJsonVault(key, path)`
+    # for one-off encrypted files, same as the JVM-era attribute.
+    SecureJsonVault = SecureJsonVault
+
+    @staticmethod
+    def _load_or_generate_pepper():
+        """
+        Checks for the pepper file. If it doesn't exist, it generates a new
+        secure pepper and saves it.
+        """
+        # Ensure the directory for crypto files exists
+        os.makedirs(udef.LOCAL_SECRETS_DIR, exist_ok=True)
+
+        if os.path.exists(udef.PEPPER_FILE):
+            print(f"Loading existing pepper from: {udef.PEPPER_FILE}", file=sys.stderr)
+            with open(udef.PEPPER_FILE, "r") as f:
+                pepper = f.read().strip()
+                if not pepper:
+                    raise ValueError(
+                        f"Pepper file is empty: {udef.PEPPER_FILE}. Delete it to regenerate."
+                    )
+                return pepper
+        else:
+            print(
+                f"Pepper file not found. Generating new pepper at: {udef.PEPPER_FILE}",
+                file=sys.stderr,
+            )
+            # Generate a strong, random pepper (32 bytes = 64 hex characters)
+            pepper = os.urandom(32).hex()
+
+            # Save the new pepper to the file
+            with open(udef.PEPPER_FILE, "w") as f:
+                f.write(pepper)
+
+            # Set restrictive permissions (read-only for owner, if supported)
+            try:
+                os.chmod(udef.PEPPER_FILE, 0o400)
+            except OSError:
+                # Handle systems that don't support chmod (like some Windows systems)
+                print(
+                    "Warning: Could not set restrictive file permissions on pepper file.",
+                    file=sys.stderr,
+                )
+
+            return pepper
+
+    @classmethod
+    def create_guest_vault(cls, username: str) -> "VaultManager":
+        """Factory method to create a VaultManager operating in Guest Mode (volatile memory only)."""
+        instance = cls(is_guest=True)
+        instance.account_name = username  # pyrefly: ignore [missing-attribute]
+        instance.raw_password = ""  # pyrefly: ignore [missing-attribute]
+        instance._in_memory_data = {
+            "account_name": username,
+            "theme": "dark",
+            "preferences": {},
+            "active_tab_configs": {},
+            "system_preference_profiles": {},
+        }
+        return instance
+
+    def __init__(self, bc_provider_path: Optional[str] = None, is_guest: bool = False):
+        """
+        Initializes the wrapper and loads the pepper.
+        If is_guest is True, operates strictly in volatile memory without disk persistence.
+
+        Note: bc_provider_path is accepted for signature compatibility with
+        earlier JVM-based releases and is ignored (no JVM is started anymore).
+        """
+        self.is_guest = is_guest
+        self._lock = threading.RLock()
+        self.api_credentials = {}
+        self._in_memory_data = {}
+
+        if self.is_guest:
+            self.PEPPER = ""
+            self.keystore: Optional[str] = None
+            self.secret_key: Optional[bytes] = None
+            self.vault: Optional[tuple[bytes, str]] = None
+            return
+
+        # --- Load or generate the secret pepper first ---
+        self.PEPPER = self._load_or_generate_pepper()
+
+        # Probe the native library availability up front. Deliberately not a
+        # FileNotFoundError: callers (e.g. login_window.py) catch that broadly
+        # to mean "this account's vault/keystore files are missing", which
+        # would misdirect a developer whose account files are fine but who
+        # simply hasn't built the native cryptography module yet.
+        _CryptoAPI._load()
+
+        self.keystore = None
+        self.keystore_pass: Optional[str] = None
+        self.secret_key = None
+        self.vault = None
+
+    @require_path("keystore_path")
+    def load_keystore(self, keystore_path: str, keystore_pass: str):
+        """
+        Loads the PKCS#12 keystore from a file (validates it is readable and
+        the password matches; the key is read from disk on demand).
+        """
+        with self._lock:
+            print(f"Loading keystore: {keystore_path}", file=sys.stderr)
+            # MAC-verify the store password (alias presence is checked later
+            # via contains_alias / get_secret_key).
+            if _CryptoAPI.keystore_password_valid(keystore_path, keystore_pass) != 0:
+                raise ValueError(
+                    f"Failed to load keystore: {_CryptoAPI.last_error()}"
+                )
+            self.keystore = keystore_path
+            self.keystore_pass = keystore_pass
+            print("Keystore loaded successfully.", file=sys.stderr)
+
+    def contains_alias(self, key_alias: str) -> bool:
+        """
+        Checks if the loaded KeyStore contains an entry for the given alias.
+        """
+        if self.keystore is None or self.keystore_pass is None:
+            raise ValueError("Keystore is not loaded. Call load_keystore() first.")
+
+        return _CryptoAPI.keystore_has_alias(
+            self.keystore, key_alias, self.keystore_pass
+        ) == 1
+
+    def create_key_if_missing(
+        self, key_alias: str, keystore_path: str, keystore_pass: str
+    ):
+        """
+        Ensures the keystore exists and contains the required secret key,
+        creating both if needed.
+        """
+        with self._lock:
+            print(
+                f"Checking/Initializing KeyStore at {keystore_path} for alias '{key_alias}'...",
+                file=sys.stderr,
+            )
+
+            if _CryptoAPI.keystore_ensure(keystore_path, key_alias, keystore_pass) != 0:
+                raise RuntimeError(
+                    f"Failed to initialize keystore: {_CryptoAPI.last_error()}"
+                )
+
+            # After ensure potentially modifies the file on disk, reload it
+            # into our Python state so the new key is picked up.
+            self.load_keystore(keystore_path, keystore_pass)
+
+    def get_secret_key(self, key_alias: str, key_pass: str):
+        """
+        Retrieves the AES SecretKey (raw key bytes) from the keystore.
+        """
+        with self._lock:
+            if self.keystore is None:
+                raise ValueError("Keystore is not loaded. Call load_keystore() first.")
+
+            print(f"Retrieving secret key for alias: {key_alias}", file=sys.stderr)
+            key_bytes, error = _CryptoAPI.keystore_get_key(
+                self.keystore, key_alias, key_pass
+            )
+            if key_bytes is None:
+                raise ValueError(
+                    f"No secret key found for alias '{key_alias}' or wrong password."
+                )
+            self.secret_key = key_bytes
+            print("SecretKey retrieved.", file=sys.stderr)
+
+    def init_vault(self, vault_file_path: str):
+        """
+        Initializes the vault with the retrieved SecretKey.
+        """
+        with self._lock:
+            if self.secret_key is None:
+                raise ValueError(
+                    "Secret key is not loaded. Call get_secret_key() first."
+                )
+
+            print(f"Initializing secure vault at: {vault_file_path}", file=sys.stderr)
+            self.vault = (self.secret_key, vault_file_path)
+            print("Vault initialized.", file=sys.stderr)
+
+    def save_data(self, json_string: str):
+        """
+        Saves a JSON string to the encrypted vault (or volatile memory in Guest mode).
+        """
+        with self._lock:
+            if self.is_guest:
+                try:
+                    self._in_memory_data = json.loads(json_string)
+                    print("Guest vault data saved to volatile memory.", file=sys.stderr)
+                except Exception as e:
+                    print(f"Error updating guest vault data in memory: {e}", file=sys.stderr)
+                return
+
+            if self.vault is None:
+                raise ValueError("Vault is not initialized. Call init_vault() first.")
+
+            key_bytes, vault_path = self.vault
+            if _CryptoAPI.vault_encrypt(key_bytes, vault_path, json_string.encode("utf-8")) != 0:
+                raise RuntimeError(f"Failed to save data: {_CryptoAPI.last_error()}")
+            print("Data saved successfully.", file=sys.stderr)
+
+    def save_account_snapshot(self, credentials: dict) -> None:
+        """Persist a complete account snapshot at the vault boundary only."""
+        self.save_data(json.dumps(credentials))
+
+    def load_data(self) -> str:
+        """
+        Loads and decrypts the JSON string from the vault (or volatile memory in Guest mode).
+        """
+        with self._lock:
+            if self.is_guest:
+                return json.dumps(self._in_memory_data)
+
+            if self.vault is None:
+                raise ValueError("Vault is not initialized. Call init_vault() first.")
+
+            key_bytes, vault_path = self.vault
+            print("Loading data from vault...", file=sys.stderr)
+            plaintext, error = _CryptoAPI.vault_decrypt(key_bytes, vault_path)
+
+            # Handle empty/missing vault file as an empty JSON object string
+            if plaintext is None and (
+                "not found" in error.lower() or "empty or truncated" in error.lower()
+            ):
+                print(
+                    "Vault file is empty or not found. Returning empty JSON object.",
+                    file=sys.stderr,
+                )
+                return "{}"
+
+            if plaintext is None:
+                print(f"Error loading data: {error}", file=sys.stderr)
+                print(
+                    "This may be due to a wrong key or file tampering.", file=sys.stderr
+                )
+                raise RuntimeError(f"Failed to load data: {error}")
+
+            print("Data loaded and decrypted successfully.", file=sys.stderr)
+            return plaintext.decode("utf-8")
+
+    def update_account_password(self, account_name: str, new_raw_pass: str):
+        """
+        Updates the master password by replacing the keystore and re-encrypting
+        the vault data with a new key derived from the new password.
+
+        This method is non-destructive (preserves data).
+        """
+        with self._lock:
+            print(
+                "Starting master password update process (data preserving)...",
+                file=sys.stderr,
+            )
+
+            # 1. Retrieve ALL data from the currently open vault (encrypted with OLD key)
+            try:
+                # This loads everything, including the account hash/salt
+                old_vault_content_json = self.load_data()
+                old_vault_content = json.loads(old_vault_content_json)
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to load data from old vault before reset: {e}"
+                ) from e
+
+            # 2. Delete Old Keystore and Vault
+            if os.path.exists(udef.KEYSTORE_FILE):
+                os.remove(udef.KEYSTORE_FILE)
+                print(f"Deleted old KeyStore: {udef.KEYSTORE_FILE}", file=sys.stderr)
+
+            if os.path.exists(udef.VAULT_FILE):
+                os.remove(udef.VAULT_FILE)
+                print(f"Deleted old Vault file: {udef.VAULT_FILE}", file=sys.stderr)
+
+            # 3. Re-initialize internal objects (no JVM involved anymore)
+            self.keystore = None
+            self.secret_key = None
+            self.vault = None
+
+            # 4. Create new KeyStore/Key Entry/Vault with the NEW password
+            self.create_key_if_missing(udef.KEY_ALIAS, udef.KEYSTORE_FILE, new_raw_pass)
+
+            # Get the new key reference
+            self.get_secret_key(udef.KEY_ALIAS, new_raw_pass)
+            self.init_vault(udef.VAULT_FILE)
+
+            # 5. Re-hash and update the account credentials (hash/salt) within the data
+            new_salt = os.urandom(16).hex()
+            password_combined = (new_raw_pass + new_salt + self.PEPPER).encode("utf-8")
+            new_hashed_password = hashlib.sha256(password_combined).hexdigest()
+
+            old_vault_content.update(
+                {
+                    "account_name": account_name,
+                    "hashed_password": new_hashed_password,
+                    "salt": new_salt,
+                }
+            )
+
+            # 6. Encrypt and save the updated data (with new hash/salt) to the new vault
+            new_json_string = json.dumps(old_vault_content)
+            self.save_data(new_json_string)
+
+            print(
+                "Master password update complete. Data preserved and re-encrypted.",
+                file=sys.stderr,
+            )
+
+    def shutdown(self):
+        """Compatibility no-op: the embedded JVM has been removed."""
+
+    def shutdown_jvm(self):
+        """Compatibility no-op: the embedded JVM has been removed."""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.shutdown()
+        return False
+
+    def save_account_credentials(self, account_name: str, raw_password: str):
+        """
+        Hashes and salts the raw password with the loaded pepper, then saves the
+        account name, resulting hash, and salt to the encrypted vault.
+        """
+        with self._lock:
+            if self.is_guest:
+                self._in_memory_data["account_name"] = account_name
+                return
+
+            # 1. Generate a secure, unique salt (16 bytes)
+            salt = os.urandom(16).hex()
+
+            # 2. Combine all security components for hashing
+            password_combined = (raw_password + salt + self.PEPPER).encode("utf-8")
+
+            # 3. Hash the combined string (SHA-256 is used for simplicity)
+            hashed_password = hashlib.sha256(password_combined).hexdigest()
+
+            data_to_save = {
+                "account_name": account_name,
+                "hashed_password": hashed_password,
+                "salt": salt,
+            }
+
+            json_string = json.dumps(data_to_save)
+
+            print(f"Saving credentials for account: {account_name}", file=sys.stderr)
+            self.save_data(json_string)  # Uses the existing saveData() method
+
+    def load_account_credentials(self) -> dict:
+        """
+        Loads, decrypts, and parses the account name, hashed password, and salt
+        from the vault.
+
+        :return: A dictionary containing the loaded credentials.
+        """
+        with self._lock:
+            if self.is_guest:
+                return dict(self._in_memory_data)
+
+            decrypted_json_string = (
+                self.load_data()
+            )  # Uses the existing loadData() method
+
+            try:
+                loaded_data = json.loads(decrypted_json_string)
+
+                # Ensure the required keys are present
+                required_keys = ["account_name", "hashed_password", "salt"]
+                if not all(key in loaded_data for key in required_keys):
+                    # Handle empty init case
+                    if loaded_data == {} or self.is_guest:
+                        return loaded_data
+                    raise KeyError(
+                        f"Decrypted JSON is missing one of the required keys: {required_keys}"
+                    )
+
+                return loaded_data
+
+            except (json.JSONDecodeError, KeyError) as e:
+                print(f"Error parsing loaded data: {e}", file=sys.stderr)
+                raise ValueError(
+                    "The vault file contains invalid or corrupted JSON data."
+                ) from e

@@ -67,13 +67,13 @@ graph TD
 npm run dev
 
 # Python PySide6 desktop GUI
-source .venv/bin/activate && python backend/main.py
+source .venv/bin/activate && python middleware/main.py
 
 # Hydra CLI (training, embedding, ComfyUI)
 python -m backend.dispatcher command=train
 
 # ASP benchmark suite
-pytest backend/test/animation/ --skip-gpu
+pytest middleware/test/animation/ --skip-gpu
 
 # Rust doc generation
 cd base && cargo doc --no-deps --open

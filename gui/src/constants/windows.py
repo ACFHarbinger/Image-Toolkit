@@ -1,4 +1,4 @@
-"""Constants relocated from backend/src or gui/src modules under this subpackage (module-level ALL_CAPS assignments)."""
+"""Constants relocated from middleware/src or gui/src modules under this subpackage (module-level ALL_CAPS assignments)."""
 
 # --- from gui/src/windows/settings/_shortcuts.py ---
 _SCOPE_ICONS = {'General': '🖥️', 'Gallery': '🖼️', 'Preview': '🔍'}

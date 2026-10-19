@@ -23,7 +23,7 @@ class ImageCrawlWebDriverController(TabBoundController):
                 self.log_window.show()
                 self.log_window.append_log(
                     "❌ Managed WebDriver launches "
-                    "backend/scripts/manage_webdriver.py with a separate "
+                    "middleware/scripts/manage_webdriver.py with a separate "
                     "Python — not available in the packaged build. Run from "
                     "a source checkout to use it."
                 )
@@ -36,7 +36,7 @@ class ImageCrawlWebDriverController(TabBoundController):
             script_candidates = [
                 os.path.join(project_root, "backend", "scripts", "manage_webdriver.py"),
                 os.path.join(project_root, "scripts", "manage_webdriver.py"),
-                os.path.abspath("backend/scripts/manage_webdriver.py"),
+                os.path.abspath("middleware/scripts/manage_webdriver.py"),
                 os.path.abspath("scripts/manage_webdriver.py"),
             ]
             script_path = next((p for p in script_candidates if os.path.exists(p)), script_candidates[0])

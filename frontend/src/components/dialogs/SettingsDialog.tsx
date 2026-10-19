@@ -49,7 +49,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ onClose }) => {
 
   const isDark = preferences.theme === 'dark';
 
-  // Load settings from backend
+  // Load settings from middleware
   useEffect(() => {
     loadSettings();
     // eslint-disable-next-line react-hooks/exhaustive-deps

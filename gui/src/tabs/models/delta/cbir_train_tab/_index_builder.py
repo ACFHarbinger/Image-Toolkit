@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QMessageBox
 from ._tab_bound import TabBoundController
 
 try:
-    from backend.src.models.tuning.cbir_index_builder import build_cbir_index
+    from middleware.src.models.tuning.cbir_index_builder import build_cbir_index
 
     _INDEX_OK = True
 except ImportError:

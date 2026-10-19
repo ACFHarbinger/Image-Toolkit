@@ -574,8 +574,8 @@ class LocalDirSyncWorker(BaseQThreadWorker):
             # folder C++ sync. Local Directory Sync needs per-file ops, so
             # borrow its resolved access_token and drive the Drive v3 REST
             # API directly (gdrive_file_client).
-            from backend.src.web.cloud.gdrive_file_client import GoogleDriveFileClient
-            from backend.src.web.cloud.google_drive_sync import GoogleDriveSync
+            from middleware.src.web.cloud.gdrive_file_client import GoogleDriveFileClient
+            from middleware.src.web.cloud.google_drive_sync import GoogleDriveSync
 
             gds = GoogleDriveSync(
                 local_source_path=str(self.local_root),
@@ -596,7 +596,7 @@ class LocalDirSyncWorker(BaseQThreadWorker):
                 logger=self._log,
             )
         if pt == "Dropbox":
-            from backend.src.web.cloud.dropbox_file_client import DropboxFileClient
+            from middleware.src.web.cloud.dropbox_file_client import DropboxFileClient
 
             token = self.auth_config.get("access_token")
             if not token:
@@ -612,7 +612,7 @@ class LocalDirSyncWorker(BaseQThreadWorker):
             # The C++ OneDriveSync only does a whole-folder sync. Local
             # Directory Sync needs per-file ops, so borrow its resolved OAuth
             # access_token and drive the MS Graph API directly.
-            from backend.src.web.cloud.onedrive_file_client import OneDriveFileClient
+            from middleware.src.web.cloud.onedrive_file_client import OneDriveFileClient
 
             token = self.auth_config.get("access_token")
             if not token:

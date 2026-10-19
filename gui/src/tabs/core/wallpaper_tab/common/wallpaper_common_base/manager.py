@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from backend.src.constants import SUPPORTED_VIDEO_FORMATS
-from backend.src.core.wallpaper import find_qdbus_binary
+from middleware.src.constants import SUPPORTED_VIDEO_FORMATS
+from middleware.src.core.wallpaper import find_qdbus_binary
 from PySide6.QtCore import QPointF, QTimer, Signal
 from PySide6.QtWidgets import QApplication
 from screeninfo import Monitor

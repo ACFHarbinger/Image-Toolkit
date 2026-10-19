@@ -7,7 +7,7 @@ import inspect
 import queue
 import threading
 
-from backend.src.comfy_matrix import (
+from middleware.src.comfy_matrix import (
     output_paths,
 )
 from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QSize, Qt, Signal

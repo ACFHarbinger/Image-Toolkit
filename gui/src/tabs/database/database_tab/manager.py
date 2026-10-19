@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from backend.src.database.unified.facade import UnifiedImageDatabase as ImageDatabase
+from middleware.src.database.unified.facade import UnifiedImageDatabase as ImageDatabase
 from PySide6.QtCore import Property, Signal
 from PySide6.QtWidgets import QTableWidgetItem, QVBoxLayout, QWidget
 

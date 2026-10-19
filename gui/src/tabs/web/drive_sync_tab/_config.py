@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import backend.src.constants as udef
+import middleware.src.constants as udef
 from PySide6.QtWidgets import QMessageBox
 
 from ._tab_bound import TabBoundController

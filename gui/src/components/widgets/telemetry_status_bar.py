@@ -250,7 +250,7 @@ class TelemetryStatusBar(QStatusBar):
             except Exception:
                 return None
         try:
-            from backend.src.comfy_matrix import gpu_lease
+            from middleware.src.comfy_matrix import gpu_lease
 
             return gpu_lease.snapshot()
         except Exception:

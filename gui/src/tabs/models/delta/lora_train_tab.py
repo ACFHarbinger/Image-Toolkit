@@ -5,17 +5,17 @@ import subprocess
 import threading
 from pathlib import Path
 
-from backend.src.comfy_matrix import gpu_lease, try_admit
-from backend.src.constants import LOCAL_SOURCE_PATH
-from backend.src.core.gpu_vram_estimate import estimate_job_gb
-from backend.src.core.training_runs import (
+from middleware.src.comfy_matrix import gpu_lease, try_admit
+from middleware.src.constants import LOCAL_SOURCE_PATH
+from middleware.src.core.gpu_vram_estimate import estimate_job_gb
+from middleware.src.core.training_runs import (
     STATUS_CANCEL,
     STATUS_ERROR,
     STATUS_SUCCESS,
 )
-from backend.src.models.hooks import DiagnosticsLogger
-from backend.src.models.tuning.lo_ra_tuner import LoRATuner
-from backend.src.models.wrappers.gan_wrapper import GanWrapper
+from middleware.src.models.hooks import DiagnosticsLogger
+from middleware.src.models.tuning.lo_ra_tuner import LoRATuner
+from middleware.src.models.wrappers.gan_wrapper import GanWrapper
 from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -247,7 +247,7 @@ class LoRATrainTab(LoRATrainConfigMixin, LoRATrainUiMixin, LoRATrainRunsMixin, L
         self._rank_worker = None
         if self._disposing:
             return
-        from backend.src.core.adapter_reports import RankHistoryReport
+        from middleware.src.core.adapter_reports import RankHistoryReport
 
         from gui.src.components.dialogs.adapter_rank_chart_dialog import AdapterRankChartDialog
 

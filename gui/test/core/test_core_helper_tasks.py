@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 # Note: backend modules are mocked in conftest.py, so we can mock the Loader class return
-from backend.src.models.core.siamese_network import SiameseModelLoader
+from middleware.src.models.core.siamese_network import SiameseModelLoader
 from PIL import Image
 
 # Import the tasks

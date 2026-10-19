@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from backend.src.constants import SUPPORTED_VIDEO_FORMATS
+from middleware.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QPoint, Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QMessageBox, QWidget

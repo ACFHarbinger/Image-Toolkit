@@ -17,13 +17,13 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
-from backend.src.constants import (
+from middleware.src.constants import (
     DAEMON_CONFIG_PATH,
     DEFAULT_TRANSITION_DELAY_SECONDS,
     MAX_TRANSITION_DELAY_SECONDS,
     ROOT_DIR,
 )
-from backend.src.constants.utils import PID_PATH
+from middleware.src.constants.utils import PID_PATH
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QMessageBox
 
@@ -38,7 +38,7 @@ def _write_daemon_config_atomic(data: dict) -> None:
 
     A plain ``open(path, "w")`` truncates the file immediately, then writes
     content incrementally -- if the daemon subprocess's own polling loop
-    (backend/src/utils/display/slideshow_daemon.py) reads the file in that
+    (middleware/src/utils/display/slideshow_daemon.py) reads the file in that
     window, it can see an empty or torn/partial write and fail to parse it
     ("Failed to read config: Expecting value..."), silently skipping that
     poll cycle instead of applying the new config. Writing to a sibling temp
@@ -109,16 +109,16 @@ class SystemDisplayDaemonController(TabBoundController):
             logger.debug("Suppressed Exception in _DaemonMixin._start_daemon_countdown_if_active", exc_info=True)
 
     def _get_daemon_script_path(self: "SystemDisplaySubTabHostProtocol"):
-        script_path = ROOT_DIR / "backend" / "src" / "utils" / "display" / "slideshow_daemon.py"
+        script_path = ROOT_DIR / "middleware" / "src" / "utils" / "display" / "slideshow_daemon.py"
         if script_path.exists():
             return str(script_path)
 
         current_dir = Path(__file__).resolve().parent
         root = current_dir
-        while not (root / "backend").exists() and root != root.parent:
+        while not (root / "middleware").exists() and root != root.parent:
             root = root.parent
 
-        script_path = root / "backend" / "src" / "utils" / "display" / "slideshow_daemon.py"
+        script_path = root / "middleware" / "src" / "utils" / "display" / "slideshow_daemon.py"
         if not script_path.exists():
             script_path = root / "slideshow_daemon.py"
 

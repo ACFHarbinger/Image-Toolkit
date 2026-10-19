@@ -10,7 +10,7 @@ import contextlib
 import hashlib
 from typing import TYPE_CHECKING
 
-from backend.src.constants import THUMBNAIL_CACHE_DIR
+from middleware.src.constants import THUMBNAIL_CACHE_DIR
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol

@@ -1,5 +1,5 @@
 """Workflow preflight validation and queue-button state for ComfyUITab."""
-from backend.src.constants.comfy import ServerState
+from middleware.src.constants.comfy import ServerState
 
 from .comfy_workflows import (  # noqa: F401  re-exported for callers and tests
     WORKFLOW_MODES,

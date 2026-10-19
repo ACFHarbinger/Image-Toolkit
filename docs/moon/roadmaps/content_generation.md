@@ -130,14 +130,14 @@ The repository already ships a substantial generation stack — this roadmap **e
 
 | Component | Location | State |
 |---|---|---|
-| **LoRA trainer** | `backend/src/models/lora_diffusion.py` (`LoRATuner`) | SDXL dual-encoder; default base `OnomaAIResearch/Illustrious-XL-v2.0`; SDXL micro-conditioning. Working. |
-| **DreamBooth / full FT** | `backend/src/models/full_finetune.py` | Present. |
-| **SD3.5 generation** | `backend/src/models/sd3_wrapper.py` (`SD3Wrapper`) | Text-to-image; ControlNet TODO. |
-| **ComfyUI integration** | `backend/src/models/comfy_manager.py`, `gui/.../comfy_generate_tab.py` | Server lifecycle + browser launch. |
+| **LoRA trainer** | `middleware/src/models/lora_diffusion.py` (`LoRATuner`) | SDXL dual-encoder; default base `OnomaAIResearch/Illustrious-XL-v2.0`; SDXL micro-conditioning. Working. |
+| **DreamBooth / full FT** | `middleware/src/models/full_finetune.py` | Present. |
+| **SD3.5 generation** | `middleware/src/models/sd3_wrapper.py` (`SD3Wrapper`) | Text-to-image; ControlNet TODO. |
+| **ComfyUI integration** | `middleware/src/models/comfy_manager.py`, `gui/.../comfy_generate_tab.py` | Server lifecycle + browser launch. |
 | **GAN / R3GAN** | `gan.py`, `gan_wrapper.py`, R3GAN tabs | Present. |
-| **Data pipeline** | `backend/src/models/data/` — `video_frame_extractor.py`, `captioner.py`, `lora_dataset.py`, `augmentations.py` | Frame extraction, captioning, dataset, augmentation. |
+| **Data pipeline** | `middleware/src/models/data/` — `video_frame_extractor.py`, `captioner.py`, `lora_dataset.py`, `augmentations.py` | Frame extraction, captioning, dataset, augmentation. |
 | **GUI tabs** | `gui/src/tabs/models/{gen,train}/` — LoRA train, SD3 gen, ComfyUI gen, GAN/R3GAN | Present. |
-| **Training diagnostics** | `backend/src/models/hooks/`, `modules/`, `subnets/` | Hooks present. |
+| **Training diagnostics** | `middleware/src/models/hooks/`, `modules/`, `subnets/` | Hooks present. |
 
 **Gap analysis vs. consolidated research:** the base-model default is right (Illustrious-XL), the trainer is SDXL-aware, the data pipeline exists. Missing: anime-native captioning (WD14/Florence-2), LyCORIS variants, v-prediction/zero-terminal-SNR support, IP-Adapter/ControlNet wiring in the gen tabs, FLUX support, and the entire video-generation capability (AnimateDiff/ToonCrafter).
 
@@ -149,11 +149,11 @@ The repository already ships a substantial generation stack — this roadmap **e
 
 **Current:** `captioner.py` already had a full `HybridCaptioner` (WD14 booru tags + optional Florence-2 sentence + trigger token + per-base-model quality prefix) wired into `anime_training_pipeline.py`'s captioning stage — this predates issue #32 and the roadmap text above was stale (it described this as unimplemented). What issue #32 actually found and fixed:
 
-- **A (WD14 primary, confidence-thresholded):** already implemented via an inline `WD14Tagger` class in `captioner.py` (general_thresh=0.35 default, matches WD14 convention) — but it duplicated, rather than reused, the shared `backend/src/models/wrappers/wd_tagger_wrapper.py::WDTaggerWrapper` from `new_features.md` §4.4 (Auto-Tagger), which was itself fully built but never called from anywhere (dormant). Fixed: added a `_wd_tag()` adapter in `captioner.py` so `HybridCaptioner.wd` now accepts either backend, and wired `WDTaggerWrapper` in as the pipeline's fallback default (`anime_training_pipeline.py::_run_captioning` now uses the legacy local-path `WD14Tagger` only if an explicit `data.captioning.wd14_onnx` file exists, otherwise falls back to `WDTaggerWrapper`, which auto-downloads `SmilingWolf/wd-v1-4-convnext-tagger-v2` from Hugging Face Hub — repo existence and exact filenames [`model.onnx`, `selected_tags.csv`] verified reachable). This is the "implement once, use in both tagging and training" sharing the original recommendation called for. Also found and fixed a real bug while wiring this in: `WDTaggerWrapper`'s `_CATEGORY_NAMES` mapped WD category `9` to `"copyright"`; the real `selected_tags.csv` uses category `9` for the 4-way **rating** group (general/sensitive/questionable/explicit), not copyright — fixed, with a test update.
+- **A (WD14 primary, confidence-thresholded):** already implemented via an inline `WD14Tagger` class in `captioner.py` (general_thresh=0.35 default, matches WD14 convention) — but it duplicated, rather than reused, the shared `middleware/src/models/wrappers/wd_tagger_wrapper.py::WDTaggerWrapper` from `new_features.md` §4.4 (Auto-Tagger), which was itself fully built but never called from anywhere (dormant). Fixed: added a `_wd_tag()` adapter in `captioner.py` so `HybridCaptioner.wd` now accepts either backend, and wired `WDTaggerWrapper` in as the pipeline's fallback default (`anime_training_pipeline.py::_run_captioning` now uses the legacy local-path `WD14Tagger` only if an explicit `data.captioning.wd14_onnx` file exists, otherwise falls back to `WDTaggerWrapper`, which auto-downloads `SmilingWolf/wd-v1-4-convnext-tagger-v2` from Hugging Face Hub — repo existence and exact filenames [`model.onnx`, `selected_tags.csv`] verified reachable). This is the "implement once, use in both tagging and training" sharing the original recommendation called for. Also found and fixed a real bug while wiring this in: `WDTaggerWrapper`'s `_CATEGORY_NAMES` mapped WD category `9` to `"copyright"`; the real `selected_tags.csv` uses category `9` for the 4-way **rating** group (general/sensitive/questionable/explicit), not copyright — fixed, with a test update.
 - **C (trigger token per character):** already wired via `data.trigger_word` in the Hydra training config — the same field `LoRADatasetV2`/`BucketSample` use to identify "the character" being trained, confirmed as the natural existing mechanism (no new input added).
 - **B (Florence-2 augmentation):** already implemented as a plain natural-language sentence appended after the booru tags (`"<tags>. <sentence>"`) when `florence` is supplied and `use_florence2=true` — no new work needed here.
 - **Additive prose mode:** added `HybridCaptioner(caption_mode="booru"|"prose")` (default `"booru"`, fully backward compatible) so pure VLM-prose captioning stays available as an explicit option per the issue's requirement, rather than only reachable by omitting `wd`.
-- **Not verified end-to-end:** `onnxruntime` is not installed in the project's `.venv` (only `huggingface_hub` is), so no real ONNX inference was run against the downloaded model in this session — the HF repo/filenames were confirmed reachable via the HF API, and all logic was verified with mocked ONNX sessions in `backend/test/models/test_captioner.py` (new) and `backend/test/models/test_wd_tagger_wrapper.py` (updated for the category fix). Installing `onnxruntime` and running a real image through `WDTaggerWrapper.tag()` is the remaining step to fully close this out.
+- **Not verified end-to-end:** `onnxruntime` is not installed in the project's `.venv` (only `huggingface_hub` is), so no real ONNX inference was run against the downloaded model in this session — the HF repo/filenames were confirmed reachable via the HF API, and all logic was verified with mocked ONNX sessions in `middleware/test/models/test_captioner.py` (new) and `middleware/test/models/test_wd_tagger_wrapper.py` (updated for the category fix). Installing `onnxruntime` and running a real image through `WDTaggerWrapper.tag()` is the remaining step to fully close this out.
 
 **Recommendation (original):** A+C now (booru tags + trigger token), B as augmentation. Shared with the Auto-Tagger feature — implement once, use in both tagging and training. **Status:** A+B+C all in place; see above for what changed and what's still unverified.
 
@@ -169,11 +169,11 @@ The repository already ships a substantial generation stack — this roadmap **e
 
 **Done:** the "integrate the lycoris library into LoRATuner" half of this
 bullet's recommendation was **already fully implemented** before this
-session touched it — `LoRATunerV2` (`backend/src/models/tuning/
+session touched it — `LoRATunerV2` (`middleware/src/models/tuning/
 lo_ra_tuner_v2.py`) already dispatches `cfg.method == "lycoris"` to
 `lycoris.kohya.create_network()` with `lora`/`locon`/`loha`/`lokr`/`dylora`
 algorithms, and a `lycoris_locon.yaml` Hydra preset already existed under
-`backend/config/training/`. **The actual gap was "expose in the LoRA train
+`middleware/config/training/`. **The actual gap was "expose in the LoRA train
 tab"** — the GUI's `LoRATrainTab` only ever instantiated the *legacy*
 `LoRATuner` (V1, no LyCORIS support at all; V2 is documented in its own
 module docstring as the "adds LyCORIS support" successor) and never called
@@ -188,9 +188,9 @@ into `LoRATunerV2` or the Hydra pipeline in any way.
   entirely**: `anime_training_pipeline.py` (the orchestrator `LoRATunerV2`
   needs — dataset bucketing, tuner construction, training loop) had two
   broken imports left over from a prior code reorganization
-  (`backend.src.models.full_finetune` and `backend.src.models.
+  (`middleware.src.models.full_finetune` and `middleware.src.models.
   lora_diffusion`, neither of which exist anymore — the real paths are
-  under `backend.src.models.tuning.*`). This meant `python -m
+  under `middleware.src.models.tuning.*`). This meant `python -m
   backend.dispatcher command=train` has been completely broken for *any*
   training run, LyCORIS or standard, since that reorganization — nobody
   had noticed because nothing actually invoked this pipeline. Fixed both
@@ -225,7 +225,7 @@ into `LoRATunerV2` or the Hydra pipeline in any way.
 scope ("Phase A quick win now, Phase B native diffusers integration later").
 
 - **Investigation first — the ComfyUI integration was less built-out than
-  this section implied.** `ComfyUIManager` (`backend/src/models/core/
+  this section implied.** `ComfyUIManager` (`middleware/src/models/core/
   comfy_manager.py`) only started/stopped the ComfyUI server subprocess and
   exposed its URL for the user to open in a system browser; there was no
   in-app mechanism to submit a workflow JSON, override its parameters, or
@@ -279,14 +279,14 @@ scope ("Phase A quick win now, Phase B native diffusers integration later").
   the required `ComfyUI/models/{checkpoints,controlnet,ipadapter}/`
   subfolder; nothing in this change downloads or validates model weights,
   per this task's explicit constraint.
-- **Tests:** `backend/test/models/test_comfy_manager.py` (12 tests —
+- **Tests:** `middleware/test/models/test_comfy_manager.py` (12 tests —
   template loading, override merging incl. non-mutation and unknown-node
   handling, mocked-urllib `upload_image`/`queue_workflow` incl. the HTTP
   error path) and `gui/test/models/test_comfy_generate_tab.py` (16 tests —
   mode-switch field wiring, `build_workflow()` node-override correctness
   for every mode, the queue handler's guard rails and happy/error paths,
   file-picker browse/cancel). All 28 new tests pass; the pre-existing 107
-  `gui/test/models/` and full `backend/test/models/` suites (150 tests
+  `gui/test/models/` and full `middleware/test/models/` suites (150 tests
   total) still pass — no regressions.
 - **Manual smoke test:** loaded both curated templates and applied real
   node overrides through the actual (non-mocked) `ComfyUIManager.
@@ -314,7 +314,7 @@ scope ("Phase A quick win now, Phase B native diffusers integration later").
 
 **Pain point:** Generated images and stitched panoramas both want anime-aware SR.
 
-**Done:** `ESRGANWrapper` (`backend/src/models/wrappers/esrgan_wrapper.py`) — a
+**Done:** `ESRGANWrapper` (`middleware/src/models/wrappers/esrgan_wrapper.py`) — a
 tiled Real-ESRGAN anime_6B upscaler, the shared reusable primitive this
 item asked for. **Correction to this bullet's own claim**: `animation/
 super_res.py` does not exist anywhere in the codebase (confirmed by a
@@ -347,7 +347,7 @@ existing ones.
   without erroring"): loaded the actual anime_6B checkpoint and ran both
   the non-tiled and tiled code paths on synthetic images, confirming
   correct 4x output shape and dtype in both cases.
-- **Tests**: `backend/test/models/test_esrgan_wrapper.py`, 16 tests —
+- **Tests**: `middleware/test/models/test_esrgan_wrapper.py`, 16 tests —
   architecture shape checks (locking the real checkpoint's 6-block/
   64-feature structure), primary/fallback/failure load() paths, tiled vs
   non-tiled shape correctness (including a non-tile-size-multiple

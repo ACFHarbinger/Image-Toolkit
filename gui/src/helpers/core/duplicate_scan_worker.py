@@ -1,8 +1,8 @@
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.src.constants import SSIM_C1, SSIM_C2
-from backend.src.core import DuplicateFinder, SimilarityFinder
+from middleware.src.constants import SSIM_C1, SSIM_C2
+from middleware.src.core import DuplicateFinder, SimilarityFinder
 from PySide6.QtCore import (
     QEventLoop,
     QObject,
@@ -178,7 +178,7 @@ class DuplicateScanWorker(QObject):
                     results = self._chunked_compare("sift", _sift_sim)
                 elif self.method == "siamese":
                     results = self._compare_siamese(self.scan_cache)
-                    from backend.src.models.core.siamese_network import SiameseModelLoader
+                    from middleware.src.models.core.siamese_network import SiameseModelLoader
 
                     SiameseModelLoader().unload()
                 else:

@@ -16,7 +16,7 @@ from __future__ import annotations
 import random
 from pathlib import Path
 
-from backend.src.core import checkpoint_tournament as ct
+from middleware.src.core import checkpoint_tournament as ct
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (

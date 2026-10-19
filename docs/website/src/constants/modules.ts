@@ -17,7 +17,7 @@ export const moduleCards: ModuleCard[] = [
   },
   {
     slug: "backend",
-    title: "backend/",
+    title: "middleware/",
     tagline: "Python orchestrator",
     description:
       "Wraps the C++ core, owns the pgvector database (image_database.py), the VaultManager security layer, and the pure-Python/PyTorch ML models. Thin wrappers only — heavy logic stays in base/.",
@@ -31,7 +31,7 @@ export const moduleCards: ModuleCard[] = [
     title: "api/ & tasks/",
     tagline: "Django/Celery bridge",
     description:
-      "Synchronous REST API (Django) and idempotent Celery workers that bridge the API surface to backend/src without embedding business logic in the tasks themselves.",
+      "Synchronous REST API (Django) and idempotent Celery workers that bridge the API surface to middleware/src without embedding business logic in the tasks themselves.",
     stack: ["Django", "Celery", "REST"],
     path: "/api/rest-api",
     docSource: "docs/api/rest-api.md",

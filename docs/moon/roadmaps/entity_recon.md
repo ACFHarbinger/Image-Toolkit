@@ -9,7 +9,7 @@ management and web provenance.
 | Layer | Role | Where |
 |-------|------|-------|
 | C++ (`base.recon`) | HNSW **IdentityIndex** (embedding → `FirstName_LastName` + path), alpha-cutout hashing | `base/src/web/recon/` |
-| Python | SAM 2 segmentation, face/CLIP embeddings, dataset indexing daemon, reverse-search dispatch, NER consensus, provenance export | `backend/src/web/recon/` |
+| Python | SAM 2 segmentation, face/CLIP embeddings, dataset indexing daemon, reverse-search dispatch, NER consensus, provenance export | `middleware/src/web/recon/` |
 | QML/Qt | three-pane UI, hover masking, bounding box, IPC to workers | `gui/qml/tabs/web/EntityReconTab.qml`, `gui/src/tabs/web/entity_recon_tab.py` |
 
 > The original spec named **Rust** for the data/discovery engine. This repo
@@ -40,7 +40,7 @@ source image ──hover──▶ SAM 2 mask ──click──▶ alpha cutout
                                              "Method: Web Consensus"
 ```
 
-## Key modules (`backend/src/web/recon/`)
+## Key modules (`middleware/src/web/recon/`)
 
 - **config.py** — `ReconConfig`: dataset root, embed mode (`face`/`clip`),
   privacy mode, engines, rate limits, cache path, NER model, thresholds.
@@ -81,7 +81,7 @@ source image ──hover──▶ SAM 2 mask ──click──▶ alpha cutout
 
 ## Tests
 
-`backend/test/recon/` (24): IdentityIndex resolution + distinct-label
+`middleware/test/recon/` (24): IdentityIndex resolution + distinct-label
 collapsing + cutout hashing, consensus algorithm (cross-domain winner,
 single-domain rejection), rate limiter, SQLite cache roundtrip, privacy-mode
 gating (never calls network, serves cache), web-mode caching, end-to-end

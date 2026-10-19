@@ -6,7 +6,7 @@ import os
 from abc import abstractmethod
 from typing import Dict, List, Optional
 
-from backend.src.constants import LOCAL_SOURCE_PATH
+from middleware.src.constants import LOCAL_SOURCE_PATH
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QGridLayout, QLabel, QScrollArea, QWidget
 
