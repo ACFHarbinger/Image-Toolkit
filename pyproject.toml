@@ -273,6 +273,7 @@ source_modules = [
     "middleware.src.constants",
     "middleware.src.errors",
     "middleware.src.utils",
+    "middleware.src.supervisor",
 ]
 forbidden_modules = ["gui"]
 
