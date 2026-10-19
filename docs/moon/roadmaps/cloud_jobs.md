@@ -406,6 +406,17 @@ Tracking issue: [#824](https://github.com/ACFHarbinger/Image-Toolkit/issues/824)
 
 ### Gate D — Cloud Jobs window
 
+**Built in Tauri, not PySide6** (Harbinger, 2026-10-19). New UI is
+Tauri-only from now on; see the Tauri migration brainstorm,
+`.agent/reports/team/tauri_migration_refactor_2026-10-19.md`.
+
+- The window, its header control and its settings are built in
+  `frontend/`.
+- D4's origin-tab submit applies to each origin tab as that tab reaches
+  Tauri. Until then, the Request Builder is the submit surface.
+- The bridge to the backend (sidecar, Django or a hybrid) is being decided
+  in that brainstorm. Gate D waits for that decision.
+
 | Issue | Deliverable |
 |---|---|
 | [#847](https://github.com/ACFHarbinger/Image-Toolkit/issues/847) | D1: `cloud.jobs` window shell, with the header ☁️ control and badge |
