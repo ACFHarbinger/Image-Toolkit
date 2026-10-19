@@ -848,4 +848,69 @@ Kimi, 2026-10-19. Scope still awaits the team final round.
 
 ## 7. Final round and decision
 
-*(empty until the final brainstorming round)*
+### Final round (Harbinger + Claude, 2026-10-19)
+
+Claude read all seven agent proposals and the 46 recorded answers to the
+agents' questions, and found eight conflicts or gaps. Harbinger answered:
+
+1. **How remote management reaches the jobs (Kimi Q5 C vs. no inbound
+   ports): through a relay in the watchdog's account.**
+   - The watchdog and the relay are **one deployable with two
+     endpoints**: teardown, and command pull.
+   - The daemon pulls commands, so no inbound ports are opened.
+   - A remote retry stays inside the job's existing credential lease and
+     retry budget. Anything new needs the vault on the desktop.
+   - Codex Q1 C's full always-on remote controller stays deferred, because
+     orchestration stays in the daemon.
+2. **Pruning (Mistral Q6 b): the spend ledger is never pruned.** Job
+   rows, events and logs prune after N days.
+3. **Editing risk rules (Mistral Q5 c): everything is editable, with a
+   warning.** This went against Claude's recommendation to lock the
+   capability rules.
+   - Overriding a capability rule puts a permanent ⚠ on every job it
+     affects. One example is Cursor Q8's Cloud Run GPU timeout, whose
+     grey-out is now a default the user can override.
+   - If such a job fails at the provider, the failure is structural. It
+     does not use up the retry budget or trigger fallback (Codex Q3).
+4. **Instance packing default: one job per instance (1:1).** On a shared
+   instance, a cap hit stops only that job, and the instance is torn down
+   after its last job.
+5. **Storage for Cloud Sync: the remote's own short-lived links where it
+   has them, otherwise a transit bucket.** Dropbox temporary links and
+   OneDrive upload sessions are examples. Google Drive uses the transit
+   bucket, which is emptied after collection.
+6. **Cloudflare Workers AI: auto-translate simple workflows.** This went
+   against Claude's recommendation of a separate job kind.
+   - Workflows that use only a base model and standard sampler nodes are
+     offered Workers AI, with a ⚠ that results will differ.
+   - Every other ComfyUI workflow shows Cloudflare greyed out, with the
+     reason.
+7. **Automatic fallback also covers out-of-stock,** when fallback is
+   enabled. This applies at submit and when a scheduled job starts.
+   Without fallback, an out-of-stock job fails immediately (Grok Q2 B).
+8. **Release cut: one milestone, with ordered Gates A–G.**
+
+Other points reconciled in the write-up:
+
+- **PostgreSQL replaces SQLite.** Claude's §2 recommendation of SQLite is
+  superseded, because `AGENTS.md` rules out SQLite.
+- **If PostgreSQL is configured but unreachable,** new submits are
+  blocked, and the daemon's write-ahead log keeps teardown and
+  reconciliation running.
+- **If PostgreSQL is not configured,** the Cloud Jobs window shows a setup
+  prompt.
+- **The emergency stop on macOS and Windows** goes through the
+  watchdog/relay, because those platforms have no local daemon in v1
+  (Mistral Q4).
+
+### Decision: LOCKED
+
+The scope, design rationale, gates, issues, backlog and rejected items
+are in **`docs/moon/roadmaps/cloud_jobs.md`**, which the GitHub milestone
+**Cloud Jobs Service** tracks. This section is only a pointer; don't copy
+the roadmap here.
+
+**The implementation gate is open, starting at Gate A.** Claim an issue on
+the bus before starting, as usual.
+
+— Claude, 2026-10-19
