@@ -1,0 +1,70 @@
+{
+  "id":"anime-head-review","exercise_id":"anime-head-review","version":"1.0.0","method_id":"anime-head-construction-v1","schema_version":1,
+  "title":"Anime Head Construction: Comprehensive Capstone and Self-Review",
+  "summary":"Plan, construct, vary, light, critique, revise, and present one identity-consistent anime head model sheet using the complete beginner workflow, with explicit evidence and artist-controlled completion.",
+  "estimated_minutes":120,"prerequisite_ids":["anime-head-cel-values"],
+  "media":["diagrams/capstone-workflow.svg","diagrams/capstone-review-layers.svg"],
+  "learning_objectives":[
+    "Translate a short character and lighting brief into measurable construction decisions.",
+    "Produce front and three-quarter identity-consistent heads plus one expression variation.",
+    "Apply controlled asymmetry and cel-value grouping without losing structural anchors.",
+    "Use tutor evidence as suggestions requiring explicit acceptance or rejection.",
+    "Revise from prioritized causes rather than polishing every symptom.",
+    "Complete a final self-review and delayed-repetition plan without automatic grading."
+  ],
+  "theory":[
+    {"title":"A capstone integrates decisions","explanation":"The final exercise is not a speed test or a request for perfection. It demonstrates that construction, identity, expression, asymmetry, perspective, and lighting decisions can coexist and remain explainable."},
+    {"title":"Briefs constrain useful choices","explanation":"A short brief names character tendency, identity anchors, expression, view, and light. Constraints reduce random iteration and make review evidence relevant to an intended outcome."},
+    {"title":"Review should prioritize causes","explanation":"Cranial volume, orientation, identity anchors, and major value grouping affect many downstream details. Correct high-leverage causes before eyelash, fold, edge, or rendering polish."},
+    {"title":"Revision history is evidence of learning","explanation":"Retain the initial attempt and accepted/rejected tutor previews according to project settings. A correction note should state what changed, why, and whether the next attempt improved the intended relationship."},
+    {"title":"Completion remains the artist's decision","explanation":"Rubric scores and tutor suggestions support judgement but never auto-complete the project. Completion means the checklist is satisfied, unresolved limitations are named, and a specific delayed practice target is chosen."}
+  ],
+  "steps":[
+    {"title":"1. Write the brief and identity card","explanation":"Name the character tendency, five-to-eight identity anchors, one controlled asymmetry, one expression, and one light statement. Mark which choices are fixed and which may vary."},
+    {"title":"2. Construct the front control","explanation":"Build cranium, jaw, axes, eyes, muzzle/nose, mouth, and ears before decoration. Check proportions against the identity card and correct accidental asymmetry."},
+    {"title":"3. Construct the three-quarter identity view","explanation":"Rebuild forms in depth, preserve anchors, separate perspective compression from design asymmetry, and verify nose, mouth, ear, and jaw attachment."},
+    {"title":"4. Add the expression variation","explanation":"Apply the named expression through coordinated lids, brows, cheeks, and mouth while holding persistent identity and structural anchors stable."},
+    {"title":"5. Design two-value lighting","explanation":"Declare the light, map planes, create flat light/shadow families, and label form versus cast causes in both views."},
+    {"title":"6. Request and triage reviews","explanation":"Place manual landmarks on the relevant layers, inspect raw and normalized evidence, and rank corrections by structural leverage. Accept or reject every preview explicitly."},
+    {"title":"7. Produce the correction pass","explanation":"Revise cranial/orientation causes first, identity/feature relationships second, expression/asymmetry third, and value grouping fourth. Record one sentence per accepted change."},
+    {"title":"8. Compare before and after","explanation":"Use compatible metrics and visual overlays without ranking yourself globally. Identify improved, unchanged, and declined dimensions and distinguish measurement limitations from drawing limitations."},
+    {"title":"9. Finalize and plan repetition","explanation":"Complete the checklist manually, name unresolved limitations, export the model sheet, and schedule one focused repeat after a delay without tracing the final result."
+    }
+  ],
+  "guided_drills":[
+    {"title":"Brief-to-thumbnail","repetitions":3,"instructions":"Write three different five-line briefs and produce a small front/turned construction pair for each before selecting one capstone."},
+    {"title":"Correction prioritization","repetitions":5,"instructions":"Given five observed symptoms, rank the likely structural causes and explain which single correction has the largest downstream effect."},
+    {"title":"Accept/reject rationale","repetitions":5,"instructions":"For five tutor guides, write one sentence accepting, rejecting, or deferring the suggestion using the brief and visible evidence."},
+    {"title":"Delayed reconstruction","repetitions":2,"instructions":"Reconstruct the selected character from its identity card after a delay, once in front and once turned, without viewing the final artwork."}
+  ],
+  "common_mistakes":[
+    {"symptom":"The capstone becomes an endless polish project.","cause":"No brief, checklist, or stopping condition was declared.","correction":"Return to the measurable brief and defer decoration unrelated to its learning targets."},
+    {"symptom":"Every tutor suggestion is accepted automatically.","cause":"Scores were treated as authority rather than provisional evidence.","correction":"Compare each guide with the brief, construction, and explanation; reject unsupported advice explicitly."},
+    {"symptom":"Details are revised while the cranium is wrong.","cause":"Symptoms were prioritized over high-leverage structural causes.","correction":"Correct volume and orientation first, then identity, features, expression, and values."},
+    {"symptom":"The turned view loses identity.","cause":"Image-space symbols replaced form reconstruction.","correction":"Rebuild from the identity card and label perspective-only changes."},
+    {"symptom":"Expression or asymmetry moves unrelated anchors.","cause":"One side of the whole head was shifted.","correction":"Restore stable construction and isolate only the named temporary or persistent difference."},
+    {"symptom":"Lighting hides structural uncertainty.","cause":"Dark shapes were used to cover unresolved features.","correction":"Review the unshaded construction, then rebuild the value mask from explicit planes."},
+    {"symptom":"Completion is inferred from a score.","cause":"Automated evidence replaced artist judgement.","correction":"Use the manual checklist, name limitations, and choose the next delayed exercise yourself."
+    }
+  ],
+  "completion_criteria":[
+    "The brief, identity card, asymmetry intent, expression, and light statement are explicit.",
+    "Front and three-quarter construction views preserve identity anchors.",
+    "Expression and controlled asymmetry change only intended relationships.",
+    "Two-value lighting is coherent across views and major boundaries have causes.",
+    "Tutor evidence was reviewed and every preview explicitly accepted or rejected.",
+    "The correction pass records what changed and why.",
+    "Before/after comparison names improvements, unchanged dimensions, declines, and limitations.",
+    "The artist manually marks completion and schedules a focused delayed reconstruction."
+  ],
+  "self_review_questions":[
+    "Does every major decision trace back to the brief?",
+    "Which structural correction produced the largest downstream improvement?",
+    "Which tutor suggestion did I reject or qualify, and why?",
+    "Do front, turned, and expression views retain the identity card?",
+    "Are controlled asymmetry and perspective clearly separated?",
+    "Does the value design explain the same light in every view?",
+    "What limitation remains, and what exact delayed exercise will address it?"
+  ],
+  "practice_prompt":"Create the complete capstone sheet: brief/identity specification, front construction, three-quarter construction, expression/asymmetry variation, two-value lighting pass, and corrected final comparison. Preserve the initial evidence and manually decide completion."
+}

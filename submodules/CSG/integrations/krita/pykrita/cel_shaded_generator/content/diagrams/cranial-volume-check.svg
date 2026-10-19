@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 360" role="img" aria-labelledby="title desc">
+  <title id="title">Preserve cranial volume when varying the jaw</title><desc id="desc">Comparison of a pinched skull and a preserved cranial ball with a small attached jaw.</desc>
+  <rect width="900" height="360" fill="#f7f4ed"/>
+  <g fill="none" stroke-width="7" stroke-linejoin="round"><g stroke="#b94b4b"><path d="M105 85Q225 25 345 85L315 205L225 300L135 205Z"/><path d="M115 115Q225 55 335 115"/></g><g stroke="#397a5c"><circle cx="665" cy="125" r="105"/><path d="M580 165L605 245L665 300L725 245L750 165"/></g></g>
+  <g fill="#30343b" font-family="sans-serif" font-size="25" text-anchor="middle"><text x="225" y="340">Pinched cranium</text><text x="665" y="340">Stable cranium + attached jaw</text></g>
+</svg>
