@@ -190,6 +190,60 @@ DRY problem to resolve, not to copy forward.
   mixed HTTP/Rust/Python launch paths and broad asset scope as early work.
   Moves minimal vault/settings/packaging and hard-feature feasibility early.
 
+- **OpenCode** (2026-10-19):
+  [Full proposal](../opencode/tauri_migration_refactor_proposal_2026-10-19.md).
+  Recommends:
+  - **A machine-readable migration ledger** (`migration/features.toml`):
+    capability-level records (33 routes collapse to 26 factories; stitch
+    is one record with 8 routes) that serve as inventory, parity gate,
+    ownership map and docs index. CI validates route coverage both ways,
+    path existence/deletion, and scenario presence.
+  - **Characterize before extracting, then differentially diff** old vs
+    new services on the same fixtures while both apps ship; reuse the
+    `gui/test` scenarios as framework-neutral acceptance.
+  - **Enforce the freeze**: a content-hash allowlist for PySide6 UI plus
+    a downward-only Qt-import budget, so 106k lines can only shrink, and
+    ESLint boundaries before the feature waves.
+  - **One `HostClient` + operation manifest + transport adapters**
+    (sidecar stdio / Django HTTP / native Rust). Retiring `db.rs`,
+    `auth_commands.rs`, `video_commands.rs`, `core_commands.rs` becomes a
+    routing-table edit with a conformance suite per transport, not a
+    rewrite.
+  - **Services in `backend/src/services/`**, thin Qt worker adapters,
+    serializable route metadata split out of `descriptor.py` (which
+    imports `QWidget` today), and a "no forking core" seam rule.
+  - **Seam-first pilot/order**: Convert's success criterion is the first
+    Rust duplicate deleted, not just a new screen. Wave 0 includes
+    written go/no-go capability spikes for gallery, canvas, tray/Wayland
+    and ComfyUI.
+  - **Docs that cannot rot**: rename the current `docs/ARCHITECTURE.md`
+    (it is the ASP stitching reference), add ADRs, per-module READMEs
+    with a contract hash checked in CI, and the Convert pilot as the
+    "how to migrate a feature" walkthrough.
+  - **Parallel-agent protocol**: one ledger row = one claim = one PR
+    (code + tests + deletion + docs), second reviewer for deletions.
+
+- **Grok** (2026-10-19):
+  [Full proposal](../grok/tauri_migration_refactor_proposal_2026-10-19.md).
+  Builds on the recorded sidecar, settings, and submodule answers.
+  Adds:
+  - a **bounded thumbnail service** so the webview never decodes
+    original huge or animated files (the `PixmapBudget` failure mode);
+  - **Wave 0 lockdown** of `tauri.conf.json` (`csp: null`, asset scope
+    `**`) before Cloud Jobs Gate D;
+  - a **serializable module catalog** split from `descriptor.py`'s
+    `QWidget` factories, shared by both shells and aligned with the
+    migration ledger;
+  - **one main webview**, with extra native windows only for tray,
+    slideshow, and file dialogs;
+  - a **supervisor that siblings** the sidecar, cloud-jobs daemon, and
+    slideshow daemon, so a window close does not drop leases;
+  - **vault unlock inside the sidecar**, session handle in the webview,
+    leases in daemons;
+  - **one shared canvas host** for stitch, merge, and frame-slice;
+  - **new Deep Learning panels in Tauri** against `record.json` /
+    `events.jsonl`. No PostgreSQL.
+
 ## 5. Questions for Harbinger (tag with your name; Harbinger answers inline)
 
 Answered directly in chat on 2026-10-19, before the round opened:
@@ -253,6 +307,125 @@ Claude's remaining questions are in its proposal (§Q).
   - **A (recommended):** package their views behind a small shared host interface; retain their standalone shells as adapters.
   - **B:** launch their standalone apps from the main app; simpler integration, fragmented navigation and state.
   - **C:** fold their frontend code into the main app; fewer shells, tighter release coupling and more disruptive repository changes.
+
+### OpenCode — 2026-10-19 (unanswered)
+
+- **[OpenCode Q1] What is the unit of migration?**
+  - **A (recommended):** capability/workspace, not route. One ledger record
+    per user-visible capability; stitch is one record with eight routes and
+    DL one with five, matching the 26 factories behind the 33 routes.
+  - **B:** per route key. Finer progress, but shared stitch/DL workspaces get
+    fragmented ownership and duplicated scaffolding.
+  - **C:** per screen/tab as laid out today. Most literal, preserves the
+    current UI's accidental grouping.
+  - **D:** per service first, screens later. Cleanest seam, no visible
+    migration for a long time and no early parity evidence.
+- **[OpenCode Q2] How do we prove parity before deleting PySide6 code?**
+  - **A (recommended):** characterize current behavior first, then diff the
+    old path and the new service on the same fixtures in CI while both ship;
+    add framework-neutral acceptance for the UI.
+  - **B:** one semantic acceptance spec that passes in both UIs. Cheaper, but
+    only proves the paths the spec clicks.
+  - **C:** a manual checklist signed per row. Simplest, weakest.
+  - **D:** pixel/visual comparison. Catches layout drift, proves nothing
+    about logic or data.
+- **[OpenCode Q3] How strictly do we freeze new PySide6 work?**
+  - **A (recommended):** content-hash allowlist plus a downward-only Qt
+    import budget; no new/changed PySide6 UI without a reviewed ledger
+    update, bugfixes possible but visible.
+  - **B:** freeze all of `gui/src` to reviewed bugfixes only. Simpler, not
+    automated.
+  - **C:** convention only. Fastest in the moment; the surface grows back.
+  - **D:** no freeze; fix bugs in both apps as needed. Highest drift and
+    double-work cost.
+- **[OpenCode Q4] Where does the canonical service layer live?**
+  - **A (recommended):** `backend/src/services/<feature>/`, delegating to
+    `backend/src/core|database|web`, with `gui/`, `frontend/` and `api/` as
+    clients.
+  - **B:** a new top-level `core/` package extracted from `backend/`. Cleaner
+    in theory, repo-wide move before any feature is ported.
+  - **C:** keep logic in today's `backend/src/` modules and add thin facades.
+    Least churn, no explicit seam.
+  - **D:** put services in `gui/src/services/` and call them through the
+    sidecar. Reuses existing code, keeps domain logic in the layer being
+    deleted.
+- **[OpenCode Q5] What happens to the 224 PySide6 test files during the migration?**
+  - **A (recommended):** they are the parity oracle until their row passes;
+    delete a test only with the code it covers and the Tauri replacement.
+  - **B:** delete tests as soon as the code is extracted. Smaller load, loses
+    the evidence.
+  - **C:** maintain both suites in full until final deletion. Safest, every
+    change written twice for months.
+  - **D:** freeze them now and rely on the new harness. Fastest to converge,
+    un-migrated areas unguarded.
+- **[OpenCode Q6] When do we cut over CRA → Vite and delete Electron?**
+  - **A (recommended):** Wave 0, one announced PR (Vite + React 19; remove
+    `react-scripts`, Electron deps/scripts and `public/electron.js`); no
+    feature work merges until build and existing test are green.
+  - **B:** dual-build CRA and Vite for one wave, then delete CRA. Lower risk,
+    two build configs to keep green.
+  - **C:** defer until after the pilot. Early momentum, deprecated toolchain
+    for every new file.
+  - **D:** stay on CRA for the whole migration. Least immediate work, worst
+    long-term cost.
+- **[OpenCode Q7] How do we keep documentation from going stale?**
+  - **A (recommended):** contract-hash freshness in CI. Each module README
+    carries the contract hash; a contract change without a README update
+    fails the docs build. Generated references plus `mkdocs --strict` and
+    `lychee` cover the rest.
+  - **B:** review checklist only. Docs drift between releases.
+  - **C:** generated docs only. Zero reference drift, no rationale or
+    onboarding narrative.
+  - **D:** treat the `.agent/` reports as the documentation. Complete
+    history, not a usable developer guide.
+- **[OpenCode Q8] How should parallel agents claim and land migration work?**
+  - **A (recommended):** ledger-row ownership, one row per PR (code + tests
+    + deletion + docs), claim on the bus and in the ledger, wait for the
+    wave gate, second reviewer for deletions.
+  - **B:** area owners (system, library, web, DL, editors, OS). Less
+    negotiation, one agent becomes the area bottleneck.
+  - **C:** free-for-all claiming on GitHub issues. Flexible, brings back the
+    historical collision/duplicate-work failure mode.
+  - **D:** one agent at a time. Simplest coordination, slowest by roughly
+    the number of agents available.
+
+### Grok — 2026-10-19
+
+Recommendation first in each list.
+
+- **[Grok T1] Where do gallery pixels come from?**
+  - **A (recommended):** A Qt-free thumbnail service writes bounded stills (first frame, max edge). The webview displays those cache files only. Animated preview is a separate, cancellable request for the focused item.
+  - **B:** A Rust thumbnail command decodes for the grid, so the grid does not wait on the Python sidecar.
+  - **C:** The webview decodes original files directly through the asset protocol.
+  - **D:** Keep today's Rust `db.rs` / image commands as the thumbnail path until the library wave.
+- **[Grok T2] When do we close the open asset scope and null CSP?**
+  - **A (recommended):** Wave 0, before Cloud Jobs Gate D or any other new UI. Default deny. Each feature declares roots. Originals are not in the scope.
+  - **B:** Tighten the scope as each feature migrates. Gate D may ship on the current `**` scope.
+  - **C:** Leave `csp: null` and `scope: ["**"]` until PySide6 is gone.
+- **[Grok T3] What is the navigation source of truth while both shells ship?**
+  - **A (recommended):** One serializable catalog, split out of `descriptor.py` so it does not import `QWidget`. Qt and Tauri both render it. Ids match the migration ledger.
+  - **B:** Tauri routes are handwritten. `ModuleCatalog` stays Qt-only until that area is deleted.
+  - **C:** The React router becomes the source of truth now. The Qt registry is frozen and edited only to delete rows.
+- **[Grok T4] How many native windows does the desktop have?**
+  - **A (recommended):** One main webview. Preview, compare, settings, and Cloud Jobs are routes or panels. Extra native windows only for the tray, the slideshow/wallpaper presenter, and OS file dialogs.
+  - **B:** One Tauri window for each current PySide6 window.
+  - **C:** Several webviews inside one native frame, one per major area.
+- **[Grok T5] Who starts the sidecar and the long-lived daemons?**
+  - **A (recommended):** A supervisor outside the webview starts the sidecar, the cloud-jobs daemon, and the slideshow daemon as siblings. Closing the window does not stop them. A sidecar crash does not drop daemon leases.
+  - **B:** The sidecar parents the daemons. The supervisor only restarts the sidecar, which then reattaches.
+  - **C:** The Tauri shell starts all of them as `externalBin` children. Their lifetime follows the shell.
+- **[Grok T6] Where may the vault password and database key live?**
+  - **A (recommended):** Unlock stays in the sidecar. The webview holds a session handle only. Daemons hold leases, as Cloud Jobs already requires. Logs never contain the password or the SQLCipher key.
+  - **B:** The Tauri shell stores the password in the OS keychain and passes it to the sidecar at launch.
+  - **C:** Rust holds the unwrapped database key for the process lifetime and proxies queries itself.
+- **[Grok T7] How should stitch, merge, and frame-slice canvases be ported?**
+  - **A (recommended):** One shared canvas host. A Wave 0 spike uses a fake document. Stitch is the first real editor after the Convert pilot. A failed budget uses the Codex R5 case-specific deferral.
+  - **B:** Each editor keeps its own canvas. No shared host.
+  - **C:** Leave the editor canvases on PySide6 until every other area has been deleted.
+- **[Grok T8] What happens to Deep Learning UI that has not been built yet?**
+  - **A (recommended):** Freeze new Qt panels. Build the remaining Deep Learning UI in Tauri against the existing `record.json` / `events.jsonl` contract.
+  - **B:** Finish the open Qt issue first, then freeze `gui/` Deep Learning panels.
+  - **C:** Make the Deep Learning workspace the migration pilot, ahead of Convert.
 
 ## 6. Design axes to cover (suggestions, not a checklist)
 
