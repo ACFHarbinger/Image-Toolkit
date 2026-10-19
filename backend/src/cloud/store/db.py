@@ -15,7 +15,7 @@ from typing import Any, Callable, Iterator, Optional
 from backend.src.constants import IMAGE_TOOLKIT_DIR
 
 DEFAULT_STORE_PATH = Path(IMAGE_TOOLKIT_DIR) / "cloud_jobs.db"
-CLOUD_SCHEMA_VERSION = 1
+CLOUD_SCHEMA_VERSION = 2
 SCHEMA_SQL = Path(__file__).with_name("schema.sql")
 
 # base.database verifies the key with a read *before* setting busy_timeout,
@@ -73,11 +73,22 @@ def ensure_schema(db: Any) -> None:
     if found > CLOUD_SCHEMA_VERSION:
         # A newer build wrote this store; applying our older DDL over it could lose data.
         raise StoreUnavailable(f"cloud_jobs.db is schema v{found}; this build understands v{CLOUD_SCHEMA_VERSION}")
+    if found == 1:
+        _migrate_v1_to_v2(db)
     db.apply_ddl(SCHEMA_SQL.read_text(encoding="utf-8"))
     db.execute(
-        "INSERT OR IGNORE INTO schema_meta(key, value) VALUES ('version', ?)",
+        "INSERT INTO schema_meta(key, value) VALUES ('version', ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         (str(CLOUD_SCHEMA_VERSION),),
     )
+
+
+def _migrate_v1_to_v2(db: Any) -> None:
+    """v2: per-shard collection state, so collection can outlive teardown."""
+    cols = {r[1] for r in db.query("PRAGMA table_info(shards)", ())}
+    for col in ("ready", "durable", "collect_attempts", "collect_failed"):
+        if col not in cols:
+            db.execute(f"ALTER TABLE shards ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0", ())
 
 
 def schema_version(db: Any) -> int:

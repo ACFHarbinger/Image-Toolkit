@@ -89,10 +89,7 @@ def reconcile(
     if job.state in TERMINAL:
         return [Teardown()] if job.teardown_pending else []
     if job.state is JobState.SETTLING:
-        if job.teardown_pending:
-            return [Teardown()]
-        outcome = job.outcome or Outcome.FAILED
-        return [Transition(outcome.terminal_state, job.outcome_reason)]
+        return _settling(job)
 
     if job.cancel is not None:
         return _cancel(job, obs)
@@ -120,6 +117,23 @@ def reconcile(
     return _observed(job, obs, settings, now)
 
 
+
+def _settling(job: JobView) -> List[Action]:
+    if job.teardown_pending:
+        return [Teardown()]
+    # Durable outputs outlive the instance: collect them after teardown, so a slow
+    # or failing download never keeps a machine billing.
+    durable = job.collectable(durable_only=True)
+    if durable:
+        return [Collect(i) for i in durable]
+    outcome = job.outcome or Outcome.FAILED
+    lost = sum(1 for s in job.shards if s.collect_failed)
+    reason = job.outcome_reason + (f" ({lost} shard output(s) not collected)" if lost else "")
+    if outcome is Outcome.SUCCEEDED and lost:
+        outcome = Outcome.FAILED
+    return [Transition(outcome.terminal_state, reason)]
+
+
 def _cancel(job: JobView, obs: Optional[Observation]) -> List[Action]:
     if job.state is JobState.QUEUED:
         return [Transition(JobState.CANCELLED, "cancelled before submit")]
@@ -142,11 +156,24 @@ def _submit_failed(job: JobView, settings: ReconcileSettings, error: str) -> Lis
     return _stop(job, None, Outcome.FAILED, "submit failed")
 
 
-def _succeeded_uncollected(job: JobView, obs: Optional[Observation]) -> List[int]:
-    if obs is None:
-        return []
-    done = {i for i, st in obs.shards.items() if st is ShardStatus.SUCCEEDED}
-    return [s.index for s in job.shards if not s.collected and s.index in done]
+def _succeeded_uncollected(job: JobView, obs: Optional[Observation],
+                           ephemeral_only: bool = False) -> List[int]:
+    """Finished shards still to collect: persisted readiness, plus anything this observation adds."""
+    done = {i for i, st in obs.shards.items() if st is ShardStatus.SUCCEEDED} if obs is not None else set()
+    obs_durable = obs.outputs_durable if obs is not None else True
+    out = []
+    for s in job.shards:
+        if s.collected or s.collect_failed:
+            continue
+        if s.ready:
+            durable = s.durable
+        elif s.index in done:
+            durable = obs_durable
+        else:
+            continue
+        if not (ephemeral_only and durable):
+            out.append(s.index)
+    return out
 
 
 def _stop(job: JobView, obs: Optional[Observation], outcome: Outcome, reason: str,
@@ -154,7 +181,9 @@ def _stop(job: JobView, obs: Optional[Observation], outcome: Outcome, reason: st
     actions: List[Action] = []
     if checkpoint and job.state is JobState.RUNNING:
         actions.append(Checkpoint())
-    actions += [Collect(i) for i in _succeeded_uncollected(job, obs)]
+    # Only outputs that die with the instance are collected before teardown, and only
+    # once (the engine never lets a failure here skip the teardown that follows).
+    actions += [Collect(i) for i in _succeeded_uncollected(job, obs, ephemeral_only=True)]
     actions += [SetOutcome(outcome, reason), Transition(JobState.SETTLING, reason), Teardown()]
     return actions
 

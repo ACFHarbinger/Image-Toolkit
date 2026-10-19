@@ -72,6 +72,13 @@ class ShardView:
     index: int
     collected: bool = False
     failures: int = 0
+    ready: bool = False           # worker finished it (persisted, so it survives teardown)
+    durable: bool = False         # output is in staging storage and can be collected after teardown
+    collect_failed: bool = False  # collection given up; counts as a failed shard
+
+    @property
+    def collectable(self) -> bool:
+        return self.ready and not self.collected and not self.collect_failed
 
 
 @dataclass(frozen=True)
@@ -108,3 +115,7 @@ class JobView:
     @property
     def pending_shards(self) -> Tuple[int, ...]:
         return tuple(s.index for s in self.shards if not s.collected)
+
+    def collectable(self, durable_only: bool = False, ephemeral_only: bool = False) -> Tuple[int, ...]:
+        return tuple(s.index for s in self.shards if s.collectable
+                     and not (durable_only and not s.durable) and not (ephemeral_only and s.durable))

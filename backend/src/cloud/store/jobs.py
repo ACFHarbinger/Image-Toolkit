@@ -100,6 +100,17 @@ class JobRepo:
         self._db.execute("UPDATE jobs SET spec_json = ?, updated_at = ? WHERE job_id = ?",
                          (spec.to_json(), self._clock(), spec.job_id))
 
+    def created_at(self, job_id: str) -> float:
+        rows = self._db.query("SELECT created_at FROM jobs WHERE job_id = ?", (job_id,))
+        if not rows:
+            raise UnknownJob(job_id)
+        return float(rows[0][0])
+
+    def accepted_record(self, job_id: str) -> Dict[str, Any]:
+        rows = self._db.query("SELECT data_json FROM job_events WHERE job_id = ? AND type = 'accepted' "
+                              "ORDER BY id LIMIT 1", (job_id,))
+        return json.loads(rows[0][0]) if rows else {}
+
     def state(self, job_id: str) -> JobState:
         rows = self._db.query("SELECT state FROM jobs WHERE job_id = ?", (job_id,))
         if not rows:
@@ -230,6 +241,32 @@ class JobRepo:
 
     # --- shards & events ----------------------------------------------------
 
+    def mark_ready(self, job_id: str, indices: Sequence[int], durable: bool) -> None:
+        """Persist that the worker finished these shards (only the first report counts)."""
+        for idx in indices:
+            changed = self._db.execute(
+                "UPDATE shards SET ready = 1, durable = ? WHERE job_id = ? AND idx = ? AND ready = 0",
+                (int(durable), job_id, idx))
+            if changed:
+                self.event(job_id, "shard_ready", {"shard": idx, "durable": durable})
+
+    def reset_shards(self, job_id: str, indices: Sequence[int]) -> None:
+        """A retry re-runs these shards from scratch."""
+        for idx in indices:
+            self._db.execute("UPDATE shards SET ready = 0, durable = 0, collect_attempts = 0, "
+                             "collect_failed = 0, failures = failures + 1 WHERE job_id = ? AND idx = ? "
+                             "AND collected = 0", (job_id, idx))
+
+    def note_collect_failure(self, job_id: str, idx: int, error: str, give_up: bool) -> int:
+        self._db.execute("UPDATE shards SET collect_attempts = collect_attempts + 1, "
+                         "collect_failed = MAX(collect_failed, ?) WHERE job_id = ? AND idx = ?",
+                         (int(give_up), job_id, idx))
+        n = int(self._db.query("SELECT collect_attempts FROM shards WHERE job_id = ? AND idx = ?",
+                               (job_id, idx))[0][0])
+        self.event(job_id, "collect_failed" if give_up else "collect_retry",
+                   {"shard": idx, "error": error, "attempts": n})
+        return n
+
     def collect_shard(self, job_id: str, idx: int, outputs: Sequence[str]) -> None:
         self._db.execute("UPDATE shards SET collected = 1, outputs_json = ? WHERE job_id = ? AND idx = ?",
                          (json.dumps(list(outputs)), job_id, idx))
@@ -262,9 +299,9 @@ class JobRepo:
         r = rows[0]
         spec = JobSpec.from_json(r[9])
         shards = tuple(
-            ShardView(int(s[0]), bool(s[1]), int(s[2]))
-            for s in self._db.query("SELECT idx, collected, failures FROM shards WHERE job_id = ? "
-                                    "ORDER BY idx", (job_id,)))
+            ShardView(int(s[0]), bool(s[1]), int(s[2]), bool(s[3]), bool(s[4]), bool(s[5]))
+            for s in self._db.query("SELECT idx, collected, failures, ready, durable, collect_failed "
+                                    "FROM shards WHERE job_id = ? ORDER BY idx", (job_id,)))
         att = self.current_attempt(job_id)
         return JobView(
             job_id=job_id, state=JobState(r[0]), shards=shards,

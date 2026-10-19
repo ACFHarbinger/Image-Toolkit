@@ -50,6 +50,10 @@ CREATE TABLE IF NOT EXISTS shards (
     idx           INTEGER NOT NULL,
     collected     INTEGER NOT NULL DEFAULT 0,
     failures      INTEGER NOT NULL DEFAULT 0,
+    ready         INTEGER NOT NULL DEFAULT 0,  -- worker reported the shard finished
+    durable       INTEGER NOT NULL DEFAULT 0,  -- its output is in staging storage, not only on the instance
+    collect_attempts INTEGER NOT NULL DEFAULT 0,
+    collect_failed   INTEGER NOT NULL DEFAULT 0,  -- gave up: output lost or never verified
     outputs_json  TEXT NOT NULL DEFAULT '[]',
     PRIMARY KEY (job_id, idx)
 );

@@ -36,9 +36,10 @@ QUOTA = "quota"
 ERROR = "error"
 
 
-def running(*succeeded: int, cost: float = 0.0, burn: float = 0.0, total: int = 0) -> Observation:
+def running(*succeeded: int, cost: float = 0.0, burn: float = 0.0, total: int = 0,
+            durable: bool = True) -> Observation:
     shards = {i: ShardStatus.SUCCEEDED if i in succeeded else ShardStatus.RUNNING for i in range(total)}
-    return Observation(ProviderStatus.RUNNING, shards, cost, burn)
+    return Observation(ProviderStatus.RUNNING, shards, cost, burn, outputs_durable=durable)
 
 
 def finished(total: int, failed: Sequence[int] = (), cost: float = 0.0) -> Observation:
@@ -53,6 +54,8 @@ class FakeProvider:
     submit_faults: List[Optional[str]] = field(default_factory=list)  # consumed per submit call
     teardown_failures: int = 0
     collect_unverified: Sequence[int] = ()
+    collect_errors: Dict[int, int] = field(default_factory=dict)  # shard -> times collect raises first
+    checkpoint_error: bool = False
     manifest: Optional[CapabilityManifest] = None
     calls: List[str] = field(default_factory=list)
     _live: Dict[str, ResourceRef] = field(default_factory=dict)
@@ -111,11 +114,16 @@ class FakeProvider:
 
     def collect(self, ctx: AttemptContext, shard_index: int) -> CollectResult:
         self.calls.append(f"collect:{shard_index}")
+        if self.collect_errors.get(shard_index, 0) > 0:
+            self.collect_errors[shard_index] -= 1
+            raise ConnectionError("download endpoint unavailable")
         verified = shard_index not in self.collect_unverified
         return CollectResult(shard_index, (f"out/{ctx.job_id}/shard{shard_index}.bin",), verified)
 
     def checkpoint(self, ctx: AttemptContext) -> None:
         self.calls.append("checkpoint")
+        if self.checkpoint_error:
+            raise TimeoutError("checkpoint endpoint did not answer")
 
     def teardown(self, resources: Sequence[ResourceRef]) -> bool:
         self.calls.append("teardown")
@@ -197,3 +205,11 @@ class FakeSyncRemote:
 
     def copy_from(self, store, key: str, path: str) -> None:
         self.files[path] = store.read_range(key, 0)
+
+
+def accept_unchecked(spec: JobSpec, reserve_usd: float = 0.0, capability_override: bool = False):
+    """Tests of the engine alone: skip preflight. Production code goes through CloudJobService."""
+    from .acceptance import issue
+
+    return issue(spec, reserve_usd, capability_override, ())
+
