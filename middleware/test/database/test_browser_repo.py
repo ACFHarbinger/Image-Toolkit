@@ -6,7 +6,7 @@ Engine-level tests over a tmp SQLCipher database; no GUI, no JVM.
 
 import pytest
 
-base = pytest.importorskip("base")
+backend = pytest.importorskip("backend")
 
 from middleware.src.database.unified import session  # noqa: E402
 from middleware.src.database.unified.browser_repo import BrowserRepo  # noqa: E402
@@ -15,7 +15,7 @@ from middleware.src.database.unified.image_repo import ImageRepo  # noqa: E402
 
 @pytest.fixture()
 def db(tmp_path):
-    handle = base.database.Database(str(tmp_path / "lib.db"), "pw", "salt")
+    handle = backend.database.Database(str(tmp_path / "lib.db"), "pw", "salt")
     session.ensure_schema(handle)
     yield handle
     handle.close()

@@ -32,7 +32,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from middleware.benchmark.managers import BenchmarkManager, measure_memory  # noqa: E402
 
 try:
-    import base as cpp_core  # type: ignore[import]
+    import backend as cpp_core  # type: ignore[import]
     _CPP_AVAILABLE = True
 except ImportError:
     cpp_core = None  # type: ignore[assignment]
@@ -98,7 +98,7 @@ runner = BenchmarkManager("GUI Thumbnail Loading")
 @runner.benchmark("load_batch_gallery_100", iterations=3, warmup=1)
 @measure_memory
 def bench_load_100() -> None:
-    """base.load_image_batch() for a 100-image gallery page."""
+    """backend.load_image_batch() for a 100-image gallery page."""
     if not _CPP_AVAILABLE or not _PATHS_100:
         return
     cpp_core.load_image_batch(_PATHS_100, thumb_w=_THUMB_SIZE, thumb_h=_THUMB_SIZE)
@@ -107,7 +107,7 @@ def bench_load_100() -> None:
 @runner.benchmark("load_batch_gallery_500", iterations=3, warmup=1)
 @measure_memory
 def bench_load_500() -> None:
-    """base.load_image_batch() for a 500-image gallery page."""
+    """backend.load_image_batch() for a 500-image gallery page."""
     if not _CPP_AVAILABLE or not _PATHS_500:
         return
     cpp_core.load_image_batch(_PATHS_500, thumb_w=_THUMB_SIZE, thumb_h=_THUMB_SIZE)
@@ -116,7 +116,7 @@ def bench_load_500() -> None:
 @runner.benchmark("load_batch_gallery_1000", iterations=3, warmup=1)
 @measure_memory
 def bench_load_1000() -> None:
-    """base.load_image_batch() for a 1000-image gallery page."""
+    """backend.load_image_batch() for a 1000-image gallery page."""
     if not _CPP_AVAILABLE or not _PATHS_1000:
         return
     cpp_core.load_image_batch(_PATHS_1000, thumb_w=_THUMB_SIZE, thumb_h=_THUMB_SIZE)

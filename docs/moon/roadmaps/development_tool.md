@@ -808,7 +808,7 @@ Historical implementation status (unchanged by the fold):
 
 | Layer | Status | Details |
 |-------|--------|---------|
-| **C++ / former Rust math backbone** (`base/` math) | ✅ Complete | 6 modules; 49 unit tests at the time of record |
+| **C++ / former Rust math backbone** (`backend/` math) | ✅ Complete | 6 modules; 49 unit tests at the time of record |
 | **TypeScript math backbone** (`frontend/src/math/`) | ✅ Complete | 7 modules + `benchmark.ts` |
 | **Benchmark dashboard migration** (Streamlit → Tauri/React) | ✅ Complete | Separate from this host; Tauri/React 7-page dashboard |
 | Phases 1–10 feature implementation | ⬜ Mostly not started | §1.4 DSM-equivalent shipped; rest planned / research |
@@ -1233,10 +1233,10 @@ get a one-line note instead of an empty table.
 
 | Module | Current Coverage | Impact of Blindspot |
 |--------|-----------------|---------------------|
-| `base/src/image_converter.rs` | ❌ None | Cannot detect Rust image conversion regressions |
-| `base/src/image_merger.rs` | ❌ None | Merge quality and speed unknown at scale |
-| `base/src/image_finder.rs` | ❌ None | File-system scan performance on large directories |
-| `base/src/file_system.rs` | ❌ None | Bulk file enumeration bottlenecks |
+| `backend/src/image_converter.rs` | ❌ None | Cannot detect Rust image conversion regressions |
+| `backend/src/image_merger.rs` | ❌ None | Merge quality and speed unknown at scale |
+| `backend/src/image_finder.rs` | ❌ None | File-system scan performance on large directories |
+| `backend/src/file_system.rs` | ❌ None | Bulk file enumeration bottlenecks |
 | `gui/src/helpers/image/image_loader_worker.py` | ❌ None | LRU thumbnail cache RAM/throughput unknowns |
 | `middleware/src/animation/compositing.py` (isolated) | ⚠️ Via ASP | Seam DP, DSFN ramp, Poisson blend not individually profiled |
 | `middleware/src/animation/matching.py` (isolated) | ⚠️ Via ASP | LoFTR vs phase-correlation trade-off not quantified |
@@ -1287,7 +1287,7 @@ GPU+weights were available in the verifying environment).
 
 ### 12.3 GUI Thumbnail Loading Benchmarks (HIGH PRIORITY) — **DONE, 2026-07-27**
 Created `middleware/benchmark/bench_gui_thumbnails.py` exactly per spec:
-time/memory for `base.load_image_batch()` at N={100, 500, 1000}; LRU
+time/memory for `backend.load_image_batch()` at N={100, 500, 1000}; LRU
 cache miss-then-fill (1000 images through a maxsize=300
 `LRUImageCache`, exercising eviction) vs a warm-cache hit path (100
 images, repeated lookups, no decode); a direct QImage-vs-QPixmap memory
@@ -1313,7 +1313,7 @@ forward-looking target instead: `search_repo.py`'s `filter_media()`/
 
 **Shipped 2026-08-22**: `middleware/benchmark/bench_search_repo_scale.py` —
 a standalone, deterministic scale benchmark (seeded data bulk-inserted
-via `base.database` `executemany`; the FTS5 external-content triggers
+via `backend.database` `executemany`; the FTS5 external-content triggers
 keep the shadow tables in sync). It measures, at 10k and 100k
 media/entity rows, the real query latency of every default gallery
 filter/sort shape `filter_media()`/`filter_entities()` produce: the
@@ -1352,7 +1352,7 @@ cost). Alerts when a phase grows RSS by more than `LIFECYCLE_RSS_ALERT_MB`
 gallery load (100/500/1000 images)" phase this item also names can't be
 driven from a fixed app.py lifecycle point (it depends on whatever
 tab/directory a user opens first) — instead, `middleware/benchmark/bench_app_lifecycle.py`
-covers it in a controlled, repeatable way via the same `base.load_image_batch()`
+covers it in a controlled, repeatable way via the same `backend.load_image_batch()`
 path §12.3 already benchmarks for throughput, now wrapped in
 `lifecycle_memory.snapshot()` so the alert logic runs against real RSS
 deltas. **Verified**: both files run end-to-end (unit tests for the alert
@@ -1375,7 +1375,7 @@ benchmarks pass with real scaling visible (e.g. `_seam_cut` at h=2000 took
 
 ### 12.7 Web Crawler Telemetry (LOW-MEDIUM) — **DONE (scoped down), 2026-07-30**
 **Premise partially stale on inspection**: the actual HTTP requests happen
-inside the compiled `base` C++ extension (`base.run_board_crawler`), which
+inside the compiled `base` C++ extension (`backend.run_board_crawler`), which
 only calls back into Python once per successful download (`on_image_saved`)
 and via free-form `on_status` progress strings — there is no per-request
 hook crossing the pybind boundary, so true per-request timing and
@@ -1393,7 +1393,7 @@ real crawlers and saves a General-suite JSON, gated behind
 outbound requests to third-party image boards, not something to run
 unattended/in CI). **Verified**: 8 unit tests on the telemetry counters
 (`middleware/test/web/test_image_board_crawler.py`) pass with a mocked
-`base.run_board_crawler`; the benchmark script's default (opted-out) path
+`backend.run_board_crawler`; the benchmark script's default (opted-out) path
 ran end-to-end with zero network calls made.
 
 ### 12.8 Mobile Performance Baselines (LONG-TERM) — **rescoped, 2026-07-30**

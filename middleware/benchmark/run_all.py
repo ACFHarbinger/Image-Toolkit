@@ -79,7 +79,7 @@ def run_cpp_benchmarks():
     print("CPP CORE BENCHMARKS")
     print("=" * 60)
 
-    base_dir = Path(__file__).parent.parent.parent / "base"
+    base_dir = Path(__file__).parent.parent.parent / "backend"
 
     try:
         print("\nBuilding and running C++ benchmarks...")
@@ -96,7 +96,7 @@ def run_cpp_benchmarks():
 
         if result.returncode == 0:
             print("\n✓ C++ benchmarks completed successfully")
-            # Criterion saves results to base/target/criterion/
+            # Criterion saves results to backend/target/criterion/
             criterion_dir = base_dir / "target" / "criterion"
             return criterion_dir
         else:

@@ -22,12 +22,12 @@ class SimilarityDiffConsolidateController(TabBoundController):
 
     @Slot(str, str, result=str)
     def generate_diff(self, path_a: str, path_b: str) -> str:
-        import base
+        import backend
 
         name = f"diff_{abs(hash((path_a, path_b))) & 0xFFFFFFFF:08x}.png"
         out = os.path.join(self._diff_dir, name)
         try:
-            result = base.similarity.diff_mask(path_a, path_b, out, tolerance=12)
+            result = backend.similarity.diff_mask(path_a, path_b, out, tolerance=12)
         except Exception as e:
             logger.warning("diff_mask failed: %s", e)
             return ""

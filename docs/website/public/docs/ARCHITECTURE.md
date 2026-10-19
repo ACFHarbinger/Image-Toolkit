@@ -29,7 +29,7 @@ flowchart TD
         RECENG["CRE/\n(SQLite + cosine RRF)"]
     end
 
-    subgraph CppCore["C++ Core  ·  base/"]
+    subgraph CppCore["C++ Core  ·  backend/"]
         RUST["pybind11 extension\n(image_converter,\nfile_system, crawlers)"]
         RUSTMATH["math/\n(stats, distance,\ninformation)"]
     end

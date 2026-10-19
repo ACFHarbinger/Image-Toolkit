@@ -2,7 +2,7 @@ import json
 import time
 from typing import Dict
 
-import base  # Native extension
+import backend  # Native extension
 
 from middleware.src.events import Observable
 
@@ -22,7 +22,7 @@ class ImageBoardCrawler:
         # §12.7 (issue #70) — per-crawl telemetry. The C++ extension
         # (base.run_board_crawler) makes the actual HTTP requests and only
         # calls back into Python via on_image_saved (one per successful
-        # download, base/src/web/board_crawler.cpp:125) and on_status_emitted
+        # download, backend/src/web/board_crawler.cpp:125) and on_status_emitted
         # (free-form progress strings, no structured response-code field) —
         # there is no per-request hook exposed across the pybind boundary, so
         # "per-request timing and response-code tracking" as literally
@@ -116,7 +116,7 @@ class ImageBoardCrawler:
 
         t0 = time.perf_counter()
         try:
-            total_downloaded = base.run_board_crawler(crawler_name, config_json, self)
+            total_downloaded = backend.run_board_crawler(crawler_name, config_json, self)
             return total_downloaded
 
         except Exception as e:

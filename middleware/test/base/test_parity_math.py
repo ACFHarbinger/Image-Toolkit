@@ -15,7 +15,7 @@ import numpy as np
 import pytest
 
 try:
-    import base as _base
+    import backend as _base
 
     HAS_BASE = hasattr(_base, "math")
 except ImportError:

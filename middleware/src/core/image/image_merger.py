@@ -15,9 +15,9 @@ from middleware.src.core import telemetry
 from .. import FSETool
 
 try:
-    import base
+    import backend
 except ImportError:
-    base = None  # type: ignore[assignment]
+    backend = None  # type: ignore[assignment]
 
 from ._engines import _EngineMixin
 from ._gif_video import _GifVideoMixin
@@ -185,11 +185,11 @@ class ImageMerger(
 
         if direction == "horizontal":
             with telemetry.NATIVE_IMAGE_BATCH_LOCK:
-                base.merge_images_horizontal(image_paths, output_path, spacing, rust_align)
+                backend.merge_images_horizontal(image_paths, output_path, spacing, rust_align)
             return Image.open(output_path)
         elif direction == "vertical":
             with telemetry.NATIVE_IMAGE_BATCH_LOCK:
-                base.merge_images_vertical(image_paths, output_path, spacing, rust_align)
+                backend.merge_images_vertical(image_paths, output_path, spacing, rust_align)
             return Image.open(output_path)
         elif direction == "grid":
             if grid_size is None:
@@ -198,7 +198,7 @@ class ImageMerger(
             if len(image_paths) > rows * cols:
                 raise ValueError("More images provided than the grid slots can hold.")
             with telemetry.NATIVE_IMAGE_BATCH_LOCK:
-                base.merge_images_grid(image_paths, output_path, rows, cols, spacing)
+                backend.merge_images_grid(image_paths, output_path, rows, cols, spacing)
             return Image.open(output_path)
         elif direction == "panorama":
             ek = engine_kwargs or {}

@@ -19,7 +19,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 try:
-    import base as _batch_fgreg
+    import backend as _batch_fgreg
     if (
         getattr(_batch_fgreg, "__file__", None) is None
         or not hasattr(_batch_fgreg, "fg_register")

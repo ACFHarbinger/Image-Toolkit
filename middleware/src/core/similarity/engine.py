@@ -119,7 +119,7 @@ class SimilarityEngine:
     # ------------------------------------------------------------------
 
     def scan(self) -> SimilarityReport:  # noqa: C901
-        import base
+        import backend
 
         cfg = self.config
         report = SimilarityReport()
@@ -145,7 +145,7 @@ class SimilarityEngine:
             chunk = 256
             for i in range(0, len(stale), chunk):
                 self._check_cancel()
-                part = base.similarity.compute_hashes(
+                part = backend.similarity.compute_hashes(
                     stale[i : i + chunk], hash_size=cfg.hash_size, with_exact=True
                 )
                 self.cache.upsert_hashes(part, cfg.hash_size)
@@ -184,7 +184,7 @@ class SimilarityEngine:
         # --- Tier 2: consensus perceptual hashing -------------------------
         if TIER_PERCEPTUAL in cfg.tiers and hashed_paths:
             self._progress("Tier 2: perceptual hashing (VP-tree)", 0, 0)
-            pairs = base.similarity.hash_pairs_within(
+            pairs = backend.similarity.hash_pairs_within(
                 ph, dh, wh,
                 hamming_threshold=cfg.scaled_hamming_threshold(),
                 hash_size=cfg.hash_size,
@@ -215,7 +215,7 @@ class SimilarityEngine:
                 if len(emb_paths) >= 2:
                     self._progress("Tier 4: HNSW search", 0, 0)
                     dims = len(next(iter(have.values())))
-                    index = base.similarity.HnswIndex(
+                    index = backend.similarity.HnswIndex(
                         dim=dims, M=cfg.hnsw_m,
                         ef_construction=cfg.hnsw_ef_construction,
                     )
@@ -242,7 +242,7 @@ class SimilarityEngine:
             self._progress("Tier 3: structural verification", 0, len(uncertain))
             for n, e in enumerate(uncertain):
                 self._check_cancel()
-                fm = base.similarity.match_features(
+                fm = backend.similarity.match_features(
                     e.a, e.b, method=cfg.feature_method,
                     max_features=cfg.max_features, lowe_ratio=cfg.lowe_ratio,
                     ransac_threshold=cfg.ransac_threshold,
@@ -250,7 +250,7 @@ class SimilarityEngine:
                 geo_conf = fm["confidence"] if fm["ok"] else 0.0
                 if fm["ok"] and fm["inliers"] >= cfg.min_inliers:
                     geo_conf = max(geo_conf, 0.8)
-                ssim = base.similarity.ssim(e.a, e.b, resize_to=cfg.ssim_resize)
+                ssim = backend.similarity.ssim(e.a, e.b, resize_to=cfg.ssim_resize)
                 ssim_conf = max(0.0, ssim) if ssim >= cfg.ssim_threshold else 0.0
                 structural = max(geo_conf, ssim_conf)
                 if structural > e.confidence:

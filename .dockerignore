@@ -1,5 +1,5 @@
 # Keep the Docker build context small and reproducible. The build only needs
-# the Python backend, the C++ base/ sources, and the dependency manifests.
+# the Python backend, the C++ backend/ sources, and the dependency manifests.
 
 # VCS / CI
 .git
@@ -22,7 +22,7 @@ site/
 target/
 dist/
 *.so
-base.cpython-*.so
+backend.cpython-*.so
 
 # Rust / Cargo
 Cargo.lock

@@ -32,7 +32,7 @@ Compute Offload proof of concept).
 **Store correction (Harbinger, 2026-10-19, after lock).** The round
 chose PostgreSQL because of a stale `AGENTS.md` line. The app has not used
 PostgreSQL since 2026-07-27: its library is the encrypted unified store
-`library.db` (SQLCipher via `base.database`), and Postgres is archived. Harbinger's
+`library.db` (SQLCipher via `backend.database`), and Postgres is archived. Harbinger's
 decision:
 
 - **Cloud Jobs uses its own encrypted `~/.image-toolkit/cloud_jobs.db`,**

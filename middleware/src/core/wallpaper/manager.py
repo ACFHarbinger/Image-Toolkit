@@ -11,7 +11,7 @@ import shutil
 from pathlib import Path
 from typing import Dict, List, Mapping, Optional, Union
 
-import base  # Native extension
+import backend  # Native extension
 from screeninfo import Monitor
 
 from middleware.src.constants import WALLPAPER_BACKGROUND_BLUR, WALLPAPER_STYLES
@@ -219,7 +219,7 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
                     if path is None:
                         raise ValueError("No valid wallpaper path found in path_map.")
                     mode = WALLPAPER_STYLES["GNOME"].get(style_name, "zoom")
-                    base.set_wallpaper_gnome(f"file://{Path(path).resolve()}", mode)
+                    backend.set_wallpaper_gnome(f"file://{Path(path).resolve()}", mode)
 
 
 __all__ = ["WallpaperManager"]

@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-base = pytest.importorskip("base")
-recon = base.recon
+backend = pytest.importorskip("backend")
+recon = backend.recon
 
 
 def _clustered(n_people=4, per=5, dim=32, seed=0):

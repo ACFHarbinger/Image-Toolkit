@@ -49,11 +49,11 @@ jobs:
         run: |
           pixi run -e dev build-base
           # Stage the built module where imports and the PyInstaller spec expect
-          # it: repo root (matches the checked-in base.cpython-*.so location) and
+          # it: repo root (matches the checked-in backend.cpython-*.so location) and
           # the pixi env site-packages.
-          cp -f build/base/base*.so .
+          cp -f build/backend/backend*.so .
           SITE_PKGS=$(pixi run -e dev python -c "import site; print(site.getsitepackages()[0])")
-          cp -f build/base/base*.so "$SITE_PKGS/" || true
+          cp -f build/backend/backend*.so "$SITE_PKGS/" || true
 
       - name: Build native crypto library
         run: |
@@ -65,7 +65,7 @@ jobs:
           # with "version `OPENSSL_3.4.0' not found".
           CONDA_PREFIX="$(pixi run -e dev python -c 'import sys,os; print(os.path.dirname(os.path.dirname(sys.executable)))')"
           pixi run -e dev cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so \
-            base/src/secret/itk_crypto.c \
+            backend/src/secret/itk_crypto.c \
             -I"${CONDA_PREFIX}/include" -L"${CONDA_PREFIX}/lib" \
             -Wl,-rpath,'$ORIGIN' -lcrypto
 
@@ -126,11 +126,11 @@ jobs:
       - name: Build the C++ base extension
         run: |
           $condaPrefix = pixi run -e dev python -c "import sys,os; print(os.path.dirname(os.path.dirname(sys.executable)))"
-          pixi run -e dev cmake -B build/base base/ -G Ninja `
+          pixi run -e dev cmake -B build/backend backend/ -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_PREFIX_PATH="$condaPrefix;C:/vcpkg/installed/x64-windows" `
-            -DBASE_BUILD_TESTS=OFF
-          pixi run -e dev cmake --build build/base --parallel
+            -DBACKEND_BUILD_TESTS=OFF
+          pixi run -e dev cmake --build build/backend --parallel
           # Stage the built .pyd where imports and the PyInstaller spec expect it.
           copy build\base\base*.pyd .
           $sitePkgs = pixi run -e dev python -c "import site; print(site.getsitepackages()[0])"

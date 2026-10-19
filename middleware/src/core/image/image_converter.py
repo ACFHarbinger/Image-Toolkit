@@ -2,7 +2,7 @@ import glob
 import os
 from typing import Callable, List, Optional
 
-import base  # The new C++ extension
+import backend  # The new C++ extension
 
 from middleware.src.core import telemetry
 from middleware.src.core.file_system_entries import FSETool
@@ -67,7 +67,7 @@ class ImageFormatConverter:
         # base.load_image_batch, so concurrent Python-level entries are the
         # same crash class.
         with telemetry.NATIVE_IMAGE_BATCH_LOCK:
-            res = base.convert_single_image(
+            res = backend.convert_single_image(
                 image_path,
                 output_path,
                 format,
@@ -176,7 +176,7 @@ class ImageFormatConverter:
             # Serialized against every other native image-decode/convert
             # entry (see telemetry.NATIVE_IMAGE_BATCH_LOCK's docstring).
             with telemetry.NATIVE_IMAGE_BATCH_LOCK:
-                results = base.convert_image_batch(
+                results = backend.convert_image_batch(
                     image_pairs=image_pairs,
                     output_format=output_format,
                     delete_original=delete,

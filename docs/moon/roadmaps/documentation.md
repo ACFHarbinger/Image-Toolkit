@@ -171,13 +171,13 @@ Use the de-facto scientific Python standard. `sphinx-apidoc` auto-generates `.rs
 
 ## ✅ §6.2 C++ Reference Docs (Doxygen + Catch2 tests) {: #62-cpp-reference-docs-doxygen--catch2-tests }
 
-**Pain point:** `base/include/` contains ~12 modules (`math/linalg.hpp`, `math/stats.hpp`, `math/distance.hpp`, `math/graph.hpp`, `math/dim_reduce.hpp`, `core/`, `web/`, etc.). Most items have minimal `///` Doxygen comments. The Catch2 tests in `base/tests/` cover correctness but Doxygen HTML is not yet generated or published.
+**Pain point:** `backend/include/` contains ~12 modules (`math/linalg.hpp`, `math/stats.hpp`, `math/distance.hpp`, `math/graph.hpp`, `math/dim_reduce.hpp`, `core/`, `web/`, etc.). Most items have minimal `///` Doxygen comments. The Catch2 tests in `backend/tests/` cover correctness but Doxygen HTML is not yet generated or published.
 
 ### Options
 
 **A — `///` Doxygen comments + `doxygen` HTML [Quick Win]**
-Add Doxygen `///` comments to all public items in `base/include/`. Run `doxygen Doxyfile` locally. Publish HTML output to the unified portal.
-- Effort: 2–4 hours for the math headers (`linalg`, `stats`, `information`, `distance`); 1 day for all `base/include/`.
+Add Doxygen `///` comments to all public items in `backend/include/`. Run `doxygen Doxyfile` locally. Publish HTML output to the unified portal.
+- Effort: 2–4 hours for the math headers (`linalg`, `stats`, `information`, `distance`); 1 day for all `backend/include/`.
 - Pros: Zero new dependencies. Doxygen is widely installed. Output is self-hosted HTML.
 - Cons: Doc comments require manual updates when signatures change.
 
@@ -193,7 +193,7 @@ TEST_CASE("cosine_similarity unit vectors", "[math][distance]") {
 - Cons: Larger test binary than doc-tests for trivial cases.
 
 **C — README driven by Doxygen mainpage**
-Sync `base/README.md` from the Doxygen `@mainpage` block in `base/include/base.hpp`. Prevents README/code divergence.
+Sync `backend/README.md` from the Doxygen `@mainpage` block in `backend/include/base.hpp`. Prevents README/code divergence.
 - Pros: Single source of truth: edit the mainpage block, README stays current via a script.
 - Cons: Requires a small generation script.
 
@@ -479,7 +479,7 @@ docs/
   architecture.md      ← promoted from docs/ARCHITECTURE.md
   api/
     python/            ← mkdocstrings output
-    cpp/               ← Doxygen HTML (symlinked or copied from base/docs/html/)
+    cpp/               ← Doxygen HTML (symlinked or copied from backend/docs/html/)
     typescript/        ← typedoc-plugin-markdown output
     kotlin/            ← dokkaGfm output
   notebooks/           ← Jupyter notebooks (myst-nb)
@@ -536,7 +536,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    paths: ['docs/**', 'docs/moon/roadmaps/**', 'middleware/src/**', 'base/src/**', 'frontend/src/**']
+    paths: ['docs/**', 'docs/moon/roadmaps/**', 'middleware/src/**', 'backend/src/**', 'frontend/src/**']
 jobs:
   build:
     runs-on: ubuntu-latest

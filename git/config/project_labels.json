@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema#",
   "description": "Canonical label taxonomy for Image-Toolkit. Consumed by sync_backlog.py to validate/create labels and by agent_tools.py to route tickets to Project V2 fields. Component/priority names mirror the dropdown options in .github/ISSUE_TEMPLATE/{bug_agent,feature_agent}.yml (\"Core: C++ Base\", \"Tier 1: Core Engine\", etc.) so tickets filed via either path share one taxonomy.",
   "components": [
-    { "name": "component:cpp-base",        "color": "00599C", "description": "base/ C++ core (image processing, crawling, sync)" },
+    { "name": "component:cpp-base",        "color": "00599C", "description": "backend/ C++ core (image processing, crawling, sync)" },
     { "name": "component:python-backend",  "color": "3776AB", "description": "middleware/ Python orchestrator (DB, ML, web wrappers)" },
     { "name": "component:pyside6-gui",     "color": "41CD52", "description": "gui/ PySide6 desktop interface" },
     { "name": "component:tauri-desktop",   "color": "FFC131", "description": "frontend/ React + Tauri desktop shell" },

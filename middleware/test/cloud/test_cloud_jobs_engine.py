@@ -8,7 +8,7 @@ import sys
 
 import pytest
 
-pytest.importorskip("base")
+pytest.importorskip("backend")
 
 from middleware.src.cloud import fakes  # noqa: E402
 from middleware.src.cloud.adapter import Observation, ProviderStatus  # noqa: E402
@@ -315,9 +315,9 @@ def test_open_retries_while_locked(tmp_path):
         calls.append(path)
         if len(calls) < 3:
             raise RuntimeError("cannot read database (database is locked)")
-        import base
+        import backend
 
-        return base.database.Database(path, secret, salt)
+        return backend.database.Database(path, secret, salt)
 
     db = open_store_db("s" * 40, "salt-0123456789ab", tmp_path / "x.db", factory=factory, sleep=lambda s: None)
     assert len(calls) == 3

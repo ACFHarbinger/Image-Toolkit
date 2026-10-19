@@ -10,7 +10,7 @@ the Python backend, C++ base layer, and TypeScript analytics math backbone.
 | **Database** | Python `benchmark/bench_database.py` | `middleware/benchmark/` | `results/benchmark_*.json` | `benchmark.yml` |
 | **ML Models** | Python `benchmark/bench_models.py` | `middleware/benchmark/` | `results/benchmark_*.json` | `benchmark.yml` |
 | **Image Processing** | Python `benchmark/bench_image_ops.py` | `middleware/benchmark/` | `results/benchmark_*.json` | `benchmark.yml` |
-| **C++ Base** | `just test-base-cpp` | `base/tests/` | ctest output | `benchmark.yml` |
+| **C++ Base** | `just test-base-cpp` | `backend/tests/` | ctest output | `benchmark.yml` |
 | **ASP Corpus** | `middleware/benchmark/bench_anime_stitch.py` | `middleware/benchmark/` | `data/output/benchmark_report.md` | manual |
 | **Frontend Math** | `npm test` / TypeDoc | `frontend/src/math/` | Jest output | `docs.yml` (type-check) |
 
@@ -116,7 +116,7 @@ python benchmark/memory_profile.py
 
 **Metrics**: Processing time, peak RAM, throughput (images/sec)
 
-### 4. C++ Base Operations (`base/tests/`)
+### 4. C++ Base Operations (`backend/tests/`)
 
 - File system scanning (1k, 10k, 100k files)
 - Image conversion (C++ native via OpenCV)
@@ -299,14 +299,14 @@ if __name__ == "__main__":
 
 ### C++ Base
 
-Add a new `TEST_CASE` with a `[benchmark]` tag in `base/tests/`:
+Add a new `TEST_CASE` with a `[benchmark]` tag in `backend/tests/`:
 
 ```cpp
-// base/tests/math/test_math_bench.cpp
+// backend/tests/math/test_math_bench.cpp
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
-#include "base/math/stats.hpp"
-#include "base/math/distance.hpp"
+#include "backend/math/stats.hpp"
+#include "backend/math/distance.hpp"
 
 TEST_CASE("mean 10k", "[math][benchmark]") {
     std::vector<double> data(10000);
@@ -330,16 +330,16 @@ TEST_CASE("cosine_similarity 768d", "[math][benchmark]") {
 ```bash
 just test-base-cpp          # all tests including benchmarks
 # or directly:
-cmake --build build/base --target base_tests && ctest --test-dir build/base -V
+cmake --build build/backend --target backend_tests && ctest --test-dir build/backend -V
 ```
 
 ---
 
 ## C++ Math Micro-benchmarks
 
-The `base/include/math/` headers (`stats.hpp`, `distance.hpp`, `information.hpp`) back
+The `backend/include/math/` headers (`stats.hpp`, `distance.hpp`, `information.hpp`) back
 the Python ML pipeline and Recommendation Engine. Catch2 benchmarks live in
-`base/tests/math/` alongside unit tests.
+`backend/tests/math/` alongside unit tests.
 
 **Baselines** (to be established once benchmarks are added — see CI §6.12 guidance below):
 
@@ -723,7 +723,7 @@ REPORT_ABS_PATHS=1 python -m middleware.benchmark.bench_anime_stitch   # or: jus
 
 ### C++ base benchmark
 
-1. Add a `TEST_CASE` with `[benchmark]` tag in `base/tests/` (see §above).
+1. Add a `TEST_CASE` with `[benchmark]` tag in `backend/tests/` (see §above).
 2. In `.github/workflows/benchmark.yml`, add a step:
 
    ```yaml
@@ -737,7 +737,7 @@ REPORT_ABS_PATHS=1 python -m middleware.benchmark.bench_anime_stitch   # or: jus
    - uses: actions/upload-artifact@v4
      with:
        name: criterion-<name>
-       path: base/target/criterion/
+       path: backend/target/criterion/
    ```
 
 ### Frontend math benchmark

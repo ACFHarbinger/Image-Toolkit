@@ -108,39 +108,39 @@ class TestUrlBuilder:
 
 class TestCppRoiPhash:
     def test_phash_bytes_matches_path(self, tmp_path):
-        base = pytest.importorskip("base")
+        backend = pytest.importorskip("backend")
         import cv2
 
         img = np.random.default_rng(0).integers(0, 255, (128, 128, 3), dtype=np.uint8)
         p = str(tmp_path / "a.png")
         cv2.imwrite(p, img)
         with open(p, "rb") as f:
-            hb = base.similarity.phash_bytes(f.read(), 16)
-        rec = base.similarity.compute_hashes([p], hash_size=16)[0]
+            hb = backend.similarity.phash_bytes(f.read(), 16)
+        rec = backend.similarity.compute_hashes([p], hash_size=16)[0]
         assert hb == rec["phash"]
 
     def test_batch_hamming(self):
-        base = pytest.importorskip("base")
+        backend = pytest.importorskip("backend")
         q = "ff00ff00ff00ff00"
-        out = base.similarity.batch_hamming(q, [q, "0000000000000000", ""])
+        out = backend.similarity.batch_hamming(q, [q, "0000000000000000", ""])
         # self distance 0; empty candidate skipped
         assert out[0] == (0, 0)
         assert all(idx != 2 for idx, _d in out)
 
     def test_crop_roi_clamps(self, tmp_path):
-        base = pytest.importorskip("base")
+        backend = pytest.importorskip("backend")
         import cv2
 
         img = np.zeros((100, 200, 3), dtype=np.uint8)
         p = str(tmp_path / "a.png")
         cv2.imwrite(p, img)
-        r = base.roi.crop_roi(p, 150, 50, 9999, 9999)   # over-wide
+        r = backend.roi.crop_roi(p, 150, 50, 9999, 9999)   # over-wide
         assert r["ok"]
         assert r["width"] == 50 and r["height"] == 50   # clamped to bounds
 
     def test_crop_roi_bad_path(self):
-        base = pytest.importorskip("base")
-        r = base.roi.crop_roi("/nonexistent.png", 0, 0, 10, 10)
+        backend = pytest.importorskip("backend")
+        r = backend.roi.crop_roi("/nonexistent.png", 0, 0, 10, 10)
         assert not r["ok"] and r["error"]
 
 

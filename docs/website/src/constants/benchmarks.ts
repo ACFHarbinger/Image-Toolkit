@@ -29,7 +29,7 @@ export const benchmarkSuites: BenchmarkSuite[] = [
   {
     suite: "C++ Base",
     runner: "just test-base-cpp",
-    location: "base/tests/",
+    location: "backend/tests/",
     output: "ctest output",
     ciJob: "benchmark.yml",
   },

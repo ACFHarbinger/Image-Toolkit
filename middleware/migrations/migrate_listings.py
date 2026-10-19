@@ -56,7 +56,7 @@ def run(
     legacy_db_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Migrate. Returns a report dict (counts + dangling references)."""
-    import base
+    import backend
 
     from middleware.src.database.unified import session
 
@@ -68,11 +68,11 @@ def run(
             "reason": f"legacy listings DB not found: {legacy}",
         }
 
-    rows = base.secret.fetch_all_listings_secure(legacy, password, salt)
+    rows = backend.secret.fetch_all_listings_secure(legacy, password, salt)
     media_entries, entity_entries = _parse_legacy_rows(rows)
 
     path = str(db_path if db_path is not None else session.DEFAULT_DB_PATH)
-    db = base.database.Database(path, password, salt)
+    db = backend.database.Database(path, password, salt)
     dangling: Dict[str, List[str]] = {}
     try:
         session.ensure_schema(db)

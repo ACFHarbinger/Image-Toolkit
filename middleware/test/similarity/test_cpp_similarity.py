@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-base = pytest.importorskip("base")
-sim = base.similarity
+backend = pytest.importorskip("backend")
+sim = backend.similarity
 
 
 class TestXxHash:

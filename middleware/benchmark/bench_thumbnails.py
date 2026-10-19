@@ -24,7 +24,7 @@ from middleware.src.constants import HAS_NATIVE_IMAGING  # noqa: E402
 
 # Native image loading (CPP Base)
 if HAS_NATIVE_IMAGING:
-    import base
+    import backend
 
 
 # Video Thumbnailer
@@ -85,7 +85,7 @@ def bench_image_single():
         tmp_path = tmp.name
 
     # Benchmark load_image_batch on a 1 item list
-    results = base.load_image_batch([tmp_path], 180) # pyrefly: ignore [missing-attribute]
+    results = backend.load_image_batch([tmp_path], 180) # pyrefly: ignore [missing-attribute]
 
     # Cleanup
     Path(tmp_path).unlink()
@@ -109,7 +109,7 @@ def bench_image_batch_10():
             tmp_paths.append(tmp.name)
 
     # Benchmark parallel batch processing
-    results = base.load_image_batch(tmp_paths, 180) # pyrefly: ignore [missing-attribute]
+    results = backend.load_image_batch(tmp_paths, 180) # pyrefly: ignore [missing-attribute]
 
     # Cleanup
     for path in tmp_paths:

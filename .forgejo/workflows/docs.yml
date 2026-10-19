@@ -9,15 +9,15 @@ on:
       - "docs/moon/ROADMAP.md"
       - "docs/moon/research/**"
       - "middleware/src/**/*.py"
-      - "base/src/math/**/*.rs"
+      - "backend/src/math/**/*.rs"
       - "frontend/src/**/*.ts"
       - "frontend/tsconfig*.json"
       - "frontend/package*.json"
       - "app/android/src/**/*.kt"
       - "docs/mkdocs.yml"
       - ".github/workflows/docs.yml"
-      - "base/CMakeLists.txt"
-      - "base/tests/CMakeLists.txt"
+      - "backend/CMakeLists.txt"
+      - "backend/tests/CMakeLists.txt"
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, closed]
@@ -114,7 +114,7 @@ jobs:
 
       - name: Build base extension
         working-directory: base
-        run: cmake --build build --target base_tests -j$(nproc)
+        run: cmake --build build --target backend_tests -j$(nproc)
         # Confirms the C++ sources compile cleanly; doc-level API drift is caught by parity tests.
 
   # ── Job 2b: Vue documentation website (type-check + build) ──────────────

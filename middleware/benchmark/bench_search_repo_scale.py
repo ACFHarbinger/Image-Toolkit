@@ -38,7 +38,7 @@ if str(_REPO) not in sys.path:
 from middleware.benchmark.managers import BenchmarkManager  # noqa: E402
 
 try:
-    import base as _base  # type: ignore[import]
+    import backend as _base  # type: ignore[import]
     _CPP_AVAILABLE = True
 except ImportError:
     _base = None  # type: ignore[assignment]

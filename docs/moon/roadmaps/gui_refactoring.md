@@ -256,7 +256,7 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 | R0.6 | Silent `except: pass` sweep: bare swallows → `logger.debug(exc_info=True)`; one `deleted_qobject_guard()` helper for `RuntimeError` cases | §5.2, 2.e | Muse | 0 bare `except: pass` in `gui/src` | ui-arch-30 (#552) |
 | R0.7 | `StatusSink` protocol on `MainWindow`; `_notify.py` drops `hasattr` | F24 | Muse | missing method logs, never no-ops | ui-arch-31 (#553) |
 | R0.8 | `ImagePreviewWindow(db_tab_ref=)` → `database_service=`; warn-once shim, removed in-issue | F5, DS-3 | Gemini | 0 `db_tab_ref` kwargs; shim deleted | ui-arch-32 (#554) |
-| R0.9 | `atexit` guard for `base.run_monitor_slideshow` in unbuilt worktrees | F14 | Muse | clean test logs | ui-arch-33 (#555) |
+| R0.9 | `atexit` guard for `backend.run_monitor_slideshow` in unbuilt worktrees | F14 | Muse | clean test logs | ui-arch-33 (#555) |
 
 ### R1 — Contracts II (shared modules the consolidation needs)
 

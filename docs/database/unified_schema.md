@@ -6,7 +6,7 @@ One SQLCipher-encrypted SQLite database at `~/.image-toolkit/library.db` replace
 
 | Legacy store | Legacy shape | Where it lands here |
 |---|---|---|
-| `~/.image-toolkit/listings_secure.db` (`base.secret`) | single `listings` table, everything in a `metadata` JSON blob | `media_items`, `episodes`, `entities`, `credits`, `media_entity`, `entity_entity`, `media_tags` |
+| `~/.image-toolkit/listings_secure.db` (`backend.secret`) | single `listings` table, everything in a `metadata` JSON blob | `media_items`, `episodes`, `entities`, `credits`, `media_entity`, `entity_entity`, `media_tags` |
 | PostgreSQL + pgvector (`imagedb`) | relational, plaintext, denormalized `group_name`/`subgroup_name` text columns, dead `vector(128)` column | `images` (FK'd to `groups`/`subgroups`), `tags`, `image_tags` |
 
 **DDL source of truth:** [`middleware/src/database/unified/schema.sql`](../../middleware/src/database/unified/schema.sql) (core, always applied) + [`schema_fts.sql`](../../middleware/src/database/unified/schema_fts.sql) (FTS5 layer, applied only when the linked SQLCipher has FTS5; `schema_meta.fts_enabled` records the outcome). Migration `middleware/migrations/001_create_library_db.py` applies both and stamps `schema_meta.schema_version = 1`. This document is a mirror — change the `.sql` files first.
@@ -174,7 +174,7 @@ erDiagram
 7. **`embeddings` is polymorphic** (`owner_type` + `owner_id` text) so one table serves image CBIR (MetaCLIP), listings semantics (BGE-M3), and anything later; the PK includes `model` so multiple embedding models coexist. Vectors are little-endian float32 BLOBs; `vector_index` persists the ANN index per (owner_type, model) inside the encrypted file.
 8. **FTS5 is optional at runtime.** `schema_fts.sql` creates external-content FTS tables + sync triggers; if the linked SQLCipher lacks FTS5, `schema_meta.fts_enabled='0'` and `search_repo` degrades to indexed `LIKE`. Content tables with TEXT PKs are addressed through their implicit `rowid` (`images` uses `id` directly since INTEGER PK ≡ rowid).
 9. **Dates are ISO-8601 TEXT** (`date('now')` / `datetime('now')`), matching both legacy stores' string dates and keeping migration comparisons trivial.
-10. **`PRAGMA foreign_keys = ON`** is set per-connection by the engine (`base.database`), not in the schema (SQLite pragma is connection-scoped).
+10. **`PRAGMA foreign_keys = ON`** is set per-connection by the engine (`backend.database`), not in the schema (SQLite pragma is connection-scoped).
 
 ## Legacy field mapping (for migration 002)
 

@@ -6,32 +6,32 @@ set unstable := true
 set working-directory := '../..'
 
 # Build C++ base extension (pybind11, OpenCV, Eigen3, OpenMP required).
-# Replaces the former Rust/maturin build-base (Phase 7: batch/ renamed to base/).
+# Replaces the former Rust/maturin build-base (Phase 7: batch/ renamed to backend/).
 # Also builds+installs libitk_crypto.so (the itk_crypto CMake target below) --
 # a plain OpenSSL-linked C shared lib loaded via ctypes at runtime, not part
 # of the pybind11 base module itself, but no longer a separate manual step.
 build-base:
     @echo "Building C++ base extension..."
     build_shared_root="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" && \
-    PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:$build_shared_root/.pixi/envs/default/lib/pkgconfig:$PKG_CONFIG_PATH" cmake -B build/base base/ \
+    PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:$build_shared_root/.pixi/envs/default/lib/pkgconfig:$PKG_CONFIG_PATH" cmake -B build/backend backend/ \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_PREFIX_PATH="$build_shared_root/opencv/install;$build_shared_root/.pixi/envs/default" \
         -DIMAGE_TOOLKIT_PIXI_LIB="$build_shared_root/.pixi/envs/default/lib" \
         -DCMAKE_INSTALL_PREFIX="." \
         -DPython_EXECUTABLE="$$(which python)" \
-        -DBASE_BUILD_TESTS=OFF \
-        && cmake --build build/base -j$(nproc) \
-        && cmake --install build/base
+        -DBACKEND_BUILD_TESTS=OFF \
+        && cmake --build build/backend -j$(nproc) \
+        && cmake --install build/backend
     @echo "base extension built and installed."
 
 # Build native cryptography library standalone (C/OpenSSL, replaces the
 # retired Kotlin JAR). Already built as part of build-base above (see
-# base/CMakeLists.txt's itk_crypto target); this is a lighter-weight rebuild
-# path for iterating on base/src/secret/itk_crypto.c alone.
+# backend/CMakeLists.txt's itk_crypto target); this is a lighter-weight rebuild
+# path for iterating on backend/src/secret/itk_crypto.c alone.
 build-crypto:
     @echo "Building native cryptography library..."
     mkdir -p build/crypto
-    cc -O2 -fPIC -shared -Wall -o build/crypto/libitk_crypto.so base/src/secret/itk_crypto.c -lcrypto
+    cc -O2 -fPIC -shared -Wall -o build/crypto/libitk_crypto.so backend/src/secret/itk_crypto.c -lcrypto
 
 # Build production application frontend
 build-frontend:

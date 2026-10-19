@@ -23,7 +23,7 @@ from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
 
 try:
-    import base as batch
+    import backend as batch
     if (
         getattr(batch, "__file__", None) is None
         or not hasattr(batch, "bundle_adjust")

@@ -58,8 +58,8 @@ def _git_common_checkout_root(root: Path) -> Path | None:
 def resolve_crypto_lib_file() -> str:
     """Locate ``libitk_crypto.so``, built as part of ``just build-base``.
 
-    Crypto is not a separate module: ``base/CMakeLists.txt`` compiles
-    ``base/src/secret/itk_crypto.c`` into this shared library. Search the
+    Crypto is not a separate module: ``backend/CMakeLists.txt`` compiles
+    ``backend/src/secret/itk_crypto.c`` into this shared library. Search the
     source tree, a linked main checkout (git worktrees), ``sys.path``, and
     the frozen-bundle directory. Prefer the project-root install over
     ``build/crypto/`` so a stale cmake output cannot shadow it.

@@ -29,7 +29,7 @@ except ImportError:
     Image = None  # type: ignore[assignment]
 
 try:
-    import base as _batch
+    import backend as _batch
     if getattr(_batch, "__file__", None) is None or not (
         hasattr(_batch, "frame_selection") or hasattr(_batch, "matching")
     ):

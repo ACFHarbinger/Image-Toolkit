@@ -7,7 +7,7 @@ The project mission is to provide a unified environment for managing massive ima
 ## 2. Technical Stack & Governance
 * **Runtime**: Python 3.11+ (managed via `uv`, `conda`, or `venv`). **Agent Rule**: Always run `source .venv/bin/activate` at the start of a task.
 * **Core Logic**: C++ (via pybind11/CMake) for high-performance IO and processing.
-* **Backend**: Python Orchestrator, unified encrypted SQLite store (SQLCipher via `base.database`), PyTorch, OpenCV.
+* **Backend**: Python Orchestrator, unified encrypted SQLite store (SQLCipher via `backend.database`), PyTorch, OpenCV.
 * **GUI**: PySide6 (Qt for Python).
 * **Frontend/Mobile**: React, Kotlin (Android), Swift (iOS).
 * **Web Automation**: Selenium WebDriver.
@@ -66,7 +66,7 @@ suggestion:
 *   **Debugging**: Search for WebDriver conflicts if crawlers fail.
 
 ### Global Coding Standards
-*   **Rename (W0-01, #865):** the Python package is `middleware` (was `backend`). `import backend.…` still works through a deprecated alias until W0-02 (#866) gives `backend` to the C++ core; write new code against `middleware`.
+*   **Renames (Tauri migration Wave 0):** the Python package is `middleware/` (was `backend/`, W0-01 #865), and the C++ pybind11 core is `backend/`, imported as `import backend` (was `base/` / `import base`, W0-02 #866). There are no compatibility aliases: `import base` and `backend.src…` no longer work. Build the core with `just build::build-base`, which writes to `build/backend` and installs `backend.cpython-*.so` at the repo root.
 *   **Database**: Keep `middleware/src/database/unified/schema.sql` compatible (migrations, not ad-hoc DDL). Use transactions for group/image integrity.
 *   **Security**: **NEVER** hardcode credentials. Use `VaultManager`.
 *   **Threading**: All heavy computations must run off the main thread (QThread/QRunnable).
@@ -109,7 +109,7 @@ suggestion:
     See `gui/test/conftest.py`'s config-root isolation for the pattern.
 
 ### Known Constraints
-*   **Database**: The library is the unified encrypted store `~/.image-toolkit/library.db` (SQLCipher via `base.database.Database`, opened after vault unlock; embeddings in its `embeddings` table). PostgreSQL/pgvector is archived (`archive/python/database/`); only migration 003 still reads a legacy Postgres. New stores use the same engine — e.g. Cloud Jobs' separate `cloud_jobs.db`.
+*   **Database**: The library is the unified encrypted store `~/.image-toolkit/library.db` (SQLCipher via `backend.database.Database`, opened after vault unlock; embeddings in its `embeddings` table). PostgreSQL/pgvector is archived (`archive/python/database/`); only migration 003 still reads a legacy Postgres. New stores use the same engine — e.g. Cloud Jobs' separate `cloud_jobs.db`.
 *   **Linux**: `qdbus-qt6` compatibility for wallpapers.
 *   **Safari**: No headless mode support.
 
@@ -119,14 +119,14 @@ suggestion:
 
 ### A. Core & Backend (The Engine)
 
-#### Base Module (`base/`)
+#### Backend Module: C++ core (`backend/`, formerly `base/`)
 **C++ Core**. High-performance implementation of image processing, crawling, and sync logic. Built with CMake + pybind11; the former Rust/PyO3 implementation is archived at `archive/rust/`.
 *   **Core**: File system scanning (`file_system`), Image operations (`image_converter`, `image_merger`, `image_finder`), Video (`video_converter`), Wallpaper (`wallpaper`).
 *   **Web**:
     *   **Crawlers**: `danbooru`, `gelbooru`, `sankaku`, `image_crawler` (generic Selenium stub — no C++ WebDriver).
     *   **Sync**: `dropbox_sync`, `google_drive_sync`, `one_drive_sync`.
 *   **Utils**: Standalone binaries like `slideshow_daemon`.
-*   **Interface**: `base/src/bindings.cpp` (pybind11 entry point).
+*   **Interface**: `backend/src/bindings.cpp` (pybind11 entry point).
 
 #### Middleware Module (`middleware/`, formerly `backend/`)
 **Python Orchestrator**. Wraps C++ core, handles DB and ML.
