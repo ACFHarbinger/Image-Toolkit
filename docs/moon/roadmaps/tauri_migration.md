@@ -6,7 +6,7 @@ Kimi, OpenCode) and a final brainstorming round.
 
 - **Tracking:** two GitHub milestones, **Tauri Migration — Wave 0
   (Platform & Feasibility)** and **Tauri Migration — Feature Waves**.
-  The issues are listed in §3.
+  The tracking issue is [#864](https://github.com/ACFHarbinger/Image-Toolkit/issues/864), and the issues are listed in §3.
 - **This document** holds the design and the order; the issues hold
   status and owners.
 
@@ -286,7 +286,146 @@ In-flight branches rebase once.
 
 ## 3. Issues
 
-<!-- ISSUE-TABLES -->
+Tracking issue: [#864](https://github.com/ACFHarbinger/Image-Toolkit/issues/864). Milestones: **Tauri Migration — Wave 0 (Platform & Feasibility)** and **Tauri Migration — Feature Waves**.
+Owners are proposals (label `agent:<name>`); unowned issues are free to claim when their wave opens.
+
+### Wave 0a — Renames and repository consolidation (first; everything else rebases on these)
+
+| Issue | Deliverable | Owner |
+|---|---|---|
+| [#865](https://github.com/ACFHarbinger/Image-Toolkit/issues/865) | W0-01: Rename the Python package `backend/` → `middleware/` (one mechanical PR, import aliases for one release) | Claude |
+| [#866](https://github.com/ACFHarbinger/Image-Toolkit/issues/866) | W0-02: Rename the C++ module `base/` → `backend/` (after W0-01; aliases for one release) | Claude |
+| [#867](https://github.com/ACFHarbinger/Image-Toolkit/issues/867) | W0-03: Absorb HIE, ASP, CSG and CRE submodules (git subtree, history kept) into one CMake build and `middleware/src/services/{hie,asp,csg,cre}/` | Gemini |
+
+### Wave 0b — Build and security (Mistral's PR 1)
+
+| Issue | Deliverable | Owner |
+|---|---|---|
+| [#868](https://github.com/ACFHarbinger/Image-Toolkit/issues/868) | W0-04: CRA → Vite (React 19), delete Electron; per-window Tauri capability files, real CSP, default-deny asset scope + CI check | Mistral |
+
+### Wave 0c — Shell (Mistral's PR 2)
+
+| Issue | Deliverable | Owner |
+|---|---|---|
+| [#869](https://github.com/ACFHarbinger/Image-Toolkit/issues/869) | W0-05: Serializable module catalog split out of `descriptor.py` (no `QWidget`), rendered by both shells; ids = ledger ids | Grok |
+| [#870](https://github.com/ACFHarbinger/Image-Toolkit/issues/870) | W0-06: Catalog-driven shell (rail/ribbon/inspector/status bar) replacing `App.tsx`'s `TabId` union | Cursor |
+| [#871](https://github.com/ACFHarbinger/Image-Toolkit/issues/871) | W0-07: Design tokens → generated CSS variables from `gui/src/theming/tokens/{light,dark}.json` | Mistral |
+| [#872](https://github.com/ACFHarbinger/Image-Toolkit/issues/872) | W0-08: One serializable shortcut registry (from `shortcut_manager.py` / `keybindings.json`) bound by both shells | Cursor |
+| [#873](https://github.com/ACFHarbinger/Image-Toolkit/issues/873) | W0-09: Native tray, hide-all on close, WindowManager role map (labels, pop-out) | Grok |
+
+### Wave 0d — Bridge spine (Mistral's PR 3)
+
+| Issue | Deliverable | Owner |
+|---|---|---|
+| [#874](https://github.com/ACFHarbinger/Image-Toolkit/issues/874) | W0-10: Contracts: JSON Schema per capability in `contracts/` + method-routing table; CI codegen (TS/Python/Rust) and contract hash | Kimi |
+| [#875](https://github.com/ACFHarbinger/Image-Toolkit/issues/875) | W0-11: Shared bridge package: framing, envelope, version handshake, error envelope `{code, retryable, message_key, details}`, cancel | Mistral |
+| [#876](https://github.com/ACFHarbinger/Image-Toolkit/issues/876) | W0-12: Python sidecar (JSON-RPC/stdio) + `HostClient` with sidecar/Django/Rust transport adapters and a conformance suite | OpenCode |
+| [#877](https://github.com/ACFHarbinger/Image-Toolkit/issues/877) | W0-13: Supervisor: sidecar, Cloud Jobs daemon and slideshow daemon as siblings; GUI single-instance gate; `bridge.down`/`bridge.ready` + SIGKILL smoke test; Linux autostart | Grok |
+| [#878](https://github.com/ACFHarbinger/Image-Toolkit/issues/878) | W0-14: Generated EventHub (intents/facts) with snapshot + bounded tail, sequence numbers, resnapshot on gap; `appStore.ts` ephemeral-only | Mistral |
+
+### Wave 0e — Foundations
+
+| Issue | Deliverable | Owner |
+|---|---|---|
+| [#879](https://github.com/ACFHarbinger/Image-Toolkit/issues/879) | W0-15: Vault in the C++ core: unlock + database keys held in C++, session handle for the webview, **sealed per-store leases** for daemons | Codex |
+| [#880](https://github.com/ACFHarbinger/Image-Toolkit/issues/880) | W0-16: One settings service for both GUIs: scopes/keys preserved, conflict detection, backed-up legacy migration | Codex |
+| [#881](https://github.com/ACFHarbinger/Image-Toolkit/issues/881) | W0-17: Service-layer pattern in `middleware/src/services/<feature>/` (Command/Handler + Protocols) with import-linter and ESLint-boundaries contracts; LoC gate on TS/TSX | Gemini |
+| [#882](https://github.com/ACFHarbinger/Image-Toolkit/issues/882) | W0-18: Migration ledger `migration/features.toml` (one record per capability, route map, OS checklist) + validator + generated `docs/migration/parity.md` | OpenCode |
+| [#883](https://github.com/ACFHarbinger/Image-Toolkit/issues/883) | W0-19: Parity harness: characterization tests, old-vs-new differential diff, framework-neutral scenarios; Playwright (Vite + contract mocks) per PR, tauri-driver per release | OpenCode |
+| [#884](https://github.com/ACFHarbinger/Image-Toolkit/issues/884) | W0-20: Freeze `gui/src` to reviewed bugfixes: AGENTS.md rule, PR template, ledger exceptions; additive-only schema migrations check | Claude |
+| [#885](https://github.com/ACFHarbinger/Image-Toolkit/issues/885) | W0-21: Docs spine: MkDocs Material, `docs/adr/` seeded with every locked decision, C4 diagrams, module README template with contract hash, Storybook, rename `docs/ARCHITECTURE.md` (ASP reference) | Gemini |
+| [#886](https://github.com/ACFHarbinger/Image-Toolkit/issues/886) | W0-22: Packaging during coexistence: Tauri bundle + PyInstaller installers; supervisor starts the sidecar from the installed backend env; UI/sidecar version-pair handshake | Cursor |
+
+### Wave 0f — Feasibility spikes (each go/no-go by Harbinger on Codex's review; no-go keeps that PySide6 row alive)
+
+| Issue | Deliverable | Owner |
+|---|---|---|
+| [#887](https://github.com/ACFHarbinger/Image-Toolkit/issues/887) | S-01: Spike: gallery with the C++ thumbnail service (bounded stills, middle frame) streamed via `asset://` from `~/.image-toolkit/cache/render/` | Grok |
+| [#888](https://github.com/ACFHarbinger/Image-Toolkit/issues/888) | S-02: Spike: shared canvas host (WebGL2/WebGPU tile pyramid, off-screen worker) on a fake document | Gemini |
+| [#889](https://github.com/ACFHarbinger/Image-Toolkit/issues/889) | S-03: Spike: tray and window behaviour per OS (KDE/GNOME Wayland + X11 first; Windows/macOS notes) | Cursor |
+| [#890](https://github.com/ACFHarbinger/Image-Toolkit/issues/890) | S-04: Spike: embedded ComfyUI in an isolated view (no native privileges), compatibility/security checks, external-browser fallback | Codex |
+| [#891](https://github.com/ACFHarbinger/Image-Toolkit/issues/891) | S-05: Spike: file drag-and-drop in and out of the webview | Kimi |
+| [#892](https://github.com/ACFHarbinger/Image-Toolkit/issues/892) | S-06: Spike: video playback and frame scrubbing (asset protocol, codecs) | Kimi |
+| [#893](https://github.com/ACFHarbinger/Image-Toolkit/issues/893) | S-07: Spike: wallpaper per-monitor control and the slideshow presenter window from Tauri (KDE/GNOME/Windows) | Claude |
+
+### Feature wave 1 — Convert pilot
+
+| Issue | Deliverable | Owner |
+|---|---|---|
+| [#894](https://github.com/ACFHarbinger/Image-Toolkit/issues/894) | P-01: Convert, end to end (pilot): service + contract + Tauri view + parity; success = first Rust duplicate (`core_commands.rs` conversion) deleted; write the "Adding a capability" guide | Kimi |
+
+### Feature wave 3 — Library (free to claim when the wave opens)
+
+| Issue | Deliverable | Owner |
+|---|---|---|
+| [#895](https://github.com/ACFHarbinger/Image-Toolkit/issues/895) | L-01: Image preview, compare and drag-preview viewers (cross-cutting, used by every later wave) | free to claim |
+| [#896](https://github.com/ACFHarbinger/Image-Toolkit/issues/896) | L-02: Library: Listings | free to claim |
+| [#897](https://github.com/ACFHarbinger/Image-Toolkit/issues/897) | L-03: Library: Image Search | free to claim |
+| [#898](https://github.com/ACFHarbinger/Image-Toolkit/issues/898) | L-04: Library: Scan and Tag | free to claim |
+| [#899](https://github.com/ACFHarbinger/Image-Toolkit/issues/899) | L-05: Library: Management | free to claim |
+| [#900](https://github.com/ACFHarbinger/Image-Toolkit/issues/900) | L-06: Library: Data Browser | free to claim |
+| [#901](https://github.com/ACFHarbinger/Image-Toolkit/issues/901) | L-07: Retire `db.rs` (direct sqlx/pgvector, `postgresql://localhost` default) once Library rows route through `HostClient` | free to claim |
+
+### Feature wave 4 — System
+
+| Issue | Deliverable | Owner |
+|---|---|---|
+| [#902](https://github.com/ACFHarbinger/Image-Toolkit/issues/902) | Y-00: Shared canvas host, production version (first System issue; Merge is its first consumer) | free to claim |
+| [#903](https://github.com/ACFHarbinger/Image-Toolkit/issues/903) | Y-01: System: Merge (incl. merge canvas; retire `core_commands.rs` merge duplicate) | free to claim |
+| [#904](https://github.com/ACFHarbinger/Image-Toolkit/issues/904) | Y-02: System: Similarity | free to claim |
+| [#905](https://github.com/ACFHarbinger/Image-Toolkit/issues/905) | Y-03: System: Extractor (video + image sub-tabs, frame-slice canvas; retire `video_commands.rs`) | free to claim |
+
+### Feature wave 5 — Web
+
+| Issue | Deliverable | Owner |
+|---|---|---|
+| [#906](https://github.com/ACFHarbinger/Image-Toolkit/issues/906) | B-01: Web: Crawler | free to claim |
+| [#907](https://github.com/ACFHarbinger/Image-Toolkit/issues/907) | B-02: Web: Requests | free to claim |
+| [#908](https://github.com/ACFHarbinger/Image-Toolkit/issues/908) | B-03: Web: Cloud Synchronization | free to claim |
+| [#909](https://github.com/ACFHarbinger/Image-Toolkit/issues/909) | B-04: Web: Media Loader | free to claim |
+| [#910](https://github.com/ACFHarbinger/Image-Toolkit/issues/910) | B-05: Web: Reverse Search | free to claim |
+| [#911](https://github.com/ACFHarbinger/Image-Toolkit/issues/911) | B-06: Web: Entity Reconnaissance | free to claim |
+
+### Feature wave 6 — Deep Learning
+
+| Issue | Deliverable | Owner |
+|---|---|---|
+| [#912](https://github.com/ACFHarbinger/Image-Toolkit/issues/912) | D-01: Deep Learning workspace (one record, five routes) in Tauri, incl. the not-yet-built DL panels against `record.json` / `events.jsonl` | free to claim |
+
+### Feature wave 7 — Wallpaper
+
+| Issue | Deliverable | Owner |
+|---|---|---|
+| [#913](https://github.com/ACFHarbinger/Image-Toolkit/issues/913) | A-01: Wallpaper (System Display + Monitor Display, slideshows and daemons) and the slideshow presenter window | free to claim |
+
+### Feature wave 8 — Editors
+
+| Issue | Deliverable | Owner |
+|---|---|---|
+| [#914](https://github.com/ACFHarbinger/Image-Toolkit/issues/914) | E-01: Image Stitching workspace (one record, eight routes) on the shared canvas host | free to claim |
+| [#915](https://github.com/ACFHarbinger/Image-Toolkit/issues/915) | E-02: Hybrid Image Editor (HIE) | free to claim |
+| [#916](https://github.com/ACFHarbinger/Image-Toolkit/issues/916) | E-03: Manga: Colorization, Animation, Puppeteering (CSG) | free to claim |
+
+### Feature wave 9 — Settings, auth and the vault
+
+| Issue | Deliverable | Owner |
+|---|---|---|
+| [#917](https://github.com/ACFHarbinger/Image-Toolkit/issues/917) | T-01: Settings window (appearance, profiles, shortcuts, tab config, credentials, reset) | free to claim |
+| [#918](https://github.com/ACFHarbinger/Image-Toolkit/issues/918) | T-02: Authentication / vault unlock UI on the C++ session handle; retire `auth_commands.rs` | free to claim |
+| [#919](https://github.com/ACFHarbinger/Image-Toolkit/issues/919) | T-03: Logging and metadata windows | free to claim |
+| [#920](https://github.com/ACFHarbinger/Image-Toolkit/issues/920) | T-04: Cloud Compute setup window (providers, credentials, request builder, dashboards) | free to claim |
+
+### Retirement
+
+| Issue | Deliverable | Owner |
+|---|---|---|
+| [#921](https://github.com/ACFHarbinger/Image-Toolkit/issues/921) | R-01: Retire PySide6: delete `gui/`, Qt dependencies and `ImageToolkit.spec`; single Tauri installer with a frozen sidecar; remove rename aliases | free to claim |
+
+### Cloud Jobs issues that depend on this migration
+
+- Gate D (#847–#852): first Tauri-only feature, after P-01; needs W0-04…W0-14.
+- Gate B (#834–#840): after W0-01/W0-02 (renames), W0-13 (supervisor), W0-15 (sealed leases).
+
 
 ## 4. Attribution
 

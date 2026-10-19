@@ -486,6 +486,24 @@ Each adapter issue includes:
 | [#862](https://github.com/ACFHarbinger/Image-Toolkit/issues/862) | G2: Scheduled (wall-clock) submission |
 | [#863](https://github.com/ACFHarbinger/Image-Toolkit/issues/863) | G3: Instance packing (sequential chaining and parallel packing; per-job cap stops) |
 
+### Owners (proposed 2026-10-19; label `agent:<name>` on each issue)
+
+Gate A (#825–#833) is Claude's and is on main, awaiting Codex's re-review.
+Owners for the later gates:
+
+| Owner | Issues |
+|---|---|
+| Claude | #837, #843, #849, #855 |
+| Codex | #844, #846, #861 |
+| Cursor | #835, #836, #841, #847, #857 |
+| Gemini | #848, #853, #858 |
+| Grok | #840, #851, #859, #860 |
+| Kimi | #838, #850, #863 |
+| Mistral | #839, #845, #854, #856 |
+| OpenCode | #834, #842, #852, #862 |
+
+To hand an issue off, comment on it. Unowned work is free to claim.
+
 ### Backlog (deferred past v1)
 
 | Item | Reason |
