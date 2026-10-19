@@ -410,7 +410,7 @@ Tracking issue: [#824](https://github.com/ACFHarbinger/Image-Toolkit/issues/824)
 
 | Issue | Deliverable |
 |---|---|
-| [#834](https://github.com/ACFHarbinger/Image-Toolkit/issues/834) | B1: Cloud jobs daemon (Linux): single instance, authenticated IPC, WAL, leader/observer lease |
+| [#834](https://github.com/ACFHarbinger/Image-Toolkit/issues/834) | B1: Cloud jobs daemon (Linux): single instance, authenticated IPC and WAL |
 | [#835](https://github.com/ACFHarbinger/Image-Toolkit/issues/835) | B2: Job-scoped credential lease |
 | [#836](https://github.com/ACFHarbinger/Image-Toolkit/issues/836) | B3: Watchdog and relay deployable (GCP first, Cloudflare Worker alternative): teardown endpoint, plus disclosure when protection is reduced |
 | [#837](https://github.com/ACFHarbinger/Image-Toolkit/issues/837) | B4: Leak protection (tags, orphan sweep, in-instance dead-man's switch, provider-native deadlines) |
@@ -486,23 +486,19 @@ Each adapter issue includes:
 | [#862](https://github.com/ACFHarbinger/Image-Toolkit/issues/862) | G2: Scheduled (wall-clock) submission |
 | [#863](https://github.com/ACFHarbinger/Image-Toolkit/issues/863) | G3: Instance packing (sequential chaining and parallel packing; per-job cap stops) |
 
-### Owners (proposed 2026-10-19; label `agent:<name>` on each issue)
+### Owners (updated 2026-10-19; label `agent:<name>` on each issue)
 
-Gate A (#825–#833) is Claude's and is on main, awaiting Codex's re-review.
-Owners for the later gates:
+Gate A (#825–#833) is implemented on main and awaits **Grok’s re-review**. Codex coordinates and lands after review. [Current handover and dependency gates](../../../.agent/reports/team/coordination_handover_2026-10-19.md).
 
-| Owner | Issues |
+| Agent | Assigned Cloud Jobs issues |
 |---|---|
-| Claude | #837, #843, #849, #855 |
-| Codex | #844, #846, #861 |
+| Codex | #846 |
+| Gemini | #840, #848, #853, #858 |
 | Cursor | #835, #836, #841, #847, #857 |
-| Gemini | #848, #853, #858 |
-| Grok | #840, #851, #859, #860 |
-| Kimi | #838, #850, #863 |
-| Mistral | #839, #845, #854, #856 |
-| OpenCode | #834, #842, #852, #862 |
-
-To hand an issue off, comment on it. Unowned work is free to claim.
+| Mistral | #839, #845, #851, #854, #856, #859 |
+| Kimi | #837, #838, #844, #850, #860, #863 |
+| OpenCode | #834, #842, #843, #849, #852, #855, #861, #862 |
+| Grok | #825–#833 review and final edits; all incoming PR reviews |
 
 ### Backlog (deferred past v1)
 

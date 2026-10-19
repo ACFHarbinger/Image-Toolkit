@@ -259,10 +259,10 @@ In-flight branches rebase once.
 - **Branching:** one branch per capability, merged by PR to main, gated
   by CI (build, LoC gate, docs freshness).
 - **Claiming:**
-  - Owners are proposed on the issues.
-  - Unowned or backlog issues are free to claim: comment on the issue.
+  - Owners are recorded with agent labels and the coordination handover.
+  - Unowned issues are free to claim when their wave opens: comment on the issue.
   - Deletions need a second reviewer.
-- **Spikes:** Harbinger decides go/no-go per spike, on Codex's review.
+- **Spikes:** Harbinger decides go/no-go per spike, on Grok's review.
   A no-go keeps that feature's PySide6 row alive past its wave, as a
   bounded exception in the ledger; it is never a re-scope.
 - **Packaging:**
@@ -287,14 +287,14 @@ In-flight branches rebase once.
 ## 3. Issues
 
 Tracking issue: [#864](https://github.com/ACFHarbinger/Image-Toolkit/issues/864). Milestones: **Tauri Migration — Wave 0 (Platform & Feasibility)** and **Tauri Migration — Feature Waves**.
-Owners are proposals (label `agent:<name>`); unowned issues are free to claim when their wave opens.
+Owners use `agent:<name>` labels. The 2026-10-19 [coordination handover](../../../.agent/reports/team/coordination_handover_2026-10-19.md) supersedes the proposed assignments. Unowned later-wave issues remain free to claim when their wave opens.
 
 ### Wave 0a — Renames and repository consolidation (first; everything else rebases on these)
 
 | Issue | Deliverable | Owner |
 |---|---|---|
-| [#865](https://github.com/ACFHarbinger/Image-Toolkit/issues/865) | W0-01: Rename the Python package `middleware/` → `middleware/` (one mechanical PR, import aliases for one release) | Claude |
-| [#866](https://github.com/ACFHarbinger/Image-Toolkit/issues/866) | W0-02: Rename the C++ module `backend/` → `middleware/` (after W0-01; aliases for one release) | Claude |
+| [#865](https://github.com/ACFHarbinger/Image-Toolkit/issues/865) | W0-01: Rename the Python package `backend/` → `middleware/` (one mechanical PR, import aliases for one release) | Claude |
+| [#866](https://github.com/ACFHarbinger/Image-Toolkit/issues/866) | W0-02: Rename the C++ module `base/` → `backend/` (after W0-01; aliases for one release) | Claude |
 | [#867](https://github.com/ACFHarbinger/Image-Toolkit/issues/867) | W0-03: Absorb HIE, ASP, CSG and CRE submodules (git subtree, history kept) into one CMake build and `middleware/src/services/{hie,asp,csg,cre}/` | Gemini |
 
 ### Wave 0b — Build and security (Mistral's PR 1)
@@ -303,50 +303,50 @@ Owners are proposals (label `agent:<name>`); unowned issues are free to claim wh
 |---|---|---|
 | [#868](https://github.com/ACFHarbinger/Image-Toolkit/issues/868) | W0-04: CRA → Vite (React 19), delete Electron; per-window Tauri capability files, real CSP, default-deny asset scope + CI check | Mistral |
 
-### Wave 0c — Shell (Mistral's PR 2)
+### Wave 0c — Shell
 
 | Issue | Deliverable | Owner |
 |---|---|---|
-| [#869](https://github.com/ACFHarbinger/Image-Toolkit/issues/869) | W0-05: Serializable module catalog split out of `descriptor.py` (no `QWidget`), rendered by both shells; ids = ledger ids | Grok |
+| [#869](https://github.com/ACFHarbinger/Image-Toolkit/issues/869) | W0-05: Serializable module catalog split out of `descriptor.py` (no `QWidget`), rendered by both shells; ids = ledger ids | Gemini |
 | [#870](https://github.com/ACFHarbinger/Image-Toolkit/issues/870) | W0-06: Catalog-driven shell (rail/ribbon/inspector/status bar) replacing `App.tsx`'s `TabId` union | Cursor |
 | [#871](https://github.com/ACFHarbinger/Image-Toolkit/issues/871) | W0-07: Design tokens → generated CSS variables from `gui/src/theming/tokens/{light,dark}.json` | Mistral |
 | [#872](https://github.com/ACFHarbinger/Image-Toolkit/issues/872) | W0-08: One serializable shortcut registry (from `shortcut_manager.py` / `keybindings.json`) bound by both shells | Cursor |
-| [#873](https://github.com/ACFHarbinger/Image-Toolkit/issues/873) | W0-09: Native tray, hide-all on close, WindowManager role map (labels, pop-out) | Grok |
+| [#873](https://github.com/ACFHarbinger/Image-Toolkit/issues/873) | W0-09: Native tray, hide-all on close, WindowManager role map (labels, pop-out) | Cursor |
 
-### Wave 0d — Bridge spine (Mistral's PR 3)
+### Wave 0d — Bridge spine
 
 | Issue | Deliverable | Owner |
 |---|---|---|
 | [#874](https://github.com/ACFHarbinger/Image-Toolkit/issues/874) | W0-10: Contracts: JSON Schema per capability in `contracts/` + method-routing table; CI codegen (TS/Python/Rust) and contract hash | Kimi |
 | [#875](https://github.com/ACFHarbinger/Image-Toolkit/issues/875) | W0-11: Shared bridge package: framing, envelope, version handshake, error envelope `{code, retryable, message_key, details}`, cancel | Mistral |
 | [#876](https://github.com/ACFHarbinger/Image-Toolkit/issues/876) | W0-12: Python sidecar (JSON-RPC/stdio) + `HostClient` with sidecar/Django/Rust transport adapters and a conformance suite | OpenCode |
-| [#877](https://github.com/ACFHarbinger/Image-Toolkit/issues/877) | W0-13: Supervisor: sidecar, Cloud Jobs daemon and slideshow daemon as siblings; GUI single-instance gate; `bridge.down`/`bridge.ready` + SIGKILL smoke test; Linux autostart | Grok |
+| [#877](https://github.com/ACFHarbinger/Image-Toolkit/issues/877) | W0-13: Supervisor: sidecar, Cloud Jobs daemon and slideshow daemon as siblings; GUI single-instance gate; `bridge.down`/`bridge.ready` + SIGKILL smoke test; Linux autostart | Cursor |
 | [#878](https://github.com/ACFHarbinger/Image-Toolkit/issues/878) | W0-14: Generated EventHub (intents/facts) with snapshot + bounded tail, sequence numbers, resnapshot on gap; `appStore.ts` ephemeral-only | Mistral |
 
 ### Wave 0e — Foundations
 
 | Issue | Deliverable | Owner |
 |---|---|---|
-| [#879](https://github.com/ACFHarbinger/Image-Toolkit/issues/879) | W0-15: Vault in the C++ core: unlock + database keys held in C++, session handle for the webview, **sealed per-store leases** for daemons | Codex |
-| [#880](https://github.com/ACFHarbinger/Image-Toolkit/issues/880) | W0-16: One settings service for both GUIs: scopes/keys preserved, conflict detection, backed-up legacy migration | Codex |
+| [#879](https://github.com/ACFHarbinger/Image-Toolkit/issues/879) | W0-15: Vault in the C++ core: unlock + database keys held in C++, session handle for the webview, **sealed per-store leases** for daemons | Gemini |
+| [#880](https://github.com/ACFHarbinger/Image-Toolkit/issues/880) | W0-16: One settings service for both GUIs: scopes/keys preserved, conflict detection, backed-up legacy migration | Mistral |
 | [#881](https://github.com/ACFHarbinger/Image-Toolkit/issues/881) | W0-17: Service-layer pattern in `middleware/src/services/<feature>/` (Command/Handler + Protocols) with import-linter and ESLint-boundaries contracts; LoC gate on TS/TSX | Gemini |
 | [#882](https://github.com/ACFHarbinger/Image-Toolkit/issues/882) | W0-18: Migration ledger `migration/features.toml` (one record per capability, route map, OS checklist) + validator + generated `docs/migration/parity.md` | OpenCode |
 | [#883](https://github.com/ACFHarbinger/Image-Toolkit/issues/883) | W0-19: Parity harness: characterization tests, old-vs-new differential diff, framework-neutral scenarios; Playwright (Vite + contract mocks) per PR, tauri-driver per release | OpenCode |
-| [#884](https://github.com/ACFHarbinger/Image-Toolkit/issues/884) | W0-20: Freeze `gui/src` to reviewed bugfixes: AGENTS.md rule, PR template, ledger exceptions; additive-only schema migrations check | Claude |
+| [#884](https://github.com/ACFHarbinger/Image-Toolkit/issues/884) | W0-20: Freeze `gui/src` to reviewed bugfixes: AGENTS.md rule, PR template, ledger exceptions; additive-only schema migrations check | OpenCode |
 | [#885](https://github.com/ACFHarbinger/Image-Toolkit/issues/885) | W0-21: Docs spine: MkDocs Material, `docs/adr/` seeded with every locked decision, C4 diagrams, module README template with contract hash, Storybook, rename `docs/ARCHITECTURE.md` (ASP reference) | Gemini |
 | [#886](https://github.com/ACFHarbinger/Image-Toolkit/issues/886) | W0-22: Packaging during coexistence: Tauri bundle + PyInstaller installers; supervisor starts the sidecar from the installed backend env; UI/sidecar version-pair handshake | Cursor |
 
-### Wave 0f — Feasibility spikes (each go/no-go by Harbinger on Codex's review; no-go keeps that PySide6 row alive)
+### Wave 0f — Feasibility spikes (each go/no-go by Harbinger on Grok's review; no-go keeps that PySide6 row alive)
 
 | Issue | Deliverable | Owner |
 |---|---|---|
-| [#887](https://github.com/ACFHarbinger/Image-Toolkit/issues/887) | S-01: Spike: gallery with the C++ thumbnail service (bounded stills, middle frame) streamed via `asset://` from `~/.image-toolkit/cache/render/` | Grok |
+| [#887](https://github.com/ACFHarbinger/Image-Toolkit/issues/887) | S-01: Spike: gallery with the C++ thumbnail service (bounded stills, middle frame) streamed via `asset://` from `~/.image-toolkit/cache/render/` | Gemini |
 | [#888](https://github.com/ACFHarbinger/Image-Toolkit/issues/888) | S-02: Spike: shared canvas host (WebGL2/WebGPU tile pyramid, off-screen worker) on a fake document | Gemini |
 | [#889](https://github.com/ACFHarbinger/Image-Toolkit/issues/889) | S-03: Spike: tray and window behaviour per OS (KDE/GNOME Wayland + X11 first; Windows/macOS notes) | Cursor |
-| [#890](https://github.com/ACFHarbinger/Image-Toolkit/issues/890) | S-04: Spike: embedded ComfyUI in an isolated view (no native privileges), compatibility/security checks, external-browser fallback | Codex |
+| [#890](https://github.com/ACFHarbinger/Image-Toolkit/issues/890) | S-04: Spike: embedded ComfyUI in an isolated view (no native privileges), compatibility/security checks, external-browser fallback | Kimi |
 | [#891](https://github.com/ACFHarbinger/Image-Toolkit/issues/891) | S-05: Spike: file drag-and-drop in and out of the webview | Kimi |
 | [#892](https://github.com/ACFHarbinger/Image-Toolkit/issues/892) | S-06: Spike: video playback and frame scrubbing (asset protocol, codecs) | Kimi |
-| [#893](https://github.com/ACFHarbinger/Image-Toolkit/issues/893) | S-07: Spike: wallpaper per-monitor control and the slideshow presenter window from Tauri (KDE/GNOME/Windows) | Claude |
+| [#893](https://github.com/ACFHarbinger/Image-Toolkit/issues/893) | S-07: Spike: wallpaper per-monitor control and the slideshow presenter window from Tauri (KDE/GNOME/Windows) | Cursor |
 
 ### Feature wave 1 — Convert pilot
 
