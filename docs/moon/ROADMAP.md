@@ -134,6 +134,7 @@ Section-specific roadmaps:
 - [ASP — Anime Stitch Pipeline](https://github.com/ACFHarbinger/Anime-Stitch-Pipeline/blob/main/docs/moon/ROADMAP.md)
 - [Content Generation — Anime Image & Video](roadmaps/content_generation.md)
 - [Cloud Jobs Service](roadmaps/cloud_jobs.md)
+- [Tauri Migration and Architecture Refactor](roadmaps/tauri_migration.md)
 - [Deep Learning Tab Rebuild](roadmaps/deep_learning_tab_rebuild.md)
 - [GUI/UX — Desktop Interface](roadmaps/gui_ux.md)
 - [Performance — Compute, Memory, I/O](roadmaps/performance.md)
@@ -535,10 +536,14 @@ flowchart TD
 
 This roadmap defines the feature evolution and quality-of-life improvements for the Image-Toolkit ecosystem. It is grounded in a deep audit of the current codebase (May 2026) and covers every layer of the stack.
 
-The application follows a **Tri-Interface Strategy**:
-1. **PySide6 Desktop App** — The heavyweight native powerhouse for local ML inference, deep OS integration, and interactive image pipeline control.
-2. **React / Tauri Web App** — The cross-platform, network-ready hub for library management, remote task dispatch, and device syncing.
-3. **Android / iOS Mobile Apps** — Companion clients for remote monitoring, on-device preview, and library browsing.
+**Interface strategy:** updated 2026-10-19, and it supersedes the earlier Tri-Interface Strategy. See [Tauri Migration and Architecture Refactor](roadmaps/tauri_migration.md).
+
+1. **Tauri desktop app** is the only desktop UI. It is a React webview with a thin Rust shell, talking to a supervised Python sidecar over the services in `middleware/src/services/`, with the C++ core underneath.
+2. **PySide6 desktop app** is frozen to reviewed bugfixes. Each of its features is deleted once the Tauri version passes its parity check.
+3. **Django API** exposes the same services remotely, to the Cloud Jobs phone/web client and the mobile apps.
+4. **Android / iOS apps** remain companion clients. They will consume the same generated contracts; no mobile UI work is in the migration milestone.
+
+The PySide6-specific items below predate this change. Their future UI work happens in Tauri.
 
 Each item is tagged by priority: **[CRITICAL]**, **[HIGH]**, **[MEDIUM]**, or **[LOW]**.
 
