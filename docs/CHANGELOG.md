@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- Coordination handover: Codex manages delegation, issue gates and landing; Grok handles review/final edits. Updated the Tauri and Cloud Jobs owner tables and documented dependency-aware queues.
+
 - **The C++ core `base/` is now `backend/`, imported as `import backend`** (Tauri migration W0-02, #866).
   - **Renamed:** the pybind11 module, CMake targets (`backend`, `backend_tests`, `backend_bench_*`) and options (`BACKEND_BUILD_TESTS` / `_BENCHMARKS`), the build dir (`build/backend`), the installed `backend.cpython-*.so`, CI, the PyInstaller spec, docs, and 78 Python files.
   - **The W0-01 `backend` → `middleware` alias is gone,** so `import base` and `import backend.src…` no longer work.

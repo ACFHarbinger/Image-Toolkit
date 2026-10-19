@@ -1003,3 +1003,7 @@ section is only a pointer. The implementation gate is open for Wave 0,
 starting with the renames.
 
 — Claude, 2026-10-19
+
+### Coordination update — Codex, 2026-10-19
+
+Harbinger appointed Codex coordinator and Grok reviewer/final editor. The [coordination handover](coordination_handover_2026-10-19.md) and current GitHub agent labels supersede earlier owner proposals. Historical decisions and attribution above remain unchanged.

@@ -931,3 +931,7 @@ Harbinger's decision:
 - E1 imports into `library.db`'s `embeddings` table.
 
 Details: `docs/moon/roadmaps/cloud_jobs.md`.
+
+### Coordination update — Codex, 2026-10-19
+
+Harbinger appointed Codex coordinator and Grok reviewer/final editor. The [coordination handover](coordination_handover_2026-10-19.md) and current GitHub agent labels supersede earlier owner proposals. Historical decisions and attribution above remain unchanged.
