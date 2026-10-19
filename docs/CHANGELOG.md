@@ -55,6 +55,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   - **Engine:** `engine.py` runs the reconciler's decisions. Teardown stays owed until the provider confirms nothing is billing.
   - **Store:** an encrypted `~/.image-toolkit/cloud_jobs.db` (SQLCipher via `base.database`) in `store/`. It holds jobs, attempts, shards, an append-only event log, and a spend ledger that history pruning never deletes. PoC usage rows can be imported into the ledger. Opening the store retries when two processes open it at the same moment.
   - **Tests:** `fakes.py` adds a scripted `FakeProvider` that can simulate ambiguous submits, out-of-stock, quota errors, preemption and failed teardowns, so no test spends money. Tests: `backend/test/cloud/test_cloud_jobs_engine.py` and `test_cloud_jobs_spec.py`.
+- Cloud Jobs adapter certification and crash-point matrix (#829):
+  - **Certification:** `certification.py` checks one contract at three levels: declared, recorded and live. It checks the manifest's facts and their `verified_on` age, that `plan` is pure, the resource tags, lookup by idempotency key, idempotent teardown, and `not_found` after teardown.
+  - **Crash matrix:** `test_cloud_jobs_crash_matrix.py` kills the engine at each of the 7 provider calls in a job's life, both before the call and after the provider acted. Every case restarts to `succeeded`, with no leaked resources and no duplicate instances.
 - Cloud Jobs staging storage (#833):
   - **Strategies:** `storage/` has one strategy interface over a bucket with presigned URLs, provider-native storage (region-bound volumes), and Cloud Sync remotes. Cloud Sync uses the remote's own temporary links where it has them; otherwise it goes through a transit bucket that is emptied after outputs are copied to the remote. Inputs are content-addressed and uploaded once.
   - **Workers:** a worker's manifest holds only presigned URLs, never credentials.
