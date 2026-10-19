@@ -308,9 +308,10 @@ Claude's remaining questions are in its proposal (§Q).
   - **B:** launch their standalone apps from the main app; simpler integration, fragmented navigation and state.
   - **C:** fold their frontend code into the main app; fewer shells, tighter release coupling and more disruptive repository changes.
 
-### OpenCode — 2026-10-19 (unanswered)
+### OpenCode — 2026-10-19 (all eight answered)
 
 - **[OpenCode Q1] What is the unit of migration?**
+  - **Harbinger answer (2026-10-19; recorded by OpenCode):** A. Capability/workspace is the unit; stitch is one record with eight routes and DL one with five.
   - **A (recommended):** capability/workspace, not route. One ledger record
     per user-visible capability; stitch is one record with eight routes and
     DL one with five, matching the 26 factories behind the 33 routes.
@@ -321,6 +322,7 @@ Claude's remaining questions are in its proposal (§Q).
   - **D:** per service first, screens later. Cleanest seam, no visible
     migration for a long time and no early parity evidence.
 - **[OpenCode Q2] How do we prove parity before deleting PySide6 code?**
+  - **Harbinger answer (2026-10-19; recorded by OpenCode):** A, with B or C where a row requires it. Characterize-then-diff is the default; semantic acceptance specs and manual/pixel checks are permitted as complements, not replacements.
   - **A (recommended):** characterize current behavior first, then diff the
     old path and the new service on the same fixtures in CI while both ship;
     add framework-neutral acceptance for the UI.
@@ -330,6 +332,7 @@ Claude's remaining questions are in its proposal (§Q).
   - **D:** pixel/visual comparison. Catches layout drift, proves nothing
     about logic or data.
 - **[OpenCode Q3] How strictly do we freeze new PySide6 work?**
+  - **Harbinger answer (2026-10-19; recorded by OpenCode):** B. Freeze all of `gui/src` to reviewed bugfixes only. The ledger still records any exception, but the hash-allowlist/Qt-budget automation is not adopted.
   - **A (recommended):** content-hash allowlist plus a downward-only Qt
     import budget; no new/changed PySide6 UI without a reviewed ledger
     update, bugfixes possible but visible.
@@ -339,6 +342,7 @@ Claude's remaining questions are in its proposal (§Q).
   - **D:** no freeze; fix bugs in both apps as needed. Highest drift and
     double-work cost.
 - **[OpenCode Q4] Where does the canonical service layer live?**
+  - **Harbinger answer (2026-10-19; recorded by OpenCode):** A. `backend/src/services/<feature>/`, delegating to `backend/src/core|database|web`, with `gui/`, `frontend/` and `api/` as clients.
   - **A (recommended):** `backend/src/services/<feature>/`, delegating to
     `backend/src/core|database|web`, with `gui/`, `frontend/` and `api/` as
     clients.
@@ -350,6 +354,7 @@ Claude's remaining questions are in its proposal (§Q).
     sidecar. Reuses existing code, keeps domain logic in the layer being
     deleted.
 - **[OpenCode Q5] What happens to the 224 PySide6 test files during the migration?**
+  - **Harbinger answer (2026-10-19; recorded by OpenCode):** A. They remain the parity oracle; a test is deleted only with the code it covers and the Tauri replacement.
   - **A (recommended):** they are the parity oracle until their row passes;
     delete a test only with the code it covers and the Tauri replacement.
   - **B:** delete tests as soon as the code is extracted. Smaller load, loses
@@ -359,6 +364,7 @@ Claude's remaining questions are in its proposal (§Q).
   - **D:** freeze them now and rely on the new harness. Fastest to converge,
     un-migrated areas unguarded.
 - **[OpenCode Q6] When do we cut over CRA → Vite and delete Electron?**
+  - **Harbinger answer (2026-10-19; recorded by OpenCode):** A. Wave 0, one announced PR; no feature work merges until build and the existing test are green.
   - **A (recommended):** Wave 0, one announced PR (Vite + React 19; remove
     `react-scripts`, Electron deps/scripts and `public/electron.js`); no
     feature work merges until build and existing test are green.
@@ -369,6 +375,7 @@ Claude's remaining questions are in its proposal (§Q).
   - **D:** stay on CRA for the whole migration. Least immediate work, worst
     long-term cost.
 - **[OpenCode Q7] How do we keep documentation from going stale?**
+  - **Harbinger answer (2026-10-19; recorded by OpenCode):** A. Contract-hash freshness in CI, complementing generated references, `mkdocs --strict` and `lychee`.
   - **A (recommended):** contract-hash freshness in CI. Each module README
     carries the contract hash; a contract change without a README update
     fails the docs build. Generated references plus `mkdocs --strict` and
@@ -379,6 +386,7 @@ Claude's remaining questions are in its proposal (§Q).
   - **D:** treat the `.agent/` reports as the documentation. Complete
     history, not a usable developer guide.
 - **[OpenCode Q8] How should parallel agents claim and land migration work?**
+  - **Harbinger answer (2026-10-19; recorded by OpenCode):** C. Free-for-all claiming on GitHub issues; the ledger from Q1 still provides the inventory/delete gate, but it is not the ownership mechanism.
   - **A (recommended):** ledger-row ownership, one row per PR (code + tests
     + deletion + docs), claim on the bus and in the ledger, wait for the
     wave gate, second reviewer for deletions.
