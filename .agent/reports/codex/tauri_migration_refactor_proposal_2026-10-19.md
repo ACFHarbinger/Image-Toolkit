@@ -32,7 +32,7 @@ Move auth/vault/settings access and minimal packaging into the first platform sl
 
 `frontend/src-tauri/tauri.conf.json` currently has `csp: null` and an enabled asset protocol scoped to `**`. Replace that broad starting point before adding remote embedded content. Serve media through authorized asset identities/scoped roots, with canonical path checks, symlink handling, content types and range support for video. Do not serialize entire image libraries or base64 media through the control RPC channel.
 
-Use paginated/cursor-based queries, bounded thumbnail requests, cancellation on navigation and a byte-budgeted cache. Preserve selection by stable asset ID, not current row position. Validate output paths on the service side. These are architecture requirements; precise performance thresholds remain R5.
+Use paginated/cursor-based queries, bounded thumbnail requests, cancellation on navigation and a byte-budgeted cache. Preserve selection by stable asset ID, not current row position. Validate output paths on the service side. These are architecture requirements; precise performance thresholds remain to be agreed. Under R5, specific intractable optimizations may be deferred; record their evidence and follow-up in the parity row (proposed tracking mechanism).
 
 ComfyUI should have a separate origin/view with no filesystem, shell, vault or job-management privileges. Explicitly allow only necessary messages through a narrow host interface. Check embedding headers, WebSockets, focus/shortcuts, drag/drop, downloads and each target webview; a webview does not automatically establish parity. Keep the external-browser escape route.
 
@@ -50,7 +50,7 @@ Package the UI/sidecar as a tested pair with a startup compatibility handshake. 
 
 ## 6. Modular integration and developer documentation
 
-Define a small frontend host interface for navigation, asset selection, commands, task events, settings and theme tokens. HIE/ASP/CSG feature views depend on it; their standalone and main-app shells implement it. Keep React and native host dependencies out of shared domain contracts. Avoid runtime plugin loading until a real requirement needs it. Tradeoff: package versions need coordination, but neither copied views nor nested full app shells are necessary.
+Following R7, prefer folding HIE/ASP/CSG frontend code into the main app. Use reusable views and a small host interface selectively where they help navigation, asset selection, commands, task events, settings and theme tokens; retain standalone shells only where useful. Keep React and native host dependencies out of shared domain contracts. Avoid runtime plugin loading until a real requirement needs it. Tradeoff: consolidation couples releases and requires clear ownership of moved code; selective shared interfaces preserve useful reuse.
 
 Enforce dependency direction incrementally: views → public feature API; transport adapters → services; services → domain/repository protocols; implementation adapters → existing backend/C++. Start boundary checks on migrated modules and grow coverage without a blanket waiver. Every extracted slice removes or delegates its previous implementation.
 
@@ -66,34 +66,43 @@ Documentation deliverables per slice: concise module README, public contract/err
 
 Validation should start with targeted contract, restart, cancellation, settings-conflict and media-authorization checks. Full suites and performance runs need the existing Harbinger authorization chain. No implementation or tests were run for this proposal.
 
-## Questions for Harbinger
+## Questions and recorded answers
+
+Harbinger's answers supersede the original recommendations where they differ. Recorded by Codex, 2026-10-19; overall scope awaits the team final round.
 
 - **[Codex R1] Which desktop bridge should we standardize on?**
+  - **Harbinger answer (2026-10-19; recorded by Codex):** A. Supervised Python sidecar over versioned JSON-RPC/stdio; Django exposes the same services remotely; Rust handles native integration.
   - **A (recommended):** supervised Python sidecar with versioned JSON-RPC over stdio; Django exposes the same services remotely; Rust handles native integration.
   - **B:** supervised local Django API for desktop and remote clients; fewer transports, larger desktop server footprint.
   - **C:** sidecar with authenticated loopback HTTP and streamed events; easier browser tooling, but requires port discovery and local endpoint security.
 - **[Codex R2] Should local work survive closing every app window?** Cloud jobs already must survive.
+  - **Harbinger answer (2026-10-19; recorded by Codex):** A. Durable long-running local jobs survive closing all windows under an independent supervisor; previews and interactive requests remain session-owned. Cloud jobs retain their independent lifecycle.
   - **A (recommended):** mark long jobs as durable and run them under a supervisor independent of the UI; previews and interactive requests remain session-owned.
   - **B:** keep all submitted local jobs running until completion, even short jobs; more background resource use.
   - **C:** cancel local jobs on exit after warning; cloud jobs retain their existing independent lifecycle.
 - **[Codex R3] How should settings behave while both GUIs ship?**
+  - **Harbinger answer (2026-10-19; recorded by Codex):** A. Both GUIs use one settings service with preserved keys/scopes, conflict detection and a backed-up migration of legacy settings.
   - **A (recommended):** both use one settings service with preserved keys/scopes and conflict detection; migrate legacy data with a backup.
   - **B:** import once into Tauri, then keep separate settings; simpler, but changes stop following the user between apps.
   - **C:** keep independent stores with bidirectional synchronization; more conflict and recovery complexity.
 - **[Codex R4] How should ComfyUI be hosted?**
+  - **Harbinger answer (2026-10-19; recorded by Codex):** A. Isolated embedded ComfyUI view without native privileges, enabled after compatibility/security checks, with an external-browser fallback.
   - **A (recommended):** isolated embedded view without native privileges, enabled after a compatibility/security check, plus an external-browser fallback.
   - **B:** external browser only throughout the migration; lower integration cost.
   - **C:** a dedicated isolated Tauri window, keeping the main workspace separate; still requires the same checks.
 - **[Codex R5] What performance evidence should block retiring a PySide6 feature?**
+  - **Harbinger answer (2026-10-19; recorded by Codex):** A as the target, with C permitted for specific areas where optimization proves intractable. Aim for agreed responsiveness and memory budgets; defer difficult optimizations rather than blocking the entire migration. This is a case-specific exception, not a blanket removal of performance gates.
   - **A (recommended):** agreed responsiveness and memory budgets on representative datasets, alongside functional parity.
   - **B:** no material regression against measured PySide6 baselines; faster to define, but can preserve existing slow behavior.
   - **C:** functional parity first; performance tuning afterward, accepting temporary regressions.
   Measurements requiring benchmarks or full suites still follow the Codex/Harbinger authorization chain.
 - **[Codex R6] How should desktop/backend updates stay compatible?**
+  - **Harbinger answer (2026-10-19; recorded by Codex):** A. Ship desktop UI and sidecar as a tested version pair; remote servers negotiate a documented compatibility range.
   - **A (recommended):** ship desktop UI and its sidecar as one tested version pair; remote servers negotiate a documented compatibility range.
   - **B:** allow independent UI/sidecar updates within a supported protocol range; more flexible, larger compatibility matrix.
   - **C:** require exact versions for desktop and remote clients alike; simplest rules, disruptive coordinated upgrades.
 - **[Codex R7] How should HIE, ASP and CSG join the main app?**
+  - **Harbinger answer (2026-10-19; recorded by Codex):** Mostly C, with A where it makes sense. Prefer folding HIE/ASP/CSG frontend code into the main app; retain reusable views/shared host interfaces selectively where useful. Standalone shells are not a universal requirement.
   - **A (recommended):** package their views behind a small shared host interface; retain their standalone shells as adapters.
   - **B:** launch their standalone apps from the main app; simpler integration, fragmented navigation and state.
   - **C:** fold their frontend code into the main app; fewer shells, tighter release coupling and more disruptive repository changes.
