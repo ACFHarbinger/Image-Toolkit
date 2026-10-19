@@ -29,9 +29,28 @@ Compute Offload proof of concept).
 - Each agent's proposal:
   `.agent/reports/<agent>/cloud_jobs_service_proposal_2026-10-19.md`.
 
-**Supersession:** Claude's proposal (§2) recommended SQLite. That is
-superseded: `AGENTS.md` rules out SQLite, so PostgreSQL is the system of
-record.
+**Store correction (Harbinger, 2026-10-19, after lock).** The round
+chose PostgreSQL because of a stale `AGENTS.md` line. The app has not used
+PostgreSQL since 2026-07-27: its library is the encrypted unified store
+`library.db` (SQLCipher via `base.database`), and Postgres is archived. Harbinger's
+decision:
+
+- **Cloud Jobs uses its own encrypted `~/.image-toolkit/cloud_jobs.db`,**
+  on the same engine.
+- **It has its own key.** The daemon receives that key through the
+  job-scoped credential lease, so it never needs the vault password.
+- **No database server is needed.**
+
+Consequences:
+
+- **Leader/observer across machines (Cursor Q6) is dropped.** Jobs stay
+  on the machine that submitted them.
+- **Every "PostgreSQL" below means `cloud_jobs.db`.** That covers the
+  store, the spend ledger and risk rules.
+- **The WAL stays,** to cover the daemon losing access to the store,
+  e.g. a lease that expires or a locked file.
+- **Index imports (E1) go into `library.db`'s `embeddings` table,** not
+  pgvector.
 
 ---
 
@@ -78,7 +97,7 @@ record.
   - The **reconciler** is a pure function,
     `(state, observation, settings) → actions`, so it can be replayed
     after a crash. The UI only reads events.
-- **Store:** PostgreSQL holds jobs, attempts, shards, an append-only
+- **Store:** `cloud_jobs.db` holds jobs, attempts, shards, an append-only
   `job_events` table, and the **spend ledger**.
   - Job rows, events and logs are pruned after N days, which is set in
     Settings, with an option to export before deleting.
@@ -86,13 +105,10 @@ record.
     calibration and the Dashboards charts depend on it.
   - The PoC's `UsageStore` JSONL moves into the ledger as historical
     rows, with a PoC-or-Cloud-Jobs source filter.
-- **If PostgreSQL is unreachable or not configured:**
-  - **Configured, temporarily unreachable:** new submits are blocked. The
-    daemon's JSONL write-ahead log (WAL) keeps the teardown obligations
-    and reconciliation running, and syncs back to the database when it
-    recovers.
-  - **Not configured:** the Cloud Jobs window shows a setup prompt
-    instead of jobs.
+- **If the store can't be opened** (no lease key, or the file is locked):
+  new submits are blocked. The daemon's JSONL write-ahead log (WAL) keeps
+  the teardown obligations and reconciliation running, and syncs back to
+  the store when it can open it again.
 
 ### Safety
 
@@ -121,7 +137,7 @@ record.
   - **Quota probe:** a failure hard-blocks the job and shows the
     provider's quota-request link.
 - **Risk rules:**
-  - Stored as YAML seed rules, written to PostgreSQL, and **editable in
+  - Stored as YAML seed rules, written to `cloud_jobs.db`, and **editable in
     Settings**. Thresholds are shared with the cost caps.
   - Three severities: `block`, `warn` and `info`. Each rule targets a
     field path that the form binds to.
@@ -206,10 +222,8 @@ record.
   - One daemon per OS user, single-instance.
   - Local authenticated IPC with a protocol version handshake.
   - Crash-only recovery, and the WAL described above.
-  - **Leader/observer across machines:** if two machines share PostgreSQL,
-    one daemon leads and the other GUIs are read-only until they win the
-    lease. If they don't share PostgreSQL, jobs stay on the machine that
-    submitted them.
+  - **Single machine:** jobs stay on the machine that submitted them.
+    Leader/observer was dropped along with PostgreSQL.
 - **Watchdog and remote relay: one deployable with two endpoints.**
   - It lives in the user's GCP account (Cloud Function or Cloud Run) by
     default. A Cloudflare Worker is the alternative.
@@ -373,10 +387,10 @@ Tracking issue: [#824](https://github.com/ACFHarbinger/Image-Toolkit/issues/824)
 |---|---|
 | [#825](https://github.com/ACFHarbinger/Image-Toolkit/issues/825) | A1: Move `backend/src/web/cloud/compute/` into `backend/src/cloud/`, with re-export shims for one release |
 | [#826](https://github.com/ACFHarbinger/Image-Toolkit/issues/826) | A2: `JobSpec`, shard manifest, adapter contract and capability-manifest schema |
-| [#827](https://github.com/ACFHarbinger/Image-Toolkit/issues/827) | A3: PostgreSQL store (jobs, attempts, shards, `job_events`, spend ledger), retention pruning with export, and the `UsageStore` migration |
+| [#827](https://github.com/ACFHarbinger/Image-Toolkit/issues/827) | A3: `cloud_jobs.db` store (jobs, attempts, shards, `job_events`, spend ledger), retention pruning with export, and the `UsageStore` migration |
 | [#828](https://github.com/ACFHarbinger/Image-Toolkit/issues/828) | A4: State machine and pure reconciler, with idempotency keys, submit reconciliation and clock-triggered `queued` |
 | [#829](https://github.com/ACFHarbinger/Image-Toolkit/issues/829) | A5: FakeProvider fault timelines, recorded-HTTP harness, crash-point matrix, adapter certification kit |
-| [#830](https://github.com/ACFHarbinger/Image-Toolkit/issues/830) | A6: Risk rule engine (YAML seed, PostgreSQL storage, editable, permanent ⚠ on capability overrides, structural-failure semantics) |
+| [#830](https://github.com/ACFHarbinger/Image-Toolkit/issues/830) | A6: Risk rule engine (YAML seed, `cloud_jobs.db` storage, editable, permanent ⚠ on capability overrides, structural-failure semantics) |
 | [#831](https://github.com/ACFHarbinger/Image-Toolkit/issues/831) | A7: Preflight pipeline (data classes and allowlist, secret scan, weight classes, quota probe) |
 | [#832](https://github.com/ACFHarbinger/Image-Toolkit/issues/832) | A8: Cost model (catalogue, live prices, snapshots, total-job ranking, deadline, caps, admission, reservations, billing reconciliation, calibration) |
 | [#833](https://github.com/ACFHarbinger/Image-Toolkit/issues/833) | A9: Storage interface (bucket with presigned URLs, provider volumes, Cloud Sync via temp links or transit bucket), content-addressed staging, retention |
@@ -475,7 +489,7 @@ Each adapter issue includes:
 
 | Item | Reason |
 |---|---|
-| SQLite job store (Claude's §2) | `AGENTS.md`: "No SQLite". PostgreSQL is the system of record |
+| PostgreSQL job store (the round's original choice) | Superseded after the lock: the app's store is SQLCipher, so Cloud Jobs uses its own encrypted `cloud_jobs.db` |
 | `waiting_for_capacity` hold and spot-window scheduling | Grok Q2 B: out-of-stock fails immediately (or falls back, if enabled) |
 | Origin-tab-only submit | Cursor Q1 C: Request Builder submit stays too, sharing the `JobSpec` |
 | Project-managed provider accounts | OpenCode Q4: bring-your-own accounts only |

@@ -7,7 +7,7 @@ The project mission is to provide a unified environment for managing massive ima
 ## 2. Technical Stack & Governance
 * **Runtime**: Python 3.11+ (managed via `uv`, `conda`, or `venv`). **Agent Rule**: Always run `source .venv/bin/activate` at the start of a task.
 * **Core Logic**: C++ (via pybind11/CMake) for high-performance IO and processing.
-* **Backend**: Python Orchestrator, PostgreSQL (`pgvector`), PyTorch, OpenCV.
+* **Backend**: Python Orchestrator, unified encrypted SQLite store (SQLCipher via `base.database`), PyTorch, OpenCV.
 * **GUI**: PySide6 (Qt for Python).
 * **Frontend/Mobile**: React, Kotlin (Android), Swift (iOS).
 * **Web Automation**: Selenium WebDriver.
@@ -62,11 +62,11 @@ suggestion:
 | **Bump Version** | `just release::bump 1.2.3` |
 
 ### External Access Rules
-*   **Docs**: Use Google Search for PySide6, pgvector, OpenCV, PyTorch Hub.
+*   **Docs**: Use Google Search for PySide6, SQLCipher, OpenCV, PyTorch Hub.
 *   **Debugging**: Search for WebDriver conflicts if crawlers fail.
 
 ### Global Coding Standards
-*   **Database**: Maintain `pgvector` schema compatibility. Use transactions for group/image integrity.
+*   **Database**: Keep `backend/src/database/unified/schema.sql` compatible (migrations, not ad-hoc DDL). Use transactions for group/image integrity.
 *   **Security**: **NEVER** hardcode credentials. Use `VaultManager`.
 *   **Threading**: All heavy computations must run off the main thread (QThread/QRunnable).
 *   **Versioning**: The single source of truth is the root `pyproject.toml`
@@ -108,7 +108,7 @@ suggestion:
     See `gui/test/conftest.py`'s config-root isolation for the pattern.
 
 ### Known Constraints
-*   **PostgreSQL**: No SQLite. `pgvector` is required.
+*   **Database**: The library is the unified encrypted store `~/.image-toolkit/library.db` (SQLCipher via `base.database.Database`, opened after vault unlock; embeddings in its `embeddings` table). PostgreSQL/pgvector is archived (`archive/python/database/`); only migration 003 still reads a legacy Postgres. New stores use the same engine — e.g. Cloud Jobs' separate `cloud_jobs.db`.
 *   **Linux**: `qdbus-qt6` compatibility for wallpapers.
 *   **Safari**: No headless mode support.
 

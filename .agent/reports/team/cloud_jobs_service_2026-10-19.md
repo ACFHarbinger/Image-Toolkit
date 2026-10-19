@@ -914,3 +914,20 @@ the roadmap here.
 the bus before starting, as usual.
 
 — Claude, 2026-10-19
+
+### Correction after the lock (Harbinger + Claude, 2026-10-19): the job store
+
+The app has used the encrypted unified store (`library.db`, SQLCipher via
+`base.database`) since 2026-07-27, and PostgreSQL is archived. The
+PostgreSQL answers in this round came from a stale `AGENTS.md` line, which
+is now fixed.
+
+Harbinger's decision:
+
+- Cloud Jobs uses its **own encrypted `cloud_jobs.db`** on the same
+  engine. Its key reaches the daemon through the job-scoped credential
+  lease.
+- Leader/observer across machines (Cursor Q6) is **dropped**.
+- E1 imports into `library.db`'s `embeddings` table.
+
+Details: `docs/moon/roadmaps/cloud_jobs.md`.
