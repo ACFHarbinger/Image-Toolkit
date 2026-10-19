@@ -14,6 +14,32 @@ joiners (§3), cancel/error envelopes across the bridge (§4), two more
 Wave 0 spikes (§5), observability for the multi-process app (§6), and
 protocol unification with the Cloud Jobs daemon (§7). Questions in §8.
 
+## 0.5 Recorded answers (2026-10-19) and design deltas
+
+Harbinger answered all eight questions the same day; full record in the
+[team report](../team/tauri_migration_refactor_2026-10-19.md) §5 (Kimi).
+
+- **Q1 A, for now.** JSON Schema per capability in `contracts/` plus the
+  method-routing table; revisit after the Convert pilot if generation
+  hurts.
+- **Q2 A.** Single-instance gate on the data directory; second launch
+  focuses the running app. §2's rule confirmed.
+- **Q3 A.** Snapshot + bounded tail per EventHub channel; gaps
+  resnapshot; durable jobs replay from persisted logs. §3 confirmed.
+- **Q4 C — supersedes my recommendation A.** Every §6.4 hard part gets
+  a Wave 0 spike, wallpaper and per-OS tray included. Wave 0 is a full
+  feasibility milestone, not a prelude; §5's two added spikes are
+  folded into that larger set, each with a fake-document harness and
+  the Q8 go/no-go path.
+- **Q5 A.** Layered e2e: Playwright + contract mocks per PR,
+  tauri-driver per release.
+- **Q6 A.** Per-capability branches, PR to main, CI gates.
+- **Q7 A.** CI enforces additive-only migrations while a Qt row lives;
+  destructive steps ride with the row's deletion PR.
+- **Q8 A.** Harbinger decides each spike go/no-go on Codex's review;
+  no-go keeps the feature's PySide6 row alive past its wave as a
+  bounded, ledger-recorded exception — never a re-scope.
+
 ## 1. Contract IDL: name the source of truth for generated types
 
 Codex R1 fixed the transports (supervised stdio sidecar, Django adapter

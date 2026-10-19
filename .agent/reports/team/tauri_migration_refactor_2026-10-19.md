@@ -297,7 +297,15 @@ DRY problem to resolve, not to copy forward.
     contract.
   Asks about the IDL, dual-app store access, event catch-up, Wave 0
   spike scope, the e2e harness, branch policy, schema-migration
-  enforcement, and spike go/no-go authority. All eight pending.
+  enforcement, and spike go/no-go authority.
+  **Harbinger answered 2026-10-19:** Q1 A (JSON Schema IDL, for now);
+  Q2 A (single-instance gate on the data dir); Q3 A (snapshot+tail
+  catch-up); Q4 C — supersedes my recommendation: every §6.4 hard part
+  gets a Wave 0 spike, wallpaper and per-OS tray included, making Wave
+  0 a full feasibility milestone; Q5 A (layered e2e); Q6 A (per-
+  capability PRs to main); Q7 A (CI additive-only migrations); Q8 A
+  (Harbinger decides spike go/no-go on Codex's review; no-go keeps the
+  PySide6 row alive past its wave, never a re-scope).
 
 - **Gemini** (2026-10-19):
   [Full proposal](../gemini/tauri_migration_refactor_proposal_2026-10-19.md).
@@ -599,13 +607,15 @@ Harbinger's answers below match the recommendations. Recorded by Cursor, 2026-10
   - **C:** Dual navigation (catalog + `TabId`) until the Convert pilot lands.
   - **D:** Freeze `App.tsx` as-is and put new UI in a parallel shell tree.
 
-### Kimi — 2026-10-19 (all eight pending)
+### Kimi — 2026-10-19 (all eight answered)
 
-Recommendation first in each list. None re-ask a recorded answer; full
-rationale in the
-[proposal](../kimi/tauri_migration_refactor_proposal_2026-10-19.md).
+Recommendation first in each list. Harbinger's answers below; recorded
+by Kimi, 2026-10-19. Scope still awaits the team final round.
 
 - **[Kimi Q1] Which IDL generates the contract types?**
+  - **Harbinger answer (2026-10-19; recorded by Kimi):** A, for now.
+    JSON Schema per capability in `contracts/`, with the method-routing
+    table; revisit after the Convert pilot if generation hurts.
   - **A (recommended):** JSON Schema per capability in `contracts/`,
     plus a thin method-routing table; CI generates TS/Python/Rust types
     and the contract hash. Fits stdio and Django alike, no new runtime
@@ -618,6 +628,10 @@ rationale in the
   - **D:** protobuf/buf. Strongest codegen, heaviest toolchain; event
     streams need a second story.
 - **[Kimi Q2] May both GUIs run at once against one `library.db`?**
+  - **Harbinger answer (2026-10-19; recorded by Kimi):** A. Single-
+    instance gate on the data directory; second launch focuses the
+    running app (tray show/hide). The lock lives in the data dir so
+    both apps share it; WAL stays on for readers within one process.
   - **A (recommended):** No. Single-instance gate on the data directory;
     second launch focuses the running app (tray show/hide). The lock
     lives in the data dir so both apps share it; WAL stays on for
@@ -627,6 +641,10 @@ rationale in the
   - **C:** Yes, with the second app opening the store read-only. Safe
     for the library, but the second app can't edit anything.
 - **[Kimi Q3] How do late-joining views catch up on events?**
+  - **Harbinger answer (2026-10-19; recorded by Kimi):** A. Snapshot +
+    bounded tail per EventHub channel, sequence-numbered; gaps trigger
+    a resnapshot; durable jobs replay from persisted
+    `job_events`/`events.jsonl`.
   - **A (recommended):** Snapshot + bounded tail per EventHub channel,
     sequence-numbered; gaps trigger a resnapshot; durable jobs replay
     from persisted `job_events`/`events.jsonl`.
@@ -635,6 +653,11 @@ rationale in the
   - **C:** No replay. Late joiners poll current state; pop-outs and
     reopened windows show stale progress until the next state change.
 - **[Kimi Q4] Which hard parts get Wave 0 spikes?**
+  - **Harbinger answer (2026-10-19; recorded by Kimi):** C. Every §6.4
+    hard part gets a spike — including wallpaper and per-OS tray
+    specifics. Supersedes my recommendation A: Wave 0 is a full
+    feasibility milestone, not a short prelude. File drag-and-drop and
+    video playback are in it (my §5 addition) alongside the rest.
   - **A (recommended):** The four already listed, plus file
     drag-and-drop and video playback (fake-document spikes like the
     canvas one).
@@ -643,6 +666,10 @@ rationale in the
   - **C:** Every §6.4 hard part gets a spike, including wallpaper and
     per-OS tray specifics. Wave 0 becomes a milestone of its own.
 - **[Kimi Q5] What runs end-to-end in CI?**
+  - **Harbinger answer (2026-10-19; recorded by Kimi):** A. Layered.
+    Playwright against the Vite build with contract mocks is the
+    per-PR gate; tauri-driver WebDriver is a per-release smoke. Parity
+    evidence still comes from the pytest scenarios (OpenCode Q2/Q5).
   - **A (recommended):** Layered. Playwright against the Vite build
     with contract mocks is the per-PR gate; tauri-driver WebDriver is a
     per-release smoke. Parity evidence still comes from the pytest
@@ -651,6 +678,9 @@ rationale in the
   - **C:** Component/unit tests only; e2e deferred until a wave needs
     it.
 - **[Kimi Q6] Where does migration work land?**
+  - **Harbinger answer (2026-10-19; recorded by Kimi):** A. Per-
+    capability branches, PR to main, CI gates (build, LoC gate, docs
+    freshness).
   - **A (recommended):** Per-capability branches, PR to main, CI gates
     (build, LoC gate, docs freshness). Matches free-for-all claiming
     (OpenCode Q8) and keeps main releasable for dual installers
@@ -661,6 +691,10 @@ rationale in the
     Defers all parity evidence to merge day.
 - **[Kimi Q7] How is schema-migration discipline enforced during
   coexistence?**
+  - **Harbinger answer (2026-10-19; recorded by Kimi):** A. CI checks
+    additive-only: a migration touching a live Qt row's tables must
+    add, not rename/drop; destructive steps ride with the row's
+    deletion PR.
   - **A (recommended):** CI checks additive-only: a migration touching a
     live Qt row's tables must add, not rename/drop; destructive steps
     ride with the row's deletion PR.
@@ -669,6 +703,10 @@ rationale in the
     installers ship (Cursor W4).
 - **[Kimi Q8] Who decides Wave 0 spike go/no-go, and what does "no-go"
   mean?**
+  - **Harbinger answer (2026-10-19; recorded by Kimi):** A. Harbinger
+    decides per spike, on Codex's review, with a written no-go outcome:
+    that feature's PySide6 row stays alive past its wave (bounded
+    exception list in the ledger), not a re-scope of the initiative.
   - **A (recommended):** Harbinger decides per spike, on Codex's review,
     with a written no-go outcome: that feature's PySide6 row stays
     alive past its wave (bounded exception list in the ledger), not a
