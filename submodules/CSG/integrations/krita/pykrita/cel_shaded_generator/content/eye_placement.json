@@ -1,0 +1,146 @@
+{
+  "id": "anime-head-eyes",
+  "exercise_id": "anime-head-eyes",
+  "version": "1.0.0",
+  "method_id": "anime-head-construction-v1",
+  "schema_version": 1,
+  "title": "Anime Head Construction: Eye Placement and Perspective",
+  "summary": "Build stylized anime eyes on believable spherical forms, place them from the head's construction, and carry one eye design from front view into three-quarter perspective without flattening the face or changing the character.",
+  "estimated_minutes": 55,
+  "prerequisite_ids": ["anime-head-volume-jaw"],
+  "media": [
+    "diagrams/eye-socket-to-style.svg",
+    "diagrams/eye-perspective-pair.svg"
+  ],
+  "learning_objectives": [
+    "Place both eyes from a cross-contour eye line and facial centerline rather than the page edges.",
+    "Use simplified eyeballs and sockets to explain eyelid curvature before stylizing the visible eye shape.",
+    "Control spacing, height, tilt, and scale independently instead of relying on a single one-eye-width rule.",
+    "Compress and wrap the far eye in three-quarter view without merely shrinking a front-view symbol.",
+    "Preserve a chosen eyelid rhythm and expression across front and turned views.",
+    "Separate structural placement errors from optional style and expression choices."
+  ],
+  "theory": [
+    {
+      "title": "The visible eye is wrapped around a ball",
+      "explanation": "Begin with a simplified eyeball seated inside an orbital region. The upper and lower lids travel over that ball, so their arcs change as the gaze and head turn. Anime simplification may enlarge, flatten, omit, or sharpen parts of the lids, but the underlying spherical explanation prevents pasted-on symbols."
+    },
+    {
+      "title": "The eye line belongs to the head",
+      "explanation": "The eye line is a cross-contour around the head, not a horizontal ruler attached to the canvas. In front view it may appear nearly straight; in a turn it curves and its visible segments compress. Use its intersection with the centerline to organize the pair before designing either eye."
+    },
+    {
+      "title": "Spacing rules are starting hypotheses",
+      "explanation": "One-eye-width spacing is a useful neutral check, not a law. Anime styles deliberately alter eye width, interocular spacing, and vertical size. Measure those choices relative to the centerline and head width so exaggeration is intentional and repeatable."
+    },
+    {
+      "title": "Perspective transforms a design",
+      "explanation": "In three-quarter view, the far eye occupies a narrower projected surface and wraps toward the facial edge. Its inner and outer corners do not move equally. Preserve its imagined size and design identity while changing projected width, curvature, and overlap."
+    },
+    {
+      "title": "Expression begins with lid relationships",
+      "explanation": "Expression is carried mainly by upper-lid angle, lower-lid tension, exposed iris, and brow relationship. Apply expression after placement is stable. This allows a critique to say whether the pair is structurally misplaced, inconsistently stylized, or intentionally expressive."
+    }
+  ],
+  "steps": [
+    {
+      "title": "1. Reconstruct the front head",
+      "explanation": "Draw the cranial ball, jaw, vertical centerline, and a cross-contour eye line. Mark the side planes and approximate orbital region. Do not begin with finished eyelashes or irises."
+    },
+    {
+      "title": "2. Place simplified eyeballs",
+      "explanation": "Set two lightly drawn spheres symmetrically around the centerline. Compare their centers, radii, and distance from the centerline. Treat one-eye-width spacing only as an initial neutral estimate, then adjust deliberately for the chosen style."
+    },
+    {
+      "title": "3. Wrap neutral eyelids",
+      "explanation": "Draw upper and lower lid arcs around each ball. Mark inner and outer corners on the eye line. Keep the corners structurally related even if the upper lash line becomes thicker or more angular later."
+    },
+    {
+      "title": "4. Create the stylized front pair",
+      "explanation": "Choose a single restrained anime method: emphasize the upper lid, simplify the lower lid, enlarge the iris, and keep corner positions visible. Record eye width, spacing, upper-lid peak, and iris exposure so the style can be reconstructed."
+    },
+    {
+      "title": "5. Apply one expression",
+      "explanation": "Choose calm, alert, or mildly determined. Change upper-lid angle and lower-lid tension consistently across the pair; do not use arbitrary size mismatch as an expression shortcut. Add brows only as supporting evidence."
+    },
+    {
+      "title": "6. Rebuild the head in three-quarter view",
+      "explanation": "Rotate the cranial form and draw curved centerline and eye-line cross-contours. Place simplified eyeballs into the turned construction before copying any visible eye contour."
+    },
+    {
+      "title": "7. Transform the eye design into perspective",
+      "explanation": "Keep the near eye recognizable, compress the far eye along the turning surface, and wrap both lids over their balls. Preserve the selected expression through lid angles and iris exposure while allowing perspective to alter projected widths."
+    },
+    {
+      "title": "8. Run structure and style audits separately",
+      "explanation": "First hide decoration and compare eye-line adherence, centers, spacing, and far-side compression. Then inspect upper-lid rhythm, iris exposure, and expression consistency. Correct structural errors before stylistic polish."
+    }
+  ],
+  "guided_drills": [
+    {
+      "title": "Ball-and-lid wraps",
+      "repetitions": 12,
+      "instructions": "Draw twelve small eyeballs at different horizontal turns. Wrap one upper and one lower lid over each ball without lashes, irises, or rendering."
+    },
+    {
+      "title": "Front placement ladder",
+      "repetitions": 4,
+      "instructions": "Construct four front heads with neutral, close, wide, and large-eye designs. Label which measurements changed and keep the centerline and cranial width stable."
+    },
+    {
+      "title": "Front-to-three-quarter pairs",
+      "repetitions": 3,
+      "instructions": "Create three front/three-quarter pairs using the same eye design and expression. Annotate near-eye width, far-eye compression, and iris exposure."
+    }
+  ],
+  "common_mistakes": [
+    {
+      "symptom": "The eyes look pasted onto a flat face.",
+      "cause": "Finished symbols were drawn without eyeballs, sockets, or a cross-contour eye line.",
+      "correction": "Restore the balls and curved eye line, then wrap the existing corner and lid decisions around those forms."
+    },
+    {
+      "symptom": "The pair drifts away from the facial center.",
+      "cause": "Spacing was judged from the page or head silhouette instead of the centerline.",
+      "correction": "Measure both inner corners and eye centers from the facial centerline before adjusting style."
+    },
+    {
+      "symptom": "The far eye becomes a tiny copy.",
+      "cause": "Perspective was treated as uniform scaling rather than wrapping and foreshortening.",
+      "correction": "Keep the eyeball concept, move corners along the curved eye line, and compress projected width more than vertical opening."
+    },
+    {
+      "symptom": "Each eye appears to show a different emotion.",
+      "cause": "Upper-lid angles, lower-lid tension, or iris exposure changed independently.",
+      "correction": "Name one intended expression and repeat its lid relationships, allowing only perspective-driven differences."
+    },
+    {
+      "symptom": "Large anime eyes erase the side planes.",
+      "cause": "Eye width was expanded until corners collided with the head contour.",
+      "correction": "Reserve visible side-plane distance and treat eye size, spacing, and head width as separate design variables."
+    },
+    {
+      "symptom": "Polished lashes hide unresolved construction.",
+      "cause": "Line weight and decoration were added before placement was checked.",
+      "correction": "Temporarily reduce the eyes to balls, corners, and single lid arcs; correct those landmarks before restoring polish."
+    }
+  ],
+  "completion_criteria": [
+    "A front and right-three-quarter head use visible centerline and eye-line construction.",
+    "Simplified eyeballs explain the placement and curvature of both eyelid pairs.",
+    "Front-view centers, spacing, and corner heights are intentional and measurable.",
+    "The far eye is perspective-compressed and wrapped rather than uniformly miniaturized.",
+    "One eye style remains recognizable across both views.",
+    "One named expression is consistent across the pair without masking structural errors.",
+    "A separate structure audit and style/expression audit have each produced at least one observation."
+  ],
+  "self_review_questions": [
+    "Can I explain every visible lid arc using the eyeball underneath it?",
+    "Are both front eye centers organized around the facial centerline?",
+    "Did I choose the spacing, or merely inherit a memorized rule?",
+    "Does the far eye wrap and compress along the turned surface?",
+    "Are perspective differences distinguishable from accidental design changes?",
+    "Do upper-lid rhythm and iris exposure communicate the same named expression?"
+  ],
+  "practice_prompt": "Complete the four-area eye construction sheet: neutral front structure, stylized front expression, neutral right-three-quarter structure, and the same stylized expression in right-three-quarter view. Keep eyeballs, centerlines, eye lines, and corner evidence visible; audit structure before style."
+}

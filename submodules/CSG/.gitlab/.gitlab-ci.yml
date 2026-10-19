@@ -1,0 +1,89 @@
+# GitLab CI/CD Pipeline
+# Native-syntax translation of the GitHub Actions workflows under .github/workflows/:
+# ci.yml, security.yml, docs.yml.
+
+stages:
+  - test
+  - security
+  - docs
+
+# ==========================================
+# STAGE: TEST (ci.yml)
+# ==========================================
+lint-test-src:
+  stage: test
+  image: python:3.12
+  script:
+    - pip install uv
+    - uv sync --all-packages --all-extras --dev
+    - uv run ruff check logic/src logic/test
+    - cd logic && uv run mypy src && cd ..
+    - uv run pytest logic/test -v --cov=logic/src --cov-report=xml
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+lint-test-gui:
+  stage: test
+  image: python:3.12
+  script:
+    - pip install uv
+    - uv sync --all-packages --all-extras --dev
+    - cd gui
+    - uv run ruff check .
+    - uv run mypy src
+
+# ==========================================
+# STAGE: SECURITY (security.yml)
+# ==========================================
+security-pip-audit:
+  stage: security
+  image: python:3.12
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    - pip install uv
+    - uv sync --group dev
+    - uv run pip-audit
+
+security-pip-audit-gui:
+  stage: security
+  image: python:3.12
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    - pip install uv
+    - cd gui
+    - uv sync --group dev
+    - uv run pip-audit
+
+# ==========================================
+# STAGE: DOCS (docs.yml)
+# ==========================================
+# This special job name "pages" is required by GitLab to deploy to GitLab Pages.
+pages:
+  stage: docs
+  image: python:3.12
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - "docs/**/*"
+        - "logic/validation/docs/**/*"
+        - "mkdocs.yml"
+  script:
+    - apt-get update && apt-get install -y --no-install-recommends nodejs npm
+    - pip install uv
+    - uv pip install --system mkdocs-material mkdocstrings[python] mkdocs-jupyter
+    - mkdocs build --config-file docs/mkdocs.yml --strict --site-dir build/gen/site
+    - cd docs/website && npm ci && SITE_BASE=/app/ npm run build && cd ../..
+    - mkdir -p build/gen/site/app && cp -r docs/website/dist/. build/gen/site/app/
+    # GitLab Pages requires the output directory to be named "public"
+    - mv build/gen/site public
+  artifacts:
+    paths:
+      - public

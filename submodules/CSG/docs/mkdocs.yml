@@ -1,0 +1,82 @@
+site_name: Cel-Shaded-Generator Documentation
+site_description: >-
+  Documentation portal for Manga Colorization & Animation (HITL deep learning +
+  mathematical optimization).
+site_author: ACFHarbinger
+repo_url: https://github.com/ACFHarbinger/Cel-Shaded-Generator
+repo_name: ACFHarbinger/Cel-Shaded-Generator
+edit_uri: edit/main/docs/
+
+docs_dir: .
+site_dir: ../build/gen/site
+exclude_docs: |
+  sphinx/conf.py
+  website/node_modules/**
+  website/README.md
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [../src, ../gui/src]
+          options:
+            docstring_style: google
+            show_source: true
+
+nav:
+  - Home: index.md
+  - Architecture: ARCHITECTURE.md
+  - Portable Project Format: project_format.md
+  - Character Style Bible: style_bible_format.md
+  - Local Model Packages: model_packages.md
+  - Development: DEVELOPMENT.md
+  - Testing: TESTING.md
+  - Dependencies: DEPENDENCIES.md
+  - Dependency Policy: DEPENDENCY_POLICY.md
+  - Documentation Standards: DOCUMENTATION_STANDARDS.md
+  - Benchmarks: BENCHMARKS.md
+  - Troubleshooting: TROUBLESHOOTING.md
+  - Glossary: GLOSSARY.md
+  - Architecture Decisions:
+      - Recording Decisions: adr/0001-record-architecture-decisions.md
+      - Superseded Polyglot Layout: adr/0002-polyglot-module-layout.md
+  - Roadmap:
+      - Master Roadmap: moon/ROADMAP.md
+      - Krita Learning Alpha: moon/roadmaps/krita_learning_alpha.md
+      - Engine Architecture: moon/roadmaps/engine_architecture.md
+      - Reference Coloring: moon/roadmaps/reference_coloring.md
+      - Anime Animation: moon/roadmaps/anime_animation.md
+      - Game Assets: moon/roadmaps/game_assets.md
+  - Changelog: moon/CHANGELOG.md
+  - Research:
+      - Manga Colorization & Animation Research: research/Manga Colorization and Animation Research.md
+      - Cel-Shaded Art Assistant Research: research/Cel-Shaded Art Assistant Research.md
+  - Image-Toolkit (parent project): https://github.com/ACFHarbinger/Image-Toolkit

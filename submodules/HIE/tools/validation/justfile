@@ -1,0 +1,8 @@
+# tools/validation — run C++ format checks.
+
+set shell := ["bash", "-c"]
+
+all: cpp
+
+cpp:
+    find src include test benchmark -name '*.cpp' -o -name '*.hpp' -o -name '*.h' | xargs clang-format --dry-run --Werror

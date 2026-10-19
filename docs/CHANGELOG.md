@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- **HIE, ASP, CSG and CRE are now part of this repository** (Tauri migration W0-03 phase A, #867).
+  - **How:** they were absorbed with `git subtree`, keeping their full history, at their existing paths under `submodules/`. They are no longer git submodules: the gitlinks and their `.gitmodules` entries are gone, and so are the CI steps that ran `git submodule update` for them. The vendor submodules are unchanged.
+  - **Imports:** their imports of the main package now use `middleware.…`. Twelve references to ASP's own modules (benchmark scripts and fallbacks for running standalone) were left as they are.
+  - **Not yet:** archiving the four GitHub repos waits for Harbinger's go-ahead. One CMake build, moving the Python into `middleware/src/services/`, and folding the frontends into `frontend/` are phases B–D.
 - Fixed the import-linter contract `gui.src.classes must not import gui.src.tabs`, which an earlier change had broken: gallery height grips imported the settings window, and that chain reached the tabs. Per-class session values now live in `gui/src/preferences/session_values.py`, and `AppSettings.session` / `set_session` delegate to it. Files: `gui/src/preferences/session_values.py`, `gui/src/windows/settings/app_settings.py`, `gui/src/components/containers/height_resize_grip.py`.
 - **The Python package `backend/` is now `middleware/`** (Tauri migration W0-01, #865).
   - **What changed:** imports (`middleware.src…`), paths, CI workflows, the PyInstaller spec, import-linter contracts, `pyproject.toml` workspace members, pixi tasks and docs. The distribution is renamed `image-toolkit-middleware`, so re-run `uv sync` (or `uv pip install -e ./middleware`) in existing environments.

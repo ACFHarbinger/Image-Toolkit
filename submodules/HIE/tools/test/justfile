@@ -1,0 +1,8 @@
+# tools/test — run C++ test suite.
+
+set shell := ["bash", "-c"]
+
+all: cpp
+
+cpp:
+    cmake -S . -B build -DBUILD_TESTING=ON && cmake --build build -j && ctest --test-dir build --output-on-failure
