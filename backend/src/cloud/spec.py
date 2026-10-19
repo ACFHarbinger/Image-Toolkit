@@ -50,6 +50,9 @@ DEFAULT_MODE = {
 }
 
 
+MAX_SHARDS = 10_000  # one row + one collect per shard; bigger jobs should use larger shards
+
+
 class SpecError(ValueError):
     """A :class:`JobSpec` that must not be submitted."""
 
@@ -125,6 +128,8 @@ class JobSpec:
     def validate(self) -> None:
         if not self.shards:
             raise SpecError("a job needs at least one shard")
+        if len(self.shards) > MAX_SHARDS:
+            raise SpecError(f"{len(self.shards)} shards is over the {MAX_SHARDS} limit; put more items per shard")
         indices = [s.index for s in self.shards]
         if sorted(indices) != list(range(len(indices))):
             raise SpecError(f"shard indices must be 0..{len(indices) - 1}, got {indices}")
@@ -204,7 +209,7 @@ def default_mode(kind: WorkloadKind) -> ExecutionMode:
 
 
 __all__: List[str] = [
-    "DataClass", "ExecutionMode", "InputBlob", "JobSpec", "Limits", "Placement",
+    "DataClass", "ExecutionMode", "InputBlob", "JobSpec", "Limits", "MAX_SHARDS", "Placement",
     "RESUMABLE_KINDS", "Resources", "ShardSpec", "SpecError", "StorageMethod",
     "WorkloadKind", "default_mode",
 ]
