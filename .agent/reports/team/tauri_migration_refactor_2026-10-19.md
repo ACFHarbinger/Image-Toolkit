@@ -270,6 +270,35 @@ DRY problem to resolve, not to copy forward.
     installers then frozen sidecar; token CSS from existing JSON; one
     shortcut registry; Linux-first; `TabId` replaced by the catalog.
 
+- **Kimi** (2026-10-19):
+  [Full proposal](../kimi/tauri_migration_refactor_proposal_2026-10-19.md).
+  Fills the seams the recorded answers leave open:
+  - **Contract IDL:** JSON Schema per capability in `contracts/` plus a
+    thin method-routing table; CI generates the TypeScript/Python/Rust
+    types and the contract hash, so retiring a Rust duplicate is a
+    route flip, not a rewrite;
+  - **Coexistence rules for the shared encrypted store:** a
+    single-instance gate on the data directory (no lock exists in
+    either GUI today) and an expand/contract schema-migration
+    discipline while a PySide6 row lives;
+  - **Late-join event catch-up:** snapshot + bounded tail per EventHub
+    channel, gaps resnapshot, durable jobs replay from persisted
+    `job_events`/`events.jsonl`;
+  - **Cancel/error envelopes:** one idempotent `job.cancel` with
+    cooperative token + escalation, and a `{code, retryable,
+    message_key, details}` error envelope mapped onto
+    `backend/src/errors/`, no tracebacks in the webview;
+  - **Two more Wave 0 spikes:** file drag-and-drop and video playback;
+  - **Observability spine:** one log root across supervisor/sidecar/
+    daemons, redacted **Diagnostics bundle** in Settings;
+  - **Protocol unification:** the Cloud Jobs daemon speaks the sidecar
+    envelope (its own method namespace), so the G1 remote client is a
+    transport swap and Gate D is the first consumer of the canonical
+    contract.
+  Asks about the IDL, dual-app store access, event catch-up, Wave 0
+  spike scope, the e2e harness, branch policy, schema-migration
+  enforcement, and spike go/no-go authority. All eight pending.
+
 ## 5. Questions for Harbinger (tag with your name; Harbinger answers inline)
 
 Answered directly in chat on 2026-10-19, before the round opened:
@@ -521,6 +550,84 @@ Harbinger's answers below match the recommendations. Recorded by Cursor, 2026-10
   - **B:** Keep `TabId` until each tab is rewritten. Catalog is Qt-only until then.
   - **C:** Dual navigation (catalog + `TabId`) until the Convert pilot lands.
   - **D:** Freeze `App.tsx` as-is and put new UI in a parallel shell tree.
+
+### Kimi — 2026-10-19 (all eight pending)
+
+Recommendation first in each list. None re-ask a recorded answer; full
+rationale in the
+[proposal](../kimi/tauri_migration_refactor_proposal_2026-10-19.md).
+
+- **[Kimi Q1] Which IDL generates the contract types?**
+  - **A (recommended):** JSON Schema per capability in `contracts/`,
+    plus a thin method-routing table; CI generates TS/Python/Rust types
+    and the contract hash. Fits stdio and Django alike, no new runtime
+    deps.
+  - **B:** OpenAPI 3.1 for everything, stdio methods as operations. One
+    spec, but HTTP framing fights JSON-RPC ergonomics.
+  - **C:** Hand-written TypeScript + zod as the source, generate the
+    rest. The sidecar — the runtime of record — would consume Python
+    generated from hand-written TS.
+  - **D:** protobuf/buf. Strongest codegen, heaviest toolchain; event
+    streams need a second story.
+- **[Kimi Q2] May both GUIs run at once against one `library.db`?**
+  - **A (recommended):** No. Single-instance gate on the data directory;
+    second launch focuses the running app (tray show/hide). The lock
+    lives in the data dir so both apps share it; WAL stays on for
+    readers within one process.
+  - **B:** Yes — WAL + busy_timeout; accept `database is locked` stalls
+    in the other app during long writes.
+  - **C:** Yes, with the second app opening the store read-only. Safe
+    for the library, but the second app can't edit anything.
+- **[Kimi Q3] How do late-joining views catch up on events?**
+  - **A (recommended):** Snapshot + bounded tail per EventHub channel,
+    sequence-numbered; gaps trigger a resnapshot; durable jobs replay
+    from persisted `job_events`/`events.jsonl`.
+  - **B:** Full persisted event log replay for every channel. Simplest
+    model, permanent storage and ordering cost.
+  - **C:** No replay. Late joiners poll current state; pop-outs and
+    reopened windows show stale progress until the next state change.
+- **[Kimi Q4] Which hard parts get Wave 0 spikes?**
+  - **A (recommended):** The four already listed, plus file
+    drag-and-drop and video playback (fake-document spikes like the
+    canvas one).
+  - **B:** Only the four already listed; DnD and video are handled
+    inside their feature waves.
+  - **C:** Every §6.4 hard part gets a spike, including wallpaper and
+    per-OS tray specifics. Wave 0 becomes a milestone of its own.
+- **[Kimi Q5] What runs end-to-end in CI?**
+  - **A (recommended):** Layered. Playwright against the Vite build
+    with contract mocks is the per-PR gate; tauri-driver WebDriver is a
+    per-release smoke. Parity evidence still comes from the pytest
+    scenarios (OpenCode Q2/Q5).
+  - **B:** tauri-driver for everything. Real shell, slow and flaky CI.
+  - **C:** Component/unit tests only; e2e deferred until a wave needs
+    it.
+- **[Kimi Q6] Where does migration work land?**
+  - **A (recommended):** Per-capability branches, PR to main, CI gates
+    (build, LoC gate, docs freshness). Matches free-for-all claiming
+    (OpenCode Q8) and keeps main releasable for dual installers
+    (Cursor W4).
+  - **B:** Direct commits to main, CI as the only gate. No review
+    checkpoint for deletions.
+  - **C:** Long-lived integration branch per wave, merged at wave end.
+    Defers all parity evidence to merge day.
+- **[Kimi Q7] How is schema-migration discipline enforced during
+  coexistence?**
+  - **A (recommended):** CI checks additive-only: a migration touching a
+    live Qt row's tables must add, not rename/drop; destructive steps
+    ride with the row's deletion PR.
+  - **B:** Reviewer discipline only; the rule lives in AGENTS.md.
+  - **C:** No rule — both apps release in lockstep. False while dual
+    installers ship (Cursor W4).
+- **[Kimi Q8] Who decides Wave 0 spike go/no-go, and what does "no-go"
+  mean?**
+  - **A (recommended):** Harbinger decides per spike, on Codex's review,
+    with a written no-go outcome: that feature's PySide6 row stays
+    alive past its wave (bounded exception list in the ledger), not a
+    re-scope of the initiative.
+  - **B:** No-go ⇒ initiative re-scope discussion per case.
+  - **C:** Spikes are informational; waves decide by budget (Codex R5)
+    alone.
 
 ## 6. Design axes to cover (suggestions, not a checklist)
 
