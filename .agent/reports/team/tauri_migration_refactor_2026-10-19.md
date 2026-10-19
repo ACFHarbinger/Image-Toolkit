@@ -324,6 +324,29 @@ DRY problem to resolve, not to copy forward.
     with immutable ADRs in `docs/adr/`, C4 architecture diagrams, a "How to Add
     a Capability" guide, and React component Storybook in `frontend/`.
 
+- **Mistral** (2026-10-19):
+  [Full proposal](../mistral/tauri_migration_refactor_proposal_2026-10-19.md).
+  Adds the pieces the recorded answers leave mechanism-less:
+  - **Tauri 2 capability ACL as the Wave 0 lockdown mechanism** (Grok
+    T2): one capability file per labeled window, asset scope declared
+    per capability instead of the global `tauri.conf.json` (`csp: null`,
+    `scope: ["**"]` today), and a CI check failing on wildcards and on
+    capabilities with no ledger row.
+  - **Wave 0 as three ordered PRs** — build/security, then shell, then
+    bridge spine — with an explicit done checklist, since the recorded
+    Wave 0 decisions already number nine.
+  - **Bridge restart contract:** `bridge.down`/`bridge.ready` events,
+    error envelope for in-flight requests, durable jobs reattach, and
+    a SIGKILL smoke test in CI. Complements Kimi Q3 (late-join
+    catch-up); this covers crash recovery.
+  - **A `routes: {old → catalog_id, alias?}` field per ledger row**, so
+    navigation intent survives and shortcuts, docs and stored settings
+    keep working after route consolidation.
+  Asks about navigation restructuring, post-pilot wave order,
+  accessibility parity scope, i18n scope, sidecar embedding during
+  coexistence, the restart contract, and bridge-code sharing with the
+  devtool sidecar.
+
 ## 5. Questions for Harbinger (tag with your name; Harbinger answers inline)
 
 Answered directly in chat on 2026-10-19, before the round opened:
@@ -680,6 +703,87 @@ rationale in the
   - **A (recommended):** MkDocs Material documentation + ADRs + component Storybook. Establish `docs/adr/` for decision records, C4 model diagrams in MkDocs, a concrete "Adding a Capability" guide, and Storybook in `frontend/` for React components, all validated in CI.
   - **B:** Sphinx Python autodoc only. Rely primarily on Sphinx generated documentation from Python docstrings.
   - **C:** Repo-root Markdown files. Maintain plain Markdown files in the repository root without static site generation or Storybook.
+
+### Mistral — 2026-10-19 (all seven pending)
+
+Full rationale in the
+[proposal](../mistral/tauri_migration_refactor_proposal_2026-10-19.md).
+None re-ask a recorded answer or a pending Kimi/Gemini question.
+
+- **[Mistral M1] May the Tauri app consolidate user-visible
+  navigation?** OpenCode Q1 fixed the ledger unit, not whether the
+  user's navigation may change (33 routes, 26 factories today).
+  - **A (recommended):** restructuring allowed within a row where
+    behavior is preserved; the row records its old-route → catalog-id
+    map; routes referenced by shortcuts, docs or stored settings get
+    compat aliases. Cross-row merges need Harbinger sign-off.
+  - **B:** strict 1:1 route parity until every row passes;
+    consolidation is a post-migration release.
+  - **C:** free restructure; the catalog is the only map.
+- **[Mistral M2] Which area wave follows the Convert pilot and Cloud
+  Jobs Gate D?**
+  - **A (recommended):** library/database (gallery, search, tags,
+    groups). Largest user value, first full exercise of the C++
+    thumbnail pipeline (T1) and asset-protocol streaming.
+  - **B:** editors (stitch, merge, frame-slice). Retires the hardest
+    canvases while the Wave 0 canvas spike is fresh; front-loads the
+    risk.
+  - **C:** web/system (crawlers, utilities, preferences). Thinnest UIs,
+    cheapest porting muscle, least user-visible progress.
+  - **D:** Harbinger assigns per agent availability; no fixed order.
+- **[Mistral M3] What does accessibility parity mean per row?**
+  - **A (recommended):** keyboard parity is a row-pass criterion (one
+    shortcut registry, W6, makes it checkable); screen-reader support
+    is best-effort with a known-gaps list in each module README,
+    revisited after PySide6 is gone.
+  - **B:** full screen-reader parity is a row-pass criterion; deletion
+    blocked until each row passes an a11y audit.
+  - **C:** keyboard parity only; screen-reader work explicitly out of
+    scope for this initiative.
+- **[Mistral M4] Is i18n in scope?** The Qt GUI has no QTranslator or
+  message-catalog infrastructure today (English-only).
+  - **A (recommended):** status quo — English-only, out of scope for
+    this initiative; ported views still avoid hard-coded sentence
+    concatenation so extraction stays cheap later.
+  - **B:** wire i18n in Wave 0 (message catalog + key extraction);
+    every ported view uses keys from day one; translations later.
+  - **C:** full localization before the PySide6 deletion gate.
+- **[Mistral M5] How does the Tauri bundle embed the Python sidecar
+  during coexistence?** W4 decided dual installers and the eventual
+  frozen sidecar, not what the Tauri installer launches for Python
+  while both apps ship.
+  - **A (recommended):** both installers use the one installed backend
+    environment per machine; the Tauri supervisor spawns the sidecar
+    from it. One Python to update during coexistence; freezing happens
+    only at Qt deletion, as W4 already decided.
+  - **B:** the Tauri installer embeds its own sidecar now
+    (PyInstaller-collected or python-build-standalone). Heavier
+    installer; two Python environments to keep in sync mid-migration.
+  - **C:** the sidecar runs from a uv-managed, first-launch-resolved
+    environment (lock file shipped, interpreter fetched on demand).
+    Reproducible, adds a first-run network dependency.
+- **[Mistral M6] What is the recovery contract when the supervisor
+  restarts the sidecar?**
+  - **A (recommended):** `bridge.down`/`bridge.ready` events, error
+    envelope for in-flight session requests, durable jobs reattach on
+    `bridge.ready`, route and ephemeral UI state preserved, and a
+    SIGKILL smoke test in CI.
+  - **B:** the webview fully reloads on sidecar restart. Simplest
+    mental model; loses all UI state on every crash.
+  - **C:** each view implements its own recovery. Flexible, unbounded
+    divergence across 26 rows.
+- **[Mistral M7] Does the main app share bridge code with the devtool
+  sidecar?** The devtool precedent (D51, `dev/tool/devtool.py`) chose
+  the same model Codex R1 chose for the main app.
+  - **A (recommended):** extract one small bridge package (framing,
+    envelope, version handshake, generated clients) consumed by both;
+    the devtool migrates opportunistically, blocking no wave.
+  - **B:** the main app builds its own bridge; the devtool keeps its
+    private one. Accept the duplicate until the devtool's next major
+    revision.
+  - **C:** make the devtool's sidecar the canonical package and consume
+    it from the main app. Couples the app's release cadence to a dev
+    utility.
 
 ## 6. Design axes to cover (suggestions, not a checklist)
 
