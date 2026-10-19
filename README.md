@@ -44,7 +44,7 @@
 <a href="https://doc.qt.io/qtforpython-6/"><img alt="PySide6" src="https://img.shields.io/badge/PySide6-Qt-41CD52?logo=qt&logoColor=white"></a>
 <a href="https://react.dev/"><img alt="React" src="https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black"></a>
 <a href="https://tauri.app/"><img alt="Tauri" src="https://img.shields.io/badge/Tauri-FFC131?logo=tauri&logoColor=white"></a>
-<a href="https://www.electronjs.org/"><img alt="Electron" src="https://img.shields.io/badge/Electron-47848F?logo=electron&logoColor=white"></a>
+<a href="https://vite.dev/"><img alt="Vite" src="https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white"></a>
 <a href="https://developer.android.com/"><img alt="Android" src="https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white"></a>
 <a href="https://developer.apple.com/ios/"><img alt="iOS" src="https://img.shields.io/badge/iOS-SwiftUI-000000?logo=apple&logoColor=white"></a>
 
@@ -315,18 +315,15 @@ npm run build
 
 The analytics dashboard is the React/TypeScript tab inside the Tauri app, implemented in `frontend/src/tabs/analytics/`. It provides SVG-based visualisations of benchmark results, ASP pipeline diagnostics, and model interpretability metrics.
 
-**Prerequisites:** Same as the Tauri web app above. The Electron mode also works for a standalone window.
+**Prerequisites:** Same as the Tauri web app above.
 
 ```bash
 # Run in Tauri dev mode (dashboard is the Analytics tab)
 npm run dev
 
-# Run in Electron mode (standalone window, faster React hot-reload)
+# Webview-only hot-reload loop (no Rust shell)
 cd frontend
-npm run electron-dev
-
-# Build as standalone Electron app
-npm run start-electron
+npm run start
 ```
 
 The dashboard reads benchmark JSON outputs from `middleware/benchmark/results/`. Run the benchmark suite first to populate data:

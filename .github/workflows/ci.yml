@@ -55,6 +55,9 @@ jobs:
       - name: Run worker-base adoption check (R1.1 / #556)
         run: uv run python middleware/validation/check_worker_base.py
 
+      - name: Run Tauri capability/security checks (W0-04 / #868)
+        run: uv run python middleware/validation/check_tauri_security.py
+
       - name: mypy — strict modules (§5.5A / A.10)
         run: >
           uv run mypy
