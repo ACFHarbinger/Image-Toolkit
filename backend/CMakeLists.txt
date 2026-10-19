@@ -221,11 +221,15 @@ pybind11_add_module(backend
     src/video/video_batch.cpp
 
     # Secure vector database (Phase 4)
+    src/secret/itk_crypto.c
     src/secret/locked_secret.cpp
     src/secret/vault_db.cpp
 
     # Unified Library Database engine (Phase DB)
     src/database/database.cpp
+
+    # Vault in C++ core + sealed leases (Issue #879, W0-15)
+    src/vault/vault.cpp
 
     # HTTP + board crawlers + cloud sync (Phase 5 + 9)
     # clients/: single-concept HTTP files
@@ -331,7 +335,7 @@ endif()
 # ---------------------------------------------------------------------------
 if(NOT WIN32)
     set_target_properties(backend PROPERTIES
-        INSTALL_RPATH "${IMAGE_TOOLKIT_PIXI_LIB}"
+        INSTALL_RPATH "$ORIGIN;${IMAGE_TOOLKIT_PIXI_LIB}"
     )
 endif()
 install(TARGETS backend DESTINATION .)
