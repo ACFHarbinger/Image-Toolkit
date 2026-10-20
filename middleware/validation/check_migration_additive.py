@@ -108,6 +108,7 @@ class Column:
 class Table:
     line: int
     columns: dict[str, Column]
+    constraints: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -152,7 +153,7 @@ def _parse_columns(source: str, body_start: int, body: str) -> dict[str, Column]
             continue
         head = stripped.split(None, 1)
         name = head[0].strip('"`[]')
-        if name.lower() in _TABLE_CONSTRAINTS:
+        if name.lower().split("(", 1)[0] in _TABLE_CONSTRAINTS:
             continue
         definition = re.sub(r"\s+", " ", head[1] if len(head) > 1 else "").strip()
         leading = len(part) - len(part.lstrip())
@@ -181,6 +182,11 @@ def parse_create_tables(sql: str) -> dict[str, Table]:
         tables[match.group(1).strip('"`[]').lower()] = Table(
             line=_line_at(source, match.start()),
             columns=_parse_columns(source, start, body),
+            constraints=tuple(
+                re.sub(r"\s+", " ", part.strip()).lower()
+                for _, part in _split_top_level(body)
+                if part.strip() and part.strip().split()[0].lower().split("(", 1)[0] in _TABLE_CONSTRAINTS
+            ),
         )
     return tables
 
@@ -199,18 +205,20 @@ def added_lines(before: str, after: str) -> list[tuple[int, str]]:
 
 def scan_destructive(path: str, lines: Iterable[tuple[int, str]]) -> list[Violation]:
     violations: list[Violation] = []
-    for line_no, text in lines:
-        for kind, pattern in _DESTRUCTIVE:
-            if pattern.search(text):
-                violations.append(
-                    Violation(
-                        path=path,
-                        line=line_no,
-                        kind=kind,
-                        detail="destructive DDL is not additive; move it to the row's deletion PR "
-                        "or record a bounded [[exception]] in migration/features.toml",
-                    )
+    numbered = list(lines)
+    text = "\n".join(line for _, line in numbered)
+    for kind, pattern in _DESTRUCTIVE:
+        for match in pattern.finditer(text):
+            offset = text.count("\n", 0, match.start())
+            violations.append(
+                Violation(
+                    path=path,
+                    line=numbered[offset][0],
+                    kind=kind,
+                    detail="destructive DDL is not additive; move it to the row's deletion PR "
+                    "or record a bounded [[exception]] in migration/features.toml",
                 )
+            )
     return violations
 
 
@@ -232,6 +240,16 @@ def compare_schemas(path: str, before: str, after: str) -> list[Violation]:
                 )
             )
             continue
+        for constraint in table.constraints:
+            if constraint not in replacement.constraints:
+                violations.append(
+                    Violation(
+                        path,
+                        replacement.line,
+                        "SCHEMA",
+                        f"constraint {constraint!r} was removed or changed in table {name!r}",
+                    )
+                )
         for column_name, column in table.columns.items():
             replacement_column = replacement.columns.get(column_name)
             if replacement_column is None:
@@ -366,7 +384,7 @@ def changed_migration_files(root: Path, base: str, head: Optional[str]) -> list[
         root,
         "diff",
         "--name-only",
-        "--diff-filter=ACMR",
+        "--diff-filter=ACMRD",
         revision,
         "--",
         *MIGRATION_PATHS,
@@ -399,14 +417,15 @@ def main() -> int:
     target = args.head or "the working tree"
 
     try:
-        changed = changed_migration_files(root, base, args.head)
+        comparison_base = _run_git(root, "merge-base", base, args.head or "HEAD").strip()
+        changed = changed_migration_files(root, comparison_base, args.head)
     except RuntimeError as exc:
         print(f"migration guard: cannot diff {base}...{target}: {exc}", file=sys.stderr)
         return 2
 
     violations: list[Violation] = []
     for path in changed:
-        before = _git_show(root, base, path)
+        before = _git_show(root, comparison_base, path)
         after = _content(root, args.head, path)
         violations.extend(check_file_change(path, before, after))
 

@@ -136,3 +136,33 @@ def test_changed_migration_files_uses_base_and_head(tmp_path: Path):
     git("commit", "-qm", "add")
 
     assert changed_migration_files(tmp_path, "HEAD^", "HEAD") == ["middleware/migrations/002_add.py"]
+
+
+def test_multiline_destructive_sql_is_rejected():
+    result = check_file_change("middleware/migrations/005.py", "", 'db.execute("""DROP\nTABLE images""")')
+    assert any(v.kind == "DROP" for v in result)
+
+
+def test_deleted_schema_file_is_included_in_changed_files(tmp_path):
+    def git(*args):
+        return subprocess.run(["git", "-C", str(tmp_path), *args], check=True, capture_output=True)
+
+    git("init", "-q")
+    git("config", "user.email", "test@example.com")
+    git("config", "user.name", "Test")
+    path = tmp_path / "middleware/src/cloud/store/schema.sql"
+    path.parent.mkdir(parents=True)
+    path.write_text("CREATE TABLE jobs (id TEXT);\n")
+    git("add", ".")
+    git("commit", "-qm", "schema")
+    path.unlink()
+    git("add", ".")
+    git("commit", "-qm", "delete")
+    assert changed_migration_files(tmp_path, "HEAD^", "HEAD") == ["middleware/src/cloud/store/schema.sql"]
+
+
+def test_removing_a_table_constraint_is_not_additive():
+    before = "CREATE TABLE jobs (id TEXT, UNIQUE (id));"
+    after = "CREATE TABLE jobs (id TEXT);"
+    result = compare_schemas("middleware/src/cloud/store/schema.sql", before, after)
+    assert any("constraint" in v.detail for v in result)
