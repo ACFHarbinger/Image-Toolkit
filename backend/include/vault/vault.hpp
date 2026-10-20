@@ -39,6 +39,9 @@ struct StoreLeaseInfo {
 /// Returns an opaque session handle: "vses_<hex>".
 std::string unlock_direct(const std::string& password, const std::string& salt);
 
+/// Install an existing 32-byte key as the session DEK. Does not run Argon2id.
+std::string unlock_raw(const std::vector<uint8_t>& key);
+
 /// Unlock vault via PKCS#12 keystore file.
 /// Key is extracted and held strictly in LockedSecret<32> in C++ memory.
 /// Returns an opaque session handle: "vses_<hex>".

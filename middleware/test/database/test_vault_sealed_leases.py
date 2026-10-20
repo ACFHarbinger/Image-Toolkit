@@ -105,6 +105,26 @@ class TestSealedStoreLeases:
         assert "key" not in meta
         assert "dek" not in meta
 
+    def test_unlock_raw_keeps_the_keystore_bytes(self, tmp_path):
+        raw = os.urandom(32)
+        handle = backend.vault.unlock_raw(raw)
+        db_path = str(tmp_path / "raw.db")
+        db = backend.database.Database.from_session(db_path, handle, "library")
+        db.execute("CREATE TABLE t (id INTEGER);", ())
+        db.close()
+        backend.vault.lock(handle)
+
+        # Re-hashing the same bytes must not open this database.
+        derived = backend.vault.unlock_direct(raw.hex(), "vault_salt")
+        with pytest.raises(RuntimeError, match="cannot read database"):
+            backend.database.Database.from_session(db_path, derived, "library")
+        backend.vault.lock(derived)
+
+        again = backend.vault.unlock_raw(raw)
+        db2 = backend.database.Database.from_session(db_path, again, "library")
+        assert db2.query("SELECT count(*) FROM t;", ()) == [(0,)]
+        db2.close()
+
     def test_raw_store_lease(self):
         raw_key = os.urandom(32)
         token = backend.vault.create_raw_store_lease(
