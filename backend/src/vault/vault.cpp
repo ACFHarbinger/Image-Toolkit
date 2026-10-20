@@ -467,6 +467,9 @@ static std::string seal_store_payload(
     if (pid > 0) flags |= 0x02;
     if (!supervisor_session.empty()) flags |= 0x04;
 
+    if (store_name.size() > 1024 || supervisor_session.size() > 1024) {
+        throw std::invalid_argument("base.vault: store name or supervisor session is too long");
+    }
     uint16_t store_len = static_cast<uint16_t>(store_name.size());
     uint16_t sup_len = static_cast<uint16_t>(supervisor_session.size());
 
@@ -540,6 +543,21 @@ static std::string seal_store_payload(
     blob.insert(blob.end(), ciphertext.data(), ciphertext.data() + clen);
 
     return "itkl_v1_" + base64url_encode(blob.data(), blob.size());
+}
+
+std::string unlock_raw(const std::vector<uint8_t>& key) {
+    if (key.size() != 32) {
+        throw std::invalid_argument("base.vault: raw key must be exactly 32 bytes");
+    }
+    ensure_sodium_init();
+    auto dek = std::make_shared<base::secret::LockedSecret<32>>();
+    std::memcpy(dek->data(), key.data(), 32);
+    std::string handle = generate_session_handle();
+    {
+        std::lock_guard<std::mutex> lock(g_session_mutex);
+        g_sessions[handle] = dek;
+    }
+    return handle;
 }
 
 std::string create_store_lease(
@@ -628,12 +646,18 @@ StoreLeaseInfo unseal_store_lease(
     // uint8_t flags = ptr[5];
     ptr += 6;
 
+    const uint8_t* payload_end = decrypted.data() + decrypted_len;
+    auto need = [&](size_t nbytes) {
+        if (ptr < decrypted.data() || static_cast<size_t>(payload_end - ptr) < nbytes) {
+            sodium_memzero(decrypted.data(), decrypted_len);
+            throw std::runtime_error("base.vault: corrupted lease payload length");
+        }
+    };
+
+    need(2);
     uint16_t store_len = unpack_u16_be(ptr);
     ptr += 2;
-    if (decrypted_len < 6 + 2 + store_len + 32 + 8 + 8 + 8 + 2 + 16) {
-        sodium_memzero(decrypted.data(), decrypted_len);
-        throw std::runtime_error("base.vault: corrupted lease store length");
-    }
+    need(static_cast<size_t>(store_len) + 32 + 8 + 8 + 8 + 2);
 
     std::string store_name(reinterpret_cast<const char*>(ptr), store_len);
     ptr += store_len;
@@ -657,8 +681,10 @@ StoreLeaseInfo unseal_store_lease(
     info.bound_pid = unpack_i64_be(ptr);
     ptr += 8;
 
+    need(2);
     uint16_t sup_len = unpack_u16_be(ptr);
     ptr += 2;
+    need(static_cast<size_t>(sup_len) + 16);
     if (sup_len > 0) {
         info.supervisor_session = std::string(reinterpret_cast<const char*>(ptr), sup_len);
         ptr += sup_len;
@@ -731,6 +757,22 @@ void register_vault(py::module_& m) {
     m.def("unlock_direct", &unlock_direct,
           py::arg("password"), py::arg("salt"),
           "Unlock vault via password + salt (Argon2id KDF); returns session handle ('vses_<hex>').");
+
+    m.def("unlock_raw",
+          [](py::bytes raw_key) {
+              std::string s = raw_key;
+              std::vector<uint8_t> key(s.begin(), s.end());
+              if (!s.empty()) {
+                  sodium_memzero(&s[0], s.size());
+              }
+              std::string handle = unlock_raw(key);
+              if (!key.empty()) {
+                  sodium_memzero(key.data(), key.size());
+              }
+              return handle;
+          },
+          py::arg("raw_key"),
+          "Install an existing 32-byte keystore key as the session DEK. Does not re-hash it.");
 
     m.def("is_unlocked", &is_unlocked,
           py::arg("session_handle"),

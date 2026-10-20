@@ -365,9 +365,7 @@ class VaultManager:
                     import backend
 
                     if self.secret_key and len(self.secret_key) == 32:
-                        self._session_handle = backend.vault.unlock_direct(
-                            self.secret_key.hex(), "vault_salt"
-                        )
+                        self._session_handle = backend.vault.unlock_raw(self.secret_key)
                 except Exception:
                     pass
 
@@ -534,9 +532,7 @@ class VaultManager:
                 try:
                     import backend
 
-                    self._session_handle = backend.vault.unlock_direct(
-                        self.secret_key.hex(), "vault_salt"
-                    )
+                    self._session_handle = backend.vault.unlock_raw(self.secret_key)
                     return self._session_handle
                 except Exception:
                     pass
