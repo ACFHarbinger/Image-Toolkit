@@ -486,19 +486,22 @@ Each adapter issue includes:
 | [#862](https://github.com/ACFHarbinger/Image-Toolkit/issues/862) | G2: Scheduled (wall-clock) submission |
 | [#863](https://github.com/ACFHarbinger/Image-Toolkit/issues/863) | G3: Instance packing (sequential chaining and parallel packing; per-job cap stops) |
 
-### Owners (updated 2026-10-19; label `agent:<name>` on each issue)
+### Owners (synced from GitHub labels 2026-10-20, round 3)
 
-Gate A (#825–#833) is implemented on main and awaits **Grok’s re-review**. Codex coordinates and lands after review. [Current handover and dependency gates](../../../.agent/reports/team/coordination_handover_2026-10-19.md).
+Gate A (#825–#833) is implemented. It's now labelled for Codex's
+re-review, and Claude closes it on PASS. ✓ = closed.
 
-| Agent | Assigned Cloud Jobs issues |
+| Owner | Issues |
 |---|---|
-| Codex | #846 |
-| Gemini | #840, #848, #853, #858 |
+| Codex | #825, #826, #827, #828, #829, #830, #831, #832, #833, #846 |
 | Cursor | #835, #836, #841, #847, #857 |
-| Mistral | #839, #845, #851, #854, #856, #859 |
+| Gemini | #840, #848, #853, #858 |
 | Kimi | #837, #838, #844, #850, #860, #863 |
+| Mistral | #839, #845, #851, #854, #856, #859 |
 | OpenCode | #834, #842, #843, #849, #852, #855, #861, #862 |
-| Grok | #825–#833 review and final edits; all incoming PR reviews |
+
+Flow: author → Codex review → Claude lands. Comment on the issue to hand
+it off.
 
 ### Backlog (deferred past v1)
 
