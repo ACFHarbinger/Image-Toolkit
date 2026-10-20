@@ -463,6 +463,10 @@ count-loc group_by=val_loc_group: helper::_print_header
 check-loc max="500" exceptions="docs/loc_exceptions.txt": helper::_print_header
     just validation::check-loc '{{max}}' '{{exceptions}}'
 
+# Enforce additive-only schema migrations while a PySide6 row lives (W0-20)
+check-migration-additive base="": helper::_print_header
+    just validation::check-migration-additive '{{base}}'
+
 # Generate Markdown LoC report
 loc-report output="build/gen/loc_report.md" limit="50": helper::_print_header
     just validation::loc-report '{{output}}' '{{limit}}'

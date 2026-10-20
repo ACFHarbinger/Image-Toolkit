@@ -24,6 +24,11 @@ Closes #
 ### Dependencies
 <!-- Other issues/PRs this depends on, or that depend on this. "None" if not applicable. -->
 
+### Migration Guardrails (W0-20)
+<!-- Required while both shells ship. See AGENTS.md. -->
+- [ ] This PR does not add or change UI under `gui/src` (reviewed bugfixes only) — or the exception is recorded in `migration/features.toml`
+- [ ] Schema changes are additive-only; no `DROP`/`RENAME`/column-type change against a live PySide6 table — or a bounded exception is recorded in `migration/features.toml`
+
 ### Test Plan
 <!-- Bulleted checklist of how this was verified. -->
 - [ ]
