@@ -85,33 +85,50 @@ std::string create_store_lease(
     uint64_t ttl_seconds = 0,
     const std::string& supervisor_session = "");
 
-/// Create a sealed lease token from a raw 32-byte key (utility / migration).
-std::string create_raw_store_lease(
+/// Mint a sealed per-store lease with a per-daemon transit secret in native C++.
+/// 1. Verifies session_handle exists in C++ memory.
+/// 2. Derives store DEK (held in LockedSecret<32>).
+/// 3. Generates a fresh random 32-byte per-daemon transit key K_daemon (held in LockedSecret<32>).
+/// 4. Seals store DEK with K_daemon via AEAD XChaCha20-Poly1305, binding store_name, bound_pid,
+///    ttl_seconds, and supervisor_session.
+/// 5. Writes K_daemon into <data_dir>/supervisor/keys/<daemon_name>.key with 0600 permissions.
+/// 6. Returns the sealed lease token ("itkl_v1_...").
+std::string mint_daemon_lease(
+    const std::string& session_handle,
     const std::string& store_name,
-    const std::vector<uint8_t>& raw_key,
+    const std::string& daemon_name,
+    const std::string& data_dir,
     int64_t pid = 0,
     uint64_t ttl_seconds = 0,
     const std::string& supervisor_session = "");
 
 /// Unseal and verify a store lease token inside C++.
-/// Extracts store DEK into LockedSecret<32>, enforces TTL and PID binding.
+/// Extracts store DEK into LockedSecret<32>, enforces TTL, PID, and supervisor session binding.
 StoreLeaseInfo unseal_store_lease(
     const std::string& lease_token,
     const std::string& expected_store = "",
+    const std::string& expected_supervisor_session = "",
+    const std::string& daemon_key_path = "",
     bool enforce_validity = true);
 
 /// Verify store lease token from Python / webview.
 /// Returns metadata dictionary WITHOUT exposing the secret key.
 pybind11::dict verify_store_lease(
     const std::string& lease_token,
-    const std::string& expected_store = "");
+    const std::string& expected_store = "",
+    const std::string& expected_supervisor_session = "",
+    const std::string& daemon_key_path = "");
 
 // ---------------------------------------------------------------------------
 // Transit key management
 // ---------------------------------------------------------------------------
 
-/// Set in-memory transit key override (useful for isolated tests or supervisor IPC).
-void set_transit_key(const std::vector<uint8_t>& key);
+/// Generate a fresh random in-memory transit key override in LockedSecret<32>.
+/// Never exposes raw key bytes to callers/Python. Useful for isolated tests.
+void rotate_transit_key();
+
+/// Load a daemon transit key from a secure 0600 file into in-memory LockedSecret<32>.
+void load_daemon_key(const std::string& key_path);
 
 /// Clear in-memory transit key override.
 void clear_transit_key();

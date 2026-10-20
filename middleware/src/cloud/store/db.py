@@ -32,10 +32,26 @@ class StoreUnavailable(RuntimeError):
 def _default_factory(path: str, *args: Any, **kwargs: Any) -> Any:
     import backend  # compiled extension; imported lazily so pure modules stay importable
 
+    expected_store = kwargs.get("expected_store", "cloud_jobs")
+    sup_session = kwargs.get("expected_supervisor_session", "")
+    key_path = kwargs.get("daemon_key_path", "")
+
     if len(args) == 1 and isinstance(args[0], str) and args[0].startswith("itkl_"):
-        return backend.database.Database.from_lease(path, args[0], expected_store="cloud_jobs")
+        return backend.database.Database.from_lease(
+            path,
+            args[0],
+            expected_store=expected_store,
+            expected_supervisor_session=sup_session,
+            daemon_key_path=key_path,
+        )
     if "lease" in kwargs and kwargs["lease"]:
-        return backend.database.Database.from_lease(path, kwargs["lease"], expected_store="cloud_jobs")
+        return backend.database.Database.from_lease(
+            path,
+            kwargs["lease"],
+            expected_store=expected_store,
+            expected_supervisor_session=sup_session,
+            daemon_key_path=key_path,
+        )
     return backend.database.Database(path, *args, **kwargs)
 
 
@@ -44,6 +60,8 @@ def open_store_db(
     salt: Optional[str] = None,
     path: Optional[Path] = None,
     lease: Optional[str] = None,
+    expected_supervisor_session: Optional[str] = None,
+    daemon_key_path: Optional[str] = None,
     factory: Optional[Callable[..., Any]] = None,
     sleep: Callable[[float], None] = time.sleep,
 ) -> Any:
@@ -52,6 +70,12 @@ def open_store_db(
     target.parent.mkdir(parents=True, exist_ok=True)
 
     lease_token = lease or (secret if secret and secret.startswith("itkl_") else None)
+
+    kwargs: dict[str, Any] = {}
+    if expected_supervisor_session is not None:
+        kwargs["expected_supervisor_session"] = expected_supervisor_session
+    if daemon_key_path is not None:
+        kwargs["daemon_key_path"] = daemon_key_path
 
     if lease_token:
         open_args: tuple[Any, ...] = (str(target), lease_token)
@@ -63,7 +87,7 @@ def open_store_db(
     waited, delay = 0.0, _OPEN_BACKOFF_S[0]
     while True:
         try:
-            db = actual_factory(*open_args)
+            db = actual_factory(*open_args, **kwargs)
             break
         except RuntimeError as exc:
             if "locked" not in str(exc):
