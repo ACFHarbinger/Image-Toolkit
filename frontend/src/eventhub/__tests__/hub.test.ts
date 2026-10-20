@@ -75,25 +75,43 @@ describe("EventHub", () => {
   });
 
   it("resnapshots on a sequence gap and replays queued events in order", async () => {
-    // jobs.list reflects events 2 and 3 by the time it is asked.
+    // First fetch sees events 1-3; the re-fetch after the replay hole sees
+    // the service caught up through 5.
+    let fetchCount = 0;
     const provider = new FakeProvider({
-      jobs: () => ({
-        seq: 3,
-        snapshot: {
-          jobs: [
-            { job_id: "j1", kind: "k", state: "running" },
-            { job_id: "j2", kind: "k", state: "completed" },
-            { job_id: "j3", kind: "k", state: "completed" },
-          ],
-        },
-      }),
+      jobs: () => {
+        fetchCount += 1;
+        return fetchCount === 1
+          ? {
+              seq: 3,
+              snapshot: {
+                jobs: [
+                  { job_id: "j1", kind: "k", state: "running" },
+                  { job_id: "j2", kind: "k", state: "completed" },
+                  { job_id: "j3", kind: "k", state: "completed" },
+                ],
+              },
+            }
+          : {
+              seq: 5,
+              snapshot: {
+                jobs: [
+                  { job_id: "j1", kind: "k", state: "running" },
+                  { job_id: "j2", kind: "k", state: "completed" },
+                  { job_id: "j3", kind: "k", state: "completed" },
+                  { job_id: "j4", kind: "k", state: "running" },
+                  { job_id: "j5", kind: "k", state: "running" },
+                ],
+              },
+            };
+      },
     });
     const gaps: Array<{ expected: number; got: number }> = [];
     const hub = new EventHub({ provider, onGap: (_c, info) => gaps.push(info) });
+    hub.ingest(jobFrame(1));
     const seen: string[][] = [];
     hub.subscribe("jobs", (state) => seen.push(state.jobs.map((j) => j.job_id)));
 
-    hub.ingest(jobFrame(1));
     hub.ingest(jobFrame(4));
     hub.ingest(jobFrame(5));
     expect(hub.isCatchingUp("jobs")).toBe(true);
@@ -104,6 +122,10 @@ describe("EventHub", () => {
     expect(hub.lastSeq("jobs")).toBe(5);
     expect(hub.getState("jobs")?.jobs.map((j) => j.job_id)).toEqual(["j1", "j2", "j3", "j4", "j5"]);
     expect(seen.at(-1)).toEqual(["j1", "j2", "j3", "j4", "j5"]);
+    expect(gaps).toEqual([
+      { expected: 2, got: 4 },
+      { expected: 4, got: 5 },
+    ]);
   });
 
   it("gives up on a provider whose snapshot never advances", async () => {
@@ -113,9 +135,11 @@ describe("EventHub", () => {
     const errors: unknown[] = [];
     const hub = new EventHub({ provider, onProviderError: (_c, e) => errors.push(e) });
     hub.ingest(jobFrame(1));
-    hub.ingest(jobFrame(4)); // gap; snapshot seq 1 can never cover seq 4
+    hub.ingest(jobFrame(4)); // gap; the gap event itself is discarded
+    hub.ingest(jobFrame(5)); // queued; the snapshot can never cover it
     await flush();
     expect(hub.isCatchingUp("jobs")).toBe(true);
+    expect(hub.lastSeq("jobs")).toBe(1);
     expect(String(errors[0])).toMatch(/did not advance/);
   });
 
@@ -160,9 +184,11 @@ describe("EventHub", () => {
     const seen: number[] = [];
     const unsubscribe = hub.subscribe("jobs", (state) => seen.push(state.jobs.length));
     hub.ingest(jobFrame(1));
+    await flush();
+    expect(seen).toEqual([1]); // late-join snapshot delivered
     unsubscribe();
     hub.ingest(jobFrame(2));
     await flush();
-    expect(seen).toEqual([1]);
+    expect(seen).toEqual([1]); // no further notifications
   });
 });
