@@ -1,7 +1,7 @@
 {
-  "$schema": "../gen/schemas/desktop-schema.json",
+  "$schema": "../schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "enables the default permissions",
+  "description": "main window baseline: core set and dialogs; asset access comes only from the default-deny assetProtocol scope in tauri.conf.json",
   "windows": [
     "main"
   ],

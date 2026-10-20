@@ -49,7 +49,7 @@ suggestion:
 | **Sync Environment** | `bash desktop/linux/scripts/setup_env.sh` |
 | **Activate Venv** | `source .venv/bin/activate` |
 | **Launch Desktop App** | `python middleware/main.py` |
-| **Frontend Dev** | `npm run dev` (Tauri). Vite replaces CRA in #868; until that lands, `npm run start-frontend` is still CRA. |
+| **Frontend Dev** | `npm run dev` (Tauri; `npm run start-frontend` for the Vite webview alone) |
 | **Frontend Build** | `npm run tauri:build` |
 | **Mobile Build** | `./gradlew assembleDebug` |
 | **Single Conversion** | `python middleware/main.py convert --output_format png --input_path <path>` |
@@ -67,6 +67,7 @@ suggestion:
 
 ### Global Coding Standards
 *   **Renames (Tauri migration Wave 0):** the Python package is `middleware/` (was `backend/`, W0-01 #865), and the C++ pybind11 core is `backend/`, imported as `import backend` (was `base/` / `import base`, W0-02 #866). There are no compatibility aliases: `import base` and `backend.src…` no longer work. Build the core with `just build::build-base`, which writes to `build/backend` and installs `backend.cpython-*.so` at the repo root.
+*   **Bridge contracts (W0-10 #874):** the contract source of truth is `contracts/` (JSON Schema per capability + `methods.toml` routing). Edit schemas and regenerate with `python contracts/generate.py` — never edit `contracts/generated/` or `CONTRACTS.sha256`; CI's `contracts/generate.py --check` fails on drift.
 *   **Database**: Keep `middleware/src/database/unified/schema.sql` compatible (migrations, not ad-hoc DDL). Use transactions for group/image integrity.
 *   **Tauri migration freeze (W0-20):** while both shells ship, all of
     `gui/src` is frozen to reviewed bugfixes only (Harbinger Q3 B). New Qt
@@ -171,9 +172,9 @@ suggestion:
 *   **Standards**: Use Signals (`finished`, `error`) for UI communication. Provide visual feedback.
 
 #### Frontend (`frontend/`)
-**Web/Desktop Hybrid**. React 19 + Tauri 2. Vite and the Electron deletion are #868; do not add Electron features while that PR is open.
-*   **Stack**: React, TypeScript, Tauri. Vite once #868 lands.
-*   **Standards**: Functional components/Hooks. After #868, Tauri 2 capabilities only (`capabilities/*.json`); keep the CSP real and the asset scope default-deny — `middleware/validation/check_tauri_security.py` enforces both in CI.
+**Web/Desktop Hybrid**. React 19 + Tauri 2 (Vite).
+*   **Stack**: React, TypeScript, Tauri, Vite.
+*   **Standards**: Functional components/Hooks. Tauri 2 capabilities only (`capabilities/*.json`); keep the CSP real and the asset scope default-deny — `middleware/validation/check_tauri_security.py` enforces both in CI.
 
 #### Mobile (`app/`)
 **Native Apps**. Android (Kotlin) & iOS (Swift).

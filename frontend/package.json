@@ -1,12 +1,9 @@
 {
   "name": "image-toolkit",
   "version": "0.1.0",
-  "homepage": "./",
-  "proxy": "http://127.0.0.1:8000",
   "author": "ACFHarbinger",
   "description": "Image Database and Edit Toolkit",
   "private": true,
-  "main": "public/electron.js",
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.8.0",
@@ -16,73 +13,32 @@
     "@testing-library/user-event": "^14.6.7",
     "hie-frontend": "file:../submodules/HIE/frontend",
     "lucide-react": "^1.48.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "react-scripts": "5.0.1",
-    "underscore": "^1.13.8",
-    "web-vitals": "^6.2.2"
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "underscore": "^1.13.8"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",
-    "@types/jest": "^30.0.0",
     "@types/react": "^19.2.18",
-    "concurrently": "^10.0.5",
-    "cross-env": "^10.1.0",
-    "electron": "^44.4.5",
-    "electron-builder": "^26.15.3",
+    "@vitejs/plugin-react": "^6.0.5",
+    "autoprefixer": "^10.4.21",
+    "jsdom": "^30.1.1",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^3.4.18",
     "typedoc": "^0.28.20",
-    "typedoc-plugin-markdown": "^4.13.1"
-  },
-  "build": {
-    "appId": "com.acfharbinger.imagetoolkit",
-    "productName": "Image-Toolkit",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "build/**/*",
-      "public/electron.js",
-      "public/preload.js"
-    ],
-    "mac": {
-      "target": "dmg",
-      "icon": "public/icons/image_toolkit_icon.icns"
-    },
-    "win": {
-      "target": "nsis",
-      "icon": "public/icons/image_toolkit_icon.ico"
-    },
-    "linux": {
-      "target": "AppImage",
-      "icon": "public/icons/image_toolkit_icon.png"
-    }
+    "typedoc-plugin-markdown": "^4.13.1",
+    "vite": "^8.2.1",
+    "vitest": "^5.0.2"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject",
+    "start": "vite",
+    "build": "vite build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
-    "electron": "cross-env NODE_ENV=development electron .",
-    "dev": "concurrently \"npm start\" \"npm run electron\"",
-    "start-electron": "npm run build && electron .",
-    "electron-dev": "concurrently \"npm start\" \"wait-on http://localhost:3000 && electron .\"",
-    "electron-build": "npm run build-react && electron-builder --config.npmRebuild=false",
-    "manual-postinstall": "electron-builder install-app-deps",
-    "build-electron-deps": "npm run manual-postinstall"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "overrides": {
-    "postcss": "^8.5.28",
-    "underscore": "^1.13.8",
-    "qs": "^6.16.0"
+    "tauri:build": "tauri build"
   },
   "browserslist": {
     "production": [

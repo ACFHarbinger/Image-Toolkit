@@ -212,18 +212,15 @@ npm run build
 
 The analytics dashboard is the React/TypeScript tab inside the Tauri app, implemented in `frontend/src/tabs/analytics/`. It provides SVG-based visualisations of benchmark results, ASP pipeline diagnostics, and model interpretability metrics.
 
-**Prerequisites:** Same as the Tauri web app above. The Electron mode also works for a standalone window.
+**Prerequisites:** Same as the Tauri web app above.
 
 ```bash
 # Run in Tauri dev mode (dashboard is the Analytics tab)
 npm run dev
 
-# Run in Electron mode (standalone window, faster React hot-reload)
+# Webview-only hot-reload loop (no Rust shell)
 cd frontend
-npm run electron-dev
-
-# Build as standalone Electron app
-npm run start-electron
+npm run start
 ```
 
 The dashboard reads benchmark JSON outputs from `middleware/benchmark/results/`. Run the benchmark suite first to populate data:

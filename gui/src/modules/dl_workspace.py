@@ -7,12 +7,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from middleware.src.shell.catalog import shell_catalog
 from PySide6.QtCore import QTimer
 
 from gui.src.preferences import PreferenceStore, PrefKeys
 
 from .catalog import ModuleCatalog, RouteDescriptor, WorkspaceDescriptor
-from .descriptor import ModuleCategory
 from .runtime import ModuleHandle
 
 if TYPE_CHECKING:
@@ -21,22 +21,15 @@ if TYPE_CHECKING:
 _pending_disposals: dict[int, tuple[Any, QTimer]] = {}
 
 DL_WORKSPACE_ID = "dl"
-# module_id, route_key, title
-DL_ROUTES = (
-    ("dl.train", "train", "Train"),
-    ("dl.generate", "generate", "Generate"),
-    ("dl.review", "review", "Review"),
-    ("dl.runs", "runs", "Runs"),
+# module_id, route_key, title — titles come from the shared catalog.
+DL_ROUTES = tuple(
+    (entry.id, entry.route_key, entry.title)
+    for entry in shell_catalog().entries
+    if entry.workspace_id == DL_WORKSPACE_ID and entry.route_key is not None
 )
 # Classic five-tab ids → destination. Evaluation/Inference are Review tools;
 # ComfyUI is Generate (Guided|Graph lands in Gate C).
-DL_CLASSIC_ALIASES = {
-    "ml.training": "dl.train",
-    "ml.generation": "dl.generate",
-    "ml.evaluation": "dl.review",
-    "ml.inference": "dl.review",
-    "ml.comfyui": "dl.generate",
-}
+DL_CLASSIC_ALIASES = shell_catalog().alias_map("experimental-dl")
 DL_PAGE_IDS = frozenset(DL_CLASSIC_ALIASES)
 
 
@@ -128,29 +121,31 @@ def register_dl_workspace(
     if not enabled:
         return False
 
+    host = shell_catalog().require(DL_WORKSPACE_ID)
     catalog.register(
         WorkspaceDescriptor(
-            module_id=DL_WORKSPACE_ID,
-            title="Deep Learning",
-            category=ModuleCategory.DEEP_LEARNING,
+            module_id=host.id,
+            title=host.title,
+            category=host.category,
             factory=create_dl_workspace,
-            icon_name="cpu",
-            search_terms=("train", "lora", "comfy", "generate"),
-            capability_flags=frozenset({"experimental"}),
+            icon_name=host.icon_name,
+            search_terms=host.search_terms,
+            capability_flags=frozenset(host.capability_flags),
         )
     )
-    for order_index, (module_id, route_key, title) in enumerate(DL_ROUTES):
+    for module_id, route_key, title in DL_ROUTES:
+        entry = shell_catalog().require(module_id)
         catalog.register(
             RouteDescriptor(
-                module_id=module_id,
+                module_id=entry.id,
                 workspace_id=DL_WORKSPACE_ID,
-                route_key=route_key,
+                route_key=route_key or "",
                 title=title,
-                category=ModuleCategory.DEEP_LEARNING,
-                icon_name="cpu",
-                search_terms=("deep learning", route_key),
-                capability_flags=frozenset({"experimental"}),
-                order_index=order_index,
+                category=entry.category,
+                icon_name=entry.icon_name,
+                search_terms=entry.search_terms,
+                capability_flags=frozenset(entry.capability_flags),
+                order_index=entry.order_index,
             )
         )
     for alias_id, target_id in DL_CLASSIC_ALIASES.items():

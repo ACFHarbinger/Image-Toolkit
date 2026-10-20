@@ -7,10 +7,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from middleware.src.shell.catalog import shell_catalog
+
 from gui.src.preferences import PreferenceStore, PrefKeys
 
 from .catalog import ModuleCatalog, RouteDescriptor, WorkspaceDescriptor
-from .descriptor import ModuleCategory
 from .runtime import ModuleHandle
 
 if TYPE_CHECKING:
@@ -93,29 +94,31 @@ def register_stitch_workspace(
     if not enabled:
         return False
 
+    host = shell_catalog().require(STITCH_WORKSPACE_ID)
     catalog.register(
         WorkspaceDescriptor(
-            module_id=STITCH_WORKSPACE_ID,
-            title="Image Stitching",
-            category=ModuleCategory.STITCHING,
+            module_id=host.id,
+            title=host.title,
+            category=host.category,
             factory=create_stitch_workspace,
-            icon_name="layers",
-            search_terms=("stitch", "panorama", "anime"),
-            capability_flags=frozenset({"experimental"}),
+            icon_name=host.icon_name,
+            search_terms=host.search_terms,
+            capability_flags=frozenset(host.capability_flags),
         )
     )
-    for order_index, (module_id, route_key, title, _panel_attr) in enumerate(STITCH_ROUTES):
+    for module_id, route_key, _title, _panel_attr in STITCH_ROUTES:
+        entry = shell_catalog().require(module_id)
         catalog.register(
             RouteDescriptor(
-                module_id=module_id,
+                module_id=entry.id,
                 workspace_id=STITCH_WORKSPACE_ID,
                 route_key=route_key,
-                title=title,
-                category=ModuleCategory.STITCHING,
-                icon_name="layers",
-                search_terms=("stitch", route_key),
-                capability_flags=frozenset({"experimental"}),
-                order_index=order_index,
+                title=entry.title,
+                category=entry.category,
+                icon_name=entry.icon_name,
+                search_terms=entry.search_terms,
+                capability_flags=frozenset(entry.capability_flags),
+                order_index=entry.order_index,
             )
         )
     return True

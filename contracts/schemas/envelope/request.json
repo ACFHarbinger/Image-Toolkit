@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "envelope/request.json",
+  "title": "BridgeRequest",
+  "description": "JSON-RPC 2.0 request frame. `params` content is validated against the method's declared schema from methods.toml, not here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jsonrpc", "id", "method"],
+  "properties": {
+    "jsonrpc": { "const": "2.0" },
+    "id": { "type": ["string", "integer", "null"] },
+    "method": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+    },
+    "params": { "type": "object" }
+  }
+}

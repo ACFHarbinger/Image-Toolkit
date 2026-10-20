@@ -26,9 +26,11 @@ from middleware.src.core.vault_manager import VaultManager
 
 
 @pytest.fixture(autouse=True)
-def clean_vault_sessions():
+def clean_vault_sessions(tmp_path, monkeypatch):
     """Ensure all sessions and transit key overrides are cleared around each test."""
-    backend.vault.clear_transit_key()
+    monkeypatch.setenv("IMAGE_TOOLKIT_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("IMAGE_TOOLKIT_DIR", str(tmp_path))
+    backend.vault.rotate_transit_key()
     backend.vault.lock_all()
     yield
     backend.vault.clear_transit_key()
@@ -125,17 +127,250 @@ class TestSealedStoreLeases:
         assert db2.query("SELECT count(*) FROM t;", ()) == [(0,)]
         db2.close()
 
-    def test_raw_store_lease(self):
-        raw_key = os.urandom(32)
-        token = backend.vault.create_raw_store_lease(
-            "custom_store",
-            raw_key,
-            ttl_seconds=600,
+    def test_mint_daemon_lease_and_permissions(self, tmp_path):
+        handle = backend.vault.unlock_direct("mypass", "mysalt")
+        data_dir = tmp_path / "data"
+        current_pid = os.getpid()
+
+        lease = backend.vault.mint_daemon_lease(
+            handle,
+            "cloud_jobs",
+            "cloud_jobs",
+            str(data_dir),
+            pid=current_pid,
+            ttl_seconds=3600,
+            supervisor_session="sup_001",
         )
-        assert token.startswith("itkl_v1_")
-        meta = backend.vault.verify_store_lease(token, "custom_store")
-        assert meta["store_name"] == "custom_store"
+        assert lease.startswith("itkl_v1_")
+
+        key_file = data_dir / "supervisor" / "keys" / "cloud_jobs.key"
+        assert key_file.exists()
+        import stat
+        file_mode = stat.S_IMODE(os.stat(key_file).st_mode)
+        assert file_mode == 0o600
+
+        # Verification with daemon key path
+        meta = backend.vault.verify_store_lease(
+            lease,
+            expected_store="cloud_jobs",
+            expected_supervisor_session="sup_001",
+            daemon_key_path=str(key_file),
+        )
+        assert meta["store_name"] == "cloud_jobs"
+        assert meta["supervisor_session"] == "sup_001"
+        assert meta["supervisor_matches"] is True
+        assert meta["bound_pid"] == current_pid
+        assert meta["pid_matches"] is True
         assert meta["valid"] is True
+
+        # Open DB with daemon key path
+        db_path = str(tmp_path / "daemon_test.db")
+        db = backend.database.Database.from_lease(
+            db_path,
+            lease,
+            expected_store="cloud_jobs",
+            expected_supervisor_session="sup_001",
+            daemon_key_path=str(key_file),
+        )
+        db.execute("CREATE TABLE t (x TEXT);", ())
+        db.execute("INSERT INTO t VALUES ('ok');", ())
+        assert db.query("SELECT x FROM t;", ()) == [("ok",)]
+        db.close()
+
+    def test_cross_daemon_key_isolation(self, tmp_path):
+        handle = backend.vault.unlock_direct("mypass", "mysalt")
+        data_dir = tmp_path / "data"
+
+        lease_cloud = backend.vault.mint_daemon_lease(
+            handle, "cloud_jobs", "cloud_jobs", str(data_dir), ttl_seconds=3600
+        )
+        lease_slide = backend.vault.mint_daemon_lease(
+            handle, "slideshow", "slideshow", str(data_dir), ttl_seconds=3600
+        )
+
+        cloud_key = str(data_dir / "supervisor" / "keys" / "cloud_jobs.key")
+        slide_key = str(data_dir / "supervisor" / "keys" / "slideshow.key")
+
+        # Cloud jobs lease unseals with cloud_key
+        assert backend.vault.verify_store_lease(lease_cloud, daemon_key_path=cloud_key)["valid"] is True
+
+        # Slideshow lease unseals with slide_key
+        assert backend.vault.verify_store_lease(lease_slide, daemon_key_path=slide_key)["valid"] is True
+
+        # Cross-daemon unseal must fail AEAD decryption (different per-daemon transit key)
+        with pytest.raises(RuntimeError, match="failed to decrypt lease token"):
+            backend.vault.verify_store_lease(lease_cloud, daemon_key_path=slide_key)
+
+        with pytest.raises(RuntimeError, match="failed to decrypt lease token"):
+            backend.vault.verify_store_lease(lease_slide, daemon_key_path=cloud_key)
+
+    def test_insecure_key_permissions_rejected(self, tmp_path):
+        handle = backend.vault.unlock_direct("mypass", "mysalt")
+        data_dir = tmp_path / "data"
+
+        lease = backend.vault.mint_daemon_lease(
+            handle, "cloud_jobs", "cloud_jobs", str(data_dir)
+        )
+        key_file = data_dir / "supervisor" / "keys" / "cloud_jobs.key"
+
+        # Make permissions insecure (0644 readable by other users)
+        os.chmod(key_file, 0o644)
+
+        with pytest.raises(RuntimeError, match="insecure permissions"):
+            backend.vault.verify_store_lease(lease, daemon_key_path=str(key_file))
+
+    def test_supervisor_session_binding(self, tmp_path):
+        handle = backend.vault.unlock_direct("p", "s")
+        data_dir = tmp_path / "data"
+        lease = backend.vault.mint_daemon_lease(
+            handle, "cloud_jobs", "cloud_jobs", str(data_dir), supervisor_session="session_A"
+        )
+        key_file = str(data_dir / "supervisor" / "keys" / "cloud_jobs.key")
+
+        # Matching expected supervisor session succeeds
+        meta = backend.vault.verify_store_lease(
+            lease,
+            expected_store="cloud_jobs",
+            expected_supervisor_session="session_A",
+            daemon_key_path=key_file,
+        )
+        assert meta["supervisor_matches"] is True
+        assert meta["valid"] is True
+
+        # Mismatched expected supervisor session fails verify
+        meta_mismatch = backend.vault.verify_store_lease(
+            lease,
+            expected_store="cloud_jobs",
+            expected_supervisor_session="session_B",
+            daemon_key_path=key_file,
+        )
+        assert meta_mismatch["supervisor_matches"] is False
+        assert meta_mismatch["valid"] is False
+
+        # Database.from_lease with mismatched session raises error
+        db_path = str(tmp_path / "sup_test.db")
+        with pytest.raises(RuntimeError, match="supervisor session mismatch"):
+            backend.database.Database.from_lease(
+                db_path,
+                lease,
+                expected_store="cloud_jobs",
+                expected_supervisor_session="session_B",
+                daemon_key_path=key_file,
+            )
+
+        # Environment variable ITK_SUPERVISOR_SESSION mismatch
+        os.environ["ITK_SUPERVISOR_SESSION"] = "session_WRONG"
+        try:
+            with pytest.raises(RuntimeError, match="supervisor session mismatch with environment"):
+                backend.database.Database.from_lease(
+                    db_path,
+                    lease,
+                    expected_store="cloud_jobs",
+                    daemon_key_path=key_file,
+                )
+        finally:
+            os.environ.pop("ITK_SUPERVISOR_SESSION", None)
+
+    def test_genuine_separate_daemon_process(self, tmp_path):
+        import subprocess
+        import sys
+
+        session = backend.vault.unlock_direct("daemon_pass", "daemon_salt")
+        data_dir = tmp_path / "app_data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        db_path = tmp_path / "cloud_jobs.db"
+        sup_session = "sup_test_sess_001"
+
+        worker_script = f"""
+import os
+import sys
+import backend
+
+db_path = {repr(str(db_path))}
+data_dir = {repr(str(data_dir))}
+sup_session = {repr(sup_session)}
+daemon_name = "cloud_jobs"
+
+os.environ["IMAGE_TOOLKIT_DATA_DIR"] = data_dir
+os.environ["ITK_DAEMON_NAME"] = daemon_name
+os.environ["ITK_SUPERVISOR_SESSION"] = sup_session
+
+# Report worker PID to parent
+sys.stdout.write(f"{{os.getpid()}}\\n")
+sys.stdout.flush()
+
+# Read lease from parent via stdin
+lease = sys.stdin.readline().strip()
+
+try:
+    db = backend.database.Database.from_lease(
+        db_path,
+        lease,
+        expected_store="cloud_jobs",
+        expected_supervisor_session=sup_session,
+    )
+    db.execute("CREATE TABLE IF NOT EXISTS daemon_jobs (id TEXT PRIMARY KEY, worker_pid INT);", ())
+    db.execute("INSERT INTO daemon_jobs VALUES (?, ?);", ("job_daemon_1", os.getpid()))
+    db.close()
+    sys.exit(0)
+except Exception as e:
+    sys.stderr.write(f"DAEMON ERROR: {{e}}\\n")
+    sys.exit(1)
+"""
+        from pathlib import Path
+        repo_root = str(Path(__file__).resolve().parents[3])
+        env = os.environ.copy()
+        existing = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = os.pathsep.join([repo_root, existing]) if existing else repo_root
+
+        proc = subprocess.Popen(
+            [sys.executable, "-c", worker_script],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=str(tmp_path),
+            env=env,
+        )
+
+        child_pid_str = proc.stdout.readline().strip()
+        child_pid = int(child_pid_str)
+        assert child_pid > 0
+
+        # Parent mints lease bound to child PID
+        lease = backend.vault.mint_daemon_lease(
+            session,
+            "cloud_jobs",
+            "cloud_jobs",
+            str(data_dir),
+            pid=child_pid,
+            ttl_seconds=300,
+            supervisor_session=sup_session,
+        )
+
+        # Parent attempting to unseal child's lease in parent process must fail PID check
+        key_file = str(data_dir / "supervisor" / "keys" / "cloud_jobs.key")
+        with pytest.raises(RuntimeError, match="bound to PID"):
+            backend.database.Database.from_lease(
+                str(db_path),
+                lease,
+                expected_store="cloud_jobs",
+                daemon_key_path=key_file,
+            )
+
+        # Send lease to child process
+        proc.stdin.write(lease + "\n")
+        proc.stdin.flush()
+
+        stdout, stderr = proc.communicate(timeout=10)
+        assert proc.returncode == 0, f"Child daemon failed with stderr: {stderr}"
+
+        # Verify database contents from parent using active session
+        db_parent = backend.database.Database.from_session(str(db_path), session, "cloud_jobs")
+        rows = db_parent.query("SELECT id, worker_pid FROM daemon_jobs;", ())
+        assert rows == [("job_daemon_1", child_pid)]
+        db_parent.close()
+        backend.vault.lock(session)
 
     def test_store_name_empty_rejected(self):
         handle = backend.vault.unlock_direct("p", "s")
@@ -241,19 +476,15 @@ class TestSealedStoreLeases:
             backend.vault.verify_store_lease("not_a_lease_token")
 
     def test_transit_key_isolation(self):
-        # Set custom transit key 1
-        key1 = b"\x11" * 32
-        backend.vault.set_transit_key(key1)
-
+        backend.vault.rotate_transit_key()
         handle = backend.vault.unlock_direct("p", "s")
         lease = backend.vault.create_store_lease(handle, "cloud_jobs")
 
-        # Verify succeeds with key1
+        # Verify succeeds with current transit key
         assert backend.vault.verify_store_lease(lease)["valid"] is True
 
-        # Switch to transit key 2 -> verification must fail AEAD
-        key2 = b"\x22" * 32
-        backend.vault.set_transit_key(key2)
+        # Rotate transit key in C++ memory -> verification must fail AEAD
+        backend.vault.rotate_transit_key()
         with pytest.raises(RuntimeError, match="failed to decrypt lease token"):
             backend.vault.verify_store_lease(lease)
 
@@ -295,3 +526,75 @@ class TestCloudStoreAndVaultManagerIntegration:
 
         vm.shutdown()
         assert not backend.vault.is_unlocked(session)
+
+    def test_vault_manager_handoff_daemon_lease(self, tmp_path):
+        vm = VaultManager.create_guest_vault("test-user")
+        data_dir = tmp_path / "vm_data"
+
+        lease = vm.handoff_daemon_lease(
+            store_name="cloud_jobs",
+            daemon_name="cloud_jobs",
+            data_dir=data_dir,
+            supervisor_session="sup_vm_001",
+        )
+        assert lease.startswith("itkl_v1_")
+        key_file = data_dir / "supervisor" / "keys" / "cloud_jobs.key"
+        assert key_file.exists()
+
+        db_path = tmp_path / "vm_cloud_jobs.db"
+        db = open_store_db(
+            lease=lease,
+            path=db_path,
+            expected_supervisor_session="sup_vm_001",
+            daemon_key_path=str(key_file),
+        )
+        with transaction(db):
+            db.execute(
+                "INSERT INTO jobs (job_id, kind, state, spec_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?);",
+                ("job_vm_1", "extraction", "queued", "{}", 1.0, 1.0),
+            )
+        rows = db.query("SELECT job_id FROM jobs WHERE job_id = ?;", ("job_vm_1",))
+        assert rows == [("job_vm_1",)]
+        db.close()
+
+        vm.shutdown()
+
+
+def test_repeated_mint_preserves_other_store_leases(tmp_path):
+    session = backend.vault.unlock_direct("test", "test-salt")
+    first = backend.vault.mint_daemon_lease(session, "cloud_jobs", "worker", str(tmp_path))
+    second = backend.vault.mint_daemon_lease(session, "library", "worker", str(tmp_path))
+    key = str(tmp_path / "supervisor/keys/worker.key")
+    assert backend.vault.verify_store_lease(first, daemon_key_path=key)["valid"]
+    assert backend.vault.verify_store_lease(second, daemon_key_path=key)["valid"]
+
+
+def test_daemon_name_cannot_escape_key_directory(tmp_path):
+    session = backend.vault.unlock_direct("test", "test-salt")
+    with pytest.raises((ValueError, RuntimeError)):
+        backend.vault.mint_daemon_lease(session, "cloud_jobs", "../escape", str(tmp_path))
+    assert not (tmp_path / "supervisor/escape.key").exists()
+
+
+def test_daemon_key_symlink_is_rejected(tmp_path):
+    session = backend.vault.unlock_direct("test", "test-salt")
+    lease = backend.vault.mint_daemon_lease(session, "cloud_jobs", "worker", str(tmp_path))
+    alias = tmp_path / "alias.key"
+    alias.symlink_to(tmp_path / "supervisor/keys/worker.key")
+    with pytest.raises(RuntimeError):
+        backend.vault.verify_store_lease(lease, daemon_key_path=str(alias))
+
+
+def test_configured_daemon_cannot_fall_back_to_legacy_transit_key(tmp_path, monkeypatch):
+    session = backend.vault.unlock_direct("test", "test-salt")
+    lease = backend.vault.create_store_lease(session, "cloud_jobs")
+    monkeypatch.setenv("ITK_DAEMON_NAME", "missing-worker")
+    with pytest.raises(RuntimeError):
+        backend.vault.verify_store_lease(lease)
+
+
+def test_metadata_checks_supervisor_environment(monkeypatch):
+    session = backend.vault.unlock_direct("test", "test-salt")
+    lease = backend.vault.create_store_lease(session, "cloud_jobs", supervisor_session="old")
+    monkeypatch.setenv("ITK_SUPERVISOR_SESSION", "new")
+    assert not backend.vault.verify_store_lease(lease)["valid"]
