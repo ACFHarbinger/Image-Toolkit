@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "envelope/event.json",
+  "title": "BridgeEvent",
+  "description": "EventHub event frame (Kimi Q3: snapshot + bounded tail per channel, sequence numbers, resnapshot on gap). `payload` content is validated against the channel's declared schema from methods.toml. `durable` marks events a late-joining or recovering consumer may reconstruct from persisted job_events / events.jsonl; non-durable events are dropped from the tail.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["channel", "seq", "kind", "durable", "ts", "payload"],
+  "properties": {
+    "channel": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"
+    },
+    "seq": { "type": "integer", "minimum": 1 },
+    "kind": { "enum": ["intent", "fact"] },
+    "durable": { "type": "boolean" },
+    "ts": { "type": "string", "format": "date-time" },
+    "payload": { "type": "object" }
+  }
+}

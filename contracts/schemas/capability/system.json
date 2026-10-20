@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/system.json",
+  "title": "SystemCapability",
+  "description": "Bridge lifecycle capability: the startup handshake the UI and sidecar ship as a tested version pair (Codex R6), liveness, and the supervisor's restart notifications.",
+  "type": "object",
+  "$defs": {
+    "ClientInfo": {
+      "title": "ClientInfo",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "Compatibility": {
+      "title": "Compatibility",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": {
+        "min": { "type": "string", "minLength": 1 },
+        "max": { "type": "string", "minLength": 1 }
+      }
+    },
+    "HandshakeParams": {
+      "title": "HandshakeParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "client"],
+      "properties": {
+        "protocol": { "type": "string", "minLength": 1 },
+        "client": { "$ref": "#/$defs/ClientInfo" }
+      }
+    },
+    "HandshakeResult": {
+      "title": "HandshakeResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "version", "compatibility", "capabilities"],
+      "properties": {
+        "protocol": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "compatibility": { "$ref": "#/$defs/Compatibility" },
+        "capabilities": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
+    "PingParams": {
+      "title": "PingParams",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "PingResult": {
+      "title": "PingResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok"],
+      "properties": {
+        "ok": { "const": true }
+      }
+    },
+    "BridgeStatePayload": {
+      "title": "BridgeStatePayload",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": { "enum": ["down", "ready"] }
+      }
+    },
+    "BridgeStateSnapshot": {
+      "title": "BridgeStateSnapshot",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": { "enum": ["down", "ready"] }
+      }
+    }
+  }
+}
