@@ -16,7 +16,7 @@
 //   events are already folded into the state and can be replayed from
 //   job_events / events.jsonl when the window is not enough.
 
-import type { BridgeEvent } from "../../../../contracts/generated/ts/event";
+import type { BridgeEvent } from "../../../contracts/generated/ts/event";
 
 export const DEFAULT_TAIL_MAX = 256;
 export const DEFAULT_PENDING_MAX = 512;

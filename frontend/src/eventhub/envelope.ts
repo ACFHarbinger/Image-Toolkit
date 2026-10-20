@@ -7,7 +7,7 @@
 // event is the bridge package's job (#875) — the envelope schema is
 // contracts/schemas/envelope/event.json.
 
-import type { BridgeEvent } from "../../../../contracts/generated/ts/event";
+import type { BridgeEvent } from "../../../contracts/generated/ts/event";
 
 export const EVENT_CHANNEL_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$/;
 

@@ -8,9 +8,9 @@
 // event tail, which is why reducers only ever derive state from the previous
 // state and the current event.
 
-import type { BridgeEvent } from "../../../../contracts/generated/ts/event";
-import type { JobListSnapshot, JobStatus } from "../../../../contracts/generated/ts/jobs";
-import type { BridgeStateSnapshot } from "../../../../contracts/generated/ts/system";
+import type { BridgeEvent } from "../../../contracts/generated/ts/event";
+import type { JobListSnapshot, JobStatus } from "../../../contracts/generated/ts/jobs";
+import type { BridgeStateSnapshot } from "../../../contracts/generated/ts/system";
 import type { ChannelName } from "./generated/channels";
 
 export interface ChannelStates {

@@ -8,7 +8,7 @@
 // (jobs.list over the bridge client, wired by #876). There is deliberately
 // no RPC envelope here — requests ride the shared bridge package.
 
-import type { BridgeEvent } from "../../../../contracts/generated/ts/event";
+import type { BridgeEvent } from "../../../contracts/generated/ts/event";
 import { ChannelBuffer, type AppendOutcome } from "./buffer";
 import { guardEvent } from "./envelope";
 import { CHANNEL_NAMES, CHANNEL_REGISTRY, type ChannelName } from "./generated/channels";
@@ -184,4 +184,4 @@ export class EventHub {
 
 export { CHANNEL_NAMES, CHANNEL_REGISTRY };
 export type { ChannelName } from "./generated/channels";
-export type { BridgeEvent } from "../../../../contracts/generated/ts/event";
+export type { BridgeEvent } from "../../../contracts/generated/ts/event";
