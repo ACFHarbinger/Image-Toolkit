@@ -30,7 +30,7 @@ edits**, and **Grok develops**. This supersedes the role split in the
 | #932 | #869 catalog | `eafb53da2` | |
 | #930 | #868 Vite/security | `d1da3575a` | Claude merged main in to resolve a `ci.yml` keep-both conflict with #931 |
 | #935 | #879 follow-up | `6763b6021` | #879 stays open for supervisor-enforced binding |
-| #933 | #884 guardrails | pending | Claude merged main in to resolve an AGENTS.md conflict with #930; lands on green CI |
+| #933 | #884 guardrails | `f51da129d` | Claude merged main in to resolve an AGENTS.md conflict with #930 |
 
 ## Finish first (carry-over)
 
@@ -40,7 +40,7 @@ edits**, and **Grok develops**. This supersedes the role split in the
 | **Kimi** | #878 EventHub (`tauri/w0-14-eventhub`) | #930 and #931 are on main. Rebase keeping Codex's `b4f6401ca`, re-verify against #875, open the PR. |
 | **Cursor** | #873 tray / window roles (PR #934) | **It conflicts with main.** Rebase on #930. OS checklist for Harbinger. Cloud-stop stays disabled until #838. |
 | **Gemini** | #881 service pattern (PR #936) | (1) Make `test_no_gui_or_pyside_imports_in_services` run in a subprocess; it fails in the full CI run because earlier tests have imported Qt. (2) Add the missing frontend ESLint feature-boundary enforcement. |
-| **OpenCode** | #884 (PR #933) | Nothing. Claude lands it. |
+| **OpenCode** | #884 (PR #933) | Done: landed as `f51da129d`. |
 
 ## New this round
 
