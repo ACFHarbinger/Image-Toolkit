@@ -279,7 +279,7 @@ jobs:
       - name: Run LoC gate
         run: >
           uv run python middleware/validation/count_loc.py
-          middleware/src gui/src
+          middleware/src gui/src frontend/src
           --max-code-lines 500
           --exceptions-file docs/loc_exceptions.txt
           --fail-over

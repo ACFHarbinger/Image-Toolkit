@@ -8,3 +8,11 @@
 gui/src/helpers/animation/stitch_worker/_progress_pipeline.py
 
 # Temporary exceptions — none currently (#629 splits all landed).
+
+# Legacy frontend prototype tabs grandfathered pending Wave 1-3 modularization (#864 / #881)
+frontend/src/tabs/apollo/BenchmarkDashboard.tsx
+frontend/src/tabs/core/ImageExtractorTab.tsx
+frontend/src/tabs/database/ScanMetadataTab.tsx
+frontend/src/math/benchmark.ts
+frontend/src/tabs/core/ConvertTab.tsx
+frontend/src/App.tsx
