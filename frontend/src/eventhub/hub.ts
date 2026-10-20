@@ -73,6 +73,9 @@ export class EventHub {
     if (outcome.status === "gap") {
       this.onGap?.(channel, { expected: outcome.expected, got: outcome.got });
       buffer.beginCatchUp();
+      buffer.append(event);
+      void this.resnapshot(channel);
+    } else if (outcome.status === "queued" && !this.resnapshotInFlight.has(channel)) {
       void this.resnapshot(channel);
     } else if (outcome.status === "appended") {
       this.emit(channel);
@@ -125,11 +128,14 @@ export class EventHub {
     }
     this.resnapshotInFlight.add(channel);
     const buffer = this.bufferFor(channel);
-    buffer.beginCatchUp();
+    if (!buffer.catchingUp) buffer.beginCatchUp();
     let previousSeq: number | undefined;
     try {
       for (;;) {
         const shot = await this.provider.fetch(channel);
+        if (!Number.isSafeInteger(shot.seq) || shot.seq < buffer.lastSeq) {
+          throw new Error(`invalid or stale snapshot sequence for channel ${channel}`);
+        }
         const result = buffer.installSnapshot(shot.seq, shot.snapshot as ChannelStates[ChannelName]);
         if (result.gapAt === undefined) {
           this.emit(channel);

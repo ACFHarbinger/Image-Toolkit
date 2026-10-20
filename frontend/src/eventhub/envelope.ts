@@ -30,7 +30,7 @@ export function guardEvent(frame: unknown, knownChannels: ReadonlySet<string>): 
   if (!knownChannels.has(channel)) {
     return { ok: false, reason: `unknown channel ${JSON.stringify(channel)}` };
   }
-  if (typeof seq !== "number" || !Number.isInteger(seq) || seq < 1) {
+  if (typeof seq !== "number" || !Number.isSafeInteger(seq) || seq < 1) {
     return { ok: false, reason: `seq must be an integer >= 1, got ${JSON.stringify(seq)}` };
   }
   if (kind !== "intent" && kind !== "fact") {

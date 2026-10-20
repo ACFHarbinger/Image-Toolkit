@@ -122,10 +122,7 @@ describe("EventHub", () => {
     expect(hub.lastSeq("jobs")).toBe(5);
     expect(hub.getState("jobs")?.jobs.map((j) => j.job_id)).toEqual(["j1", "j2", "j3", "j4", "j5"]);
     expect(seen.at(-1)).toEqual(["j1", "j2", "j3", "j4", "j5"]);
-    expect(gaps).toEqual([
-      { expected: 2, got: 4 },
-      { expected: 4, got: 5 },
-    ]);
+    expect(gaps).toEqual([{ expected: 2, got: 4 }]);
   });
 
   it("gives up on a provider whose snapshot never advances", async () => {
@@ -135,7 +132,7 @@ describe("EventHub", () => {
     const errors: unknown[] = [];
     const hub = new EventHub({ provider, onProviderError: (_c, e) => errors.push(e) });
     hub.ingest(jobFrame(1));
-    hub.ingest(jobFrame(4)); // gap; the gap event itself is discarded
+    hub.ingest(jobFrame(4)); // gap; retain it for replay
     hub.ingest(jobFrame(5)); // queued; the snapshot can never cover it
     await flush();
     expect(hub.isCatchingUp("jobs")).toBe(true);
@@ -190,5 +187,41 @@ describe("EventHub", () => {
     hub.ingest(jobFrame(2));
     await flush();
     expect(seen).toEqual([1]); // no further notifications
+  });
+});
+
+describe("review recovery regressions", () => {
+  it("replays the event that first exposed a gap", async () => {
+    const provider = new FakeProvider({ jobs: { seq: 2, snapshot: { jobs: [] } } });
+    const hub = new EventHub({ provider });
+    hub.ingest(jobFrame(1));
+    hub.ingest(jobFrame(3));
+    await flush();
+    expect(hub.lastSeq("jobs")).toBe(3);
+    expect(hub.getState("jobs")?.jobs.map((j) => j.job_id)).toEqual(["j3"]);
+  });
+
+  it("retries a failed snapshot when another event arrives", async () => {
+    let count = 0;
+    const provider = new FakeProvider({ jobs: () => {
+      count += 1;
+      if (count === 1) throw new Error("offline");
+      return { seq: 2, snapshot: { jobs: [] } };
+    } });
+    const hub = new EventHub({ provider });
+    hub.ingest(jobFrame(1));
+    hub.ingest(jobFrame(3));
+    await flush();
+    hub.ingest(jobFrame(4));
+    await flush();
+    expect(hub.lastSeq("jobs")).toBe(4);
+    expect(hub.isCatchingUp("jobs")).toBe(false);
+  });
+
+  it("does not replace newer state with a stale snapshot", async () => {
+    const hub = new EventHub({ provider: new FakeProvider({ jobs: { seq: 0, snapshot: { jobs: [] } } }) });
+    hub.ingest(jobFrame(1));
+    expect(await hub.resnapshot("jobs")).toBe(false);
+    expect(hub.lastSeq("jobs")).toBe(1);
   });
 });

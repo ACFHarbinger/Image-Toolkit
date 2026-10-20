@@ -109,7 +109,7 @@ export class ChannelBuffer<S> {
     this.catchUp = false;
     let replayed = 0;
     let gapAt: { expected: number; got: number } | undefined;
-    const queue = this.pending;
+    const queue = [...this.pending].sort((left, right) => left.seq - right.seq);
     this.pending = [];
     for (const event of queue) {
       if (event.seq <= this.lastSeqValue) {
