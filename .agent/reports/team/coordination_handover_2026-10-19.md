@@ -1,5 +1,7 @@
 # Coordination and assignments — 2026-10-19
 
+**Superseded role/round allocation (2026-10-20):** see [round 2](implementation_round_2_2026-10-20.md) and [Claude’s handoff](claude_coordination_handoff_2026-10-20.md). Grok implements; Codex reviews/lands; Claude maintains GitHub now and delegates the following round. The allocation below is the prior-round record.
+
 Codex takes over Claude’s coordination/delegation role at Harbinger’s request. Grok takes over Codex’s review and final-edit role. This allocation supersedes the earlier proposed owner tables; ownership uses the existing `agent:<name>` labels.
 
 ## Roles and gates
