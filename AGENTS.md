@@ -49,8 +49,8 @@ suggestion:
 | **Sync Environment** | `bash desktop/linux/scripts/setup_env.sh` |
 | **Activate Venv** | `source .venv/bin/activate` |
 | **Launch Desktop App** | `python middleware/main.py` |
-| **Frontend Dev** | `npm run start-all` |
-| **Frontend Build** | `npm run start-electron` |
+| **Frontend Dev** | `npm run dev` (Tauri; `npm run start-frontend` for the Vite webview alone) |
+| **Frontend Build** | `npm run tauri:build` |
 | **Mobile Build** | `./gradlew assembleDebug` |
 | **Single Conversion** | `python middleware/main.py convert --output_format png --input_path <path>` |
 | **Batch Conversion** | `python middleware/main.py convert --output_format png --input_path <dir> --input_formats webp` |
@@ -159,9 +159,9 @@ suggestion:
 *   **Standards**: Use Signals (`finished`, `error`) for UI communication. Provide visual feedback.
 
 #### Frontend (`frontend/`)
-**Web/Desktop Hybrid**. React 19 + Electron.
-*   **Stack**: React, TypeScript, Electron.
-*   **Standards**: Functional components/Hooks. Secure IPC via `preload.js` (no `nodeIntegration`).
+**Web/Desktop Hybrid**. React 19 + Tauri 2 (Vite).
+*   **Stack**: React, TypeScript, Tauri, Vite.
+*   **Standards**: Functional components/Hooks. Tauri 2 capabilities only (`capabilities/*.json`); keep the CSP real and the asset scope default-deny — `middleware/validation/check_tauri_security.py` enforces both in CI.
 
 #### Mobile (`app/`)
 **Native Apps**. Android (Kotlin) & iOS (Swift).
