@@ -293,22 +293,22 @@ Owners use `agent:<name>` labels. The 2026-10-19 [coordination handover](../../.
 
 | Issue | Deliverable | Owner |
 |---|---|---|
-| [#865](https://github.com/ACFHarbinger/Image-Toolkit/issues/865) | W0-01: Rename the Python package `backend/` → `middleware/` (one mechanical PR, import aliases for one release) | Claude |
-| [#866](https://github.com/ACFHarbinger/Image-Toolkit/issues/866) | W0-02: Rename the C++ module `base/` → `backend/` (after W0-01; aliases for one release) | Claude |
+| [#865](https://github.com/ACFHarbinger/Image-Toolkit/issues/865) | W0-01: Rename the Python package `backend/` → `middleware/` (one mechanical PR, import aliases for one release) | Claude (done) |
+| [#866](https://github.com/ACFHarbinger/Image-Toolkit/issues/866) | W0-02: Rename the C++ module `base/` → `backend/` (after W0-01; aliases for one release) | Claude (done) |
 | [#867](https://github.com/ACFHarbinger/Image-Toolkit/issues/867) | W0-03: Absorb HIE, ASP, CSG and CRE submodules (git subtree, history kept) into one CMake build and `middleware/src/services/{hie,asp,csg,cre}/` | Gemini |
 
 ### Wave 0b — Build and security (Mistral's PR 1)
 
 | Issue | Deliverable | Owner |
 |---|---|---|
-| [#868](https://github.com/ACFHarbinger/Image-Toolkit/issues/868) | W0-04: CRA → Vite (React 19), delete Electron; per-window Tauri capability files, real CSP, default-deny asset scope + CI check | Mistral |
+| [#868](https://github.com/ACFHarbinger/Image-Toolkit/issues/868) | W0-04: CRA → Vite (React 19), delete Electron; per-window Tauri capability files, real CSP, default-deny asset scope + CI check | Mistral (done) |
 
 ### Wave 0c — Shell
 
 | Issue | Deliverable | Owner |
 |---|---|---|
-| [#869](https://github.com/ACFHarbinger/Image-Toolkit/issues/869) | W0-05: Serializable module catalog split out of `descriptor.py` (no `QWidget`), rendered by both shells; ids = ledger ids | Gemini |
-| [#870](https://github.com/ACFHarbinger/Image-Toolkit/issues/870) | W0-06: Catalog-driven shell (rail/ribbon/inspector/status bar) replacing `App.tsx`'s `TabId` union | Cursor |
+| [#869](https://github.com/ACFHarbinger/Image-Toolkit/issues/869) | W0-05: Serializable module catalog split out of `descriptor.py` (no `QWidget`), rendered by both shells; ids = ledger ids | Grok (done) |
+| [#870](https://github.com/ACFHarbinger/Image-Toolkit/issues/870) | W0-06: Catalog-driven shell (rail/ribbon/inspector/status bar) replacing `App.tsx`'s `TabId` union | Grok |
 | [#871](https://github.com/ACFHarbinger/Image-Toolkit/issues/871) | W0-07: Design tokens → generated CSS variables from `gui/src/theming/tokens/{light,dark}.json` | Mistral |
 | [#872](https://github.com/ACFHarbinger/Image-Toolkit/issues/872) | W0-08: One serializable shortcut registry (from `shortcut_manager.py` / `keybindings.json`) bound by both shells | Cursor |
 | [#873](https://github.com/ACFHarbinger/Image-Toolkit/issues/873) | W0-09: Native tray, hide-all on close, WindowManager role map (labels, pop-out) | Cursor |
@@ -317,11 +317,11 @@ Owners use `agent:<name>` labels. The 2026-10-19 [coordination handover](../../.
 
 | Issue | Deliverable | Owner |
 |---|---|---|
-| [#874](https://github.com/ACFHarbinger/Image-Toolkit/issues/874) | W0-10: Contracts: JSON Schema per capability in `contracts/` + method-routing table; CI codegen (TS/Python/Rust) and contract hash | Kimi |
+| [#874](https://github.com/ACFHarbinger/Image-Toolkit/issues/874) | W0-10: Contracts: JSON Schema per capability in `contracts/` + method-routing table; CI codegen (TS/Python/Rust) and contract hash | Kimi (done) |
 | [#875](https://github.com/ACFHarbinger/Image-Toolkit/issues/875) | W0-11: Shared bridge package: framing, envelope, version handshake, error envelope `{code, retryable, message_key, details}`, cancel | Mistral |
 | [#876](https://github.com/ACFHarbinger/Image-Toolkit/issues/876) | W0-12: Python sidecar (JSON-RPC/stdio) + `HostClient` with sidecar/Django/Rust transport adapters and a conformance suite | OpenCode |
-| [#877](https://github.com/ACFHarbinger/Image-Toolkit/issues/877) | W0-13: Supervisor: sidecar, Cloud Jobs daemon and slideshow daemon as siblings; GUI single-instance gate; `bridge.down`/`bridge.ready` + SIGKILL smoke test; Linux autostart | Cursor |
-| [#878](https://github.com/ACFHarbinger/Image-Toolkit/issues/878) | W0-14: Generated EventHub (intents/facts) with snapshot + bounded tail, sequence numbers, resnapshot on gap; `appStore.ts` ephemeral-only | Mistral |
+| [#877](https://github.com/ACFHarbinger/Image-Toolkit/issues/877) | W0-13: Supervisor: sidecar, Cloud Jobs daemon and slideshow daemon as siblings; GUI single-instance gate; `bridge.down`/`bridge.ready` + SIGKILL smoke test; Linux autostart | Cursor (done) |
+| [#878](https://github.com/ACFHarbinger/Image-Toolkit/issues/878) | W0-14: Generated EventHub (intents/facts) with snapshot + bounded tail, sequence numbers, resnapshot on gap; `appStore.ts` ephemeral-only | Kimi |
 
 ### Wave 0e — Foundations
 
@@ -340,7 +340,7 @@ Owners use `agent:<name>` labels. The 2026-10-19 [coordination handover](../../.
 
 | Issue | Deliverable | Owner |
 |---|---|---|
-| [#887](https://github.com/ACFHarbinger/Image-Toolkit/issues/887) | S-01: Spike: gallery with the C++ thumbnail service (bounded stills, middle frame) streamed via `asset://` from `~/.image-toolkit/cache/render/` | Gemini |
+| [#887](https://github.com/ACFHarbinger/Image-Toolkit/issues/887) | S-01: Spike: gallery with the C++ thumbnail service (bounded stills, middle frame) streamed via `asset://` from `~/.image-toolkit/cache/render/` | Grok |
 | [#888](https://github.com/ACFHarbinger/Image-Toolkit/issues/888) | S-02: Spike: shared canvas host (WebGL2/WebGPU tile pyramid, off-screen worker) on a fake document | Gemini |
 | [#889](https://github.com/ACFHarbinger/Image-Toolkit/issues/889) | S-03: Spike: tray and window behaviour per OS (KDE/GNOME Wayland + X11 first; Windows/macOS notes) | Cursor |
 | [#890](https://github.com/ACFHarbinger/Image-Toolkit/issues/890) | S-04: Spike: embedded ComfyUI in an isolated view (no native privileges), compatibility/security checks, external-browser fallback | Kimi |
