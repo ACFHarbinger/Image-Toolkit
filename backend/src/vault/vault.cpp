@@ -17,6 +17,9 @@
 #include <sodium.h>
 #include <argon2.h>
 
+#include <algorithm>
+#include <cctype>
+#include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <ctime>
@@ -362,27 +365,34 @@ void rotate_transit_key() {
 }
 
 static std::shared_ptr<base::secret::LockedSecret<32>> read_daemon_key_file(const std::string& path) {
-    fs::path p(path);
-    if (!fs::exists(p)) {
-        throw std::runtime_error("base.vault: daemon key file does not exist: " + path);
-    }
-#ifndef _WIN32
-    struct stat st;
-    if (stat(path.c_str(), &st) == 0) {
-        if ((st.st_mode & 0077) != 0) {
-            throw std::runtime_error("base.vault: insecure permissions on daemon key file (must be 0600): " + path);
-        }
-    }
-#endif
-    std::ifstream ifs(path, std::ios::binary);
-    if (!ifs) {
-        throw std::runtime_error("base.vault: cannot read daemon key file at: " + path);
-    }
     auto k = std::make_shared<base::secret::LockedSecret<32>>();
-    ifs.read(reinterpret_cast<char*>(k->data()), 32);
-    if (ifs.gcount() != 32) {
-        throw std::runtime_error("base.vault: corrupt daemon key file (expected 32 bytes): " + path);
+#ifndef _WIN32
+    int fd = open(path.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK);
+    if (fd < 0) throw std::runtime_error("vault: cannot securely open daemon key file");
+    struct stat st;
+    if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_uid != geteuid()
+        || (st.st_mode & 0077) != 0 || st.st_size != 32) {
+        close(fd);
+        throw std::runtime_error("vault: insecure permissions or invalid daemon key file (must be 0600, 32 bytes)");
     }
+    size_t total = 0;
+    while (total < 32) {
+        ssize_t n = read(fd, k->data() + total, 32 - total);
+        if (n < 0 && errno == EINTR) continue;
+        if (n <= 0) {
+            close(fd);
+            throw std::runtime_error("vault: incomplete daemon key read");
+        }
+        total += static_cast<size_t>(n);
+    }
+    close(fd);
+#else
+    if (fs::is_symlink(fs::symlink_status(path)) || fs::file_size(path) != 32)
+        throw std::runtime_error("vault: invalid daemon key file");
+    std::ifstream ifs(path, std::ios::binary);
+    ifs.read(reinterpret_cast<char*>(k->data()), 32);
+    if (!ifs || ifs.gcount() != 32) throw std::runtime_error("vault: incomplete daemon key read");
+#endif
     return k;
 }
 
@@ -503,9 +513,7 @@ static std::shared_ptr<base::secret::LockedSecret<32>> resolve_transit_key(const
             }
         }
         fs::path p = fs::path(data_dir) / "supervisor" / "keys" / (std::string(env_daemon_name) + ".key");
-        if (fs::exists(p)) {
-            return read_daemon_key_file(p.string());
-        }
+        return read_daemon_key_file(p.string());
     }
 
     {
@@ -668,8 +676,11 @@ std::string mint_daemon_lease(
     if (store_name.empty()) {
         throw std::invalid_argument("base.vault: store_name cannot be empty");
     }
-    if (daemon_name.empty()) {
-        throw std::invalid_argument("base.vault: daemon_name cannot be empty");
+    if (daemon_name.empty() || !std::isalnum(static_cast<unsigned char>(daemon_name.front()))
+        || !std::all_of(daemon_name.begin(), daemon_name.end(), [](unsigned char ch) {
+            return std::isalnum(ch) || ch == '_' || ch == '-' || ch == '.';
+        })) {
+        throw std::invalid_argument("vault: daemon_name must be a single safe filename component");
     }
     if (data_dir.empty()) {
         throw std::invalid_argument("base.vault: data_dir cannot be empty");
@@ -684,13 +695,20 @@ std::string mint_daemon_lease(
 
     fs::path keys_dir = fs::path(data_dir) / "supervisor" / "keys";
     fs::create_directories(keys_dir);
+    if (fs::is_symlink(fs::symlink_status(keys_dir))
+        || fs::is_symlink(fs::symlink_status(keys_dir.parent_path())))
+        throw std::runtime_error("vault: daemon key directories cannot be symlinks");
 #ifndef _WIN32
-    chmod(keys_dir.c_str(), 0700);
+    if (chmod(keys_dir.c_str(), 0700) != 0)
+        throw std::runtime_error("vault: cannot restrict daemon key directory permissions");
 #endif
 
     fs::path key_path = keys_dir / (daemon_name + ".key");
-    if (fs::exists(key_path)) {
-        fs::remove(key_path);
+    // A daemon can hold leases for multiple stores; reminting must not revoke them.
+    if (fs::exists(fs::symlink_status(key_path))) {
+        auto existing = read_daemon_key_file(key_path.string());
+        return seal_store_payload_with_key(store_name, store_dek->data(), pid, ttl_seconds,
+                                           supervisor_session, existing->data());
     }
 
 #ifdef _WIN32
@@ -701,7 +719,12 @@ std::string mint_daemon_lease(
     ofs.write(reinterpret_cast<const char*>(daemon_transit_key->data()), 32);
     ofs.close();
 #else
-    int fd = open(key_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600);
+    int fd = open(key_path.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+    if (fd < 0 && errno == EEXIST) {
+        auto existing = read_daemon_key_file(key_path.string());
+        return seal_store_payload_with_key(store_name, store_dek->data(), pid, ttl_seconds,
+                                           supervisor_session, existing->data());
+    }
     if (fd < 0) {
         throw std::runtime_error("base.vault: failed to create daemon key file at: " + key_path.string() + " (" + std::strerror(errno) + ")");
     }
@@ -890,6 +913,8 @@ pybind11::dict verify_store_lease(
     bool is_exp = (info.expires_at > 0 && now >= info.expires_at);
     bool pid_ok = (info.bound_pid == 0 || info.bound_pid == current_pid);
     bool sup_ok = expected_supervisor_session.empty() || (info.supervisor_session == expected_supervisor_session);
+    const char* env_sup = std::getenv("ITK_SUPERVISOR_SESSION");
+    if (env_sup && env_sup[0]) sup_ok = sup_ok && info.supervisor_session == env_sup;
 
     py::dict d;
     d["store_name"] = info.store_name;

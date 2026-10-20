@@ -26,9 +26,11 @@ from middleware.src.core.vault_manager import VaultManager
 
 
 @pytest.fixture(autouse=True)
-def clean_vault_sessions():
+def clean_vault_sessions(tmp_path, monkeypatch):
     """Ensure all sessions and transit key overrides are cleared around each test."""
-    backend.vault.clear_transit_key()
+    monkeypatch.setenv("IMAGE_TOOLKIT_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("IMAGE_TOOLKIT_DIR", str(tmp_path))
+    backend.vault.rotate_transit_key()
     backend.vault.lock_all()
     yield
     backend.vault.clear_transit_key()
@@ -214,7 +216,7 @@ class TestSealedStoreLeases:
         # Make permissions insecure (0644 readable by other users)
         os.chmod(key_file, 0o644)
 
-        with pytest.raises(RuntimeError, match="insecure permissions on daemon key file"):
+        with pytest.raises(RuntimeError, match="insecure permissions"):
             backend.vault.verify_store_lease(lease, daemon_key_path=str(key_file))
 
     def test_supervisor_session_binding(self, tmp_path):
@@ -556,3 +558,43 @@ class TestCloudStoreAndVaultManagerIntegration:
         db.close()
 
         vm.shutdown()
+
+
+def test_repeated_mint_preserves_other_store_leases(tmp_path):
+    session = backend.vault.unlock_direct("test", "test-salt")
+    first = backend.vault.mint_daemon_lease(session, "cloud_jobs", "worker", str(tmp_path))
+    second = backend.vault.mint_daemon_lease(session, "library", "worker", str(tmp_path))
+    key = str(tmp_path / "supervisor/keys/worker.key")
+    assert backend.vault.verify_store_lease(first, daemon_key_path=key)["valid"]
+    assert backend.vault.verify_store_lease(second, daemon_key_path=key)["valid"]
+
+
+def test_daemon_name_cannot_escape_key_directory(tmp_path):
+    session = backend.vault.unlock_direct("test", "test-salt")
+    with pytest.raises((ValueError, RuntimeError)):
+        backend.vault.mint_daemon_lease(session, "cloud_jobs", "../escape", str(tmp_path))
+    assert not (tmp_path / "supervisor/escape.key").exists()
+
+
+def test_daemon_key_symlink_is_rejected(tmp_path):
+    session = backend.vault.unlock_direct("test", "test-salt")
+    lease = backend.vault.mint_daemon_lease(session, "cloud_jobs", "worker", str(tmp_path))
+    alias = tmp_path / "alias.key"
+    alias.symlink_to(tmp_path / "supervisor/keys/worker.key")
+    with pytest.raises(RuntimeError):
+        backend.vault.verify_store_lease(lease, daemon_key_path=str(alias))
+
+
+def test_configured_daemon_cannot_fall_back_to_legacy_transit_key(tmp_path, monkeypatch):
+    session = backend.vault.unlock_direct("test", "test-salt")
+    lease = backend.vault.create_store_lease(session, "cloud_jobs")
+    monkeypatch.setenv("ITK_DAEMON_NAME", "missing-worker")
+    with pytest.raises(RuntimeError):
+        backend.vault.verify_store_lease(lease)
+
+
+def test_metadata_checks_supervisor_environment(monkeypatch):
+    session = backend.vault.unlock_direct("test", "test-salt")
+    lease = backend.vault.create_store_lease(session, "cloud_jobs", supervisor_session="old")
+    monkeypatch.setenv("ITK_SUPERVISOR_SESSION", "new")
+    assert not backend.vault.verify_store_lease(lease)["valid"]
