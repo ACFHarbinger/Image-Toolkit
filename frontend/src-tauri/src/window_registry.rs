@@ -55,12 +55,6 @@ pub fn data_dir() -> PathBuf {
     PathBuf::from(home.unwrap_or_else(|| ".".into())).join(".image-toolkit")
 }
 
-pub fn request_stop_cloud() -> Result<(), String> {
-    let dir = data_dir();
-    std::fs::create_dir_all(&dir).map_err(|err| err.to_string())?;
-    std::fs::write(dir.join("cloud_jobs.stop"), b"1\n").map_err(|err| err.to_string())
-}
-
 pub fn hide_all(app: &AppHandle) -> Result<(), String> {
     let mut hidden = Vec::new();
     for label in hide_on_close_labels() {

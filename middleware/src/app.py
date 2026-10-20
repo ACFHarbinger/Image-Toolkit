@@ -351,8 +351,17 @@ def _raise_main_window() -> None:
     main.activateWindow()
 
 
+_gui_focus_requested = threading.Event()
+
+
 def _on_gui_focus() -> None:
-    QTimer.singleShot(0, _raise_main_window)
+    _gui_focus_requested.set()
+
+
+def _drain_gui_focus_request() -> None:
+    if _gui_focus_requested.is_set():
+        _gui_focus_requested.clear()
+        _raise_main_window()
 
 
 def launch_app(opts):
@@ -388,7 +397,7 @@ def _run_qt_app(opts):
 
     interpreter_timer = QTimer(app)
     interpreter_timer.start(100)
-    interpreter_timer.timeout.connect(lambda: None)
+    interpreter_timer.timeout.connect(_drain_gui_focus_request)
 
     # QSocketNotifier/heap-corruption startup race (issue #81). History
     # (full detail in .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md):

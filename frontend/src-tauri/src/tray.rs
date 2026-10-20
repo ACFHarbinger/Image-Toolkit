@@ -13,11 +13,7 @@ fn on_menu(app: &AppHandle, id: &str) {
         TRAY_SHOW => {
             let _ = crate::window_registry::restore(app);
         }
-        TRAY_STOP_CLOUD => {
-            if let Err(err) = crate::window_registry::request_stop_cloud() {
-                log::warn!("stop cloud activity: {err}");
-            }
-        }
+        TRAY_STOP_CLOUD => log::warn!("cloud stop requires the authenticated daemon command path"),
         TRAY_QUIT => app.exit(0),
         _ => {}
     }
@@ -29,7 +25,7 @@ pub fn install(app: &App) -> tauri::Result<()> {
         app,
         TRAY_STOP_CLOUD,
         "Stop all cloud activity",
-        true,
+        false,
         None::<&str>,
     )?;
     let quit = MenuItem::with_id(app, TRAY_QUIT, "Quit", true, None::<&str>)?;

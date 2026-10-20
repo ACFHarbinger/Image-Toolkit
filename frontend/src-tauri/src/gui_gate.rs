@@ -35,9 +35,12 @@ fn apply_venv_path(command: &mut Command, root: &Path) {
 }
 
 pub fn start(app: &AppHandle) {
-    if let Err(err) = spawn(app) {
-        log::warn!("gui gate skipped: {err}");
-    }
+    let handle = app.clone();
+    thread::spawn(move || {
+        if let Err(err) = spawn(&handle) {
+            log::warn!("gui gate skipped: {err}");
+        }
+    });
 }
 
 fn spawn(app: &AppHandle) -> Result<(), String> {
