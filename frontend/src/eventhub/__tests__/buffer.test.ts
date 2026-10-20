@@ -108,8 +108,9 @@ describe("ChannelBuffer", () => {
     b.append(ev(1));
     b.append(ev(2));
     b.append(ev(3));
-    const result = b.installSnapshot(0, { jobs: [] });
-    expect(result.replayed).toBe(2); // seq 1 evicted, 2 and 3 replay
+    // the snapshot covers the evicted seq 1; the rest replays
+    const result = b.installSnapshot(1, { jobs: [{ job_id: "j1", kind: "k", state: "running" }] });
+    expect(result.replayed).toBe(2);
     expect(b.lastSeq).toBe(3);
   });
 
