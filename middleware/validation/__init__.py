@@ -5,6 +5,7 @@ Attributes:
     check_circular_imports.py
     check_embedded_languages.py
     check_interface_compliance.py
+    check_migration_additive.py
     check_multi_classes.py
     check_nested_imports.py
     check_relative_imports.py

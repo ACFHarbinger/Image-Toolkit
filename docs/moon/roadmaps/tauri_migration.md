@@ -103,7 +103,11 @@ Django (`api/`) ─▶ the same services, for remote clients: Cloud Jobs G1 phon
   `gui/src/preferences/store.py`), detects conflicts, and migrates
   legacy settings with a backup first.
 - **Schema migrations:** additive-only while a PySide6 row still lives,
-  checked in CI. Destructive steps go in that row's deletion PR.
+  checked in CI (`middleware/validation/check_migration_additive.py`).
+  It flags `DROP`, `RENAME`, `ALTER COLUMN … TYPE`, and removed or
+  changed columns/tables in a changed schema file. Destructive steps go
+  in that row's deletion PR: a `pyside-deleted` feature's own paths are
+  auto-allowed; shared schema files need a bounded ledger exception.
 
 ### Frontend platform (OpenCode Q6; Cursor W1–W8; Grok T2–T4; Mistral)
 
@@ -251,6 +255,13 @@ In-flight branches rebase once.
 - **Freeze:** all of `gui/src` takes reviewed bugfixes only. This is a
   written rule in AGENTS.md and the PR template; the ledger records
   exceptions. All new UI is Tauri-only.
+  - An exception is one bounded `[[exception]]` record in
+    `migration/features.toml`: `feature`, `path` (exact or glob),
+    `reason`, `issue`, `approved_by`, and an optional `expires` date.
+    Expired or incomplete records do not suppress the guard.
+  - The freeze itself is a review rule, not a hash allowlist (Q3 B).
+    The same exception record is the audit trail for a reviewed bugfix
+    or a destructive schema step.
 - **Testing layers:**
   - Playwright against the Vite build with contract mocks runs on every
     PR.
