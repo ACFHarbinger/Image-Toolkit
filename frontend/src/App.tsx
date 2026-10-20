@@ -69,6 +69,7 @@ import { BenchmarkDashboard } from "./tabs/apollo/BenchmarkDashboard";
 
 // --- Image Editor Tabs ---
 import { HieEditorTab } from "./tabs/editor/HieEditorTab";
+import { frontendPages } from "./shell/catalog";
 
 // --- Interfaces ---
 
@@ -239,132 +240,68 @@ const App: React.FC = () => {
     );
   };
 
-  // Define Tab Groups
-  const TAB_GROUPS: TabGroup[] = [
-    {
-      title: "System Tools",
-      tabs: [
-        {
-          id: "convert",
-          label: "Convert",
-          icon: ImageIcon,
-          component: ConvertTab,
-        },
-        { id: "merge", label: "Merge", icon: LayoutGrid, component: MergeTab },
-        { id: "delete", label: "Delete", icon: Trash2, component: DeleteTab },
-        {
-          id: "wallpaper",
-          label: "Wallpaper",
-          icon: Monitor,
-          component: WallpaperTab,
-        },
-        {
-          id: "extractor",
-          label: "Extractor",
-          icon: MonitorPlay,
-          component: ImageExtractorTab,
-        },
-      ],
-    },
-    {
-      title: "Database Management",
-      tabs: [
-        { id: "search", label: "Search", icon: Search, component: SearchTab },
-        {
-          id: "database",
-          label: "Database",
-          icon: Database,
-          component: DatabaseTab,
-        },
-        {
-          id: "scan",
-          label: "Scan",
-          icon: FolderOpen,
-          component: ScanMetadataTab,
-        },
-      ],
-    },
-    {
-      title: "Web Integration",
-      tabs: [
-        {
-          id: "drive",
-          label: "Drive Sync",
-          icon: Cloud,
-          component: DriveSyncTab,
-        },
-        {
-          id: "crawler",
-          label: "Image Crawler",
-          icon: Globe,
-          component: ImageCrawlerTab,
-        },
-        {
-          id: "revsearch",
-          label: "Reverse Search",
-          icon: ScanSearch,
-          component: ReverseSearchTab,
-        },
-        {
-          id: "webreq",
-          label: "Web Requests",
-          icon: Network,
-          component: WebRequestsTab,
-        },
-      ],
-    },
-    {
-      title: "Deep Learning",
-      tabs: [
-        {
-          id: "train",
-          label: "Train Model",
-          icon: BrainCircuit,
-          component: UnifiedTrainTab,
-        },
-        {
-          id: "generate",
-          label: "Generate",
-          icon: Wand2,
-          component: UnifiedGenerateTab,
-        },
-        {
-          id: "inference",
-          label: "Inference",
-          icon: ScanEye,
-          component: MetaCLIPInferenceTab,
-        },
-        {
-          id: "evaluate",
-          label: "Evaluate",
-          icon: BarChart3,
-          component: R3GANEvaluateTab,
-        },
-      ],
-    },
-    {
-      title: "Analytics",
-      tabs: [
-        {
-          id: "benchmarks",
-          label: "Benchmarks",
-          icon: BarChart3,
-          component: BenchmarkDashboard,
-        },
-      ],
-    },
-    {
-      title: "Image Editor",
-      tabs: [
-        {
-          id: "hie_editor",
-          label: "Hybrid Editor",
-          icon: Layers,
-          component: HieEditorTab,
-        },
-      ],
-    },
-  ];
+  const TAB_COMPONENTS: Record<TabId, ComponentType<any>> = {
+    convert: ConvertTab,
+    merge: MergeTab,
+    delete: DeleteTab,
+    extractor: ImageExtractorTab,
+    wallpaper: WallpaperTab,
+    search: SearchTab,
+    database: DatabaseTab,
+    scan: ScanMetadataTab,
+    train: UnifiedTrainTab,
+    generate: UnifiedGenerateTab,
+    inference: MetaCLIPInferenceTab,
+    evaluate: R3GANEvaluateTab,
+    drive: DriveSyncTab,
+    crawler: ImageCrawlerTab,
+    revsearch: ReverseSearchTab,
+    webreq: WebRequestsTab,
+    benchmarks: BenchmarkDashboard,
+    hie_editor: HieEditorTab,
+  };
+  const TAB_ICONS: Record<TabId, LucideIcon> = {
+    convert: ImageIcon,
+    merge: LayoutGrid,
+    delete: Trash2,
+    extractor: MonitorPlay,
+    wallpaper: Monitor,
+    search: Search,
+    database: Database,
+    scan: FolderOpen,
+    train: BrainCircuit,
+    generate: Wand2,
+    inference: ScanEye,
+    evaluate: BarChart3,
+    drive: Cloud,
+    crawler: Globe,
+    revsearch: ScanSearch,
+    webreq: Network,
+    benchmarks: BarChart3,
+    hie_editor: Layers,
+  };
+
+  // Labels, categories and order come from the shared catalog. This file
+  // only attaches the React component and icon for ids that already exist.
+  const TAB_GROUPS: TabGroup[] = [];
+  for (const entry of frontendPages()) {
+    const id = entry.legacy_frontend_id as TabId;
+    const component = TAB_COMPONENTS[id];
+    if (!component) {
+      continue;
+    }
+    let group = TAB_GROUPS.find((item) => item.title === entry.category);
+    if (!group) {
+      group = { title: entry.category, tabs: [] };
+      TAB_GROUPS.push(group);
+    }
+    group.tabs.push({
+      id,
+      label: entry.title,
+      icon: TAB_ICONS[id],
+      component,
+    });
+  }
 
   const ALL_TABS = TAB_GROUPS.flatMap((group) => group.tabs);
   const CurrentTabConfig = ALL_TABS.find((tab) => tab.id === activeTab);
