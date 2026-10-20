@@ -19,11 +19,11 @@
 | `middleware/src/models/tuning/lo_ra_tuner.py` | 462 | 50 | 21 | 533 |
 | `gui/src/tabs/core/wallpaper_tab/graph/wallpaper_graph_scene.py` | 456 | 22 | 29 | 507 |
 | `gui/src/tabs/models/review_tools_page.py` | 455 | 1 | 8 | 464 |
+| `middleware/src/core/vault_manager.py` | 453 | 32 | 84 | 569 |
 | `gui/src/tabs/core/extractor_tab/_media_player.py` | 439 | 114 | 29 | 582 |
 | `gui/src/components/dialogs/asp_advanced_config_dialog.py` | 437 | 21 | 8 | 466 |
 | `gui/src/tabs/web/reverse_search_tab.py` | 434 | 45 | 21 | 500 |
 | `gui/src/tabs/models/dl_workspace_host.py` | 434 | 5 | 24 | 463 |
-| `middleware/src/core/vault_manager.py` | 432 | 32 | 80 | 544 |
 | `gui/src/windows/settings/_reset_state.py` | 432 | 16 | 17 | 465 |
 | `gui/src/helpers/core/_queue_extraction_process.py` | 429 | 7 | 29 | 465 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 418 | 27 | 20 | 465 |
@@ -56,4 +56,4 @@
 | `gui/src/tabs/core/extractor_tab/_queue_panel.py` | 346 | 36 | 32 | 414 |
 | `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
 | `gui/src/windows/settings/settings_window.py` | 345 | 28 | 10 | 383 |
-| **TOTALS** | **106565** | **6626** | **10770** | **123961** |
+| **TOTALS** | **106608** | **6626** | **10774** | **124008** |
