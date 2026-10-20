@@ -21,9 +21,10 @@ from middleware.src.constants import (
     MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH,
 )
 from middleware.src.constants.app import SETTINGS_PREFIX_TYPES, SETTINGS_SCHEMA
-from middleware.src.constants.paths import ASSETS_DIR
+from middleware.src.constants.paths import ASSETS_DIR, IMAGE_TOOLKIT_DIR
 from middleware.src.constants.utils import PID_PATH
 from middleware.src.core import lifecycle_memory, telemetry
+from middleware.src.supervisor.gui_shell import claim_or_focus
 
 # ---------------------------------------------------------------------------
 # Logging setup (item 1.13) — rotating file handler + coloured console output
@@ -335,10 +336,39 @@ def _register_bundled_fonts() -> None:
         QApplication.instance().setFont(QFont("Inter", 10))
 
 
+def _raise_main_window() -> None:
+    from gui.src.windows.window_manager import WindowManager
+
+    main = WindowManager.instance().main_window()
+    if main is None:
+        return
+    show = getattr(main, "_tray_show_window", None)
+    if callable(show):
+        show()
+        return
+    main.showNormal()
+    main.raise_()
+    main.activateWindow()
+
+
+def _on_gui_focus() -> None:
+    QTimer.singleShot(0, _raise_main_window)
+
+
 def launch_app(opts):
     _setup_logging(log_level=logging.DEBUG if getattr(opts, "verbose", False) else logging.INFO)
     sys.excepthook = log_uncaught_exceptions
 
+    gate = claim_or_focus(IMAGE_TOOLKIT_DIR, on_focus=_on_gui_focus)
+    if gate is None:
+        return 0
+    try:
+        return _run_qt_app(opts)
+    finally:
+        gate.release()
+
+
+def _run_qt_app(opts):
     app = QApplication(sys.argv)
     set_app_identity(app)
     _register_bundled_fonts()

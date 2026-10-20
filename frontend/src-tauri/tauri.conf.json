@@ -18,6 +18,16 @@
         "height": 600,
         "resizable": true,
         "fullscreen": false
+      },
+      {
+        "label": "cloud.jobs",
+        "title": "Cloud Jobs",
+        "url": "/?window=cloud.jobs",
+        "width": 960,
+        "height": 720,
+        "resizable": true,
+        "visible": false,
+        "skipTaskbar": true
       }
     ],
     "security": {

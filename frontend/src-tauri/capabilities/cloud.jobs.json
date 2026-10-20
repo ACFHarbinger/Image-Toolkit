@@ -1,0 +1,11 @@
+{
+  "$schema": "../schemas/desktop-schema.json",
+  "identifier": "cloud-jobs",
+  "description": "labeled cloud.jobs pop-out: core only; no extra asset or fs scope (originals stay out)",
+  "windows": [
+    "cloud.jobs"
+  ],
+  "permissions": [
+    "core:default"
+  ]
+}
