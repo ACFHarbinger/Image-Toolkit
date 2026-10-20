@@ -221,8 +221,13 @@ public:
     }
 
     static std::unique_ptr<Database> from_lease(
-        std::string db_path, std::string lease_token, std::string expected_store = "") {
-        auto lease_info = base::vault::unseal_store_lease(lease_token, expected_store);
+        std::string db_path,
+        std::string lease_token,
+        std::string expected_store = "",
+        std::string expected_supervisor_session = "",
+        std::string daemon_key_path = "") {
+        auto lease_info = base::vault::unseal_store_lease(
+            lease_token, expected_store, expected_supervisor_session, daemon_key_path);
         return std::make_unique<Database>(std::move(db_path), lease_info.store_dek->data(), lease_info.store_dek->size());
     }
 
@@ -575,6 +580,7 @@ void register_database(py::module_& m) {
              "Open encrypted database directly via sealed per-store lease token.")
         .def_static("from_lease", &Database::from_lease,
              py::arg("db_path"), py::arg("lease_token"), py::arg("expected_store") = "",
+             py::arg("expected_supervisor_session") = "", py::arg("daemon_key_path") = "",
              "Open encrypted database via sealed per-store lease token.")
         .def_static("from_session", &Database::from_session,
              py::arg("db_path"), py::arg("session_handle"), py::arg("store_name") = "library",
@@ -653,13 +659,14 @@ void register_database(py::module_& m) {
                      "(see build env notes).");
              }),
              py::arg("db_path"), py::arg("lease_token"))
-        .def_static("from_lease", [](const std::string&, const std::string&, const std::string&) -> DatabaseStub {
+        .def_static("from_lease", [](const std::string&, const std::string&, const std::string&, const std::string&, const std::string&) -> DatabaseStub {
                  throw py::type_error(
                      "base.database.Database: base was built without "
                      "SQLCipher/libsodium. Rebuild with both available "
                      "(see build env notes).");
              },
-             py::arg("db_path"), py::arg("lease_token"), py::arg("expected_store") = "")
+             py::arg("db_path"), py::arg("lease_token"), py::arg("expected_store") = "",
+             py::arg("expected_supervisor_session") = "", py::arg("daemon_key_path") = "")
         .def_static("from_session", [](const std::string&, const std::string&, const std::string&) -> DatabaseStub {
                  throw py::type_error(
                      "base.database.Database: base was built without "
