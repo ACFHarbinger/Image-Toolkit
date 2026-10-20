@@ -1,0 +1,886 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "system.convert",
+      "title": "Convert",
+      "category": "System Tools",
+      "kind": "page",
+      "order_index": 0,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": "convert",
+      "companion_window_id": null
+    },
+    {
+      "id": "system.merge",
+      "title": "Merge",
+      "category": "System Tools",
+      "kind": "page",
+      "order_index": 1,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": "merge",
+      "companion_window_id": null
+    },
+    {
+      "id": "system.similarity",
+      "title": "Similarity",
+      "category": "System Tools",
+      "kind": "page",
+      "order_index": 2,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": "delete",
+      "companion_window_id": null
+    },
+    {
+      "id": "system.extractor",
+      "title": "Extractor",
+      "category": "System Tools",
+      "kind": "page",
+      "order_index": 3,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": "extractor",
+      "companion_window_id": null
+    },
+    {
+      "id": "system.wallpaper",
+      "title": "Wallpaper",
+      "category": "System Tools",
+      "kind": "page",
+      "order_index": 4,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": "wallpaper",
+      "companion_window_id": "slideshow"
+    },
+    {
+      "id": "library.listings",
+      "title": "Listings",
+      "category": "Library Database",
+      "kind": "page",
+      "order_index": 5,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "library.search",
+      "title": "Image Search",
+      "category": "Library Database",
+      "kind": "page",
+      "order_index": 6,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": "search",
+      "companion_window_id": null
+    },
+    {
+      "id": "library.scan",
+      "title": "Scan and Tag",
+      "category": "Library Database",
+      "kind": "page",
+      "order_index": 7,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": "scan",
+      "companion_window_id": null
+    },
+    {
+      "id": "library.management",
+      "title": "Management",
+      "category": "Library Database",
+      "kind": "page",
+      "order_index": 8,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": "database",
+      "companion_window_id": null
+    },
+    {
+      "id": "library.data-browser",
+      "title": "Data Browser",
+      "category": "Library Database",
+      "kind": "page",
+      "order_index": 9,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "web.crawler",
+      "title": "Crawler",
+      "category": "Web Integration",
+      "kind": "page",
+      "order_index": 10,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": "crawler",
+      "companion_window_id": null
+    },
+    {
+      "id": "web.requests",
+      "title": "Requests",
+      "category": "Web Integration",
+      "kind": "page",
+      "order_index": 11,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": "webreq",
+      "companion_window_id": null
+    },
+    {
+      "id": "web.drive-sync",
+      "title": "Cloud Synchronization",
+      "category": "Web Integration",
+      "kind": "page",
+      "order_index": 12,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": "drive",
+      "companion_window_id": null
+    },
+    {
+      "id": "web.media-loader",
+      "title": "Media Loader",
+      "category": "Web Integration",
+      "kind": "page",
+      "order_index": 13,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "web.reverse-search",
+      "title": "Reverse Search",
+      "category": "Web Integration",
+      "kind": "page",
+      "order_index": 14,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": "revsearch",
+      "companion_window_id": null
+    },
+    {
+      "id": "web.entity-recon",
+      "title": "Entity Reconnaissance",
+      "category": "Web Integration",
+      "kind": "page",
+      "order_index": 15,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "ml.training",
+      "title": "Training",
+      "category": "Deep Learning",
+      "kind": "page",
+      "order_index": 16,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": "train",
+      "companion_window_id": null
+    },
+    {
+      "id": "ml.generation",
+      "title": "Generation",
+      "category": "Deep Learning",
+      "kind": "page",
+      "order_index": 17,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": "generate",
+      "companion_window_id": null
+    },
+    {
+      "id": "ml.evaluation",
+      "title": "Evaluation",
+      "category": "Deep Learning",
+      "kind": "page",
+      "order_index": 18,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": "evaluate",
+      "companion_window_id": null
+    },
+    {
+      "id": "ml.inference",
+      "title": "Inference",
+      "category": "Deep Learning",
+      "kind": "page",
+      "order_index": 19,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": "inference",
+      "companion_window_id": null
+    },
+    {
+      "id": "ml.comfyui",
+      "title": "ComfyUI",
+      "category": "Deep Learning",
+      "kind": "page",
+      "order_index": 20,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "manga.colorization",
+      "title": "Colorization",
+      "category": "Manga",
+      "kind": "page",
+      "order_index": 21,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "manga.animation",
+      "title": "Animation",
+      "category": "Manga",
+      "kind": "page",
+      "order_index": 22,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "manga.puppeteering",
+      "title": "Puppeteering",
+      "category": "Manga",
+      "kind": "page",
+      "order_index": 23,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "editor.hybrid",
+      "title": "Hybrid Editor",
+      "category": "Image Editor",
+      "kind": "page",
+      "order_index": 24,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "layers",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": "hie_editor",
+      "companion_window_id": null
+    },
+    {
+      "id": "developer.benchmarks",
+      "title": "Benchmarks",
+      "category": "Developer / Diagnostics",
+      "kind": "page",
+      "order_index": 25,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "chart",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "frontend"
+      ],
+      "legacy_frontend_id": "benchmarks",
+      "companion_window_id": null
+    },
+    {
+      "id": "stitch",
+      "title": "Image Stitching",
+      "category": "Image Stitching",
+      "kind": "workspace",
+      "order_index": 0,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "layers",
+      "capability_flags": [
+        "experimental"
+      ],
+      "search_terms": [
+        "stitch",
+        "panorama",
+        "anime"
+      ],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "dl",
+      "title": "Deep Learning",
+      "category": "Deep Learning",
+      "kind": "workspace",
+      "order_index": 0,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "cpu",
+      "capability_flags": [
+        "experimental"
+      ],
+      "search_terms": [
+        "train",
+        "lora",
+        "comfy",
+        "generate"
+      ],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "stitch.stitch",
+      "title": "Stitch",
+      "category": "Image Stitching",
+      "kind": "route",
+      "order_index": 0,
+      "window_id": "main",
+      "workspace_id": "stitch",
+      "route_key": "stitch",
+      "icon_name": "layers",
+      "capability_flags": [
+        "experimental"
+      ],
+      "search_terms": [
+        "stitch",
+        "stitch"
+      ],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "stitch.graph",
+      "title": "Graph",
+      "category": "Image Stitching",
+      "kind": "route",
+      "order_index": 1,
+      "window_id": "main",
+      "workspace_id": "stitch",
+      "route_key": "graph",
+      "icon_name": "layers",
+      "capability_flags": [
+        "experimental"
+      ],
+      "search_terms": [
+        "stitch",
+        "graph"
+      ],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "stitch.adjust",
+      "title": "Adjust",
+      "category": "Image Stitching",
+      "kind": "route",
+      "order_index": 2,
+      "window_id": "main",
+      "workspace_id": "stitch",
+      "route_key": "adjust",
+      "icon_name": "layers",
+      "capability_flags": [
+        "experimental"
+      ],
+      "search_terms": [
+        "stitch",
+        "adjust"
+      ],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "stitch.canvas",
+      "title": "Canvas",
+      "category": "Image Stitching",
+      "kind": "route",
+      "order_index": 3,
+      "window_id": "main",
+      "workspace_id": "stitch",
+      "route_key": "canvas",
+      "icon_name": "layers",
+      "capability_flags": [
+        "experimental"
+      ],
+      "search_terms": [
+        "stitch",
+        "canvas"
+      ],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "stitch.statistics",
+      "title": "Statistics",
+      "category": "Image Stitching",
+      "kind": "route",
+      "order_index": 4,
+      "window_id": "main",
+      "workspace_id": "stitch",
+      "route_key": "statistics",
+      "icon_name": "layers",
+      "capability_flags": [
+        "experimental"
+      ],
+      "search_terms": [
+        "stitch",
+        "statistics"
+      ],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "stitch.sequence-builder",
+      "title": "Sequence Builder",
+      "category": "Image Stitching",
+      "kind": "route",
+      "order_index": 5,
+      "window_id": "main",
+      "workspace_id": "stitch",
+      "route_key": "sequence-builder",
+      "icon_name": "layers",
+      "capability_flags": [
+        "experimental"
+      ],
+      "search_terms": [
+        "stitch",
+        "sequence-builder"
+      ],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "stitch.hybrid",
+      "title": "Hybrid Stitch",
+      "category": "Image Stitching",
+      "kind": "route",
+      "order_index": 6,
+      "window_id": "main",
+      "workspace_id": "stitch",
+      "route_key": "hybrid",
+      "icon_name": "layers",
+      "capability_flags": [
+        "experimental"
+      ],
+      "search_terms": [
+        "stitch",
+        "hybrid"
+      ],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "stitch.animation-clusters",
+      "title": "Animation Clusters",
+      "category": "Image Stitching",
+      "kind": "route",
+      "order_index": 7,
+      "window_id": "main",
+      "workspace_id": "stitch",
+      "route_key": "animation-clusters",
+      "icon_name": "layers",
+      "capability_flags": [
+        "experimental"
+      ],
+      "search_terms": [
+        "stitch",
+        "animation-clusters"
+      ],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "dl.train",
+      "title": "Train",
+      "category": "Deep Learning",
+      "kind": "route",
+      "order_index": 0,
+      "window_id": "main",
+      "workspace_id": "dl",
+      "route_key": "train",
+      "icon_name": "cpu",
+      "capability_flags": [
+        "experimental"
+      ],
+      "search_terms": [
+        "deep learning",
+        "train"
+      ],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "dl.generate",
+      "title": "Generate",
+      "category": "Deep Learning",
+      "kind": "route",
+      "order_index": 1,
+      "window_id": "main",
+      "workspace_id": "dl",
+      "route_key": "generate",
+      "icon_name": "cpu",
+      "capability_flags": [
+        "experimental"
+      ],
+      "search_terms": [
+        "deep learning",
+        "generate"
+      ],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "dl.review",
+      "title": "Review",
+      "category": "Deep Learning",
+      "kind": "route",
+      "order_index": 2,
+      "window_id": "main",
+      "workspace_id": "dl",
+      "route_key": "review",
+      "icon_name": "cpu",
+      "capability_flags": [
+        "experimental"
+      ],
+      "search_terms": [
+        "deep learning",
+        "review"
+      ],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "dl.runs",
+      "title": "Runs",
+      "category": "Deep Learning",
+      "kind": "route",
+      "order_index": 3,
+      "window_id": "main",
+      "workspace_id": "dl",
+      "route_key": "runs",
+      "icon_name": "cpu",
+      "capability_flags": [
+        "experimental"
+      ],
+      "search_terms": [
+        "deep learning",
+        "runs"
+      ],
+      "surfaces": [
+        "qt",
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    }
+  ],
+  "aliases": [
+    {
+      "alias_id": "ml.training",
+      "target_id": "dl.train",
+      "applies_when": "experimental-dl"
+    },
+    {
+      "alias_id": "ml.generation",
+      "target_id": "dl.generate",
+      "applies_when": "experimental-dl"
+    },
+    {
+      "alias_id": "ml.evaluation",
+      "target_id": "dl.review",
+      "applies_when": "experimental-dl"
+    },
+    {
+      "alias_id": "ml.inference",
+      "target_id": "dl.review",
+      "applies_when": "experimental-dl"
+    },
+    {
+      "alias_id": "ml.comfyui",
+      "target_id": "dl.generate",
+      "applies_when": "experimental-dl"
+    }
+  ],
+  "windows": [
+    {
+      "id": "main",
+      "role": "main",
+      "panel_of": null
+    },
+    {
+      "id": "tray",
+      "role": "tray",
+      "panel_of": null
+    },
+    {
+      "id": "slideshow",
+      "role": "slideshow",
+      "panel_of": null
+    },
+    {
+      "id": "cloud.jobs",
+      "role": "popout",
+      "panel_of": "main"
+    }
+  ]
+}

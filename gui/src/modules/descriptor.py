@@ -9,20 +9,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Callable, Optional
 
+from middleware.src.shell.catalog import ModuleCategory
 from PySide6.QtWidgets import QWidget
-
-
-class ModuleCategory(str, Enum):
-    """Functional categories for application modules."""
-
-    SYSTEM = "System Tools"
-    LIBRARY = "Library Database"
-    WEB = "Web Integration"
-    DEEP_LEARNING = "Deep Learning"
-    STITCHING = "Image Stitching"
-    MANGA = "Manga"
-    EDITOR = "Image Editor"
-    DEVELOPER = "Developer / Diagnostics"
 
 
 class ConstructionPolicy(str, Enum):
