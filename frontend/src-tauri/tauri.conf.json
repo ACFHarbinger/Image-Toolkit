@@ -6,12 +6,13 @@
   "build": {
     "frontendDist": "../build",
     "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "npm start",
-    "beforeBuildCommand": "npm run build"
+    "beforeDevCommand": "npm --prefix .. start",
+    "beforeBuildCommand": "npm --prefix .. run build"
   },
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Image Toolkit",
         "width": 800,
         "height": 600,
@@ -20,11 +21,12 @@
       }
     ],
     "security": {
-      "csp": null,
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' blob: data: asset: http://asset.localhost https://asset.localhost; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:8000 ws://127.0.0.1:8000",
+      "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' blob: data: asset: http://asset.localhost https://asset.localhost; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:8000 ws://127.0.0.1:8000 http://localhost:3000 ws://localhost:3000",
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "**"
+          "$HOME/.image-toolkit/cache/render/**"
         ]
       }
     }
