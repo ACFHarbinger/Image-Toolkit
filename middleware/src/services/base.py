@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from typing import Protocol, TypeVar, runtime_checkable
 
 # Generic type variables for Command and Result
-CommandT = TypeVar("CommandT")
-ResultT = TypeVar("ResultT")
+CommandT = TypeVar("CommandT", contravariant=True)
+ResultT = TypeVar("ResultT", covariant=True)
 
 
 class ServiceError(Exception):

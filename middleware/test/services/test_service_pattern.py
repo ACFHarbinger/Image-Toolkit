@@ -75,7 +75,7 @@ class TestConvertServiceOperations:
             input_path=str(in_file),
             output_path=str(out_file),
             output_format="jpg",
-            quality=90,
+            quality=95,
         )
 
         result = service.convert_single(cmd)
@@ -180,3 +180,51 @@ class TestServiceBoundaries:
         for mod_name in list(sys.modules.keys()):
             if mod_name.startswith("gui."):
                 pytest.fail(f"Service layer transitively imported GUI module: {mod_name}")
+
+
+def test_converter_delegates_to_existing_core(tmp_path, monkeypatch):
+    from middleware.src.core.image.image_converter import ImageFormatConverter
+
+    source = _create_sample_image(tmp_path / "input.png")
+    called = []
+
+    def convert(path, output, **kwargs):
+        called.append((path, kwargs))
+        Path(output).write_bytes(b"encoded")
+        return True
+
+    monkeypatch.setattr(ImageFormatConverter, "convert_single_image", convert)
+    result = ConvertService().convert_single(ConvertSingleCommand(str(source), str(tmp_path / "out.png")))
+    assert result.success
+    assert called == [(str(source), {"format": "png"})]
+
+
+def test_failed_conversion_preserves_existing_output(tmp_path, monkeypatch):
+    from middleware.src.core.image.image_converter import ImageFormatConverter
+
+    source = _create_sample_image(tmp_path / "input.png")
+    destination = tmp_path / "output.png"
+    destination.write_bytes(b"original")
+
+    def fail(path, output, **kwargs):
+        Path(output).write_bytes(b"partial")
+        return False
+
+    monkeypatch.setattr(ImageFormatConverter, "convert_single_image", fail)
+    result = ConvertService().convert_single(ConvertSingleCommand(str(source), str(destination)))
+    assert not result.success
+    assert destination.read_bytes() == b"original"
+
+
+def test_batch_rejects_colliding_output_names(tmp_path):
+    source = tmp_path / "in"
+    _create_sample_image(source / "same.png")
+    _create_sample_image(source / "same.jpg")
+    with pytest.raises(CommandValidationError, match="same output"):
+        ConvertService().convert_batch(BatchConvertCommand(str(source), str(tmp_path / "out")))
+
+
+def test_unsupported_quality_is_not_silently_ignored(tmp_path):
+    source = _create_sample_image(tmp_path / "input.png")
+    with pytest.raises(CommandValidationError, match="quality"):
+        ConvertService().convert_single(ConvertSingleCommand(str(source), str(tmp_path / "out.jpg"), quality=75))

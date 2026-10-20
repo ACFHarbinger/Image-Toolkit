@@ -6,10 +6,9 @@ Executes conversion commands independently of UI or transport frameworks.
 from __future__ import annotations
 
 import os
+import tempfile
 import time
 from pathlib import Path
-
-from PIL import Image
 
 from middleware.src.services.base import CommandValidationError, Handler
 from middleware.src.services.convert.commands import (
@@ -19,18 +18,7 @@ from middleware.src.services.convert.commands import (
     ConvertSingleResult,
 )
 
-# Standard image format extension mappings for PIL
-FORMAT_MAPPINGS = {
-    "jpg": "JPEG",
-    "jpeg": "JPEG",
-    "png": "PNG",
-    "webp": "WEBP",
-    "bmp": "BMP",
-    "tiff": "TIFF",
-    "tif": "TIFF",
-    "ico": "ICO",
-    "gif": "GIF",
-}
+SUPPORTED_FORMATS = frozenset({"jpg", "jpeg", "png", "webp", "bmp", "tiff", "tif", "ico", "gif"})
 
 
 class ConvertSingleHandler(Handler[ConvertSingleCommand, ConvertSingleResult]):
@@ -60,23 +48,26 @@ class ConvertSingleHandler(Handler[ConvertSingleCommand, ConvertSingleResult]):
             )
 
         fmt_key = command.output_format.lower().lstrip(".")
-        pil_format = FORMAT_MAPPINGS.get(fmt_key, fmt_key.upper())
+        if fmt_key not in SUPPORTED_FORMATS:
+            raise CommandValidationError("Unsupported output format", field="output_format")
+        if command.quality != 95:
+            raise CommandValidationError("The canonical converter does not support a quality override", field="quality")
+        if in_p.resolve() == out_p.resolve():
+            raise CommandValidationError("Input and output must be different files", field="output_path")
 
         try:
+            from middleware.src.core.image.image_converter import ImageFormatConverter
+
             out_p.parent.mkdir(parents=True, exist_ok=True)
-            with Image.open(in_p) as img:
-                save_kwargs: dict[str, object] = {}
-                if pil_format in ("JPEG", "WEBP") and command.quality > 0:
-                    save_kwargs["quality"] = min(max(command.quality, 1), 100)
-                # Convert RGBA to RGB for JPEG if needed
-                if pil_format == "JPEG" and img.mode in ("RGBA", "LA", "P"):
-                    rgb_img = Image.new("RGB", img.size, (255, 255, 255))
-                    if img.mode == "P":
-                        img = img.convert("RGBA")
-                    rgb_img.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
-                    rgb_img.save(out_p, format=pil_format, **save_kwargs)
+            # Commit only a complete conversion; failure must preserve an existing destination.
+            with tempfile.TemporaryDirectory(prefix=".itk-convert-", dir=out_p.parent) as temporary:
+                staged = Path(temporary) / f"output.{fmt_key}"
+                if not ImageFormatConverter.convert_single_image(str(in_p), str(staged), format=fmt_key):
+                    raise OSError("The canonical converter failed to produce an image")
+                if command.overwrite:
+                    os.replace(staged, out_p)
                 else:
-                    img.save(out_p, format=pil_format, **save_kwargs)
+                    os.link(staged, out_p)
 
             size = out_p.stat().st_size if out_p.exists() else 0
             return ConvertSingleResult(
@@ -118,7 +109,8 @@ class BatchConvertHandler(Handler[BatchConvertCommand, BatchConvertResult]):
         # Discover matching files
         candidates: list[Path] = []
         if command.recursive:
-            for root, _, files in os.walk(in_dir):
+            for root, directories, files in os.walk(in_dir):
+                directories[:] = [d for d in directories if (Path(root) / d).resolve() != out_dir.resolve()]
                 for f in files:
                     ext = Path(f).suffix.lower().lstrip(".")
                     if ext in target_exts:
@@ -131,6 +123,10 @@ class BatchConvertHandler(Handler[BatchConvertCommand, BatchConvertResult]):
                         candidates.append(item)
 
         candidates.sort()
+
+        destinations = [out_dir / src.relative_to(in_dir).with_suffix("." + out_ext) for src in candidates]
+        if len({path.resolve() for path in destinations}) != len(destinations):
+            raise CommandValidationError("Multiple inputs map to the same output file", field="output_dir")
 
         succeeded = 0
         failed = 0
