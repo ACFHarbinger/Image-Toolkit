@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "envelope/error.json",
+  "title": "BridgeError",
+  "description": "Application error envelope. Carried in the JSON-RPC error object's `data` field on the wire (see response.json). `code` is a dotted, lowercase application code mapped onto middleware/src/errors/; `message_key` is the lookup key for user-facing text in both shells; `retryable` tells the client whether the same request may be retried as-is.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["code", "retryable", "message_key"],
+  "properties": {
+    "code": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
+    },
+    "retryable": { "type": "boolean" },
+    "message_key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"
+    },
+    "details": { "type": "object" }
+  }
+}

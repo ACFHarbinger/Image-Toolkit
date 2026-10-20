@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "envelope/response.json",
+  "title": "BridgeResponse",
+  "description": "JSON-RPC 2.0 response frame: exactly one of `result` or `error` is present. On error, the JSON-RPC error object's `data` field carries the application error envelope (error.json). Emitted as the union ResultResponse | ErrorResponse.",
+  "oneOf": [
+    { "$ref": "#/$defs/ResultResponse" },
+    { "$ref": "#/$defs/ErrorResponse" }
+  ],
+  "$defs": {
+    "ResultResponse": {
+      "title": "ResultResponse",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["jsonrpc", "id", "result"],
+      "properties": {
+        "jsonrpc": { "const": "2.0" },
+        "id": { "type": ["string", "integer", "null"] },
+        "result": {
+          "type": ["object", "array", "string", "number", "boolean", "null"]
+        }
+      }
+    },
+    "ErrorResponse": {
+      "title": "ErrorResponse",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["jsonrpc", "id", "error"],
+      "properties": {
+        "jsonrpc": { "const": "2.0" },
+        "id": { "type": ["string", "integer", "null"] },
+        "error": { "$ref": "#/$defs/RpcErrorObject" }
+      }
+    },
+    "RpcErrorObject": {
+      "title": "RpcErrorObject",
+      "description": "The JSON-RPC 2.0 error object. `data` is the application error envelope.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "data"],
+      "properties": {
+        "code": { "type": "integer" },
+        "message": { "type": "string" },
+        "data": { "$ref": "./error.json" }
+      }
+    }
+  }
+}

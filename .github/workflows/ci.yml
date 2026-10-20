@@ -58,6 +58,9 @@ jobs:
       - name: Run Tauri capability/security checks (W0-04 / #868)
         run: uv run python middleware/validation/check_tauri_security.py
 
+      - name: Check contract freshness (W0-10 / #874)
+        run: uv run python contracts/generate.py --check
+
       - name: mypy — strict modules (§5.5A / A.10)
         run: >
           uv run mypy
@@ -162,6 +165,11 @@ jobs:
         env:
           PYTHONPATH: .
           QT_QPA_PLATFORM: offscreen
+
+      - name: Run contracts pytest (W0-10 / #874)
+        run: uv run pytest contracts/test -q --tb=short
+        env:
+          PYTHONPATH: .
 
       - name: Run GUI pytest
         # --skip-gpu lives in middleware/test/conftest.py and is unregistered

@@ -67,6 +67,7 @@ suggestion:
 
 ### Global Coding Standards
 *   **Renames (Tauri migration Wave 0):** the Python package is `middleware/` (was `backend/`, W0-01 #865), and the C++ pybind11 core is `backend/`, imported as `import backend` (was `base/` / `import base`, W0-02 #866). There are no compatibility aliases: `import base` and `backend.src…` no longer work. Build the core with `just build::build-base`, which writes to `build/backend` and installs `backend.cpython-*.so` at the repo root.
+*   **Bridge contracts (W0-10 #874):** the contract source of truth is `contracts/` (JSON Schema per capability + `methods.toml` routing). Edit schemas and regenerate with `python contracts/generate.py` — never edit `contracts/generated/` or `CONTRACTS.sha256`; CI's `contracts/generate.py --check` fails on drift.
 *   **Database**: Keep `middleware/src/database/unified/schema.sql` compatible (migrations, not ad-hoc DDL). Use transactions for group/image integrity.
 *   **Security**: **NEVER** hardcode credentials. Use `VaultManager`.
 *   **Threading**: All heavy computations must run off the main thread (QThread/QRunnable).

@@ -23,6 +23,7 @@
 | `gui/src/components/dialogs/asp_advanced_config_dialog.py` | 437 | 21 | 8 | 466 |
 | `gui/src/tabs/web/reverse_search_tab.py` | 434 | 45 | 21 | 500 |
 | `gui/src/tabs/models/dl_workspace_host.py` | 434 | 5 | 24 | 463 |
+| `middleware/src/core/vault_manager.py` | 432 | 32 | 80 | 544 |
 | `gui/src/windows/settings/_reset_state.py` | 432 | 16 | 17 | 465 |
 | `gui/src/helpers/core/_queue_extraction_process.py` | 429 | 7 | 29 | 465 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 418 | 27 | 20 | 465 |
@@ -46,7 +47,6 @@
 | `gui/src/tabs/web/web_requests_tab.py` | 377 | 39 | 6 | 422 |
 | `gui/src/components/dialogs/dataset_advisor_panel.py` | 371 | 12 | 16 | 399 |
 | `gui/src/windows/settings/_profile_management.py` | 371 | 34 | 18 | 423 |
-| `middleware/src/core/vault_manager.py` | 368 | 31 | 77 | 476 |
 | `gui/src/tabs/models/guidance_diff_widget.py` | 366 | 4 | 21 | 391 |
 | `middleware/src/core/dataset_advisor.py` | 365 | 9 | 31 | 405 |
 | `gui/src/components/virtual_gallery/virtual_gallery_model.py` | 365 | 48 | 81 | 494 |
@@ -56,4 +56,4 @@
 | `gui/src/tabs/core/extractor_tab/_queue_panel.py` | 346 | 36 | 32 | 414 |
 | `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
 | `gui/src/windows/settings/settings_window.py` | 345 | 28 | 10 | 383 |
-| **TOTALS** | **105646** | **6624** | **10729** | **122999** |
+| **TOTALS** | **105721** | **6625** | **10732** | **123078** |

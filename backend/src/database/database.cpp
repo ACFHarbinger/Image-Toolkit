@@ -14,6 +14,7 @@
 // ---------------------------------------------------------------------------
 
 #include "database/database.hpp"
+#include "vault/vault.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -151,28 +152,17 @@ struct Stmt {
 } // namespace
 
 class Database {
-public:
-    Database(std::string db_path, std::string password, std::string salt)
-        : db_path_(std::move(db_path)) {
-        std::vector<uint8_t> key;
-        {
-            // KDF + open are pure C++ — release the GIL (19 MB Argon2id pass).
-            py::gil_scoped_release release;
-            key = derive_key(password, salt);
-        }
-
+private:
+    void open_with_raw_key(const uint8_t* key_bytes, size_t key_len) {
         if (sqlite3_open(db_path_.c_str(), &db_) != SQLITE_OK) {
             std::string err = db_ ? sqlite3_errmsg(db_) : "out of memory";
             if (db_) { sqlite3_close(db_); db_ = nullptr; }
-            sodium_memzero(key.data(), key.size());
             throw std::runtime_error("base.database: sqlite3_open failed: " + err);
         }
-        if (sqlite3_key(db_, key.data(), static_cast<int>(key.size())) != SQLITE_OK) {
+        if (sqlite3_key(db_, key_bytes, static_cast<int>(key_len)) != SQLITE_OK) {
             sqlite3_close(db_); db_ = nullptr;
-            sodium_memzero(key.data(), key.size());
             throw std::runtime_error("base.database: sqlite3_key failed");
         }
-        sodium_memzero(key.data(), key.size());
 
         // Verify the key actually decrypts the file (sqlite3_key never fails
         // on a wrong key; the first real read does).
@@ -183,13 +173,63 @@ public:
             sqlite3_free(errmsg);
             sqlite3_close(db_); db_ = nullptr;
             throw std::runtime_error(
-                "base.database: cannot read database — wrong password/salt "
+                "base.database: cannot read database — wrong password/salt/lease "
                 "or corrupted file (" + err + ")");
         }
 
         exec_or_throw("PRAGMA foreign_keys = ON;");
         exec_or_throw("PRAGMA journal_mode = WAL;");
         exec_or_throw("PRAGMA busy_timeout = 5000;");
+    }
+
+public:
+    // Direct raw key internal constructor
+    Database(std::string db_path, const uint8_t* key_bytes, size_t key_len)
+        : db_path_(std::move(db_path)) {
+        open_with_raw_key(key_bytes, key_len);
+    }
+
+    // (password, salt) OR (session_handle, store_name)
+    Database(std::string db_path, std::string arg1, std::string arg2)
+        : db_path_(std::move(db_path)) {
+        if (arg1.rfind("vses_", 0) == 0) {
+            std::string store_name = arg2.empty() ? "library" : arg2;
+            auto dek = base::vault::derive_store_dek(arg1, store_name);
+            open_with_raw_key(dek->data(), dek->size());
+        } else {
+            std::vector<uint8_t> key;
+            {
+                // KDF + open are pure C++ — release the GIL (19 MB Argon2id pass).
+                py::gil_scoped_release release;
+                key = derive_key(arg1, arg2);
+            }
+            try {
+                open_with_raw_key(key.data(), key.size());
+            } catch (...) {
+                sodium_memzero(key.data(), key.size());
+                throw;
+            }
+            sodium_memzero(key.data(), key.size());
+        }
+    }
+
+    // Direct sealed lease constructor
+    Database(std::string db_path, std::string lease_token)
+        : db_path_(std::move(db_path)) {
+        auto lease_info = base::vault::unseal_store_lease(lease_token);
+        open_with_raw_key(lease_info.store_dek->data(), lease_info.store_dek->size());
+    }
+
+    static std::unique_ptr<Database> from_lease(
+        std::string db_path, std::string lease_token, std::string expected_store = "") {
+        auto lease_info = base::vault::unseal_store_lease(lease_token, expected_store);
+        return std::make_unique<Database>(std::move(db_path), lease_info.store_dek->data(), lease_info.store_dek->size());
+    }
+
+    static std::unique_ptr<Database> from_session(
+        std::string db_path, std::string session_handle, std::string store_name = "library") {
+        auto dek = base::vault::derive_store_dek(session_handle, store_name);
+        return std::make_unique<Database>(std::move(db_path), dek->data(), dek->size());
     }
 
     ~Database() { close_internal(); }
@@ -528,9 +568,17 @@ void register_database(py::module_& m) {
 
     py::class_<Database>(m, "Database")
         .def(py::init<std::string, std::string, std::string>(),
-             py::arg("db_path"), py::arg("password"), py::arg("salt"),
-             "Open (creating if absent) an encrypted database. Runs the "
-             "Argon2id KDF once; raises RuntimeError on a wrong password.")
+             py::arg("db_path"), py::arg("password_or_session"), py::arg("salt_or_store"),
+             "Open (creating if absent) an encrypted database via password+salt or session_handle+store.")
+        .def(py::init<std::string, std::string>(),
+             py::arg("db_path"), py::arg("lease_token"),
+             "Open encrypted database directly via sealed per-store lease token.")
+        .def_static("from_lease", &Database::from_lease,
+             py::arg("db_path"), py::arg("lease_token"), py::arg("expected_store") = "",
+             "Open encrypted database via sealed per-store lease token.")
+        .def_static("from_session", &Database::from_session,
+             py::arg("db_path"), py::arg("session_handle"), py::arg("store_name") = "library",
+             "Open encrypted database via active C++ vault session handle.")
         .def("close", &Database::close,
              "Close the connection. Further calls raise RuntimeError.")
         .def_property_readonly("is_open", &Database::is_open)
@@ -597,7 +645,28 @@ void register_database(py::module_& m) {
                      "SQLCipher/libsodium. Rebuild with both available "
                      "(see build env notes).");
              }),
-             py::arg("db_path"), py::arg("password"), py::arg("salt"));
+             py::arg("db_path"), py::arg("password_or_session"), py::arg("salt_or_store"))
+        .def(py::init([](const std::string&, const std::string&) -> DatabaseStub {
+                 throw py::type_error(
+                     "base.database.Database: base was built without "
+                     "SQLCipher/libsodium. Rebuild with both available "
+                     "(see build env notes).");
+             }),
+             py::arg("db_path"), py::arg("lease_token"))
+        .def_static("from_lease", [](const std::string&, const std::string&, const std::string&) -> DatabaseStub {
+                 throw py::type_error(
+                     "base.database.Database: base was built without "
+                     "SQLCipher/libsodium. Rebuild with both available "
+                     "(see build env notes).");
+             },
+             py::arg("db_path"), py::arg("lease_token"), py::arg("expected_store") = "")
+        .def_static("from_session", [](const std::string&, const std::string&, const std::string&) -> DatabaseStub {
+                 throw py::type_error(
+                     "base.database.Database: base was built without "
+                     "SQLCipher/libsodium. Rebuild with both available "
+                     "(see build env notes).");
+             },
+             py::arg("db_path"), py::arg("session_handle"), py::arg("store_name") = "library");
 }
 
 #endif // HAVE_SQLCIPHER

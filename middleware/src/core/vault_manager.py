@@ -258,6 +258,7 @@ class VaultManager:
         self._lock = threading.RLock()
         self.api_credentials = {}
         self._in_memory_data = {}
+        self._session_handle: Optional[str] = None
 
         if self.is_guest:
             self.PEPPER = ""
@@ -280,6 +281,7 @@ class VaultManager:
         self.keystore_pass: Optional[str] = None
         self.secret_key = None
         self.vault = None
+        self._session_handle: Optional[str] = None
 
     @require_path("keystore_path")
     def load_keystore(self, keystore_path: str, keystore_pass: str):
@@ -350,6 +352,22 @@ class VaultManager:
                 )
             self.secret_key = key_bytes
             print("SecretKey retrieved.", file=sys.stderr)
+
+            # Register session in C++ core if backend is available
+            try:
+                import backend
+
+                self._session_handle = backend.vault.unlock(
+                    self.keystore, key_alias, key_pass
+                )
+            except Exception:
+                try:
+                    import backend
+
+                    if self.secret_key and len(self.secret_key) == 32:
+                        self._session_handle = backend.vault.unlock_raw(self.secret_key)
+                except Exception:
+                    pass
 
     def init_vault(self, vault_file_path: str):
         """
@@ -491,8 +509,69 @@ class VaultManager:
                 file=sys.stderr,
             )
 
+    def get_session_handle(self) -> str:
+        """Returns the C++ vault session handle ('vses_<hex>') for this unlocked vault."""
+        with self._lock:
+            if self._session_handle is not None:
+                try:
+                    import backend
+
+                    if backend.vault.is_unlocked(self._session_handle):
+                        return self._session_handle
+                except Exception:
+                    pass
+            if self.is_guest:
+                try:
+                    import backend
+
+                    self._session_handle = backend.vault.unlock_direct("guest", "guest_salt")
+                    return self._session_handle
+                except Exception:
+                    pass
+            if self.secret_key is not None and len(self.secret_key) == 32:
+                try:
+                    import backend
+
+                    self._session_handle = backend.vault.unlock_raw(self.secret_key)
+                    return self._session_handle
+                except Exception:
+                    pass
+            raise ValueError("Vault is not unlocked; call get_secret_key() first.")
+
+    def create_store_lease(
+        self,
+        store_name: str,
+        pid: int = 0,
+        ttl_seconds: int = 0,
+        supervisor_session: str = "",
+    ) -> str:
+        """Create a sealed per-store lease token via C++ core."""
+        import backend
+
+        handle = self.get_session_handle()
+        return backend.vault.create_store_lease(
+            handle,
+            store_name,
+            pid=pid,
+            ttl_seconds=ttl_seconds,
+            supervisor_session=supervisor_session,
+        )
+
+    def lock_session(self) -> None:
+        """Lock the active C++ vault session."""
+        with self._lock:
+            if self._session_handle is not None:
+                try:
+                    import backend
+
+                    backend.vault.lock(self._session_handle)
+                except Exception:
+                    pass
+                self._session_handle = None
+
     def shutdown(self):
-        """Compatibility no-op: the embedded JVM has been removed."""
+        """Release session keys and clear in-memory state."""
+        self.lock_session()
 
     def shutdown_jvm(self):
         """Compatibility no-op: the embedded JVM has been removed."""

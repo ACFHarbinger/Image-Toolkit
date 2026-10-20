@@ -1,0 +1,106 @@
+# Method-routing table for the bridge contracts (W0-10, #874).
+# This file is the routing table OpenCode's HostClient (#876) flips when a
+# Rust duplicate is retired, and the surface Mistral's bridge package (#875)
+# frames and the EventHub (#878) consumes.
+#
+# Schema refs are "<stem>.<Title>": <stem> is the unique schema file stem
+# under schemas/ (envelope: request, response, error, event; capability:
+# system, jobs, ...), <Title> is a top-level "title" or a $defs entry.
+# New capabilities add a schemas/capability/<stem>.json and rows here.
+
+[envelope]
+jsonrpc = "2.0"
+request = "schemas/envelope/request.json"
+response = "schemas/envelope/response.json"
+error = "schemas/envelope/error.json"
+event = "schemas/envelope/event.json"
+
+[[method]]
+name = "system.handshake"
+capability = "system"
+summary = "Version and capability negotiation at sidecar attach; the UI and sidecar ship as one tested pair (Codex R6)."
+params = "system.HandshakeParams"
+result = "system.HandshakeResult"
+errors = []
+cancelable = false
+emits = []
+stability = "stable"
+owner = 875
+
+[[method]]
+name = "system.ping"
+capability = "system"
+summary = "Liveness probe; session-owned."
+params = "system.PingParams"
+result = "system.PingResult"
+errors = []
+cancelable = false
+emits = []
+stability = "stable"
+owner = 875
+
+[[method]]
+name = "jobs.submit"
+capability = "jobs"
+summary = "Submit a durable job; spec is opaque at the bridge layer and validated by the owning service. Durable jobs survive window close (Codex R2)."
+params = "jobs.SubmitParams"
+result = "jobs.SubmitResult"
+errors = ["jobs.submit.rejected"]
+cancelable = false
+emits = ["jobs"]
+stability = "experimental"
+owner = 876
+
+[[method]]
+name = "jobs.cancel"
+capability = "jobs"
+summary = "Idempotent cooperative cancel with escalation (roadmap Cancel); safe to retry, safe to call on a terminal job."
+params = "jobs.CancelParams"
+result = "jobs.CancelResult"
+errors = ["jobs.not_found"]
+cancelable = false
+emits = ["jobs"]
+stability = "experimental"
+owner = 876
+
+[[method]]
+name = "jobs.status"
+capability = "jobs"
+summary = "Point status read; prefer the jobs channel for live progress."
+params = "jobs.StatusParams"
+result = "jobs.JobStatus"
+errors = ["jobs.not_found"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 876
+
+[[method]]
+name = "jobs.list"
+capability = "jobs"
+summary = "Snapshot read; also the snapshot schema for late joiners on the jobs channel (Kimi Q3)."
+params = "jobs.ListParams"
+result = "jobs.ListResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 876
+
+[[channel]]
+name = "jobs"
+payload = "jobs.JobEventPayload"
+snapshot = "jobs.JobListSnapshot"
+durable_default = true
+producers = ["sidecar", "cloud-jobs-daemon"]
+consumers = ["webview"]
+notes = "State transitions and progress of durable jobs; replay source is job_events / events.jsonl."
+
+[[channel]]
+name = "bridge"
+payload = "system.BridgeStatePayload"
+snapshot = "system.BridgeStateSnapshot"
+durable_default = false
+producers = ["supervisor"]
+consumers = ["webview"]
+notes = "Restart contract (roadmap): bridge.down then bridge.ready around sidecar restarts; in-flight session requests fail with the error envelope."
