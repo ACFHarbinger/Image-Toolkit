@@ -162,7 +162,7 @@ export class EventHub {
         pendingMax: this.pendingMax,
         reducer: REDUCERS[channel],
       });
-      this.buffers.set(channel, buffer as ChannelBuffer<ChannelStates[ChannelName]>);
+      this.buffers.set(channel, buffer as unknown as ChannelBuffer<ChannelStates[ChannelName]>);
     }
     return buffer;
   }
