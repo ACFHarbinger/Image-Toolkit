@@ -353,13 +353,43 @@ std::string get_transit_key_path() {
     return root + "/secrets/.lease_transit.key";
 }
 
-void set_transit_key(const std::vector<uint8_t>& key) {
-    if (key.size() != 32) {
-        throw std::invalid_argument("base.vault: transit key must be exactly 32 bytes");
-    }
+void rotate_transit_key() {
+    ensure_sodium_init();
+    auto k = std::make_shared<base::secret::LockedSecret<32>>();
+    randombytes_buf(k->data(), 32);
     std::lock_guard<std::mutex> lock(g_transit_mutex);
-    g_in_memory_transit_key = std::make_shared<base::secret::LockedSecret<32>>();
-    std::memcpy(g_in_memory_transit_key->data(), key.data(), 32);
+    g_in_memory_transit_key = k;
+}
+
+static std::shared_ptr<base::secret::LockedSecret<32>> read_daemon_key_file(const std::string& path) {
+    fs::path p(path);
+    if (!fs::exists(p)) {
+        throw std::runtime_error("base.vault: daemon key file does not exist: " + path);
+    }
+#ifndef _WIN32
+    struct stat st;
+    if (stat(path.c_str(), &st) == 0) {
+        if ((st.st_mode & 0077) != 0) {
+            throw std::runtime_error("base.vault: insecure permissions on daemon key file (must be 0600): " + path);
+        }
+    }
+#endif
+    std::ifstream ifs(path, std::ios::binary);
+    if (!ifs) {
+        throw std::runtime_error("base.vault: cannot read daemon key file at: " + path);
+    }
+    auto k = std::make_shared<base::secret::LockedSecret<32>>();
+    ifs.read(reinterpret_cast<char*>(k->data()), 32);
+    if (ifs.gcount() != 32) {
+        throw std::runtime_error("base.vault: corrupt daemon key file (expected 32 bytes): " + path);
+    }
+    return k;
+}
+
+void load_daemon_key(const std::string& key_path) {
+    auto k = read_daemon_key_file(key_path);
+    std::lock_guard<std::mutex> lock(g_transit_mutex);
+    g_in_memory_transit_key = k;
 }
 
 void clear_transit_key() {
@@ -447,16 +477,58 @@ static std::shared_ptr<base::secret::LockedSecret<32>> get_or_create_transit_key
     return g_in_memory_transit_key;
 }
 
+static std::shared_ptr<base::secret::LockedSecret<32>> resolve_transit_key(const std::string& daemon_key_path) {
+    if (!daemon_key_path.empty()) {
+        return read_daemon_key_file(daemon_key_path);
+    }
+
+    const char* env_key_file = std::getenv("ITK_DAEMON_KEY_FILE");
+    if (env_key_file && env_key_file[0]) {
+        return read_daemon_key_file(env_key_file);
+    }
+
+    const char* env_daemon_name = std::getenv("ITK_DAEMON_NAME");
+    if (env_daemon_name && env_daemon_name[0]) {
+        std::string data_dir;
+        const char* itk_data = std::getenv("IMAGE_TOOLKIT_DATA_DIR");
+        if (itk_data && itk_data[0]) {
+            data_dir = itk_data;
+        } else {
+            const char* itk_dir = std::getenv("IMAGE_TOOLKIT_DIR");
+            if (itk_dir && itk_dir[0]) {
+                data_dir = itk_dir;
+            } else {
+                const char* home = std::getenv("HOME");
+                data_dir = (home && home[0]) ? (std::string(home) + "/.image-toolkit") : ".";
+            }
+        }
+        fs::path p = fs::path(data_dir) / "supervisor" / "keys" / (std::string(env_daemon_name) + ".key");
+        if (fs::exists(p)) {
+            return read_daemon_key_file(p.string());
+        }
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(g_transit_mutex);
+        if (g_in_memory_transit_key) {
+            return g_in_memory_transit_key;
+        }
+    }
+
+    return get_or_create_transit_key();
+}
+
 // ---------------------------------------------------------------------------
 // Sealed Leases Implementation
 // ---------------------------------------------------------------------------
 
-static std::string seal_store_payload(
+static std::string seal_store_payload_with_key(
     const std::string& store_name,
     const uint8_t* store_dek_bytes,
     int64_t pid,
     uint64_t ttl_seconds,
-    const std::string& supervisor_session) {
+    const std::string& supervisor_session,
+    const uint8_t* transit_key_bytes) {
     ensure_sodium_init();
 
     uint64_t now = static_cast<uint64_t>(std::time(nullptr));
@@ -517,7 +589,6 @@ static std::string seal_store_payload(
     ptr += 16;
 
     // Sealing with AEAD XChaCha20-Poly1305
-    auto transit_key = get_or_create_transit_key();
     uint8_t nonce[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES];
     randombytes_buf(nonce, sizeof(nonce));
 
@@ -528,7 +599,7 @@ static std::string seal_store_payload(
         ciphertext.data(), &clen,
         payload.data(), payload.size(),
         LEASE_AEAD_AD, sizeof(LEASE_AEAD_AD) - 1,
-        nullptr, nonce, transit_key->data());
+        nullptr, nonce, transit_key_bytes);
 
     sodium_memzero(payload.data(), payload.size());
 
@@ -543,6 +614,16 @@ static std::string seal_store_payload(
     blob.insert(blob.end(), ciphertext.data(), ciphertext.data() + clen);
 
     return "itkl_v1_" + base64url_encode(blob.data(), blob.size());
+}
+
+static std::string seal_store_payload(
+    const std::string& store_name,
+    const uint8_t* store_dek_bytes,
+    int64_t pid,
+    uint64_t ttl_seconds,
+    const std::string& supervisor_session) {
+    auto transit_key = get_or_create_transit_key();
+    return seal_store_payload_with_key(store_name, store_dek_bytes, pid, ttl_seconds, supervisor_session, transit_key->data());
 }
 
 std::string unlock_raw(const std::vector<uint8_t>& key) {
@@ -573,6 +654,69 @@ std::string create_store_lease(
     return seal_store_payload(store_name, store_dek->data(), pid, ttl_seconds, supervisor_session);
 }
 
+std::string mint_daemon_lease(
+    const std::string& session_handle,
+    const std::string& store_name,
+    const std::string& daemon_name,
+    const std::string& data_dir,
+    int64_t pid,
+    uint64_t ttl_seconds,
+    const std::string& supervisor_session) {
+    if (session_handle.empty()) {
+        throw std::invalid_argument("base.vault: session_handle cannot be empty");
+    }
+    if (store_name.empty()) {
+        throw std::invalid_argument("base.vault: store_name cannot be empty");
+    }
+    if (daemon_name.empty()) {
+        throw std::invalid_argument("base.vault: daemon_name cannot be empty");
+    }
+    if (data_dir.empty()) {
+        throw std::invalid_argument("base.vault: data_dir cannot be empty");
+    }
+
+    ensure_sodium_init();
+
+    auto store_dek = derive_store_dek(session_handle, store_name);
+
+    auto daemon_transit_key = std::make_shared<base::secret::LockedSecret<32>>();
+    randombytes_buf(daemon_transit_key->data(), 32);
+
+    fs::path keys_dir = fs::path(data_dir) / "supervisor" / "keys";
+    fs::create_directories(keys_dir);
+#ifndef _WIN32
+    chmod(keys_dir.c_str(), 0700);
+#endif
+
+    fs::path key_path = keys_dir / (daemon_name + ".key");
+    if (fs::exists(key_path)) {
+        fs::remove(key_path);
+    }
+
+#ifdef _WIN32
+    std::ofstream ofs(key_path, std::ios::binary);
+    if (!ofs) {
+        throw std::runtime_error("base.vault: failed to create daemon key file: " + key_path.string());
+    }
+    ofs.write(reinterpret_cast<const char*>(daemon_transit_key->data()), 32);
+    ofs.close();
+#else
+    int fd = open(key_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600);
+    if (fd < 0) {
+        throw std::runtime_error("base.vault: failed to create daemon key file at: " + key_path.string() + " (" + std::strerror(errno) + ")");
+    }
+    ssize_t written = write(fd, daemon_transit_key->data(), 32);
+    close(fd);
+    if (written != 32) {
+        fs::remove(key_path);
+        throw std::runtime_error("base.vault: incomplete write to daemon key file: " + key_path.string());
+    }
+    chmod(key_path.c_str(), 0600);
+#endif
+
+    return seal_store_payload_with_key(store_name, store_dek->data(), pid, ttl_seconds, supervisor_session, daemon_transit_key->data());
+}
+
 std::string create_raw_store_lease(
     const std::string& store_name,
     const std::vector<uint8_t>& raw_key,
@@ -591,6 +735,8 @@ std::string create_raw_store_lease(
 StoreLeaseInfo unseal_store_lease(
     const std::string& lease_token,
     const std::string& expected_store,
+    const std::string& expected_supervisor_session,
+    const std::string& daemon_key_path,
     bool enforce_validity) {
     ensure_sodium_init();
 
@@ -615,7 +761,7 @@ StoreLeaseInfo unseal_store_lease(
     const uint8_t* cipher = blob.data() + NONCE_LEN;
     size_t cipher_len = blob.size() - NONCE_LEN;
 
-    auto transit_key = get_or_create_transit_key();
+    auto transit_key = resolve_transit_key(daemon_key_path);
     std::vector<uint8_t> decrypted(cipher_len - TAG_LEN);
     unsigned long long decrypted_len = 0;
 
@@ -710,6 +856,23 @@ StoreLeaseInfo unseal_store_lease(
                                          std::to_string(current_pid));
             }
         }
+
+        if (!expected_supervisor_session.empty()) {
+            if (info.supervisor_session != expected_supervisor_session) {
+                throw std::runtime_error("base.vault: supervisor session mismatch: expected '" +
+                                         expected_supervisor_session + "', got '" +
+                                         info.supervisor_session + "'");
+            }
+        }
+
+        const char* env_sup = std::getenv("ITK_SUPERVISOR_SESSION");
+        if (env_sup && env_sup[0]) {
+            if (info.supervisor_session.empty() || info.supervisor_session != env_sup) {
+                throw std::runtime_error("base.vault: supervisor session mismatch with environment: expected '" +
+                                         std::string(env_sup) + "', got '" +
+                                         info.supervisor_session + "'");
+            }
+        }
     }
 
     return info;
@@ -717,13 +880,16 @@ StoreLeaseInfo unseal_store_lease(
 
 pybind11::dict verify_store_lease(
     const std::string& lease_token,
-    const std::string& expected_store) {
-    StoreLeaseInfo info = unseal_store_lease(lease_token, expected_store, false);
+    const std::string& expected_store,
+    const std::string& expected_supervisor_session,
+    const std::string& daemon_key_path) {
+    StoreLeaseInfo info = unseal_store_lease(lease_token, expected_store, "", daemon_key_path, false);
     uint64_t now = static_cast<uint64_t>(std::time(nullptr));
     int64_t current_pid = static_cast<int64_t>(GETPID());
 
     bool is_exp = (info.expires_at > 0 && now >= info.expires_at);
     bool pid_ok = (info.bound_pid == 0 || info.bound_pid == current_pid);
+    bool sup_ok = expected_supervisor_session.empty() || (info.supervisor_session == expected_supervisor_session);
 
     py::dict d;
     d["store_name"] = info.store_name;
@@ -733,7 +899,8 @@ pybind11::dict verify_store_lease(
     d["supervisor_session"] = info.supervisor_session;
     d["is_expired"] = is_exp;
     d["pid_matches"] = pid_ok;
-    d["valid"] = (!is_exp && pid_ok);
+    d["supervisor_matches"] = sup_ok;
+    d["valid"] = (!is_exp && pid_ok && sup_ok);
     return d;
 }
 
@@ -794,31 +961,29 @@ void register_vault(py::module_& m) {
           py::arg("supervisor_session") = "",
           "Create a sealed per-store lease token (e.g. for 'cloud_jobs' or 'library').");
 
-    m.def("create_raw_store_lease",
-          [](const std::string& store_name, py::bytes raw_key, int64_t pid, uint64_t ttl_seconds, const std::string& supervisor_session) {
-              std::string s = raw_key;
-              return create_raw_store_lease(store_name, std::vector<uint8_t>(s.begin(), s.end()), pid, ttl_seconds, supervisor_session);
-          },
-          py::arg("store_name"), py::arg("raw_key"),
+    m.def("mint_daemon_lease", &mint_daemon_lease,
+          py::arg("session_handle"), py::arg("store_name"),
+          py::arg("daemon_name"), py::arg("data_dir"),
           py::arg("pid") = 0, py::arg("ttl_seconds") = 0,
           py::arg("supervisor_session") = "",
-          "Create a sealed lease token directly from a raw 32-byte key.");
+          "Mint a sealed per-store lease with a per-daemon transit secret in native C++.");
 
-    m.def("verify_store_lease", &verify_store_lease,
-          py::arg("lease_token"), py::arg("expected_store") = "",
-          "Verify and inspect a sealed lease token metadata without exposing the secret key.");
+    m.def("load_daemon_key", &load_daemon_key,
+          py::arg("key_path"),
+          "Load a daemon transit key from a secure 0600 file into in-memory storage.");
 
-    m.def("set_transit_key",
-          [](py::bytes key) {
-              std::string s = key;
-              set_transit_key(std::vector<uint8_t>(s.begin(), s.end()));
-          },
-          py::arg("key"),
-          "Set an in-memory transit key override (must be 32 bytes).");
+    m.def("rotate_transit_key", &rotate_transit_key,
+          "Generate a fresh random transit key override in C++ memory (no bytes in Python).");
 
     m.def("clear_transit_key", &clear_transit_key,
           "Clear the in-memory transit key override.");
 
     m.def("get_transit_key_path", &get_transit_key_path,
-          "Return the path to the lease transit key file.");
+          "Return the path to the legacy lease transit key file.");
+
+    m.def("verify_store_lease", &verify_store_lease,
+          py::arg("lease_token"), py::arg("expected_store") = "",
+          py::arg("expected_supervisor_session") = "",
+          py::arg("daemon_key_path") = "",
+          "Verify and inspect a sealed lease token metadata without exposing the secret key.");
 }

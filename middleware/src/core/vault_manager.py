@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import threading
+from pathlib import Path
 from typing import Optional
 
 import middleware.src.constants as udef
@@ -552,6 +553,33 @@ class VaultManager:
         return backend.vault.create_store_lease(
             handle,
             store_name,
+            pid=pid,
+            ttl_seconds=ttl_seconds,
+            supervisor_session=supervisor_session,
+        )
+
+    def handoff_daemon_lease(
+        self,
+        store_name: str,
+        daemon_name: str,
+        data_dir: str | Path,
+        pid: int = 0,
+        ttl_seconds: int = 0,
+        supervisor_session: str = "",
+    ) -> str:
+        """Mint a sealed per-store lease with an isolated per-daemon transit secret in native C++.
+
+        Plaintext DEK and transit key never enter Python memory. The transit secret
+        is stored in a 0600 file under `<data_dir>/supervisor/keys/<daemon_name>.key`.
+        """
+        import backend
+
+        handle = self.get_session_handle()
+        return backend.vault.mint_daemon_lease(
+            handle,
+            store_name,
+            daemon_name,
+            str(data_dir),
             pid=pid,
             ttl_seconds=ttl_seconds,
             supervisor_session=supervisor_session,
