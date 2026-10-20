@@ -16,6 +16,7 @@ the draft. Everything else raises ``UnsupportedSchema``.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -138,19 +139,20 @@ class SchemaRegistry:
         for sub in schema.get("oneOf", []):
             if "$ref" not in sub:
                 raise UnsupportedSchema(f"oneOf branch without $ref in {where}")
+            self._check_keywords(sub, where)
 
-    def _resolve(self, ref: str, base_path: str) -> tuple[dict[str, Any], str]:
+    def _resolve(self, ref: str, base_path: str) -> tuple[dict[str, Any], str, str]:
         import posixpath
 
         if ref.startswith("#"):
-            return self.document(base_path), ref
+            return self.document(base_path), ref, base_path
         file_part, _, fragment = ref.partition("#")
         target = posixpath.normpath(posixpath.join(posixpath.dirname(base_path), file_part))
-        return self.document(target), fragment or "#"
+        return self.document(target), fragment or "#", target
 
     def validate(self, instance: Any, schema_ref: str, base_path: str) -> list[SchemaError]:
         """Validate ``instance`` against a schema (``schema_ref`` is a ``$ref``)."""
-        doc, fragment = self._resolve(schema_ref, base_path)
+        doc, fragment, base_path = self._resolve(schema_ref, base_path)
         if fragment.startswith("#/$defs/"):
             name = fragment.removeprefix("#/$defs/")
             schema = doc.get("$defs", {}).get(name)
@@ -174,19 +176,20 @@ class SchemaRegistry:
         errors: list[SchemaError],
     ) -> None:
         if "$ref" in schema:
-            doc, fragment = self._resolve(schema["$ref"], base_path)
+            doc, fragment, target_path = self._resolve(schema["$ref"], base_path)
             target = doc if fragment == "#" else doc["$defs"][fragment.removeprefix("#/$defs/")]
-            self._check(instance, target, path, base_path, errors)
+            self._check(instance, target, path, target_path, errors)
             return
 
         if "oneOf" in schema:
+            matches = 0
             for branch in schema["oneOf"]:
                 branch_errors: list[SchemaError] = []
                 self._check(instance, branch, path, base_path, branch_errors)
                 if not branch_errors:
-                    return
-            errors.append(SchemaError(path or "$", "matches none of the oneOf branches"))
-            return
+                    matches += 1
+            if matches != 1:
+                errors.append(SchemaError(path or "$", f"matches {matches} oneOf branches; expected exactly one"))
 
         expected = schema.get("type")
         if expected is not None:
@@ -226,6 +229,9 @@ class SchemaRegistry:
             if min_length is not None and len(instance) < min_length:
                 errors.append(SchemaError(path or "$", f"shorter than minLength {min_length}"))
         if isinstance(instance, (int, float)) and not isinstance(instance, bool):
+            if isinstance(instance, float) and not math.isfinite(instance):
+                errors.append(SchemaError(path or "$", "must be a finite JSON number"))
+                return
             minimum = schema.get("minimum")
             if minimum is not None and instance < minimum:
                 errors.append(SchemaError(path or "$", f"below minimum {minimum}"))

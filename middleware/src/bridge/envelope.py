@@ -197,7 +197,9 @@ def from_exception(exc: Exception) -> BridgeAppError:
 
     Service errors raised as ``BridgeAppError`` keep their envelope;
     ``ValueError``/validation failures map to invalid params (retryable,
-    caller can fix the input); everything else is an opaque internal
+    caller can fix the input); messages are opaque and expose only the
+    exception class so service validation cannot echo credentials. Everything
+    else is an opaque internal
     failure with the exception class name only.
     """
     if isinstance(exc, BridgeAppError):
@@ -208,7 +210,7 @@ def from_exception(exc: Exception) -> BridgeAppError:
         return BridgeAppError(
             "bridge.invalid_params",
             retryable=True,
-            details={"reason": str(exc)},
+            details={"reason": type(exc).__name__},
         )
     if isinstance(exc, ImageToolkitError):
         return BridgeAppError("app.internal", details={"reason": type(exc).__name__})

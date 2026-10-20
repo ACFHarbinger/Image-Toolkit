@@ -126,12 +126,13 @@ def test_decode_app_error_enforces_dotted_code() -> None:
 
 
 def test_from_exception_maps_without_traceback() -> None:
-    # caller-input errors echo the reason (the caller's own input); internal
+    # Caller-input exceptions can include credentials; expose the class only.
+    # Internal
     # failures leak nothing but the exception class name
     app_error = from_exception(ValueError("boom at secret/path"))
     assert app_error.code == "bridge.invalid_params"
     assert app_error.retryable is True
-    assert app_error.details == {"reason": "boom at secret/path"}
+    assert app_error.details == {"reason": "ValueError"}
 
     app_error = from_exception(PipelineError("detailed traceback at /home/user/x"))
     assert app_error.code == "app.internal"

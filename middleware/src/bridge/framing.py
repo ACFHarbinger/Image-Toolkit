@@ -32,6 +32,10 @@ def write_frame(stream: TextIO, message: dict[str, Any]) -> None:
     stream.flush()
 
 
+def _reject_constant(value: str) -> None:
+    raise ValueError(f"invalid JSON constant {value}")
+
+
 def iter_frames(stream: TextIO) -> Iterator[dict[str, Any]]:
     """Yield decoded frames; a non-JSON line raises a parse app error."""
     for line in stream:
@@ -39,12 +43,12 @@ def iter_frames(stream: TextIO) -> Iterator[dict[str, Any]]:
         if not line:
             continue
         try:
-            frame = json.loads(line)
-        except json.JSONDecodeError as exc:
+            frame = json.loads(line, parse_constant=_reject_constant)
+        except ValueError as exc:
             raise BridgeAppError(
                 "bridge.parse_error",
                 retryable=False,
-                details={"reason": "line is not JSON", "position": exc.pos},
+                details={"reason": "line is not JSON", "position": getattr(exc, "pos", 0)},
             ) from exc
         if not isinstance(frame, dict):
             raise BridgeAppError(
