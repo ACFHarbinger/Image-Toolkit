@@ -33,7 +33,8 @@ def main(argv: list[str] | None = None) -> int:
         while not stopping:
             time.sleep(0.2)
     finally:
-        supervisor.stop()
+        # SIGTERM restarts the supervisor. Leave siblings for reattach.
+        supervisor.stop(reap_children=False)
     return 0
 
 

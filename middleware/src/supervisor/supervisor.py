@@ -52,6 +52,7 @@ class Supervisor:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._mu = threading.Lock()
+        self._pending_ready: tuple[int, int] | None = None
 
     @property
     def children(self) -> dict[str, ChildHandle]:
@@ -82,7 +83,13 @@ class Supervisor:
         )
         self._thread.start()
 
-    def stop(self) -> None:
+    def stop(self, *, reap_children: bool = True) -> None:
+        """Stop the supervisor.
+
+        ``reap_children=False`` is the process-restart path: durable
+        siblings and the sidecar stay up so the next supervisor reattaches.
+        A window close must not be what calls this with reaping enabled.
+        """
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout=3.0)
@@ -90,8 +97,10 @@ class Supervisor:
         with self._mu:
             handles = list(self._children.values())
             self._children.clear()
-        for handle in handles:
-            terminate(handle)
+            self._pending_ready = None
+        if reap_children:
+            for handle in handles:
+                terminate(handle)
         self._lock.release()
 
     def wait_until_ready(self, timeout_s: float = 5.0) -> None:
@@ -142,12 +151,18 @@ class Supervisor:
                 replacement = self._spawn_child(SIDECAR, self.data_dir)
                 with self._mu:
                     self._children[SIDECAR] = replacement
+                    self._pending_ready = (replacement.pid, sidecar.pid)
+        elif self._pending_ready is not None and self._child_ready(SIDECAR):
+            ready_pid, previous_pid = self._pending_ready
+            current = self.children.get(SIDECAR)
+            if current is not None and current.pid == ready_pid:
+                self._pending_ready = None
                 self._emit(
                     BridgeEvent(
                         name=BRIDGE_READY,
                         protocol_version=PROTOCOL_VERSION,
-                        sidecar_pid=replacement.pid,
-                        previous_sidecar_pid=sidecar.pid,
+                        sidecar_pid=ready_pid,
+                        previous_sidecar_pid=previous_pid,
                     )
                 )
         for name in CHILD_NAMES:
