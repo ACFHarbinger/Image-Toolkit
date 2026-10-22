@@ -1,1012 +1,805 @@
-# migration/features.toml — the migration ledger (W0-18, #882).
+# Migration ledger (W0-18 / #882) — one record per capability.
 #
-# One record per capability, not per route (OpenCode Q1: stitch is one record
-# with eight routes, Deep Learning one with five). This file is the inventory,
-# the parity gate, and the docs index for the PySide6 → Tauri migration
-# (docs/moon/roadmaps/tauri_migration.md §2).
+# Source of truth for the PySide6 → Tauri migration described in
+# docs/moon/roadmaps/tauri_migration.md §2. Validated by
+# middleware/validation/check_migration_ledger.py; rendered into
+# docs/migration/parity.md by migration/generate_parity.py (do not edit
+# the generated file). Schema and lifecycle: migration/README.md.
 #
-# Status values: `pyside-only` | `both` | `parity-passed` | `pyside-deleted`.
-# Deleting a row requires green parity evidence, a ticked OS checklist,
-# Harbinger's sign-off, and one deletion PR that removes that row's PySide6
-# code and tests and nothing else.
-#
-# Consumers — keep these working when editing the schema:
-#   - middleware/validation/check_migration_ledger.py (this file's validator:
-#     route coverage both ways vs middleware.src.shell.catalog, path
-#     existence/deletion, exactly-once gui/src ownership, scenario presence)
-#   - middleware/validation/check_migration_additive.py (#884: reads
-#     [[exception]] records; a pyside-deleted row auto-allows its own paths)
-#   - middleware/validation/check_tauri_security.py (#868: every capability
-#     identifier and window label must appear somewhere in this file)
-#   - migration/generate_parity.py → docs/migration/parity.md (generated; do
-#     not hand-edit — regenerate with `python migration/generate_parity.py`)
+# `id` reuses the #869 catalog ids (middleware/src/shell/catalog.py);
+# window rows use dotted ids outside the catalog.
 
-[ledger]
-version = 1
-# The contracts/CONTRACTS.sha256 `total` this ledger was written against
-# (#874 coordination). A contract change bumps this pin in the same PR;
-# CI fails on drift.
-contracts_hash = "982b5ee1c894cc7cc385319c615075e261812de38001db245180d72ca8b6e2c7"
-
-# ── Wave 0c — Shell ─────────────────────────────────────────────────────────
-
-[[feature]]
-id = "shell"
-title = "Catalog-driven shell (rail, ribbon, inspector, status bar)"
-issue = 870
-wave = "0c"
-owner = "grok"
-status = "pyside-only"
-notes = "Also owns developer.benchmarks, the frontend-only diagnostics page (no PySide6 row to migrate)."
-pyside = [
-    "gui/src/main_backend.py",
-    "gui/src/qt_event_bridge.py",
-    "gui/src/qt_object_guard.py",
-    "gui/src/file_dialog_patch.py",
-    "gui/src/modules",
-    "gui/src/windows/main",
-    "gui/src/components/navigation",
-    "gui/src/components/inspector",
-    "gui/src/constants/tabs.py",
-    "gui/src/contracts",
-]
-pyside_exclude = [
-    "gui/src/modules/dl_workspace.py",
-    "gui/src/modules/stitch_workspace.py",
-    "gui/src/modules/comfy_workspace_controller.py",
-    "gui/src/windows/main/_shortcuts.py",
-    "gui/src/windows/main/_tray.py",
-]
-tauri = ["frontend/src/App.tsx", "frontend/src/shell"]
-windows = ["main"]
-scenarios = ["shell-renders-catalog-rail", "shell-navigates-by-catalog-id"]
-
-[[feature.routes]]
-from = "benchmarks"
-to = "developer.benchmarks"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-notes = "Wayland and X11."
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
-
-[[feature]]
-id = "design-tokens"
-title = "Design tokens → generated CSS variables"
-issue = 871
-wave = "0c"
-owner = "mistral"
-status = "pyside-only"
-notes = "QSS is not ported by hand; both shells consume the generated variables."
-pyside = ["gui/src/theming", "gui/src/styles"]
-pyside_exclude = [
-    "gui/src/theming/wallpaper_graph_palette.py",
-    "gui/src/theming/er_view_palette.py",
-]
-windows = ["main"]
-scenarios = ["tokens-generate-css-variables", "theme-switch-light-dark"]
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
-
-[[feature]]
-id = "shortcuts"
-title = "One serializable shortcut registry bound by both shells"
-issue = 872
-wave = "0c"
-owner = "cursor"
-status = "pyside-only"
-pyside = [
-    "gui/src/utils/manager/shortcut_manager.py",
-    "gui/src/windows/main/_shortcuts.py",
-]
-windows = ["main"]
-scenarios = ["shortcut-registry-binds-both-shells", "shortcut-conflict-detection"]
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
-
-[[feature]]
-id = "window-management"
-title = "WindowManager role map, native tray, hide-all on close"
-issue = 873
-wave = "0c"
-owner = "cursor"
-status = "pyside-only"
-pyside = [
-    "gui/src/windows/__init__.py",
-    "gui/src/windows/window_manager.py",
-    "gui/src/windows/window_service.py",
-    "gui/src/windows/main/_tray.py",
-    "gui/src/constants/windows.py",
-]
+[shell]
 windows = ["main", "tray", "slideshow", "cloud.jobs"]
 capabilities = ["default"]
-scenarios = ["tray-hide-all-on-close", "single-instance-focus-second-launch", "popout-window-role-map"]
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-notes = "KDE/GNOME Wayland + X11 tray behaviour (spike S-03, #889)."
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
 
-# ── Wave 0e — Foundations ───────────────────────────────────────────────────
+# ── Wave 1: Convert pilot ────────────────────────────────────────────
 
 [[feature]]
-id = "settings-service"
-title = "One settings service for both GUIs (scopes preserved)"
-issue = 880
-wave = "0e"
-owner = "mistral"
-status = "pyside-only"
-notes = "Keeps DEVICE/ACCOUNT/SESSION scopes from gui/src/preferences/store.py; migrates legacy settings with a backup first."
-pyside = ["gui/src/preferences"]
-windows = ["main"]
-scenarios = ["settings-scopes-preserved", "legacy-settings-migration-with-backup"]
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
-
-# ── Wave 0f — Feasibility spikes ────────────────────────────────────────────
-
-[[feature]]
-id = "gallery-thumbnails"
-title = "Gallery thumbnails via the C++ render-cache service"
-issue = 887
-wave = "0f"
-owner = "grok"
-status = "pyside-only"
-notes = "Spike S-01: bounded stills (middle frame) written to ~/.image-toolkit/cache/render/ and streamed over asset://. No-go keeps the PySide6 gallery alive past its wave."
-pyside = [
-    "gui/src/thumbnails",
-    "gui/src/components/gallery",
-    "gui/src/components/virtual_gallery",
-    "gui/src/constants/gallery.py",
-    "gui/src/services/preview_service.py",
-]
-windows = ["main"]
-scenarios = ["gallery-bounded-stills-middle-frame", "gallery-animated-preview-cancel"]
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
-
-# ── Wave 1 — Convert pilot ──────────────────────────────────────────────────
-
-[[feature]]
-id = "convert"
+id = "system.convert"
+kind = "page"
 title = "Convert"
+owner = "Kimi"
+wave = "wave-1"
 issue = 894
-wave = "1"
-owner = "kimi"
 status = "pyside-only"
-notes = "P-01 pilot; includes the media-convert and sampler sub-tabs. Success = first Rust duplicate (core_commands.rs conversion) deleted."
+routes = ["system.convert"]
+route_map = { convert = "system.convert" }
 pyside = [
     "gui/src/tabs/core/convert_tab.py",
     "gui/src/tabs/core/media_convert_subtab",
     "gui/src/tabs/core/sampler_subtab",
-    "gui/qml/tabs/core/ConvertTab.qml",
-    "gui/qml/tabs/core/common/FormatSubtab.qml",
-    "gui/qml/tabs/core/common/SamplerSubtab.qml",
 ]
 tauri = ["frontend/src/tabs/core/ConvertTab.tsx"]
-windows = ["main"]
-scenarios = ["convert-single-format", "convert-batch-format-filter", "sampler-scale-mode-resample"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
-[[feature.routes]]
-from = "convert"
-to = "system.convert"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
-
-# ── Wave 3 — Library ────────────────────────────────────────────────────────
+# ── Wave 3: Library ──────────────────────────────────────────────────
 
 [[feature]]
-id = "image-viewers"
+id = "library.preview"
+kind = "window"
 title = "Image preview, compare and drag-preview viewers"
+owner = "unclaimed"
+wave = "wave-3"
 issue = 895
-wave = "3"
-owner = "unassigned"
 status = "pyside-only"
-notes = "L-01: cross-cutting viewers used by every later wave."
+routes = []
+route_map = {}
 pyside = [
     "gui/src/windows/image_preview_window.py",
     "gui/src/windows/image_compare_window.py",
     "gui/src/windows/drag_preview_window.py",
-    "gui/qml/windows/ImagePreviewWindow.qml",
 ]
-windows = ["main"]
-scenarios = ["preview-window-open-large-image", "compare-window-swipe", "drag-preview-follows-cursor"]
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = [
+    { item = "Drag-preview in and out of the webview (spike S-05)", platform = "linux", checked = false },
+    { item = "Drag-preview in and out of the webview (spike S-05)", platform = "windows", checked = false },
+    { item = "Drag-preview in and out of the webview (spike S-05)", platform = "macos", checked = false },
+]
 
 [[feature]]
-id = "library-listings"
-title = "Library: Listings"
+id = "library.listings"
+kind = "page"
+title = "Listings"
+owner = "unclaimed"
+wave = "wave-3"
 issue = 896
-wave = "3"
-owner = "unassigned"
 status = "pyside-only"
-pyside = [
-    "gui/src/tabs/database/listings_tab.py",
-    "gui/src/tabs/database/listings_subtab",
-    "gui/src/constants/listings.py",
-    "gui/qml/tabs/core/ListingsTab.qml",
-    "gui/qml/tabs/core/common/EntityListingsSubtab.qml",
-    "gui/qml/tabs/core/common/SeriesListingsSubtab.qml",
-]
-windows = ["main"]
-scenarios = ["listings-entity-series-crud", "listings-recommendation-refresh"]
-
-[[feature.routes]]
-to = "library.listings"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+routes = ["library.listings"]
+route_map = {}
+pyside = ["gui/src/tabs/database/listings_tab.py", "gui/src/tabs/database/listings_subtab"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
 [[feature]]
-id = "library-search"
-title = "Library: Image Search"
+id = "library.search"
+kind = "page"
+title = "Image Search"
+owner = "unclaimed"
+wave = "wave-3"
 issue = 897
-wave = "3"
-owner = "unassigned"
 status = "pyside-only"
-pyside = ["gui/src/tabs/database/search_tab", "gui/qml/tabs/database/SearchTab.qml"]
+routes = ["library.search"]
+route_map = { search = "library.search" }
+pyside = ["gui/src/tabs/database/search_tab"]
 tauri = ["frontend/src/tabs/database/SearchTab.tsx"]
-windows = ["main"]
-scenarios = ["search-tag-and-format-filters", "search-semantic-query"]
-
-[[feature.routes]]
-from = "search"
-to = "library.search"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
 [[feature]]
-id = "library-scan"
-title = "Library: Scan and Tag"
+id = "library.scan"
+kind = "page"
+title = "Scan and Tag"
+owner = "unclaimed"
+wave = "wave-3"
 issue = 898
-wave = "3"
-owner = "unassigned"
 status = "pyside-only"
-pyside = [
-    "gui/src/tabs/database/scan_metadata_tab",
-    "gui/src/services/directory_scan_service.py",
-    "gui/qml/tabs/database/ScanMetadataTab.qml",
-]
+routes = ["library.scan"]
+route_map = { scan = "library.scan" }
+pyside = ["gui/src/tabs/database/scan_metadata_tab"]
 tauri = ["frontend/src/tabs/database/ScanMetadataTab.tsx"]
-windows = ["main"]
-scenarios = ["scan-directory-upsert", "scan-pagination-lazy-load"]
-
-[[feature.routes]]
-from = "scan"
-to = "library.scan"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
 [[feature]]
-id = "library-management"
-title = "Library: Management"
+id = "library.management"
+kind = "page"
+title = "Management"
+owner = "unclaimed"
+wave = "wave-3"
 issue = 899
-wave = "3"
-owner = "unassigned"
 status = "pyside-only"
-pyside = ["gui/src/tabs/database/database_tab", "gui/qml/tabs/database/DatabaseTab.qml"]
+routes = ["library.management"]
+route_map = { database = "library.management" }
+pyside = ["gui/src/tabs/database/database_tab"]
 tauri = ["frontend/src/tabs/database/DatabaseTab.tsx"]
-windows = ["main"]
-scenarios = ["database-groups-and-tags-crud", "database-bulk-import"]
-
-[[feature.routes]]
-from = "database"
-to = "library.management"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
 [[feature]]
-id = "library-data-browser"
-title = "Library: Data Browser"
+id = "library.data-browser"
+kind = "page"
+title = "Data Browser"
+owner = "unclaimed"
+wave = "wave-3"
 issue = 900
-wave = "3"
-owner = "unassigned"
 status = "pyside-only"
-pyside = ["gui/src/tabs/database/data_browser_tab", "gui/src/theming/er_view_palette.py"]
-windows = ["main"]
-scenarios = ["data-browser-query-filter", "data-browser-export"]
+routes = ["library.data-browser"]
+route_map = {}
+pyside = ["gui/src/tabs/database/data_browser_tab"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
-[[feature.routes]]
-to = "library.data-browser"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
-
-# ── Wave 4 — System ─────────────────────────────────────────────────────────
+# ── Wave 4: System ───────────────────────────────────────────────────
 
 [[feature]]
-id = "merge"
-title = "System: Merge"
+id = "system.merge"
+kind = "page"
+title = "Merge"
+owner = "unclaimed"
+wave = "wave-4"
 issue = 903
-wave = "4"
-owner = "unassigned"
 status = "pyside-only"
-notes = "Y-01: includes the merge canvas on the shared canvas host (Y-00, #902); retires the core_commands.rs merge duplicate."
-pyside = ["gui/src/tabs/core/merge_tab", "gui/qml/tabs/core/MergeTab.qml"]
+routes = ["system.merge"]
+route_map = { merge = "system.merge" }
+pyside = ["gui/src/tabs/core/merge_tab"]
 tauri = ["frontend/src/tabs/core/MergeTab.tsx"]
-windows = ["main"]
-scenarios = ["merge-canvas-compose", "merge-scan-input"]
-
-[[feature.routes]]
-from = "merge"
-to = "system.merge"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
 [[feature]]
-id = "similarity"
-title = "System: Similarity"
+id = "system.similarity"
+kind = "page"
+title = "Similarity"
+owner = "unclaimed"
+wave = "wave-4"
 issue = 904
-wave = "4"
-owner = "unassigned"
 status = "pyside-only"
-pyside = ["gui/src/tabs/core/similarity_tab", "gui/qml/tabs/core/SimilarityTab.qml"]
+routes = ["system.similarity"]
+route_map = { delete = "system.similarity" }
+pyside = ["gui/src/tabs/core/similarity_tab"]
 tauri = ["frontend/src/tabs/core/DeleteTab.tsx"]
-windows = ["main"]
-scenarios = ["similarity-scan-clusters", "similarity-triage-delete"]
-
-[[feature.routes]]
-from = "delete"
-to = "system.similarity"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
 [[feature]]
-id = "extractor"
-title = "System: Extractor"
+id = "system.extractor"
+kind = "page"
+title = "Extractor"
+owner = "unclaimed"
+wave = "wave-4"
 issue = 905
-wave = "4"
-owner = "unassigned"
 status = "pyside-only"
-notes = "Y-03: video + image sub-tabs, frame-slice canvas; retires video_commands.rs."
+routes = ["system.extractor"]
+route_map = { extractor = "system.extractor" }
 pyside = [
     "gui/src/tabs/core/extractor_tab",
     "gui/src/tabs/core/image_extractor_canvas.py",
     "gui/src/tabs/core/image_extractor_gallery.py",
     "gui/src/tabs/core/image_extractor_subtab.py",
-    "gui/src/tabs/core/protos/extractor_tab.py",
-    "gui/qml/tabs/core/ImageExtractorTab.qml",
 ]
 tauri = ["frontend/src/tabs/core/ImageExtractorTab.tsx"]
-windows = ["main"]
-scenarios = ["extractor-frame-cuts", "extractor-queue-processing"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
-[[feature.routes]]
-from = "extractor"
-to = "system.extractor"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
-
-# ── Wave 5 — Web ────────────────────────────────────────────────────────────
+# ── Wave 5: Web ──────────────────────────────────────────────────────
 
 [[feature]]
-id = "web-crawler"
-title = "Web: Crawler"
+id = "web.crawler"
+kind = "page"
+title = "Crawler"
+owner = "unclaimed"
+wave = "wave-5"
 issue = 906
-wave = "5"
-owner = "unassigned"
 status = "pyside-only"
-pyside = ["gui/src/tabs/web/image_crawler_tab", "gui/qml/tabs/web/ImageCrawlTab.qml"]
+routes = ["web.crawler"]
+route_map = { crawler = "web.crawler" }
+pyside = ["gui/src/tabs/web/image_crawler_tab"]
 tauri = ["frontend/src/tabs/web/ImageCrawlerTab.tsx"]
-windows = ["main"]
-scenarios = ["crawler-board-settings", "crawler-webdriver-launch"]
-
-[[feature.routes]]
-from = "crawler"
-to = "web.crawler"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
 [[feature]]
-id = "web-requests"
-title = "Web: Requests"
+id = "web.requests"
+kind = "page"
+title = "Requests"
+owner = "unclaimed"
+wave = "wave-5"
 issue = 907
-wave = "5"
-owner = "unassigned"
 status = "pyside-only"
-pyside = ["gui/src/tabs/web/web_requests_tab.py", "gui/qml/tabs/web/WebRequestsTab.qml"]
+routes = ["web.requests"]
+route_map = { webreq = "web.requests" }
+pyside = ["gui/src/tabs/web/web_requests_tab.py"]
 tauri = ["frontend/src/tabs/web/WebRequestsTab.tsx"]
-windows = ["main"]
-scenarios = ["requests-batch-submit", "requests-persistence"]
-
-[[feature.routes]]
-from = "webreq"
-to = "web.requests"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
 [[feature]]
-id = "cloud-sync"
-title = "Web: Cloud Synchronization"
+id = "web.drive-sync"
+kind = "page"
+title = "Cloud Synchronization"
+owner = "unclaimed"
+wave = "wave-5"
 issue = 908
-wave = "5"
-owner = "unassigned"
 status = "pyside-only"
-pyside = ["gui/src/tabs/web/drive_sync_tab", "gui/qml/tabs/web/DriveSyncTab.qml"]
+routes = ["web.drive-sync"]
+route_map = { drive = "web.drive-sync" }
+pyside = ["gui/src/tabs/web/drive_sync_tab"]
 tauri = ["frontend/src/tabs/web/DriveSyncTab.tsx"]
-windows = ["main"]
-scenarios = ["drive-sync-provider-switch", "drive-sync-share-folder"]
-
-[[feature.routes]]
-from = "drive"
-to = "web.drive-sync"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
 [[feature]]
-id = "media-loader"
-title = "Web: Media Loader"
+id = "web.media-loader"
+kind = "page"
+title = "Media Loader"
+owner = "unclaimed"
+wave = "wave-5"
 issue = 909
-wave = "5"
-owner = "unassigned"
 status = "pyside-only"
+routes = ["web.media-loader"]
+route_map = {}
 pyside = ["gui/src/tabs/web/media_loader_tab"]
-windows = ["main"]
-scenarios = ["media-loader-download-queue", "media-loader-source-switch"]
-
-[[feature.routes]]
-to = "web.media-loader"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
 [[feature]]
-id = "reverse-search"
-title = "Web: Reverse Search"
+id = "web.reverse-search"
+kind = "page"
+title = "Reverse Search"
+owner = "unclaimed"
+wave = "wave-5"
 issue = 910
-wave = "5"
-owner = "unassigned"
 status = "pyside-only"
-pyside = ["gui/src/tabs/web/reverse_search_tab.py", "gui/qml/tabs/web/ReverseImageSearchTab.qml"]
+routes = ["web.reverse-search"]
+route_map = { revsearch = "web.reverse-search" }
+pyside = ["gui/src/tabs/web/reverse_search_tab.py"]
 tauri = ["frontend/src/tabs/web/ReverseSearchTab.tsx"]
-windows = ["main"]
-scenarios = ["reverse-search-by-image"]
-
-[[feature.routes]]
-from = "revsearch"
-to = "web.reverse-search"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
 [[feature]]
-id = "entity-recon"
-title = "Web: Entity Reconnaissance"
+id = "web.entity-recon"
+kind = "page"
+title = "Entity Reconnaissance"
+owner = "unclaimed"
+wave = "wave-5"
 issue = 911
-wave = "5"
-owner = "unassigned"
 status = "pyside-only"
-pyside = ["gui/src/tabs/web/entity_recon_tab", "gui/qml/tabs/web/EntityReconTab.qml"]
-windows = ["main"]
-scenarios = ["entity-recon-identity-resolution", "entity-recon-provenance-export"]
+routes = ["web.entity-recon"]
+route_map = {}
+pyside = ["gui/src/tabs/web/entity_recon_tab"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
-[[feature.routes]]
-to = "web.entity-recon"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
-
-# ── Wave 6 — Deep Learning ──────────────────────────────────────────────────
+# ── Wave 6: Deep Learning workspace ──────────────────────────────────
 
 [[feature]]
-id = "deep-learning"
-title = "Deep Learning workspace"
+id = "dl"
+kind = "workspace"
+title = "Deep Learning"
+owner = "unclaimed"
+wave = "wave-6"
 issue = 912
-wave = "6"
-owner = "unassigned"
 status = "pyside-only"
-notes = "D-01: one record, five routes (dl workspace + train/generate/review/runs). The ml.* pages map onto the dl workspace behind the experimental-dl compatibility aliases."
+routes = [
+    "dl.train",
+    "dl.generate",
+    "dl.review",
+    "dl.runs",
+    "ml.training",
+    "ml.generation",
+    "ml.evaluation",
+    "ml.inference",
+    "ml.comfyui",
+]
+route_map = { "ml.training" = "dl.train", "ml.generation" = "dl.generate", "ml.evaluation" = "dl.review", "ml.inference" = "dl.review", "ml.comfyui" = "dl.generate", train = "dl.train", generate = "dl.generate", evaluate = "dl.review", inference = "dl.review" }
 pyside = [
     "gui/src/tabs/models",
     "gui/src/modules/dl_workspace.py",
     "gui/src/modules/comfy_workspace_controller.py",
-    "gui/src/components/prompt_edit.py",
-    "gui/src/components/prompt_vocabulary.py",
-    "gui/qml/tabs/models",
 ]
 tauri = ["frontend/src/tabs/models"]
-windows = ["main"]
-scenarios = ["dl-train-run-telemetry", "dl-generate-matrix-sweep", "dl-review-record-jsonl"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
-[[feature.routes]]
-from = "train"
-to = "ml.training"
-[[feature.routes]]
-from = "generate"
-to = "ml.generation"
-[[feature.routes]]
-from = "evaluate"
-to = "ml.evaluation"
-[[feature.routes]]
-from = "inference"
-to = "ml.inference"
-[[feature.routes]]
-to = "ml.comfyui"
-[[feature.routes]]
-to = "dl"
-[[feature.routes]]
-to = "dl.runs"
-[[feature.routes]]
-from = "ml.training"
-to = "dl.train"
-alias = "experimental-dl"
-[[feature.routes]]
-from = "ml.generation"
-to = "dl.generate"
-alias = "experimental-dl"
-[[feature.routes]]
-from = "ml.evaluation"
-to = "dl.review"
-alias = "experimental-dl"
-[[feature.routes]]
-from = "ml.inference"
-to = "dl.review"
-alias = "experimental-dl"
-[[feature.routes]]
-from = "ml.comfyui"
-to = "dl.generate"
-alias = "experimental-dl"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
-
-# ── Wave 7 — Wallpaper ──────────────────────────────────────────────────────
+# ── Wave 7: Wallpaper ────────────────────────────────────────────────
 
 [[feature]]
-id = "wallpaper"
-title = "Wallpaper and the slideshow presenter window"
+id = "system.wallpaper"
+kind = "page"
+title = "Wallpaper"
+owner = "unclaimed"
+wave = "wave-7"
 issue = 913
-wave = "7"
-owner = "unassigned"
 status = "pyside-only"
-notes = "A-01: System Display + Monitor Display, slideshows and daemons; the slideshow presenter is a separate native window."
+routes = ["system.wallpaper"]
+route_map = { wallpaper = "system.wallpaper" }
 pyside = [
     "gui/src/tabs/core/wallpaper_tab",
-    "gui/src/tabs/core/protos/monitor_display_subtab.py",
-    "gui/src/tabs/core/protos/system_display_subtab.py",
-    "gui/src/tabs/core/protos/wallpaper_common_base.py",
     "gui/src/windows/slideshow_backend.py",
     "gui/src/windows/slideshow_window.py",
-    "gui/src/theming/wallpaper_graph_palette.py",
-    "gui/qml/tabs/core/WallpaperTab.qml",
-    "gui/qml/tabs/core/common/MonitorDisplaySubtab.qml",
-    "gui/qml/tabs/core/common/SystemDisplaySubtab.qml",
-    "gui/qml/tabs/core/common/WallpaperCommon.qml",
-    "gui/qml/windows/SlideshowWindow.qml",
 ]
 tauri = ["frontend/src/tabs/core/WallpaperTab.tsx"]
-windows = ["main", "slideshow"]
-scenarios = ["wallpaper-per-monitor-set", "slideshow-daemon-survives-window-close", "wallpaper-graph-traversal"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = [
+    { item = "Per-monitor wallpaper control and slideshow presenter window (spike S-07)", platform = "linux", checked = false },
+    { item = "Per-monitor wallpaper control and slideshow presenter window (spike S-07)", platform = "windows", checked = false },
+    { item = "Per-monitor wallpaper control and slideshow presenter window (spike S-07)", platform = "macos", checked = false },
+]
 
-[[feature.routes]]
-from = "wallpaper"
-to = "system.wallpaper"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-notes = "KDE/GNOME Wayland + X11 per-monitor control (spike S-07, #893); qdbus-qt6 compat."
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
-
-# ── Wave 8 — Editors ────────────────────────────────────────────────────────
+# ── Wave 8: Editors ──────────────────────────────────────────────────
 
 [[feature]]
 id = "stitch"
-title = "Image Stitching workspace"
+kind = "workspace"
+title = "Image Stitching"
+owner = "unclaimed"
+wave = "wave-8"
 issue = 914
-wave = "8"
-owner = "unassigned"
 status = "pyside-only"
-notes = "E-01: one record, eight routes, on the shared canvas host. The PySide6 UI is the ASP submodule's gui (absorbed per #867)."
-pyside = ["submodules/ASP/gui", "gui/src/modules/stitch_workspace.py"]
-windows = ["main"]
-scenarios = ["stitch-panorama-pipeline", "stitch-graph-adjust-canvas"]
-
-[[feature.routes]]
-to = "stitch"
-[[feature.routes]]
-to = "stitch.stitch"
-[[feature.routes]]
-to = "stitch.graph"
-[[feature.routes]]
-to = "stitch.adjust"
-[[feature.routes]]
-to = "stitch.canvas"
-[[feature.routes]]
-to = "stitch.statistics"
-[[feature.routes]]
-to = "stitch.sequence-builder"
-[[feature.routes]]
-to = "stitch.hybrid"
-[[feature.routes]]
-to = "stitch.animation-clusters"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+routes = [
+    "stitch.stitch",
+    "stitch.graph",
+    "stitch.adjust",
+    "stitch.canvas",
+    "stitch.statistics",
+    "stitch.sequence-builder",
+    "stitch.hybrid",
+    "stitch.animation-clusters",
+]
+route_map = {}
+pyside = ["gui/src/modules/stitch_workspace.py", "submodules/ASP/gui/src"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
 [[feature]]
-id = "hybrid-editor"
-title = "Hybrid Image Editor (HIE)"
+id = "editor.hybrid"
+kind = "page"
+title = "Hybrid Editor"
+owner = "unclaimed"
+wave = "wave-8"
 issue = 915
-wave = "8"
-owner = "unassigned"
 status = "pyside-only"
-notes = "E-02: the PySide6 UI is the HIE submodule's gui (absorbed per #867)."
-pyside = ["submodules/HIE/gui"]
+routes = ["editor.hybrid"]
+route_map = { hie_editor = "editor.hybrid" }
+pyside = [
+    "submodules/HIE/gui/src/hie_tab.py",
+    "submodules/HIE/gui/src/tabs",
+    "submodules/HIE/gui/src/viewport.py",
+]
 tauri = ["frontend/src/tabs/editor"]
-windows = ["main"]
-scenarios = ["hie-layer-edit-session", "hie-video-editor-tab"]
-
-[[feature.routes]]
-from = "hie_editor"
-to = "editor.hybrid"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
 [[feature]]
-id = "manga"
-title = "Manga: Colorization, Animation, Puppeteering (CSG)"
+id = "manga.colorization"
+kind = "page"
+title = "Colorization"
+owner = "unclaimed"
+wave = "wave-8"
 issue = 916
-wave = "8"
-owner = "unassigned"
 status = "pyside-only"
-notes = "E-03: the PySide6 UI is the CSG submodule's gui (absorbed per #867)."
-pyside = ["submodules/CSG/gui"]
-windows = ["main"]
-scenarios = ["manga-colorize-page", "manga-animation-puppet"]
-
-[[feature.routes]]
-to = "manga.colorization"
-[[feature.routes]]
-to = "manga.animation"
-[[feature.routes]]
-to = "manga.puppeteering"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
-
-# ── Wave 9 — Settings, auth and the vault ───────────────────────────────────
+routes = ["manga.colorization"]
+route_map = {}
+pyside = [
+    "submodules/CSG/gui/src/tabs/colorization_tab.py",
+    "submodules/CSG/gui/src/tabs/reference_coloring_tab.py",
+]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
 [[feature]]
-id = "settings-window"
-title = "Settings window (appearance, profiles, shortcuts, tab config, credentials, reset)"
+id = "manga.animation"
+kind = "page"
+title = "Animation"
+owner = "unclaimed"
+wave = "wave-8"
+issue = 916
+status = "pyside-only"
+routes = ["manga.animation"]
+route_map = {}
+pyside = ["submodules/CSG/gui/src/tabs/animation_tab.py"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "manga.puppeteering"
+kind = "page"
+title = "Puppeteering"
+owner = "unclaimed"
+wave = "wave-8"
+issue = 916
+status = "pyside-only"
+routes = ["manga.puppeteering"]
+route_map = {}
+pyside = ["submodules/CSG/gui/src/tabs/puppeteering_tab.py"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+# ── Wave 9: Windows ──────────────────────────────────────────────────
+
+[[feature]]
+id = "window.settings"
+kind = "window"
+title = "Settings window"
+owner = "unclaimed"
+wave = "wave-9"
 issue = 917
-wave = "9"
-owner = "unassigned"
 status = "pyside-only"
-pyside = ["gui/src/windows/settings", "gui/qml/windows/SettingsWindow.qml"]
-windows = ["main"]
-scenarios = ["settings-appearance-apply", "settings-tab-config-persist"]
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+routes = []
+route_map = {}
+pyside = ["gui/src/windows/settings"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
 [[feature]]
-id = "auth-vault-ui"
-title = "Authentication / vault unlock UI on the C++ session handle"
+id = "window.auth"
+kind = "window"
+title = "Authentication / vault unlock"
+owner = "unclaimed"
+wave = "wave-9"
 issue = 918
-wave = "9"
-owner = "unassigned"
 status = "pyside-only"
-notes = "T-02: retires auth_commands.rs; the session handle comes from the C++ vault (#879)."
-pyside = ["gui/src/windows/authentication", "gui/qml/windows/LoginWindow.qml"]
-windows = ["main"]
-scenarios = ["vault-unlock-session-handle", "vault-lock-all"]
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+routes = []
+route_map = {}
+pyside = ["gui/src/windows/authentication"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
 [[feature]]
-id = "logging-metadata-windows"
+id = "window.logging"
+kind = "window"
 title = "Logging and metadata windows"
+owner = "unclaimed"
+wave = "wave-9"
 issue = 919
-wave = "9"
-owner = "unassigned"
 status = "pyside-only"
+routes = []
+route_map = {}
 pyside = [
     "gui/src/windows/logging",
     "gui/src/windows/metadata",
-    "gui/src/constants/logging.py",
-    "gui/qml/windows/LogWindow.qml",
+    "gui/src/modules/pilots",
 ]
-windows = ["main"]
-scenarios = ["logging-window-streams-records", "metadata-batch-edit"]
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
 [[feature]]
-id = "cloud-compute-window"
+id = "window.cloud-compute"
+kind = "window"
 title = "Cloud Compute setup window"
+owner = "unclaimed"
+wave = "wave-9"
 issue = 920
-wave = "9"
-owner = "unassigned"
 status = "pyside-only"
+routes = []
+route_map = {}
 pyside = ["gui/src/windows/cloud"]
-windows = ["main"]
-scenarios = ["cloud-compute-provider-setup", "cloud-compute-usage-charts"]
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
 
-# ── Retirement ──────────────────────────────────────────────────────────────
+# ── Wave 0: frontend-only surfaces ───────────────────────────────────
 
 [[feature]]
-id = "shared-qt-infrastructure"
-title = "Shared Qt widget/helper infrastructure (no independent Tauri destination)"
-issue = 921
-wave = "retire"
-owner = "unassigned"
-status = "pyside-only"
-notes = "R-01: deleted with gui/ itself once every consuming row is gone. Includes the shared database-bound elements (gui/src/elements) used across the library rows and the lazy tab re-export shim. A row's deletion PR may pull genuinely single-consumer files from this record into its own."
-pyside = [
-    "gui/src/__init__.py",
-    "gui/src/classes",
-    "gui/src/components",
-    "gui/src/constants",
-    "gui/src/elements",
-    "gui/src/helpers",
-    "gui/src/services/__init__.py",
-    "gui/src/utils",
-    "gui/src/tabs/__init__.py",
-    "gui/src/tabs/core/__init__.py",
-    "gui/src/tabs/core/protos/__init__.py",
-    "gui/src/tabs/database/__init__.py",
-    "gui/src/tabs/web/__init__.py",
-    "gui/qml/Main.qml",
-    "gui/qml/Style.qml",
-    "gui/qml/qmldir",
-    "gui/qml/components",
-    "gui/qml/dialogs",
-]
-pyside_exclude = [
-    "gui/src/components/gallery",
-    "gui/src/components/virtual_gallery",
-    "gui/src/components/navigation",
-    "gui/src/components/inspector",
-    "gui/src/components/prompt_edit.py",
-    "gui/src/components/prompt_vocabulary.py",
-    "gui/src/constants/tabs.py",
-    "gui/src/constants/windows.py",
-    "gui/src/constants/listings.py",
-    "gui/src/constants/logging.py",
-    "gui/src/constants/gallery.py",
-    "gui/src/utils/manager/shortcut_manager.py",
-]
-windows = ["main"]
-scenarios = ["app-startup-smoke-main-window"]
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
+id = "developer.benchmarks"
+kind = "page"
+title = "Benchmarks"
+owner = "unclaimed"
+wave = "wave-0"
+issue = 864
+status = "both"
+routes = ["developer.benchmarks"]
+route_map = { benchmarks = "developer.benchmarks" }
+pyside = []
+tauri = ["frontend/src/tabs/apollo"]
+service = ""
+contract = ""
+docs = "docs/BENCHMARKS.md"
+scenarios = []
+os_checklist = []
 
-# ── Exceptions ──────────────────────────────────────────────────────────────
-# Bounded escapes from the gui/src freeze or the additive-only migration rule
-# (#884). Fields: feature, path (exact or glob), reason, issue, approved_by,
-# optional expires (YYYY-MM-DD). Expired or incomplete records suppress
-# nothing. None at birth.
+# ── Shared Qt infrastructure ─────────────────────────────────────────
+# gui/src code not owned by a feature row. Each entry names the Wave-0
+# issue whose deliverable replaces or absorbs it. None of this is ported
+# by hand; it is deleted with gui/ in #921 once its consumers are gone.
+
+[[shared]]
+path = "gui/src/__init__.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt package marker; deleted with gui/ in #921."
+
+[[shared]]
+path = "gui/src/main_backend.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt app bootstrap; the Tauri supervisor (#877) replaces it."
+
+[[shared]]
+path = "gui/src/qt_event_bridge.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt event bridge; the generated EventHub (#878) replaces it."
+
+[[shared]]
+path = "gui/src/qt_object_guard.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt lifetime guard; no webview equivalent, deleted with gui/."
+
+[[shared]]
+path = "gui/src/file_dialog_patch.py"
+owner = "Cursor"
+note = "#873 (W0-09): Qt file-dialog patching; native dialogs move into the Rust shell."
+
+[[shared]]
+path = "gui/src/tabs/__init__.py"
+owner = "Grok"
+note = "#869 (W0-05): lazy tab re-export machinery; catalog ids replace it."
+
+[[shared]]
+path = "gui/src/tabs/core/__init__.py"
+owner = "Grok"
+note = "#869 (W0-05): lazy tab re-export machinery; catalog ids replace it."
+
+[[shared]]
+path = "gui/src/tabs/core/protos"
+owner = "unclaimed"
+note = "Legacy prototype tabs (extractor/wallpaper); deleted with rows #905/#913."
+
+[[shared]]
+path = "gui/src/tabs/database/__init__.py"
+owner = "Grok"
+note = "#869 (W0-05): lazy tab re-export machinery; catalog ids replace it."
+
+[[shared]]
+path = "gui/src/tabs/web/__init__.py"
+owner = "Grok"
+note = "#869 (W0-05): lazy tab re-export machinery; catalog ids replace it."
+
+[[shared]]
+path = "gui/src/modules/__init__.py"
+owner = "Grok"
+note = "#870 (W0-06): catalog-driven Qt shell infrastructure; deleted with gui/."
+
+[[shared]]
+path = "gui/src/modules/application_catalog.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt descriptor catalog; the serializable catalog (#869) is the registry."
+
+[[shared]]
+path = "gui/src/modules/catalog.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt descriptor catalog; the serializable catalog (#869) is the registry."
+
+[[shared]]
+path = "gui/src/modules/context.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt module context; deleted with the Qt shell."
+
+[[shared]]
+path = "gui/src/modules/descriptor.py"
+owner = "Grok"
+note = "#869 (W0-05): QWidget-bound descriptors; superseded by the serializable catalog."
+
+[[shared]]
+path = "gui/src/modules/events.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt shell events; the generated EventHub (#878) replaces them."
+
+[[shared]]
+path = "gui/src/modules/host.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt module host; deleted with the Qt shell."
+
+[[shared]]
+path = "gui/src/modules/legacy_bridge.py"
+owner = "Grok"
+note = "#870 (W0-06): classic-shell bridge; deleted with the Qt shell."
+
+[[shared]]
+path = "gui/src/modules/library_service.py"
+owner = "Gemini"
+note = "#881 (W0-17): absorbed into middleware/src/services/ (library rows, wave-3)."
+
+[[shared]]
+path = "gui/src/modules/registry.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt module registry; the serializable catalog (#869) replaces it."
+
+[[shared]]
+path = "gui/src/modules/runtime.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt runtime shell handles; deleted with the Qt shell."
+
+[[shared]]
+path = "gui/src/modules/runtime_shell_flag.py"
+owner = "Grok"
+note = "#870 (W0-06): runtime-shell rollout flag; deleted with the Qt shell."
+
+[[shared]]
+path = "gui/src/modules/tab_factory.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt tab construction; the React shell owns construction post-migration."
+
+[[shared]]
+path = "gui/src/windows/__init__.py"
+owner = "Cursor"
+note = "#873 (W0-09): window package marker; WindowManager role map replaces it."
+
+[[shared]]
+path = "gui/src/windows/main"
+owner = "Cursor"
+note = "#873 (W0-09): main window, tray and hide-all behaviour; ported by the WindowManager role map."
+
+[[shared]]
+path = "gui/src/windows/window_manager.py"
+owner = "Cursor"
+note = "#873 (W0-09): Qt window manager; the Tauri WindowManager role map replaces it."
+
+[[shared]]
+path = "gui/src/windows/window_service.py"
+owner = "Cursor"
+note = "#873 (W0-09): Qt window service; the Tauri WindowManager role map replaces it."
+
+[[shared]]
+path = "gui/src/theming"
+owner = "Mistral"
+note = "#871 (W0-07): design tokens become generated CSS variables; QSS is not ported."
+
+[[shared]]
+path = "gui/src/preferences"
+owner = "Mistral"
+note = "#880 (W0-16): the shared settings service keeps these keys/scopes; window.settings (#917) owns only the window UI."
+
+[[shared]]
+path = "gui/src/helpers"
+owner = "Gemini"
+note = "#881 (W0-17): Qt workers become thin shims over services; each is deleted with its row."
+
+[[shared]]
+path = "gui/src/services"
+owner = "Gemini"
+note = "#881 (W0-17): absorbed into middleware/src/services/."
+
+[[shared]]
+path = "gui/src/utils"
+owner = "Cursor"
+note = "#872 (W0-08): shortcut_manager lifts into the serializable shortcut registry; the rest is deleted with its consumers."
+
+[[shared]]
+path = "gui/src/components"
+owner = "Grok"
+note = "#870 (W0-06): shared Qt widgets; replaced by the React component library (Storybook, #885)."
+
+[[shared]]
+path = "gui/src/elements"
+owner = "Grok"
+note = "#870 (W0-06): shared Qt widgets; replaced by the React component library (Storybook, #885)."
+
+[[shared]]
+path = "gui/src/classes"
+owner = "Grok"
+note = "#870 (W0-06): gallery base classes; replaced by the shared canvas host (#888/#902) and React components."
+
+[[shared]]
+path = "gui/src/constants"
+owner = "Grok"
+note = "#870 (W0-06): Qt UI constants; deleted with their consumers."
+
+[[shared]]
+path = "gui/src/contracts"
+owner = "Grok"
+note = "#870 (W0-06): Qt tab-config contracts; the bridge contracts (#874) replace them."
+
+[[shared]]
+path = "gui/src/styles"
+owner = "Mistral"
+note = "#871 (W0-07): QSS and motion helpers; design tokens become generated CSS variables."
+
+[[shared]]
+path = "gui/src/thumbnails"
+owner = "Grok"
+note = "#887 (S-01): replaced by the C++ thumbnail service streamed over asset://."
+
+# No [[exception]] records yet. Schema (consumed by
+# middleware/validation/check_migration_additive.py, #884):
+# [[exception]]
+# feature = "<feature id>"     # existing ledger row
+# path = "<exact path or glob>"
+# reason = "<why this freeze/additivity breach is bounded>"
+# issue = <int>
+# approved_by = "<agent or Harbinger>"
+# expires = <YYYY-MM-DD>       # optional; expired records do not suppress
