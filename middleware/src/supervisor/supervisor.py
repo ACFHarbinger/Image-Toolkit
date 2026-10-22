@@ -39,10 +39,19 @@ class Supervisor:
         *,
         poll_interval_s: float = 0.2,
         spawn_child: Callable[[str, Path], ChildHandle] | None = None,
+        use_real_sidecar: bool = False,
+        python_executable: str | None = None,
     ) -> None:
         self.data_dir = data_dir
         self.poll_interval_s = poll_interval_s
-        self._spawn_child = spawn_child or (lambda name, path: spawn(name, path))
+        self._spawn_child = spawn_child or (
+            lambda name, path: spawn(
+                name,
+                path,
+                use_real_sidecar=use_real_sidecar,
+                python_executable=python_executable,
+            )
+        )
         self._lock = DataDirLock(data_dir, "supervisor")
         self._children: dict[str, ChildHandle] = {}
         self._events: list[BridgeEvent] = []
