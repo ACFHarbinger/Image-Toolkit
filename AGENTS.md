@@ -68,6 +68,7 @@ suggestion:
 ### Global Coding Standards
 *   **Renames (Tauri migration Wave 0):** the Python package is `middleware/` (was `backend/`, W0-01 #865), and the C++ pybind11 core is `backend/`, imported as `import backend` (was `base/` / `import base`, W0-02 #866). There are no compatibility aliases: `import base` and `backend.src…` no longer work. Build the core with `just build::build-base`, which writes to `build/backend` and installs `backend.cpython-*.so` at the repo root.
 *   **Bridge contracts (W0-10 #874):** the contract source of truth is `contracts/` (JSON Schema per capability + `methods.toml` routing). Edit schemas and regenerate with `python contracts/generate.py` — never edit `contracts/generated/` or `CONTRACTS.sha256`; CI's `contracts/generate.py --check` fails on drift.
+*   **Migration ledger (W0-18 #882):** `migration/features.toml` is the source of truth for PySide6 → Tauri feature parity (routes, paths, scenarios, OS checklist, status per capability). When a Tauri page lands, a PySide6 path is deleted, or routes change, update the matching row and regenerate with `python migration/generate_parity.py` — never hand-edit `docs/migration/parity.md`; CI's `check_migration_ledger.py` and `generate_parity.py --check` fail on drift.
 *   **Database**: Keep `middleware/src/database/unified/schema.sql` compatible (migrations, not ad-hoc DDL). Use transactions for group/image integrity.
 *   **Tauri migration freeze (W0-20):** while both shells ship, all of
     `gui/src` is frozen to reviewed bugfixes only (Harbinger Q3 B). New Qt
