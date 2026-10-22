@@ -44,7 +44,7 @@
 4. Added a `_fitting` boolean re-entrancy guard in `_fit_all`. If a `QGraphicsView` internal geometry propagation re-enters `_fit_all` while `grid.fit_all()` is running, the nested call returns immediately without applying a second conflicting transform.
 5. Added `_ElidingLabel` (`main_window.py`) — a `QLabel` subclass with `QSizePolicy.Ignored` horizontal policy that elides its text with `QFontMetrics.elidedText(..., Qt.ElideRight, self.width())` on every `resizeEvent`, keeping the full untruncated string as the tooltip. `status_label`, `pixel_label`, and the footer `hints` label all use it now, so none of them can force the window wider than the screen regardless of how long their text gets (a long dataset path, a `Pinned:` multi-comparator pixel readout, or the full `KEY_HINTS` crib sheet).
 
-**Debug instrumentation (issue #153):** `_DBG_INSPECTOR` in `main_window.py` and `_DBG_PANEL` in `image_panel.py` gate tagged stdout lines (`[DBG-INSPECTOR]`, `[DBG-PANEL]`) covering every resize event, `_fit_all` invocation (with call-stack origin), splitter sizes before/after fit, per-panel viewport+fit_scale+zoom, and a `window exceeds screen width` flag. Both are set to `False` now that the bug is confirmed resolved (46 regression tests in `backend/benchmark/evaluation/test/`); flip to `True` if it needs to be diagnosed again.
+**Debug instrumentation (issue #153):** `_DBG_INSPECTOR` in `main_window.py` and `_DBG_PANEL` in `image_panel.py` gate tagged stdout lines (`[DBG-INSPECTOR]`, `[DBG-PANEL]`) covering every resize event, `_fit_all` invocation (with call-stack origin), splitter sizes before/after fit, per-panel viewport+fit_scale+zoom, and a `window exceeds screen width` flag. Both are set to `False` now that the bug is confirmed resolved (46 regression tests in `middleware/benchmark/evaluation/test/`); flip to `True` if it needs to be diagnosed again.
 
 ---
 
@@ -134,9 +134,9 @@ Context: any code that starts a `QThread` (or constructs a `QAudioOutput`/other 
 
 Symptom: `QSocketNotifier: Socket notifiers cannot be enabled or disabled from another thread`, immediately followed by either `free(): invalid pointer` (glibc heap corruption) and a SIGABRT, or a SIGSEGV inside `libQt6Core` (see the `deleteOrphaned` crash class below, which was originally misdiagnosed as this instance's root cause before the full startup stdout was available).
 
-Cause: Qt Multimedia's PipeWire backend probes audio devices on its own thread the first time anything triggers it (constructing `QAudioOutput`, or sometimes just the plugin registration from importing `PySide6.QtMultimedia`). On Linux/glib, a `QThread` started around the same moment — before the main event loop is running — races that probe. With the JPype JVM already loaded in-process (started at login for `VaultManager`), this collision reliably corrupts the heap rather than failing safely. **Before assuming this is the cause, rule out the already-fixed, differently-triggered version**: `backend/main.py` preloads the system `libpulse.so.0` (via `ctypes.CDLL`, wrapped in `contextlib.suppress(OSError)`) to prevent a *different* mechanism from producing the identical warning — a SONAME-dedup mismatch where `import base`'s OpenCV/FFmpeg dependency transitively loads a pixi-built `libpulse.so.0` before Qt Multimedia's own `dlopen()` of the same SONAME, causing Qt to bind to a build it wasn't tested against. Test that preload in isolation (`ctypes.CDLL(path)` should not silently swallow an `OSError`) before spending time on the thread-timing race below — they produce the same warning text but need different fixes.
+Cause: Qt Multimedia's PipeWire backend probes audio devices on its own thread the first time anything triggers it (constructing `QAudioOutput`, or sometimes just the plugin registration from importing `PySide6.QtMultimedia`). On Linux/glib, a `QThread` started around the same moment — before the main event loop is running — races that probe. With the JPype JVM already loaded in-process (started at login for `VaultManager`), this collision reliably corrupts the heap rather than failing safely. **Before assuming this is the cause, rule out the already-fixed, differently-triggered version**: `middleware/main.py` preloads the system `libpulse.so.0` (via `ctypes.CDLL`, wrapped in `contextlib.suppress(OSError)`) to prevent a *different* mechanism from producing the identical warning — a SONAME-dedup mismatch where `import base`'s OpenCV/FFmpeg dependency transitively loads a pixi-built `libpulse.so.0` before Qt Multimedia's own `dlopen()` of the same SONAME, causing Qt to bind to a build it wasn't tested against. Test that preload in isolation (`ctypes.CDLL(path)` should not silently swallow an `OSError`) before spending time on the thread-timing race below — they produce the same warning text but need different fixes.
 
-Fix that actually closed this (after a narrower per-call-site defer proved insufficient — see below): **gate the source, not individual callers.** `backend/src/app.py::launch_app()` now explicitly primes the backend (`QAudioOutput()`) immediately after `QApplication` is constructed, before the login window is even shown — giving the async probe the maximum possible head start, since vault authentication takes real, sequential time. It then defers the actual `MainWindow(...)` construction itself with `QTimer.singleShot(400, ...)`. Since no tab — and therefore no scanner `QThread` — can exist before `MainWindow` is constructed, this closes the race for *every* call path at once (auto-restore, a user's own manual action taken within seconds of launch, any future gallery), rather than requiring each individual call site to remember to defer itself.
+Fix that actually closed this (after a narrower per-call-site defer proved insufficient — see below): **gate the source, not individual callers.** `middleware/src/app.py::launch_app()` now explicitly primes the backend (`QAudioOutput()`) immediately after `QApplication` is constructed, before the login window is even shown — giving the async probe the maximum possible head start, since vault authentication takes real, sequential time. It then defers the actual `MainWindow(...)` construction itself with `QTimer.singleShot(400, ...)`. Since no tab — and therefore no scanner `QThread` — can exist before `MainWindow` is constructed, this closes the race for *every* call path at once (auto-restore, a user's own manual action taken within seconds of launch, any future gallery), rather than requiring each individual call site to remember to defer itself.
 
 **Why a per-call-site defer isn't enough on its own**: an earlier attempt deferred only the Wallpaper tab's startup auto-restore call (`QTimer.singleShot(250, ...)` on `SystemDisplaySubTab.set_config()`) and still recurred — the user's own manual "browse a new directory" action, taken within that same window, reaches the identical `QThread`-starting code through a completely different call path, entirely unprotected by a defer wrapping only the auto-restore. If you're tempted to fix a new instance of this crash class by wrapping one specific call in `QTimer.singleShot`, consider whether a user action could reach the same underlying thread-starting code some other way — if so, gate construction of whatever owns that code path instead (as done here for `MainWindow`), not the individual call.
 
@@ -400,12 +400,12 @@ and SIGABRT — the same failure mode Addendum 13 already saw once. Rather
 than another Python-level fix guess, this round built permanent,
 toggleable tooling instead of another one-off print pass: see
 [`dev/README.md`](../dev/README.md).
-`backend/src/core/telemetry.py` is a structured, JSONL event logger
+`middleware/src/core/telemetry.py` is a structured, JSONL event logger
 (`IMAGE_TOOLKIT_TELEMETRY=1 just python` to enable) wired into every
 `[thread-lifecycle]`/`[startup-probe-guard]` call site already documented
 above (additive only, none of the existing prints were touched) plus the
 suspected native-crash boundary itself — `QImage().loadFromData()` in
-`video_thumbnailer.py` and every `base.scan_files_multi()` call —
+`video_thumbnailer.py` and every `backend.scan_files_multi()` call —
 wrapped in `telemetry.span()` so a crash mid-decode leaves an unambiguous
 "orphaned span" in the file instead of requiring inference from which
 `print()` line happened to be last. `dev/telemetry_analyzer.py` parses
@@ -494,17 +494,17 @@ Full diagnosis: `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`.
 ```
 Playback position still advances (the demuxer is fine), but nothing renders. Other codecs (H.264, HEVC, VP9) are unaffected. Not a crash — the process stays alive.
 
-**Root cause:** `backend/main.py` sets `QT_FFMPEG_DECODING_HW_DEVICE_TYPES` to steer Qt's FFmpeg backend away from hardware video decode (originally added to keep VA-API's `iHD_drv_video.so` from loading next to JPype's JVM — see root cause #2/#3 above). Qt's own docs say an empty/`","` value should disable hardware decode entirely, but on this Qt/FFmpeg build that value does **not** reliably do that — VA-API context creation is still probed, and when it fails (or is skipped), the backend falls through to CUDA/NVDEC. This system's Qt-bundled FFmpeg has a broken `av1_cuvid` decoder for this content (10-bit "Main" profile `yuv420p10le` AV1), so every frame fails pixel-format negotiation. Confirmed empirically by toggling the env var across ~15 repeated loads: `""`/`","` failed on nearly every run; leaving the var unset, or restricting it to `"cuda"` explicitly, decoded correctly every time.
+**Root cause:** `middleware/main.py` sets `QT_FFMPEG_DECODING_HW_DEVICE_TYPES` to steer Qt's FFmpeg backend away from hardware video decode (originally added to keep VA-API's `iHD_drv_video.so` from loading next to JPype's JVM — see root cause #2/#3 above). Qt's own docs say an empty/`","` value should disable hardware decode entirely, but on this Qt/FFmpeg build that value does **not** reliably do that — VA-API context creation is still probed, and when it fails (or is skipped), the backend falls through to CUDA/NVDEC. This system's Qt-bundled FFmpeg has a broken `av1_cuvid` decoder for this content (10-bit "Main" profile `yuv420p10le` AV1), so every frame fails pixel-format negotiation. Confirmed empirically by toggling the env var across ~15 repeated loads: `""`/`","` failed on nearly every run; leaving the var unset, or restricting it to `"cuda"` explicitly, decoded correctly every time.
 
 A related, separate failure mode was also reproduced during investigation: heavy **concurrent GPU video decode from other processes** (e.g. a browser with several video tabs open) can exhaust the GPU's limited hardware decode-session pool, causing the exact same symptom intermittently even with a healthy config. This is a real hardware/driver limit, not something the env var can fix — if it happens only occasionally and correlates with heavy concurrent GPU video use elsewhere, that's this second cause, not the config bug above.
 
-**Fix:** In `backend/main.py`, set the decode restriction to `"cuda"` specifically, not `""` or `","`:
+**Fix:** In `middleware/main.py`, set the decode restriction to `"cuda"` specifically, not `""` or `","`:
 ```python
 os.environ.setdefault("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", "cuda")
 ```
 This keeps VA-API from ever being the *selected* decode device (preserving the original JVM-safety intent) while avoiding the "fully disabled" code path that was actually broken. Verify with:
 ```bash
-QT_LOGGING_RULES="qt.multimedia.ffmpeg.hwaccel=true" python backend/main.py
+QT_LOGGING_RULES="qt.multimedia.ffmpeg.hwaccel=true" python middleware/main.py
 ```
 — the enumeration log line (`Checking HW context: vaapi ... Using above hw context.`) appears regardless of this setting in this Qt build (that step seems unconditional), but per-codec device *selection* does respect it, which is what actually matters here.
 
@@ -533,9 +533,9 @@ So MAL itself is reachable and has the title; Jikan's own scraper currently can'
 
 **Workaround — switch the Auto-Fill method:** Since Jikan's cache-miss path is the actual point of failure, switching to a different data source sidesteps it entirely. Go to **Settings > System and Logging > MyAnimeList Auto-Fill** and change "Auto-Fill Method" to:
 - **Direct Website Scraping** — scrapes myanimelist.net directly (`mal_scrape_client.py`), no API key needed, gets full data including characters/staff. Slower (2-3 sequential page loads) and slightly more fragile to MAL markup changes, but bypasses Jikan entirely — confirmed working against titles that 504 on Jikan.
-- **Official MyAnimeList API** — hits `api.myanimelist.net` directly (`mal_api_client.py`), needs a free client ID from https://myanimelist.net/apiconfig (set `MAL_CLIENT_ID` or `backend/config/api_keys.yaml` → `myanimelist.client_id`). No characters/staff data (not exposed by this API), but fast and reliable for core metadata.
+- **Official MyAnimeList API** — hits `api.myanimelist.net` directly (`mal_api_client.py`), needs a free client ID from https://myanimelist.net/apiconfig (set `MAL_CLIENT_ID` or `middleware/config/api_keys.yaml` → `myanimelist.client_id`). No characters/staff data (not exposed by this API), but fast and reliable for core metadata.
 
-Dispatched through `backend/src/web/clients/mal_dispatcher.py`; the chosen method persists via `AppSettings.mal_fetch_method()` (`QSettings`, key `preferences/mal_fetch_method`).
+Dispatched through `middleware/src/web/clients/mal_dispatcher.py`; the chosen method persists via `AppSettings.mal_fetch_method()` (`QSettings`, key `preferences/mal_fetch_method`).
 
 ---
 
@@ -548,7 +548,7 @@ Dispatched through `backend/src/web/clients/mal_dispatcher.py`; the chosen metho
 **Diagnosis:**
 ```bash
 # Run with verbose logging
-ASP_LOG_LEVEL=DEBUG python -m backend.src.animation.pipeline <args>
+ASP_LOG_LEVEL=DEBUG python -m middleware.src.animation.pipeline <args>
 
 # Check the stage trace JSON (written to output dir)
 cat output/trace.json | python -m json.tool | grep -A5 "stage_7"
@@ -573,7 +573,7 @@ cat output/trace.json | python -m json.tool | grep -A5 "stage_7"
 
 ```bash
 # Relax coverage gate
-ASP_COV_MIN_MULTI_PCT=0.15 python -m backend.src.animation.pipeline <args>
+ASP_COV_MIN_MULTI_PCT=0.15 python -m middleware.src.animation.pipeline <args>
 ```
 
 Other common causes:
@@ -589,7 +589,7 @@ Other common causes:
 **Diagnosis:**
 ```bash
 # Check ghosting score in benchmark output
-python backend/benchmark/run_single.py --test-id <ID> | grep ghosting
+python middleware/benchmark/run_single.py --test-id <ID> | grep ghosting
 ```
 
 **Fixes in priority order:**
@@ -603,12 +603,12 @@ python backend/benchmark/run_single.py --test-id <ID> | grep ghosting
 
 ### `RuntimeError: Canvas too large` / `CANVAS_MAX_DIM exceeded`
 
-**Cause:** The computed panorama canvas exceeds `CANVAS_MAX_DIM` (set in `backend/src/constants/animation.py`).
+**Cause:** The computed panorama canvas exceeds `CANVAS_MAX_DIM` (set in `middleware/src/constants/animation.py`).
 
 **Fix:** Reduce the input image resolution before stitching, or increase the constant (memory-bound):
 
 ```python
-# backend/src/constants/animation.py
+# middleware/src/constants/animation.py
 CANVAS_MAX_DIM = 32768  # increase from default 16384
 ```
 
@@ -621,8 +621,8 @@ CANVAS_MAX_DIM = 32768  # increase from default 16384
 **Fix:** Unset the environment variable or use `override_env=True` in the loader:
 
 ```python
-from backend.src.animation.config import load_asp_config
-load_asp_config("backend/config/asp_config.toml", override_env=True)  # TOML wins over env
+from middleware.src.animation.config import load_asp_config
+load_asp_config("middleware/config/asp_config.toml", override_env=True)  # TOML wins over env
 ```
 
 Or: set the value directly in the environment (env always wins by default):
@@ -686,13 +686,13 @@ export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig"
 
 ### `OpenMP` threads panic in tests
 
-**Symptom:** Tests in `backend/test/animation/` hang with deadlock-like behaviour.
+**Symptom:** Tests in `middleware/test/animation/` hang with deadlock-like behaviour.
 
 **Cause:** Multiple OpenMP thread pools being initialised in parallel test workers.
 
 **Fix:** Run tests with `--skip-gpu` and the `pytest-xdist` work-steal distribution:
 ```bash
-pytest backend/test/animation/ -n auto --dist=worksteal --skip-gpu
+pytest middleware/test/animation/ -n auto --dist=worksteal --skip-gpu
 ```
 
 ---
@@ -701,14 +701,14 @@ pytest backend/test/animation/ -n auto --dist=worksteal --skip-gpu
 
 ### `HydraException: Key 'command' not found in config`
 
-**Cause:** The `command` key is missing from `backend/config/base.yaml` or was not passed on the CLI.
+**Cause:** The `command` key is missing from `middleware/config/base.yaml` or was not passed on the CLI.
 
 **Fix:** Pass the command explicitly:
 ```bash
 python -m backend.dispatcher command=train
 ```
 
-Or add a default in `backend/config/base.yaml`:
+Or add a default in `middleware/config/base.yaml`:
 ```yaml
 defaults:
   - _self_
@@ -738,7 +738,7 @@ python -m backend.dispatcher +new_key=value
 # From project root
 python -m backend.dispatcher
 
-# NOT: python backend/dispatcher.py (wrong cwd)
+# NOT: python middleware/dispatcher.py (wrong cwd)
 ```
 
 ---
@@ -868,16 +868,14 @@ npm install @tauri-apps/api@<version>
 cargo update -p tauri
 ```
 
-### Electron `app.asar` not found / blank window
+### Blank webview / `build/index.html` not found
 
 ```bash
 cd frontend
-npm run build          # Build React first
-npm run start-electron # Then launch Electron
+npm run build          # Vite writes the webview bundle before `tauri build` uses it
 ```
 
-Do not run `npm run electron` without first building React — it points to `build/index.html` which does not exist until after `npm run build`.
-
+`tauri dev` does not need the prebuilt bundle — it serves the webview from the Vite dev server.
 ---
 
 ## Mobile Build Failures
@@ -933,20 +931,20 @@ xcodebuild test   -project app/ImageToolkit.xcodeproj -scheme ImageToolkit \
 **Safe invocation:**
 ```bash
 # Fast, no GPU — always safe
-pytest backend/test/animation/ --skip-gpu
+pytest middleware/test/animation/ --skip-gpu
 
 # Parallel workers — safe after §3.12 fix
-pytest backend/test/animation/ -n auto --dist=worksteal --skip-gpu
+pytest middleware/test/animation/ -n auto --dist=worksteal --skip-gpu
 
 # Full suite (all backend modules) — requires §3.15 non-animation audit
 # Only run after auditing all non-animation module imports for ML singletons
-pytest backend/test/ --skip-gpu -n auto
+pytest middleware/test/ --skip-gpu -n auto
 ```
 
 **Never run:**
 ```bash
-pytest backend/test/          # without --skip-gpu on machines with GPU
-pytest backend/test/gui/      # PySide6 tests require a display; drain RAM
+pytest middleware/test/          # without --skip-gpu on machines with GPU
+pytest middleware/test/gui/      # PySide6 tests require a display; drain RAM
 ```
 
 ### `ImportError` collecting tests
@@ -956,10 +954,10 @@ pytest backend/test/gui/      # PySide6 tests require a display; drain RAM
 **Fix:**
 ```bash
 # Find the failing import
-pytest backend/test/animation/ --collect-only 2>&1 | grep "ERROR\|ImportError"
+pytest middleware/test/animation/ --collect-only 2>&1 | grep "ERROR\|ImportError"
 
 # Check import times to identify which module is slow/failing
-python backend/src/utils/check_import_times.py
+python middleware/src/utils/check_import_times.py
 ```
 
 ### `pytest-forked` not found
