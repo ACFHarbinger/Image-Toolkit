@@ -86,9 +86,17 @@ test("render-cache tile URL confinement refuses originals and path traversal", (
   const traversal = "/home/user/.image-toolkit/cache/render/../secrets.jpg";
 
   expect(renderCacheTileUrl(validTile)).toBe(validTile);
-  expect(renderCacheTileUrl(windowsTile)).toBe(windowsTile);
+  expect(renderCacheTileUrl(windowsTile)).toBe(
+    "C:/Users/user/.image-toolkit/cache/render/frame_a_L0_4_2.jpg",
+  );
   expect(renderCacheTileUrl(original)).toBeNull();
   expect(renderCacheTileUrl(traversal)).toBeNull();
+  expect(
+    renderCacheTileUrl("/home/user/.image-toolkit/cache/render/%2e%2e/secrets.jpg"),
+  ).toBeNull();
+  expect(
+    renderCacheTileUrl("/home/user/.image-toolkit/cache/render/my..tile.jpg"),
+  ).toBe("/home/user/.image-toolkit/cache/render/my..tile.jpg");
 
   const docWithOriginal = createFakeCanvasDocument({
     cacheRoot: "/home/user/Pictures/raw_originals",

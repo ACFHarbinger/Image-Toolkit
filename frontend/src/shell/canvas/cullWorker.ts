@@ -20,20 +20,52 @@ export const RENDER_CACHE_SEGMENT = "/.image-toolkit/cache/render/";
  * with no parent-traversal (`..`) segments, and converts it via `convertFileSrc`.
  * Originals or paths outside the render cache return `null`.
  */
-export function renderCacheTileUrl(cachePath: string): string | null {
+function canonicalCachePath(cachePath: string): string | null {
   const normalized = cachePath.replaceAll("\\", "/");
-  if (!normalized || normalized.includes("..")) {
+  if (!normalized || normalized.includes("\0")) {
     return null;
   }
-  const marker = normalized.indexOf(RENDER_CACHE_SEGMENT);
+  const parts: string[] = [];
+  const rawParts = normalized.split("/");
+  for (let index = 0; index < rawParts.length; index += 1) {
+    let part = rawParts[index];
+    try {
+      part = decodeURIComponent(part);
+    } catch {
+      return null;
+    }
+    if (part.includes("/") || part.includes("\\") || part === "." || part === "..") {
+      return null;
+    }
+    if (part === "") {
+      // Keep the leading slash of an absolute POSIX path. Any other empty
+      // segment is a trailing slash or a double slash.
+      if (index === 0) {
+        parts.push("");
+        continue;
+      }
+      return null;
+    }
+    parts.push(part);
+  }
+  const canonical = parts.join("/");
+  const marker = canonical.indexOf(RENDER_CACHE_SEGMENT);
   if (marker < 0) {
     return null;
   }
-  const rest = normalized.slice(marker + RENDER_CACHE_SEGMENT.length);
-  if (!rest || rest.startsWith("/") || rest.endsWith("/")) {
+  const rest = canonical.slice(marker + RENDER_CACHE_SEGMENT.length);
+  if (!rest || rest.endsWith("/")) {
     return null;
   }
-  return convertFileSrc(cachePath);
+  return canonical;
+}
+
+export function renderCacheTileUrl(cachePath: string): string | null {
+  const canonical = canonicalCachePath(cachePath);
+  if (canonical === null) {
+    return null;
+  }
+  return convertFileSrc(canonical);
 }
 
 export interface ResolvedTile {
