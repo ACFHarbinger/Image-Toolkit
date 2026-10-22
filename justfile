@@ -224,7 +224,7 @@ asp-benchmark-tests *tests: helper::_print_header
     just benchmark::asp-benchmark-tests {{tests}}
 
 # Run ASP benchmark on a numeric range of datasets
-# Usage: just asp-benchmark-range 1-10 asp_test27 asp_test57
+# Usage: just asp-benchmark-range 1-10
 asp-benchmark-range range: helper::_print_header
     just benchmark::asp-benchmark-range {{range}}
 
@@ -336,7 +336,7 @@ lora-setup-tagger: helper::_print_header
 # Caption all images in a directory with WD14 tags + optional Florence-2
 # Usage: just lora-tag data/my_character my_char_xyz
 lora-tag images=dataset trigger=trigger florence2=florence2_flag: helper::_print_header
-    just model::lora-tag '{{images}}' '{{trigger}}' '{{florence2}}' '{{florence2_flag}}'
+    just model::lora-tag '{{images}}' '{{trigger}}' '{{florence2}}'
 
 # Train a character LoRA on RTX 3090 Ti (24 GB)
 # Usage: just lora-train data/my_character my_char_xyz
@@ -355,11 +355,11 @@ lora-locon images=dataset trigger=trigger model=model size=size: helper::_print_
 
 # Train NoobAI-XL V-Prediction LoRA
 # Usage: just lora-train-vpred data/my_character my_char_xyz
-lora-train-vpred data=dataset trigger=trigger model=model size=size rank=rank: helper::_print_header
+lora-train-vpred images=dataset trigger=trigger model=model size=size rank=rank: helper::_print_header
     just model::lora-train-vpred '{{images}}' '{{trigger}}' '{{model}}' '{{size}}' '{{rank}}'
 
 # DreamBooth fine-tune with prior preservation (requires 24 GB)
-# Usage: just lora-dreambooth images=my_character my_char_xyz
+# Usage: just lora-dreambooth data/my_character my_char_xyz
 lora-dreambooth images=dataset trigger=trigger model=model class_prompt=class_prompt: helper::_print_header
     just model::lora-dreambooth '{{images}}' '{{trigger}}' '{{model}}' '{{class_prompt}}'
 
@@ -370,8 +370,8 @@ lora-full-ft images=dataset trigger=trigger model=model: helper::_print_header
 
 # Run the complete pipeline: tag → deduplicate → train (3090 Ti profile)
 # Usage: just lora-pipeline data/my_character my_char_xyz
-lora-pipeline images=dataset trigger=trigger model=model: helper::_print_header
-    just model::lora-pipeline '{{images}}' '{{trigger}}' '{{model}}'
+lora-pipeline images=dataset trigger=trigger model=model size=size: helper::_print_header
+    just model::lora-pipeline '{{images}}' '{{trigger}}' '{{model}}' '{{size}}'
 
 # Analyse a trained LoRA checkpoint: SVD effective rank + weight delta heatmap
 # Usage: just lora-analyze outputs/my_char_lora/checkpoint-epoch0010
