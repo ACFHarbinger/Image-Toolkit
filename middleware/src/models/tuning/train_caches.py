@@ -55,8 +55,16 @@ def enable_attention_backend(unet, use_xformers: bool) -> bool:
 
 
 def _cache_key(sample: Any, base_model: str) -> str:
-    raw = f"{sample.image_path}|{tuple(sample.bucket)}|{base_model}"
+    # ``vae-range:-1_1`` retires disk entries written when the cache fed the
+    # VAE [0, 1] pixels. Those latents are not the live step's [-1, 1] encode.
+    raw = f"{sample.image_path}|{tuple(sample.bucket)}|{base_model}|vae-range:-1_1"
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+
+def _bucket_key(sample: Any) -> tuple[int, int]:
+    """Spatial group for one encode chunk. ``base_pixels`` is the bucket size."""
+    width, height = sample.bucket
+    return int(width), int(height)
 
 
 class LatentCache:
@@ -117,8 +125,20 @@ class LatentCache:
                     continue
             pending.append(index)
 
-        for start in range(0, len(pending), _ENCODE_CHUNK):
-            chunk = pending[start : start + _ENCODE_CHUNK]
+        grouped: dict[tuple[int, int], list[int]] = {}
+        for index in pending:
+            grouped.setdefault(_bucket_key(self._dataset.samples[index]), []).append(index)
+        for indices in grouped.values():
+            self._encode_bucket(indices)
+        log.info(
+            "Latent cache: %d disk hits, %d encoded%s",
+            self.disk_hits, self.encoded, " (persisted)" if self._cache_dir else "",
+        )
+
+    def _encode_bucket(self, indices: Sequence[int]) -> None:
+        """Encode one bucket. Mixed aspect ratios are different spatial sizes."""
+        for start in range(0, len(indices), _ENCODE_CHUNK):
+            chunk = list(indices[start : start + _ENCODE_CHUNK])
             pixels = torch.stack([self._dataset.base_pixels(i)[0].to(self._dtype) for i in chunk])
             latents = self._encode_fn(pixels)
             for offset, index in enumerate(chunk):
@@ -129,10 +149,6 @@ class LatentCache:
                 if path is not None:
                     with contextlib.suppress(OSError):
                         np.savez(path, latent=latent.detach().cpu().float().numpy())
-        log.info(
-            "Latent cache: %d disk hits, %d encoded%s",
-            self.disk_hits, self.encoded, " (persisted)" if self._cache_dir else "",
-        )
 
     def lookup(self, indices: Sequence[int]) -> torch.Tensor:
         return torch.stack([self._latents[int(i)] for i in indices])
@@ -226,9 +242,14 @@ def offload_to_cpu(module) -> None:
 
 
 def encode_pixels_to_latents(tuner, pixels: torch.Tensor) -> torch.Tensor:
-    """Encode a batch of CHW [0, 1] pixel tensors to scaled VAE latents."""
+    """Encode CHW [0, 1] bucket pixels to scaled VAE latents.
+
+    ``base_pixels`` is [0, 1]. The uncached step encodes ``pixel_values``,
+    which the dataset has already mapped to [-1, 1]. Apply that same map
+    here so a cached latent matches a live encode of the unaugmented image.
+    """
     with torch.no_grad():
-        px = pixels.to(device=tuner.accelerator.device, dtype=tuner.vae.dtype)
+        px = (pixels * 2.0 - 1.0).to(device=tuner.accelerator.device, dtype=tuner.vae.dtype)
         latents = tuner.vae.encode(px).latent_dist.sample()
         return latents * tuner.vae.config.scaling_factor
 

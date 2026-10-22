@@ -18,6 +18,7 @@ from middleware.src.models.tuning.train_caches import (
     cached_conditioning,
     deterministic_captions,
     enable_attention_backend,
+    encode_pixels_to_latents,
     offload_to_cpu,
 )
 
@@ -109,6 +110,71 @@ def test_latent_cache_disk_round_trip_skips_encoding(samples):
     assert cache2.encoded == 0
     assert torch.allclose(cache2.lookup(range(len(items))), torch.stack(cold_values))
     assert (tmp_path / ".itk_latent_cache").is_dir()
+
+
+def test_latent_cache_encodes_each_bucket_on_its_own(tmp_path):
+    """Mixed aspect ratios must not be stacked into one VAE batch."""
+    buckets = [(64, 64), (64, 64), (32, 64), (96, 64), (64, 48)]
+    items = []
+    for i, bucket in enumerate(buckets):
+        path = tmp_path / f"mix_{i}.png"
+        _image(path, size=bucket)
+        items.append(SimpleNamespace(
+            image_path=path, bucket=bucket, original_size=bucket,
+            pruned_tags=[], caption="",
+        ))
+
+    class _BucketDataset(_FakeDataset):
+        def base_pixels(self, idx):
+            width, height = self.samples[idx].bucket
+            img = torch.zeros(3, height, width)
+            return img, (0, 0)
+
+    seen = []
+
+    def encode(pixels):
+        seen.append(tuple(pixels.shape))
+        return pixels.mean(dim=(1, 2, 3), keepdim=True)
+
+    cache = LatentCache(
+        _BucketDataset(items), encode_fn=encode, images_dir=tmp_path,
+        base_model="some/model", to_disk=False, device="cpu", dtype=torch.float32,
+    )
+    cache.build()
+    assert cache.encoded == len(items)
+    assert seen == [(2, 3, 64, 64), (1, 3, 64, 32), (1, 3, 64, 96), (1, 3, 48, 64)]
+    assert cache.lookup([0, 1]).shape[0] == 2
+
+
+def test_encode_pixels_matches_the_uncached_vae_range():
+    seen = {}
+
+    class _Vae:
+        dtype = torch.float32
+
+        class config:
+            scaling_factor = 0.5
+
+        def encode(self, pixels):
+            seen["pixels"] = pixels.detach().clone()
+
+            class _Dist:
+                def sample(self):
+                    return pixels
+
+            return SimpleNamespace(latent_dist=_Dist())
+
+    tuner = SimpleNamespace(
+        accelerator=SimpleNamespace(device=torch.device("cpu")),
+        vae=_Vae(),
+    )
+    pixels = torch.zeros(2, 3, 4, 4)
+    pixels[0] = 0.0
+    pixels[1] = 1.0
+    latents = encode_pixels_to_latents(tuner, pixels)
+    assert torch.equal(seen["pixels"][0], torch.full((3, 4, 4), -1.0))
+    assert torch.equal(seen["pixels"][1], torch.ones(3, 4, 4))
+    assert torch.allclose(latents, seen["pixels"] * 0.5)
 
 
 def test_latent_cache_keys_change_with_bucket_and_model(samples):
