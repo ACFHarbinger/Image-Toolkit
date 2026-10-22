@@ -33,10 +33,14 @@ def load_registry(path: Optional[Path] = None) -> Registry:
     return data  # type: ignore[return-value]
 
 
+def keybindings_path() -> Path:
+    """Same file the Qt shell writes, resolved without importing PySide6."""
+    return Path.home() / ".image-toolkit" / "keybindings.json"
+
+
 def load_overrides(path: Optional[Path] = None) -> Dict[str, Dict[str, Any]]:
     if path is None:
-        from gui.src.constants.utils import _KEYBINDINGS_PATH  # lazy, only for Python shell
-        path = _KEYBINDINGS_PATH
+        path = keybindings_path()
     if not path.exists():
         return {}
     try:
