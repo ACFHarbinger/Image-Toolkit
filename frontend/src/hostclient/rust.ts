@@ -1,24 +1,26 @@
-// RustTransport: native-only operations through an injected Tauri `invoke`
-// (W0-12, #876).
-//
-// Scope rule (roadmap §1): dialogs, tray, notifications and OS integration
-// only — no business methods. A Rust command that duplicates a sidecar
-// service is retired by moving its manifest row to `sidecar`, never by
-// adding rows here.
+import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 
-import type { Transport } from "./transport";
+import type { BridgeRequest, BridgeResponse } from "../../../contracts/generated/ts";
+import type { BridgeTransport } from "./transport";
 
-export type InvokeFn = (command: string, args?: Record<string, unknown>) => Promise<unknown>;
+export type InvokeLike = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 
-export class RustTransport implements Transport {
-  constructor(private readonly invokeFn: InvokeFn) {}
+export interface RustTransportOptions {
+  readonly invokeImpl?: InvokeLike;
+  readonly command?: string;
+}
 
-  /** `method` is the Tauri command name for native ops (see manifest). */
-  request(method: string, params: Record<string, unknown> = {}): Promise<unknown> {
-    return this.invokeFn(method, params);
+/** Native adapter for commands that remain Rust-owned (dialogs, tray, OS). */
+export class RustTransport implements BridgeTransport {
+  private readonly invokeImpl: InvokeLike;
+  private readonly command: string;
+
+  constructor(options: RustTransportOptions = {}) {
+    this.invokeImpl = options.invokeImpl ?? ((command, args) => tauriInvoke(command, args));
+    this.command = options.command ?? "bridge_request";
   }
 
-  close(): void {
-    // The Rust shell owns its own lifetime.
+  request(request: BridgeRequest): Promise<BridgeResponse> {
+    return this.invokeImpl<BridgeResponse>(this.command, { request });
   }
 }

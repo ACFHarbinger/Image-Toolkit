@@ -1,10 +1,11 @@
-// HostClient package public surface (W0-12, #876).
-
-export { HostClientError } from "./errors";
-export { HostClient, type Transports } from "./hostclient";
-export { HttpTransport, type HttpTransportOptions } from "./http";
-export { OPERATION_MANIFEST, type OperationRow, type TransportKind } from "./manifest";
-export { RustTransport, type InvokeFn } from "./rust";
-export { SidecarTransport, type SidecarTransportOptions, type StdioChannel } from "./sidecar";
-export type { Transport } from "./transport";
-export { BRIDGE_PROTOCOL_NAME, BRIDGE_PROTOCOL_VERSION } from "./types";
+export { HostClient } from "./client";
+export { DjangoTransport } from "./django";
+export { BridgeAppError, BridgeTransportError } from "./errors";
+export { RustTransport } from "./rust";
+export { SidecarTransport } from "./sidecar";
+export { buildBridgeRequest } from "./transport";
+export type { HostClientOptions } from "./client";
+export type { DjangoTransportOptions, FetchLike } from "./django";
+export type { InvokeLike, RustTransportOptions } from "./rust";
+export type { SidecarConnection } from "./sidecar";
+export type { BridgeTransport } from "./transport";

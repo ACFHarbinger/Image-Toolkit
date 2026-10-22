@@ -1,8 +1,24 @@
-// The Transport interface all HostClient adapters implement (W0-12, #876).
+import type { BridgeEvent, BridgeRequest, BridgeResponse } from "../../../contracts/generated/ts";
 
-export interface Transport {
-  /** Send one contract method call; resolves with the decoded result. */
-  request(method: string, params?: Record<string, unknown>): Promise<unknown>;
-  /** Release the underlying channel; in-flight requests reject. */
-  close(): void;
+/** One shared request/response transport. No second RPC envelope lives here. */
+export interface BridgeTransport {
+  request(request: BridgeRequest): Promise<BridgeResponse>;
+  /** Optional decoded event stream (jobs/bridge channels). */
+  onEvent?(listener: (frame: BridgeEvent) => void): () => void;
+  /** Optional bounded reconnect hook used before a retry. */
+  reset?(): Promise<void> | void;
+  close?(): Promise<void> | void;
+}
+
+export function buildBridgeRequest(
+  method: string,
+  requestId: string | number,
+  params?: Record<string, unknown>,
+): BridgeRequest {
+  return {
+    jsonrpc: "2.0",
+    id: requestId,
+    method,
+    ...(params === undefined ? {} : { params }),
+  };
 }
