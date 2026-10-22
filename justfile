@@ -224,7 +224,7 @@ asp-benchmark-tests *tests: helper::_print_header
     just benchmark::asp-benchmark-tests {{tests}}
 
 # Run ASP benchmark on a numeric range of datasets
-# Usage: just asp-benchmark-range 1-10
+# Usage: just asp-benchmark-range 1-10 asp_test27 asp_test57
 asp-benchmark-range range: helper::_print_header
     just benchmark::asp-benchmark-range {{range}}
 
@@ -336,7 +336,7 @@ lora-setup-tagger: helper::_print_header
 # Caption all images in a directory with WD14 tags + optional Florence-2
 # Usage: just lora-tag data/my_character my_char_xyz
 lora-tag images=dataset trigger=trigger florence2=florence2_flag: helper::_print_header
-    just model::lora-tag '{{images}}' '{{trigger}}' '{{florence2}}'
+    just model::lora-tag '{{images}}' '{{trigger}}' '{{florence2}}' '{{florence2_flag}}'
 
 # Train a character LoRA on RTX 3090 Ti (24 GB)
 # Usage: just lora-train data/my_character my_char_xyz
@@ -355,11 +355,11 @@ lora-locon images=dataset trigger=trigger model=model size=size: helper::_print_
 
 # Train NoobAI-XL V-Prediction LoRA
 # Usage: just lora-train-vpred data/my_character my_char_xyz
-lora-train-vpred images=dataset trigger=trigger model=model size=size rank=rank: helper::_print_header
+lora-train-vpred data=dataset trigger=trigger model=model size=size rank=rank: helper::_print_header
     just model::lora-train-vpred '{{images}}' '{{trigger}}' '{{model}}' '{{size}}' '{{rank}}'
 
 # DreamBooth fine-tune with prior preservation (requires 24 GB)
-# Usage: just lora-dreambooth data/my_character my_char_xyz
+# Usage: just lora-dreambooth images=my_character my_char_xyz
 lora-dreambooth images=dataset trigger=trigger model=model class_prompt=class_prompt: helper::_print_header
     just model::lora-dreambooth '{{images}}' '{{trigger}}' '{{model}}' '{{class_prompt}}'
 
@@ -370,8 +370,8 @@ lora-full-ft images=dataset trigger=trigger model=model: helper::_print_header
 
 # Run the complete pipeline: tag → deduplicate → train (3090 Ti profile)
 # Usage: just lora-pipeline data/my_character my_char_xyz
-lora-pipeline images=dataset trigger=trigger model=model size=size: helper::_print_header
-    just model::lora-pipeline '{{images}}' '{{trigger}}' '{{model}}' '{{size}}'
+lora-pipeline images=dataset trigger=trigger model=model: helper::_print_header
+    just model::lora-pipeline '{{images}}' '{{trigger}}' '{{model}}'
 
 # Analyse a trained LoRA checkpoint: SVD effective rank + weight delta heatmap
 # Usage: just lora-analyze outputs/my_char_lora/checkpoint-epoch0010
@@ -466,6 +466,14 @@ check-loc max="500" exceptions="docs/loc_exceptions.txt": helper::_print_header
 # Enforce additive-only schema migrations while a PySide6 row lives (W0-20)
 check-migration-additive base="": helper::_print_header
     just validation::check-migration-additive '{{base}}'
+
+# Validate the migration ledger against the #869 catalog and the tree (W0-18)
+check-migration-ledger: helper::_print_header
+    just validation::check-migration-ledger
+
+# Fail if docs/migration/parity.md drifts from migration/features.toml (W0-18)
+check-parity-doc: helper::_print_header
+    just validation::check-parity-doc
 
 # Generate Markdown LoC report
 loc-report output="build/gen/loc_report.md" limit="50": helper::_print_header
