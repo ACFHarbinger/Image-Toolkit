@@ -76,7 +76,23 @@ add_library(bench_impl STATIC
     # Math bindings (header-only math; .cpp supplies pybind11 wrappers
     # but the headers are used directly in bench_math.cpp)
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/math/math_bindings.cpp
+
+    # Hybrid Image Editor (HIE) solvers & logic (W0-03 Phase B / #867)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/greet.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/render_graph.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/exact_solvers.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/metaheuristics.cpp
 )
+
+if(HIE_ENABLE_SIMD_SEAM)
+    target_compile_definitions(bench_impl PUBLIC HIE_ENABLE_SIMD_SEAM)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64|i.86)$")
+        set_source_files_properties(
+            ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/exact_solvers.cpp
+            PROPERTIES COMPILE_OPTIONS "-mavx2;-mfma"
+        )
+    endif()
+endif()
 
 # BATCH_TESTS suppresses pybind11 module-entry-point guards that assume a
 # running Python interpreter (same flag used by the tests/ build).
@@ -84,6 +100,7 @@ target_compile_definitions(bench_impl PUBLIC BATCH_TESTS=1)
 
 target_include_directories(bench_impl PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/include
     ${OpenCV_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
     ${eigen_SOURCE_DIR}
@@ -153,6 +170,20 @@ add_backend_benchmark(backend_bench_image bench_image.cpp)
 # 4. Duplicate / perceptual-hash image finder
 add_backend_benchmark(backend_bench_finder bench_finder.cpp)
 
+# 5. Hybrid Image Editor (HIE) exact & metaheuristic solvers (W0-03 Phase B / #867)
+add_executable(backend_bench_hie
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/benchmark/greet_benchmark.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/benchmark/solvers_benchmark.cpp
+)
+target_link_libraries(backend_bench_hie PRIVATE
+    bench_impl
+    benchmark::benchmark
+    benchmark::benchmark_main
+)
+set_target_properties(backend_bench_hie PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/benchmarks"
+)
+
 # ---------------------------------------------------------------------------
 # Convenience umbrella target that builds all benchmarks
 # ---------------------------------------------------------------------------
@@ -162,5 +193,6 @@ add_custom_target(base_benchmarks
         backend_bench_math
         backend_bench_image
         backend_bench_finder
+        backend_bench_hie
     COMMENT "Build all base C++ benchmark executables"
 )

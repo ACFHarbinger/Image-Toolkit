@@ -11,14 +11,16 @@ test:
     npm run test
     cd frontend/src-tauri && cargo test
 
-# Build + run native C++ base tests via ctest (Catch2). Pure C++ — no Python required.
+# Build + run native C++ base tests via ctest (Catch2 + HIE solver tests). Pure C++ — no Python required.
 test-base-cpp:
     @echo "Building C++ base tests..."
-    cmake -B build/backend backend/ \
+    build_shared_root="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" && \
+    PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:$build_shared_root/.pixi/envs/default/lib/pkgconfig:$PKG_CONFIG_PATH" cmake -B build/backend backend/ \
         -DCMAKE_BUILD_TYPE=Debug \
-        -DCMAKE_PREFIX_PATH="$(pwd)/opencv/install" \
+        -DCMAKE_PREFIX_PATH="$build_shared_root/opencv/install;$build_shared_root/.pixi/envs/default" \
+        -DIMAGE_TOOLKIT_PIXI_LIB="$build_shared_root/.pixi/envs/default/lib" \
         -DBACKEND_BUILD_TESTS=ON \
-        && cmake --build build/backend --target backend_tests -j$(nproc)
+        && cmake --build build/backend --target backend_tests hie_solver_tests -j$(nproc)
     @echo "Running native C++ base tests..."
     ctest --test-dir build/backend -V --output-on-failure
     @echo "Native C++ base tests complete."
