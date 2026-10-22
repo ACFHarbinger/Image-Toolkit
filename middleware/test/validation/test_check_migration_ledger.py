@@ -248,6 +248,18 @@ def test_ownership_requires_exactly_one_row(tmp_path: Path):
     assert _check_ownership(tmp_path, [convert, shared, excluded]) == []
 
 
+def test_ownership_ignores_bytecode_next_to_owned_sources(tmp_path: Path):
+    gui_src = tmp_path / "gui/src/tabs"
+    gui_src.mkdir(parents=True)
+    (gui_src / "convert_tab.py").touch()
+    (gui_src / "convert_tab.pyc").write_bytes(b"pyc")
+    cache = gui_src / "__pycache__"
+    cache.mkdir()
+    (cache / "convert_tab.cpython-311.pyc").write_bytes(b"pyc")
+    owner = _feature(pyside=["gui/src/tabs/convert_tab.py"])
+    assert _check_ownership(tmp_path, [owner]) == []
+
+
 def test_deleted_rows_do_not_participate_in_ownership(tmp_path: Path):
     gui_src = tmp_path / "gui/src"
     (gui_src / "tabs").mkdir(parents=True)
