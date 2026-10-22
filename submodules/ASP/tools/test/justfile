@@ -12,4 +12,4 @@ gui:
     cd gui && uv run pytest test -v
 
 base:
-    cmake -S base -B base/build -DBUILD_TESTING=ON && cmake --build base/build -j && ctest --test-dir base/build --output-on-failure
+    cd ../../../.. && just test-base-cpp
