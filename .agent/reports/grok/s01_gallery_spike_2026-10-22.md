@@ -4,7 +4,7 @@
 
 ## What was measured
 
-Stills are `backend.write_render_stills` (`backend/src/image/render_cache.cpp`). It encodes a JPEG in memory, writes a new file in the caller’s cache directory, and renames that file onto the cache name. An existing symlink is replaced and is not followed. The call returns the path, the kind, and the frame index. It does not return a pixel buffer. `max_edge` is clamped to 16..512. Video and GIF seek to `floor(frame_count / 2)` when the container reports a count of at least 2; otherwise they keep the first decodable frame and report index 0.
+Stills are `backend.write_render_stills` (`backend/src/image/render_cache.cpp`). It encodes a JPEG in memory and writes a new file with an exclusive create. POSIX `rename` publishes that file onto the cache name. Windows removes a symlink with `DeleteFile` (the link, not its target) and publishes with `MoveFileEx`. An existing symlink is not followed. The call returns the path, the kind, and the frame index. It does not return a pixel buffer. `max_edge` is clamped to 16..512. Video and GIF seek to `floor(frame_count / 2)` when the container reports a count of at least 2; otherwise they keep the first decodable frame and report index 0.
 
 The webview helper `renderCacheAssetUrl` accepts only a path under `/.image-toolkit/cache/render/` with no `..`. That is the directory already allowed by `assetProtocol.scope` in `frontend/src-tauri/tauri.conf.json`. Other paths, including originals, become no `src`. `VirtualGallery` mounts only the visible window and moves that window when the container scrolls.
 

@@ -4,6 +4,13 @@
 // returns that path. Pixel buffers stay in this function. Video and GIF
 // use the middle reported frame. Animated playback is not this call.
 
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 #include "common.hpp"
 
 #include <opencv2/imgcodecs.hpp>
@@ -15,7 +22,7 @@
 
 #include <algorithm>
 #include <cctype>
-#include <cerrno>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -23,7 +30,9 @@
 #include <string>
 #include <vector>
 
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
 namespace py = pybind11;
 namespace fs = std::filesystem;
@@ -90,8 +99,88 @@ bool confined(const fs::path& root, const fs::path& dest)
 
 // imwrite follows an existing symlink and would overwrite whatever it
 // points at before a later canonical-path check could reject it. Encode
-// first, write a new file, then rename over the cache name. rename
-// replaces a symlink and does not follow it.
+// first, create a new file with an exclusive open, then publish that name.
+// POSIX rename replaces a symlink and does not follow it. On Windows the
+// publish uses MoveFileEx only after DeleteFile has removed a symlink,
+// which deletes the link and not its target.
+bool write_exclusive(const fs::path& path, const std::vector<uchar>& encoded)
+{
+#ifdef _WIN32
+    const HANDLE handle = CreateFileW(
+        path.c_str(),
+        GENERIC_WRITE,
+        0,
+        nullptr,
+        CREATE_NEW,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr);
+    if (handle == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+    std::size_t offset = 0;
+    while (offset < encoded.size()) {
+        DWORD wrote = 0;
+        const auto chunk = static_cast<DWORD>(
+            (std::min)(encoded.size() - offset, static_cast<std::size_t>(1u << 20)));
+        if (!WriteFile(handle, encoded.data() + offset, chunk, &wrote, nullptr) || wrote == 0) {
+            CloseHandle(handle);
+            DeleteFileW(path.c_str());
+            return false;
+        }
+        offset += wrote;
+    }
+    const BOOL flushed = FlushFileBuffers(handle);
+    CloseHandle(handle);
+    if (!flushed) {
+        DeleteFileW(path.c_str());
+        return false;
+    }
+    return true;
+#else
+    FILE* file = std::fopen(path.c_str(), "wbx");
+    if (file == nullptr) {
+        return false;
+    }
+    const std::size_t wrote = std::fwrite(encoded.data(), 1, encoded.size(), file);
+    const int flushed = std::fflush(file);
+    const int synced = ::fsync(::fileno(file));
+    const int closed = std::fclose(file);
+    if (wrote != encoded.size() || flushed != 0 || synced != 0 || closed != 0) {
+        fs::remove(path);
+        return false;
+    }
+    return true;
+#endif
+}
+
+bool publish_cache_file(const fs::path& temp, const fs::path& dest)
+{
+#ifdef _WIN32
+    for (int attempt = 0; attempt < 3; ++attempt) {
+        std::error_code status_error;
+        const fs::file_status status = fs::symlink_status(dest, status_error);
+        if (!status_error && fs::is_symlink(status)) {
+            if (!DeleteFileW(dest.c_str())) {
+                return false;
+            }
+            continue;
+        }
+        if (MoveFileExW(
+                temp.c_str(),
+                dest.c_str(),
+                MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+            return true;
+        }
+        return false;
+    }
+    return false;
+#else
+    std::error_code rename_error;
+    fs::rename(temp, dest, rename_error);
+    return !rename_error;
+#endif
+}
+
 bool commit_jpeg(const fs::path& root, const fs::path& dest, const cv::Mat& image, std::string& error)
 {
     std::vector<uchar> encoded;
@@ -101,45 +190,32 @@ bool commit_jpeg(const fs::path& root, const fs::path& dest, const cv::Mat& imag
         return false;
     }
 
-    const std::string pattern = (root / (dest.filename().string() + ".XXXXXX")).string();
-    std::vector<char> temp_name(pattern.begin(), pattern.end());
-    temp_name.push_back('\0');
-    const int fd = ::mkstemp(temp_name.data());
-    if (fd < 0) {
-        error = "imwrite failed";
-        return false;
-    }
-    const fs::path temp(temp_name.data());
-    std::size_t offset = 0;
-    while (offset < encoded.size()) {
-        const ssize_t wrote = ::write(fd, encoded.data() + offset, encoded.size() - offset);
-        if (wrote < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
-            ::close(fd);
-            fs::remove(temp);
-            error = "imwrite failed";
+    fs::path temp;
+    bool written = false;
+    for (int attempt = 0; attempt < 8 && !written; ++attempt) {
+        const auto ticks = static_cast<unsigned long long>(
+            std::chrono::steady_clock::now().time_since_epoch().count());
+        char name[192];
+        std::snprintf(
+            name,
+            sizeof(name),
+            "%s.%d.%llx.tmp",
+            dest.filename().string().c_str(),
+            attempt,
+            ticks);
+        temp = root / name;
+        if (!confined(root, temp)) {
+            error = "cache path escaped the render directory";
             return false;
         }
-        offset += static_cast<std::size_t>(wrote);
+        written = write_exclusive(temp, encoded);
     }
-    if (::fsync(fd) != 0) {
-        ::close(fd);
-        fs::remove(temp);
+    if (!written) {
         error = "imwrite failed";
-        return false;
-    }
-    ::close(fd);
-    if (!confined(root, temp)) {
-        fs::remove(temp);
-        error = "cache path escaped the render directory";
         return false;
     }
 
-    std::error_code rename_error;
-    fs::rename(temp, dest, rename_error);
-    if (rename_error) {
+    if (!publish_cache_file(temp, dest)) {
         fs::remove(temp);
         error = "imwrite failed";
         return false;
