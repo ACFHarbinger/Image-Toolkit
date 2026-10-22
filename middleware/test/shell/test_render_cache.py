@@ -91,6 +91,28 @@ def test_video_still_uses_the_middle_reported_frame(tmp_path: Path):
     assert max(width, height) <= 32
 
 
+def test_existing_cache_symlink_is_replaced_without_following_it(tmp_path: Path):
+    source = tmp_path / "wide.ppm"
+    cache = tmp_path / "render"
+    outside = tmp_path / "outside.jpg"
+    _ppm(source, width=40, height=20)
+    outside.write_bytes(b"keep-me")
+    first = write_render_stills([str(source)], cache_dir=cache, max_edge=32)
+    cache_path = Path(first[0].cache_path)
+    cache_path.unlink()
+    cache_path.symlink_to(outside)
+
+    second = write_render_stills([str(source)], cache_dir=cache, max_edge=32)
+
+    assert outside.read_bytes() == b"keep-me"
+    assert second[0].error == ""
+    written = Path(second[0].cache_path)
+    assert written.is_file()
+    assert not written.is_symlink()
+    assert cache.resolve() in written.resolve().parents
+    assert written.resolve() != outside.resolve()
+
+
 def test_missing_source_reports_an_error_without_a_cache_path(tmp_path: Path):
     stills = write_render_stills([str(tmp_path / "missing.png")], cache_dir=tmp_path / "render")
     assert stills[0].cache_path == ""

@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, test } from "vitest";
 import { renderCacheAssetUrl } from "./assetUrl";
 import { requestAnimatedPreview } from "./preview";
@@ -52,6 +52,39 @@ test("the grid renders that window and refuses originals", () => {
   expect(images).toHaveLength(cells.length - 1);
   expect(Array.from(images).every((image) => image.getAttribute("src") === cache)).toBe(true);
   expect(elapsedMs).toBeLessThan(1000);
+});
+
+test("scrolling the gallery mounts the window at the new offset", () => {
+  const cache = "/home/user/.image-toolkit/cache/render/abc_256.jpg";
+  const items = Array.from({ length: 100_000 }, (_, index) => ({
+    id: String(index),
+    cachePath: cache,
+  }));
+  let reported = -1;
+  render(
+    <VirtualGallery
+      items={items}
+      scrollTop={0}
+      viewportHeight={600}
+      rowHeight={120}
+      columns={5}
+      onScroll={(next) => {
+        reported = next;
+      }}
+    />,
+  );
+  const gallery = screen.getByTestId("virtual-gallery");
+  expect(gallery.querySelector("[data-index='0']")).not.toBeNull();
+  // jsdom clamps scrollTop to the unscrolled layout box, so the test
+  // installs the position the browser would report.
+  Object.defineProperty(gallery, "scrollTop", { value: 48_000, configurable: true });
+  fireEvent.scroll(gallery);
+  expect(reported).toBe(48_000);
+  expect(gallery.querySelector("[data-index='0']")).toBeNull();
+  const cells = gallery.querySelectorAll("[data-testid='gallery-cell']");
+  expect(cells.length).toBeGreaterThan(0);
+  expect(cells.length).toBeLessThanOrEqual(40);
+  expect(Number(cells[0].getAttribute("data-index"))).toBeGreaterThan(1_000);
 });
 
 test("animated preview rejects when already aborted and does not resolve a still", async () => {

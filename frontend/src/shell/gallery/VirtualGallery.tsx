@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { renderCacheAssetUrl } from "./assetUrl";
 import { visibleWindow } from "./window";
 
@@ -12,6 +13,7 @@ interface VirtualGalleryProps {
   viewportHeight: number;
   rowHeight: number;
   columns: number;
+  onScroll?: (scrollTop: number) => void;
 }
 
 /**
@@ -25,9 +27,14 @@ export function VirtualGallery({
   viewportHeight,
   rowHeight,
   columns,
+  onScroll,
 }: VirtualGalleryProps) {
+  const [offset, setOffset] = useState(scrollTop);
+  useEffect(() => {
+    setOffset(scrollTop);
+  }, [scrollTop]);
   const window = visibleWindow(items.length, {
-    scrollTop,
+    scrollTop: offset,
     viewportHeight,
     rowHeight,
     columns,
@@ -40,6 +47,11 @@ export function VirtualGallery({
       data-count={items.length}
       data-mounted={window.mounted}
       style={{ height: viewportHeight, overflow: "auto" }}
+      onScroll={(event) => {
+        const next = event.currentTarget.scrollTop;
+        setOffset(next);
+        onScroll?.(next);
+      }}
     >
       <div style={{ height: totalHeight, position: "relative" }}>
         {visible.map((item, offset) => {
@@ -51,6 +63,7 @@ export function VirtualGallery({
             <div
               key={item.id}
               data-testid="gallery-cell"
+              data-index={index}
               style={{
                 position: "absolute",
                 top: row * rowHeight,

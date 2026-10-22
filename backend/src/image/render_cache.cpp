@@ -15,12 +15,15 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <string>
 #include <vector>
+
+#include <unistd.h>
 
 namespace py = pybind11;
 namespace fs = std::filesystem;
@@ -83,6 +86,75 @@ bool confined(const fs::path& root, const fs::path& dest)
     const std::string text = relative.generic_string();
     const bool escapes = text == ".." || text.rfind("../", 0) == 0;
     return !text.empty() && text != "." && !escapes;
+}
+
+// imwrite follows an existing symlink and would overwrite whatever it
+// points at before a later canonical-path check could reject it. Encode
+// first, write a new file, then rename over the cache name. rename
+// replaces a symlink and does not follow it.
+bool commit_jpeg(const fs::path& root, const fs::path& dest, const cv::Mat& image, std::string& error)
+{
+    std::vector<uchar> encoded;
+    const std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, 85};
+    if (!cv::imencode(".jpg", image, encoded, params) || encoded.empty()) {
+        error = "imwrite failed";
+        return false;
+    }
+
+    const std::string pattern = (root / (dest.filename().string() + ".XXXXXX")).string();
+    std::vector<char> temp_name(pattern.begin(), pattern.end());
+    temp_name.push_back('\0');
+    const int fd = ::mkstemp(temp_name.data());
+    if (fd < 0) {
+        error = "imwrite failed";
+        return false;
+    }
+    const fs::path temp(temp_name.data());
+    std::size_t offset = 0;
+    while (offset < encoded.size()) {
+        const ssize_t wrote = ::write(fd, encoded.data() + offset, encoded.size() - offset);
+        if (wrote < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            ::close(fd);
+            fs::remove(temp);
+            error = "imwrite failed";
+            return false;
+        }
+        offset += static_cast<std::size_t>(wrote);
+    }
+    if (::fsync(fd) != 0) {
+        ::close(fd);
+        fs::remove(temp);
+        error = "imwrite failed";
+        return false;
+    }
+    ::close(fd);
+    if (!confined(root, temp)) {
+        fs::remove(temp);
+        error = "cache path escaped the render directory";
+        return false;
+    }
+
+    std::error_code rename_error;
+    fs::rename(temp, dest, rename_error);
+    if (rename_error) {
+        fs::remove(temp);
+        error = "imwrite failed";
+        return false;
+    }
+    std::error_code status_error;
+    const fs::file_status status = fs::symlink_status(dest, status_error);
+    const fs::path canonical = fs::weakly_canonical(dest);
+    if (status_error || !fs::is_regular_file(status) || !confined(root, canonical)) {
+        if (!status_error && fs::is_symlink(status)) {
+            fs::remove(dest);
+        }
+        error = "written still escaped the render directory";
+        return false;
+    }
+    return true;
 }
 
 cv::Mat middle_motion_frame(const std::string& path, int& frame_index, std::string& error)
@@ -170,20 +242,11 @@ py::list write_render_stills(
                 continue;
             }
             const cv::Mat fitted = fit_long_edge(decoded, edge);
-            const std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, 85};
-            if (!cv::imwrite(dest.string(), fitted, params)) {
-                row.error = "imwrite failed";
+            if (!commit_jpeg(root, dest, fitted, row.error)) {
                 row.frame_index = -1;
                 continue;
             }
-            const fs::path written = fs::weakly_canonical(dest);
-            if (!confined(root, written)) {
-                fs::remove(dest);
-                row.error = "written still escaped the render directory";
-                row.frame_index = -1;
-                continue;
-            }
-            row.cache_path = written.string();
+            row.cache_path = fs::weakly_canonical(dest).string();
         }
     }
 
