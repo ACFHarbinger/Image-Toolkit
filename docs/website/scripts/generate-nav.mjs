@@ -18,7 +18,7 @@
 import { readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // scripts/ -> website/ -> docs/
