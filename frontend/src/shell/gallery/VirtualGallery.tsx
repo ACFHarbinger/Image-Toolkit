@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { renderCacheAssetUrl } from "./assetUrl";
 import { visibleWindow } from "./window";
 
@@ -29,9 +29,14 @@ export function VirtualGallery({
   columns,
   onScroll,
 }: VirtualGalleryProps) {
+  const scroller = useRef<HTMLDivElement>(null);
   const [offset, setOffset] = useState(scrollTop);
   useEffect(() => {
     setOffset(scrollTop);
+    const node = scroller.current;
+    if (node && node.scrollTop !== scrollTop) {
+      node.scrollTop = scrollTop;
+    }
   }, [scrollTop]);
   const window = visibleWindow(items.length, {
     scrollTop: offset,
@@ -43,6 +48,7 @@ export function VirtualGallery({
   const totalHeight = Math.ceil(items.length / Math.max(1, columns)) * rowHeight;
   return (
     <div
+      ref={scroller}
       data-testid="virtual-gallery"
       data-count={items.length}
       data-mounted={window.mounted}

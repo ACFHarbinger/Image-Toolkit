@@ -21,7 +21,7 @@ Targeted checks only. No full suite and no corpus benchmark.
   - A cancelled animated preview did not create the render directory.
   - A cache name that is already a symlink to a file outside the render directory is replaced. The outside file is unchanged.
 - `vitest run src/shell/gallery/gallery.test.tsx`: 4 passed.
-  - 100,000 items, viewport 600px, row 120px, 5 columns: **30 cells mounted** at the top of the list (`data-mounted=30`). Scrolling the container to 48,000px drops the first cells and mounts a later window of at most 40 cells.
+  - 100,000 items, viewport 600px, row 120px, 5 columns: **30 cells mounted** at the top of the list (`data-mounted=30`). Scrolling the container to 48,000px drops the first cells and mounts a later window of at most 40 cells. A `scrollTop` of 48,000px is also written onto the container.
   - One original path inside that window produced no `<img>`. The other 29 sources were the render-cache path.
   - That render took **25.39 ms** in jsdom, under the 1s bound in the test.
   - An already-aborted preview, and one aborted while pending, both reject with `AbortError`.

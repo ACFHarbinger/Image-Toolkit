@@ -87,6 +87,47 @@ test("scrolling the gallery mounts the window at the new offset", () => {
   expect(Number(cells[0].getAttribute("data-index"))).toBeGreaterThan(1_000);
 });
 
+test("a requested scrollTop is applied to the container", () => {
+  const cache = "/home/user/.image-toolkit/cache/render/abc_256.jpg";
+  const items = Array.from({ length: 100_000 }, (_, index) => ({
+    id: String(index),
+    cachePath: cache,
+  }));
+  const assigned: number[] = [];
+  const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, "scrollTop");
+  Object.defineProperty(Element.prototype, "scrollTop", {
+    configurable: true,
+    get() {
+      return descriptor?.get?.call(this) ?? 0;
+    },
+    set(value: number) {
+      assigned.push(value);
+      descriptor?.set?.call(this, value);
+    },
+  });
+  try {
+    render(
+      <VirtualGallery
+        items={items}
+        scrollTop={48_000}
+        viewportHeight={600}
+        rowHeight={120}
+        columns={5}
+      />,
+    );
+  } finally {
+    if (descriptor) {
+      Object.defineProperty(Element.prototype, "scrollTop", descriptor);
+    }
+  }
+  const gallery = screen.getByTestId("virtual-gallery");
+  expect(assigned).toContain(48_000);
+  expect(gallery.querySelector("[data-index='0']")).toBeNull();
+  const cells = gallery.querySelectorAll("[data-testid='gallery-cell']");
+  expect(cells.length).toBeGreaterThan(0);
+  expect(Number(cells[0].getAttribute("data-index"))).toBeGreaterThan(1_000);
+});
+
 test("animated preview rejects when already aborted and does not resolve a still", async () => {
   const aborted = new AbortController();
   aborted.abort();
