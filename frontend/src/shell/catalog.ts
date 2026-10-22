@@ -23,15 +23,17 @@ export interface CatalogWindow {
   panel_of: string | null;
 }
 
-export const shellCatalog = document;
-
-export function frontendPages(): CatalogEntry[] {
-  return (document.entries as CatalogEntry[])
-    .filter(
-      (entry) =>
-        entry.kind === "page" &&
-        entry.surfaces.includes("frontend") &&
-        entry.legacy_frontend_id !== null,
-    )
-    .sort((left, right) => left.order_index - right.order_index);
+export interface CatalogAlias {
+  alias_id: string;
+  target_id: string;
+  applies_when: string;
 }
+
+export interface CatalogDocument {
+  version: number;
+  entries: CatalogEntry[];
+  aliases: CatalogAlias[];
+  windows: CatalogWindow[];
+}
+
+export const shellCatalog = document as CatalogDocument;
