@@ -868,16 +868,14 @@ npm install @tauri-apps/api@<version>
 cargo update -p tauri
 ```
 
-### Electron `app.asar` not found / blank window
+### Blank webview / `build/index.html` not found
 
 ```bash
 cd frontend
-npm run build          # Build React first
-npm run start-electron # Then launch Electron
+npm run build          # Vite writes the webview bundle before `tauri build` uses it
 ```
 
-Do not run `npm run electron` without first building React — it points to `build/index.html` which does not exist until after `npm run build`.
-
+`tauri dev` does not need the prebuilt bundle — it serves the webview from the Vite dev server.
 ---
 
 ## Mobile Build Failures
