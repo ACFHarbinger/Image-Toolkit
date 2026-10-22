@@ -9,6 +9,7 @@ stream without a length prefix.
 from __future__ import annotations
 
 import json
+import math
 from typing import Any, Iterator, TextIO
 
 from .envelope import BridgeAppError
@@ -36,6 +37,13 @@ def _reject_constant(value: str) -> None:
     raise ValueError(f"invalid JSON constant {value}")
 
 
+def _parse_float(text: str) -> float:
+    value = float(text)
+    if not math.isfinite(value):
+        raise ValueError(f"nonfinite number {text}")
+    return value
+
+
 def iter_frames(stream: TextIO) -> Iterator[dict[str, Any]]:
     """Yield decoded frames; a non-JSON line raises a parse app error."""
     for line in stream:
@@ -43,7 +51,7 @@ def iter_frames(stream: TextIO) -> Iterator[dict[str, Any]]:
         if not line:
             continue
         try:
-            frame = json.loads(line, parse_constant=_reject_constant)
+            frame = json.loads(line, parse_constant=_reject_constant, parse_float=_parse_float)
         except ValueError as exc:
             raise BridgeAppError(
                 "bridge.parse_error",

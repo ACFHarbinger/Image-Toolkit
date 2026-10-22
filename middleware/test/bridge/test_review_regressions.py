@@ -20,6 +20,23 @@ def test_nonfinite_values_are_not_wire_json():
         list(iter_frames(io.StringIO('{"value":NaN}\n')))
 
 
+def test_numeric_overflow_is_a_parse_error():
+    with pytest.raises(BridgeAppError) as exc_info:
+        list(iter_frames(io.StringIO('{"value":1e999}\n')))
+    assert exc_info.value.code == "bridge.parse_error"
+
+
+def test_nested_numeric_overflow_is_a_parse_error():
+    with pytest.raises(BridgeAppError) as exc_info:
+        list(iter_frames(io.StringIO('{"params":{"value":1e999}}\n')))
+    assert exc_info.value.code == "bridge.parse_error"
+
+
+def test_finite_floats_still_parse():
+    frames = list(iter_frames(io.StringIO('{"value":1.5}\n')))
+    assert frames == [{"value": 1.5}]
+
+
 def test_cross_file_refs_keep_the_referenced_document_base(tmp_path):
     (tmp_path / "child.json").write_text(
         json.dumps(

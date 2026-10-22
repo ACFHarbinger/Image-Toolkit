@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from middleware.src.bridge.cancel import Cancelled, CancelRegistry, CancelToken
@@ -54,6 +56,51 @@ def test_escalation_runs_once_after_grace(monkeypatch: pytest.MonkeyPatch) -> No
     now = 1012.0
     _ = token.cancelled  # escalation does not repeat
     assert escalated == ["job-1"]
+
+
+def test_escalation_fires_without_worker_polling() -> None:
+    escalated: list[str] = []
+    token = CancelToken("job-1", grace_seconds=0.05)
+    token.on_escalate = lambda t: escalated.append(t.job_id)
+    token.cancel()
+    # never reads the token: the deadline must fire on its own schedule
+    deadline = time.monotonic() + 2.0
+    while not escalated and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert escalated == ["job-1"]
+
+
+def test_terminal_cleanup_cancels_escalation_deadline() -> None:
+    escalated: list[str] = []
+    token = CancelToken("job-1", grace_seconds=0.05)
+    token.on_escalate = lambda t: escalated.append(t.job_id)
+    token.cancel()
+    token.finish()
+    time.sleep(0.2)
+    assert escalated == []
+
+
+def test_registry_mark_terminal_stops_pending_escalation() -> None:
+    escalated: list[str] = []
+    registry = CancelRegistry(grace_seconds=0.05)
+    token = registry.register("job-1")
+    token.on_escalate = lambda t: escalated.append(t.job_id)
+    assert registry.cancel("job-1") == {"ok": True}
+    registry.mark_terminal("job-1")
+    time.sleep(0.2)
+    assert escalated == []
+
+
+def test_reregistration_stops_previous_deadline() -> None:
+    escalated: list[str] = []
+    registry = CancelRegistry(grace_seconds=0.05)
+    first = registry.register("job-1")
+    first.on_escalate = lambda t: escalated.append(t.job_id)
+    first.cancel()
+    second = registry.register("job-1")
+    assert second is not first
+    time.sleep(0.2)
+    assert escalated == []  # the orphaned token's deadline was cleaned up
 
 
 def test_registered_token_replaces_previous_registration() -> None:
