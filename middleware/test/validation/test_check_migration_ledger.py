@@ -182,6 +182,28 @@ def test_alias_rows_may_share_a_target():
     assert _check_routes(ids, aliases, [feature]) == []
 
 
+def test_missing_catalog_alias_row_is_an_error():
+    ids = {"ml.training", "dl.train", "dl.review"}
+    aliases = {
+        "experimental-dl": {
+            "ml.training": "dl.train",
+            "ml.inference": "dl.review",
+        }
+    }
+    feature = _feature(
+        routes=[
+            ledger_mod.Route(old="train", to="ml.training", alias=None),
+            ledger_mod.Route(old="ml.training", to="dl.train", alias="experimental-dl"),
+            ledger_mod.Route(old=None, to="dl.review", alias=None),
+        ]
+    )
+    errors = _check_routes(ids, aliases, [feature])
+    assert any(
+        error == "catalog alias 'experimental-dl': 'ml.inference' → 'dl.review' has no ledger row"
+        for error in errors
+    )
+
+
 def test_plain_route_from_cannot_be_a_catalog_id():
     ids = {"system.convert", "dl.train"}
     feature = _feature(

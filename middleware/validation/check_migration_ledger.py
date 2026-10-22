@@ -261,6 +261,26 @@ def _owner_of(file_path: str, features: list[Feature]) -> list[str]:
     return owners
 
 
+def _missing_alias_rows(
+    alias_maps: dict[str, dict[str, str]], features: list[Feature]
+) -> list[str]:
+    """Every catalog alias needs a ledger row. A deleted row must not validate."""
+    recorded = {
+        (route.alias, route.old, route.to)
+        for feature in features
+        for route in feature.routes
+        if route.alias and route.old
+    }
+    errors: list[str] = []
+    for condition, alias_map in sorted(alias_maps.items()):
+        for old, target in sorted(alias_map.items()):
+            if (condition, old, target) not in recorded:
+                errors.append(
+                    f"catalog alias {condition!r}: {old!r} → {target!r} has no ledger row"
+                )
+    return errors
+
+
 def _check_routes(catalog_ids: set[str], alias_maps: dict[str, dict[str, str]], features: list[Feature]) -> list[str]:
     errors: list[str] = []
     # Canonical (non-alias) rows own a catalog id exactly once; alias rows
@@ -305,6 +325,7 @@ def _check_routes(catalog_ids: set[str], alias_maps: dict[str, dict[str, str]], 
                 )
     for catalog_id in sorted(catalog_ids - covered):
         errors.append(f"catalog id {catalog_id!r} is not covered by any ledger row")
+    errors.extend(_missing_alias_rows(alias_maps, features))
     return errors
 
 
