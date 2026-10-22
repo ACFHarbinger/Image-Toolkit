@@ -7,8 +7,9 @@ and user overrides from ~/.image-toolkit/keybindings.json.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, Dict, List, NotRequired, Optional, TypedDict
 
 
 class Action(TypedDict):
@@ -16,6 +17,7 @@ class Action(TypedDict):
     description: str
     scope: str
     default: str
+    also: NotRequired[List[str]]
 
 
 class Registry(TypedDict):
@@ -23,10 +25,30 @@ class Registry(TypedDict):
     actions: List[Action]
 
 
+def default_registry_path() -> Path:
+    """Repo-root contract, or the copy PyInstaller places under ``_MEIPASS``."""
+    bundled_root = getattr(sys, "_MEIPASS", None)
+    if bundled_root:
+        bundled = Path(bundled_root) / "contracts" / "shortcuts" / "registry.json"
+        if bundled.is_file():
+            return bundled
+    # registry.py lives in middleware/src/shortcuts/, so the repo root is four parents up.
+    return Path(__file__).resolve().parents[3] / "contracts" / "shortcuts" / "registry.json"
+
+
+def _default_chords(action: Action) -> List[str]:
+    """The default chord plus aliases that turn off with it."""
+    chords: List[str] = []
+    default = action.get("default") or ""
+    if default:
+        chords.append(default)
+    chords.extend(key for key in action.get("also") or [] if key)
+    return chords
+
+
 def load_registry(path: Optional[Path] = None) -> Registry:
     if path is None:
-        # registry.py lives in middleware/src/shortcuts/, so the repo root is four parents up.
-        path = Path(__file__).resolve().parents[3] / "contracts" / "shortcuts" / "registry.json"
+        path = default_registry_path()
     data = json.loads(path.read_text(encoding="utf-8"))
     if data.get("version") != 1:
         raise ValueError(f"Unsupported registry version: {data.get('version')}")
@@ -63,12 +85,10 @@ def load_overrides(path: Optional[Path] = None) -> Dict[str, Dict[str, Any]]:
 
 
 def active_keys(registry: Registry, overrides: Dict[str, Dict[str, Any]], action_id: str) -> List[str]:
-    defaults = {a["id"]: a["default"] for a in registry["actions"]}
+    actions = {a["id"]: a for a in registry["actions"]}
     st = overrides.get(action_id, {"default_enabled": True, "custom": []})
     keys: List[str] = []
-    if st.get("default_enabled", True):
-        default = defaults.get(action_id, "")
-        if default:
-            keys.append(default)
+    if st.get("default_enabled", True) and action_id in actions:
+        keys.extend(_default_chords(actions[action_id]))
     keys.extend(k for k in st.get("custom", []) if k)
     return keys
