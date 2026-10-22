@@ -1,0 +1,69 @@
+import { renderCacheAssetUrl } from "./assetUrl";
+import { visibleWindow } from "./window";
+
+export interface GalleryStill {
+  id: string;
+  cachePath: string;
+}
+
+interface VirtualGalleryProps {
+  items: GalleryStill[];
+  scrollTop: number;
+  viewportHeight: number;
+  rowHeight: number;
+  columns: number;
+}
+
+/**
+ * Mounts only the visible window. `items` may be large; cells outside
+ * the window are not created. Image sources must already be render-cache
+ * paths. Anything else is left blank rather than pointed at an original.
+ */
+export function VirtualGallery({
+  items,
+  scrollTop,
+  viewportHeight,
+  rowHeight,
+  columns,
+}: VirtualGalleryProps) {
+  const window = visibleWindow(items.length, {
+    scrollTop,
+    viewportHeight,
+    rowHeight,
+    columns,
+  });
+  const visible = items.slice(window.start, window.end);
+  const totalHeight = Math.ceil(items.length / Math.max(1, columns)) * rowHeight;
+  return (
+    <div
+      data-testid="virtual-gallery"
+      data-count={items.length}
+      data-mounted={window.mounted}
+      style={{ height: viewportHeight, overflow: "auto" }}
+    >
+      <div style={{ height: totalHeight, position: "relative" }}>
+        {visible.map((item, offset) => {
+          const src = renderCacheAssetUrl(item.cachePath);
+          const index = window.start + offset;
+          const row = Math.floor(index / columns);
+          const column = index % columns;
+          return (
+            <div
+              key={item.id}
+              data-testid="gallery-cell"
+              style={{
+                position: "absolute",
+                top: row * rowHeight,
+                left: `${(100 / columns) * column}%`,
+                width: `${100 / columns}%`,
+                height: rowHeight,
+              }}
+            >
+              {src ? <img alt="" src={src} /> : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
