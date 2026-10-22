@@ -1,37 +1,94 @@
-# Migration ledger (W0-18, #882)
+# Migration ledger (W0-18 / #882)
 
-`features.toml` is the inventory, parity gate, and docs index for the
-PySide6 → Tauri migration. One record per capability (stitch is one record
-with eight routes; Deep Learning one with five), never per route.
+`features.toml` is the source of truth for the PySide6 → Tauri migration:
+**one record per capability**, not per route (stitch = one record covering
+8 routes, DL = one record covering 4 routes plus the 5 legacy `ml.*`
+pages). See `docs/moon/roadmaps/tauri_migration.md` §2 for the mechanics.
 
-Rules of the road:
+- Validator: `python middleware/validation/check_migration_ledger.py`
+  (also `just check-migration-ledger`; runs in the CI lint job).
+- Parity doc: `python migration/generate_parity.py` rewrites
+  `docs/migration/parity.md`; `--check` fails on drift (CI lint job).
+  Never edit the generated file.
 
-- **Edit the ledger, regenerate the doc.** `docs/migration/parity.md` is
-  generated: `python migration/generate_parity.py` (or `--check` to verify
-  freshness, as CI does).
-- **CI enforces the ledger** via
-  `middleware/validation/check_migration_ledger.py` (`just
-  check-migration-ledger`): route coverage both ways against
-  `middleware.src.shell.catalog`, path existence (live rows) and deletion
-  (`pyside-deleted` rows), exactly-once ownership of every `gui/src` file,
-  scenario presence, OS-checklist completeness, and the contracts-hash pin.
-- **Status values:** `pyside-only` → `both` → `parity-passed` →
-  `pyside-deleted`. Deleting a row requires green parity evidence, a ticked
-  OS checklist, Harbinger's sign-off, and one deletion PR that removes only
-  that row's PySide6 code and tests.
-- **Route map:** each `[[feature.routes]]` row maps a legacy route (`from`)
-  onto a catalog id (`to`); `alias` rows must match the catalog's own alias
-  map (e.g. `experimental-dl`). New navigation has no `from`.
-- **Exceptions:** a bounded `[[exception]]` (`feature`, `path`, `reason`,
-  `issue`, `approved_by`, optional `expires`) is the only escape from the
-  `gui/src` freeze and the additive-only migration rule (#884). Expired or
-  incomplete records suppress nothing.
-- **Contracts pin:** `[ledger].contracts_hash` must equal the `total` in
-  `contracts/CONTRACTS.sha256`; bump it in the same PR that changes
-  contracts (#874 coordination).
+## Record schema
 
-Per-record fields: `id`, `title`, `issue`, `wave`, `owner`, `status`,
-`pyside`/`pyside_exclude`, `tauri`, `service`, `contract`, `docs`,
-`scenarios`, `windows`, `capabilities`, `routes`, `os_checklist`, `notes`.
-Path lists are existence-checked when present; `service` points at
-`middleware/src/services/<feature>` once the row's wave builds it.
+```toml
+[[feature]]
+id = "system.convert"        # page/workspace: a #869 catalog id (middleware/src/shell/catalog.py);
+                             # window: a dotted id NOT in the catalog (e.g. window.settings)
+kind = "page"                # page | workspace | window
+title = "Convert"
+owner = "Kimi"               # agent name or "unclaimed"
+wave = "wave-1"
+issue = 894                  # tracking issue (int)
+status = "pyside-only"       # pyside-only | both | parity-passed | pyside-deleted
+routes = ["system.convert"]  # catalog ids owned: page → [its own id]; workspace → its route ids
+                             # (the workspace's own id is implied); window → []
+route_map = { convert = "system.convert" }  # old id → catalog id; must cover the catalog
+                             # aliases (dl owns the ml.* → dl.* map) and every owned entry's
+                             # legacy_frontend_id
+pyside = ["gui/src/tabs/core/convert_tab.py"]  # paths/dirs/globs owning the Qt code
+tauri = ["frontend/src/tabs/core/ConvertTab.tsx"]  # paths under frontend/
+service = ""                 # middleware/src/services/<feature>/ once it exists, else ""
+contract = ""                # capability from contracts/methods.toml once adopted, else ""
+docs = ""                    # module doc path, required for parity-passed
+scenarios = []               # parity scenario paths (#883 fills them)
+os_checklist = [ { item = "…", platform = "linux", checked = false } ]  # platform: linux|windows|macos
+```
+
+`pyside` + `[[shared]]` must partition `gui/src/**/*.py`: exactly one
+owner per file, no unowned file. `[[shared]]` entries (`{path, owner,
+note}`) cover shell infrastructure with the owning Wave-0 issue in
+`note`. Rows whose Qt code lives in the absorbed submodules point
+`pyside` at `submodules/{ASP,CSG,HIE}/...` (#867 absorbs them).
+
+## Status lifecycle
+
+`pyside-only → both → parity-passed → pyside-deleted`
+
+- `both`/`parity-passed` require at least one parity scenario — unless
+  `pyside` is empty (nothing to diff).
+- `parity-passed` additionally requires `docs` and every `os_checklist`
+  entry `checked = true`.
+
+**Deletion gate** (one PR per row): parity evidence green, OS checklist
+ticked, Harbinger sign-off; the PR deletes that row's PySide6 code and
+tests plus any destructive migration, and nothing else. The row flips to
+`pyside-deleted` in the same PR; its `pyside` paths are then exempt from
+existence/ownership (check_migration_additive.py auto-allows destructive
+steps inside them).
+
+## `[[exception]]`
+
+The bounded escape hatch for the `gui/src` freeze (#884) and the
+additive-only schema guard (#884 / check_migration_additive.py, which
+consumes these records). Fields: `feature`, `path` (exact or glob),
+`reason`, `issue` (int), `approved_by`, optional `expires` (ISO date).
+Expired or incomplete records do not suppress the guards; the validator
+rejects expired records — remove them instead of letting them rot. A
+spike no-go that keeps a row alive past its wave is also recorded here
+(roadmap §2, "Spikes").
+
+## Conventions and judgment calls
+
+- **No-PySide-surface rows** (`developer.benchmarks`): the catalog marks
+  the page `surfaces = ("frontend",)` — it exists only in the Tauri app
+  (`frontend/src/tabs/apollo`), so `pyside = []` and the row starts at
+  `both` with no scenarios required. It tracks the meta issue #864 since
+  no dedicated issue exists.
+- **stitch / manga / HIE**: the Qt code lives in the absorbed submodule
+  GUIs (`submodules/ASP/gui/src`, `submodules/CSG/gui/src/tabs/`,
+  `submodules/HIE/gui/src/`); the ledger points there instead of
+  pretending it is under `gui/src`. Only the workspace controllers
+  (`stitch_workspace.py`, `dl_workspace.py`, `comfy_workspace_controller.py`)
+  live in `gui/src/modules/` and are owned by their rows.
+- **`gui/src/preferences/` stays `[[shared]]`** (#880 settings service
+  keeps those keys/scopes); `window.settings` owns only
+  `gui/src/windows/settings/`.
+- **`gui/src/modules/pilots/`** (the log panel module) is owned by
+  `window.logging` (#919), not by the shared shell infra.
+- **Sampler subtab** is a subtab of the Convert tab, so
+  `gui/src/tabs/core/sampler_subtab` belongs to `system.convert`;
+  `gui/src/tabs/core/protos` (legacy extractor/wallpaper prototypes) is
+  shared and is deleted with rows #905/#913.
