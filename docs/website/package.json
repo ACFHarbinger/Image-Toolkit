@@ -10,7 +10,9 @@
     "data:m0": "python3 scripts/generate_m0_data.py",
     "gen:theme-tokens": "python ../../tools/dev/theming/export_css_tokens.py --surface docs --out src/styles/theme-tokens.generated.css",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build -o public/storybook"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",

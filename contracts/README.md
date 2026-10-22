@@ -19,6 +19,7 @@ contracts/
 │   ├── ts/                          # imported by the webview / EventHub (#878)
 │   ├── python/contracts_generated.py  # imported by middleware services
 │   └── rust/contracts.rs            # wired into src-tauri by #876
+├── ../frontend/src/eventhub/generated/channels.ts  # EventHub channel registry (#878)
 ├── CONTRACTS.sha256                 # per-source hashes + total (generated)
 └── test/                            # structural tests (stdlib) + jsonschema deep checks
 ```
@@ -92,6 +93,6 @@ bridge package's job (#875); these files carry no validators.
 |---|---|---|
 | #875 | Mistral | envelopes, `system.handshake` framing, error envelope |
 | #876 | OpenCode | `methods.toml` routing, TS/Python/Rust types |
-| #878 | Mistral | event envelope, `jobs`/`bridge` channels (snapshot+tail) |
+| #878 | Kimi | event envelope, `jobs`/`bridge` channels (snapshot+tail); consumes the generated channel registry + shared event fixtures |
 | Gate D (#847–#852) | Cursor | `jobs.*` methods and channel for the Cloud Jobs window |
 | Convert pilot (#894) | Kimi | adds the `convert` capability as the walkthrough case |

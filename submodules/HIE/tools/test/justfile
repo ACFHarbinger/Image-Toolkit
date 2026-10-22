@@ -1,8 +1,8 @@
-# tools/test — run C++ test suite.
+# tools/test — run C++ test suite via unified Image-Toolkit backend CMake tree (W0-03 Phase B / #867).
 
 set shell := ["bash", "-c"]
 
 all: cpp
 
 cpp:
-    cmake -S . -B build -DBUILD_TESTING=ON && cmake --build build -j && ctest --test-dir build --output-on-failure
+    cd ../../../.. && cmake -B build/backend backend/ -DCMAKE_BUILD_TYPE=Debug -DBACKEND_BUILD_TESTS=ON && cmake --build build/backend --target hie_solver_tests -j && ctest --test-dir build/backend -R hie_solver_tests --output-on-failure

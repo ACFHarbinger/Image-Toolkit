@@ -74,13 +74,30 @@ add_library(base_impl STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/cloud_sync.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/clients/reverse_image_search.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/clients/image_crawler.cpp
+
+    # Hybrid Image Editor (HIE) core logic & solvers (W0-03 Phase B / #867)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/greet.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/render_graph.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/exact_solvers.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/metaheuristics.cpp
 )
+
+if(HIE_ENABLE_SIMD_SEAM)
+    target_compile_definitions(base_impl PUBLIC HIE_ENABLE_SIMD_SEAM)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64|i.86)$")
+        set_source_files_properties(
+            ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/exact_solvers.cpp
+            PROPERTIES COMPILE_OPTIONS "-mavx2;-mfma"
+        )
+    endif()
+endif()
 
 # The implementation files include pybind11 headers only to get
 # py::array_t and related types.  We need pybind11 headers in the include
 # path but do NOT link the pybind11 module entry point.
 target_include_directories(base_impl PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/include
     ${OpenCV_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
     ${pybind11_INCLUDE_DIRS}
@@ -93,12 +110,15 @@ if(SQLCIPHER_FOUND AND SODIUM_FOUND)
     # See backend/CMakeLists.txt for why LIBRARY_DIRS must be passed explicitly
     # (pkg_check_modules only returns bare library names, and MSVC has no
     # default linker search path equivalent to Linux's /usr/lib).
-    target_link_directories(base_impl PUBLIC ${SQLCIPHER_LIBRARY_DIRS} ${SODIUM_LIBRARY_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/../../.pixi/envs/default/lib)
+    target_link_directories(base_impl PUBLIC ${SQLCIPHER_LIBRARY_DIRS} ${SODIUM_LIBRARY_DIRS} ${IMAGE_TOOLKIT_PIXI_LIB})
     target_link_libraries(base_impl PUBLIC ${SQLCIPHER_LIBRARIES} ${SODIUM_LIBRARIES} argon2)
     target_compile_definitions(base_impl PUBLIC HAVE_SQLCIPHER=1)
     if(NOT WIN32)
         target_include_directories(base_impl PUBLIC /usr/include /usr/include/sqlcipher)
         target_link_directories(base_impl PUBLIC /usr/lib/x86_64-linux-gnu)
+        target_link_options(base_impl PUBLIC
+            "-Wl,-rpath,${IMAGE_TOOLKIT_PIXI_LIB}"
+            "-Wl,--enable-new-dtags")
     endif()
 endif()
 
@@ -109,6 +129,10 @@ target_link_libraries(base_impl PUBLIC
 )
 
 target_compile_definitions(base_impl PUBLIC BATCH_TESTS=1)
+
+if(OpenSSL_FOUND OR OPENSSL_FOUND)
+    target_link_libraries(base_impl PUBLIC OpenSSL::Crypto)
+endif()
 
 if(FFTW3_FOUND)
     target_link_libraries(base_impl PUBLIC ${FFTW3_LIBRARIES})
@@ -169,3 +193,10 @@ target_link_libraries(backend_tests PRIVATE
 # Register with CTest
 include(Catch)
 catch_discover_tests(backend_tests)
+
+# HIE standalone solver & render-graph test binary (W0-03 Phase B / #867)
+add_executable(hie_solver_tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/test/test_solvers.cpp
+)
+target_link_libraries(hie_solver_tests PRIVATE base_impl)
+add_test(NAME hie_solver_tests COMMAND hie_solver_tests)

@@ -9,10 +9,42 @@
 #include <vector>
 
 #include "exact_solvers.hpp"
+#include "greet.hpp"
 #include "metaheuristics.hpp"
 #include "render_graph.hpp"
 
 using namespace hybrid_image_editor;
+
+static void test_greet_and_document() {
+    assert(greet("Hybrid-Image-Editor") == "Hello, Hybrid-Image-Editor!");
+    assert(greet("world") == "Hello, world!");
+
+    Document document;
+    document.document_id = "document-1";
+    Frame frame;
+    frame.index = 0;
+    frame.asset_id = "source.png";
+    frame.timestamp_ms = 0.0;
+    document.frame_sequence.frames.push_back(frame);
+    assert(kDocumentSchemaVersion >= 2U);
+    assert(document.frame_sequence.frames.size() == 1U);
+    assert(document.frame_sequence.frames[0].asset_id == "source.png");
+
+    Layer layer;
+    layer.id = "layer-0";
+    layer.name = "Background";
+    layer.opacity = 0.8;
+    layer.blend_mode = "multiply";
+    layer.visible = true;
+    ModifierNode node;
+    node.id = "node-0";
+    node.type = "superres";
+    node.enabled = true;
+    layer.modifiers.push_back(node);
+    assert(layer.modifiers.size() == 1U);
+    assert(layer.blend_mode == "multiply");
+    std::printf("[PASS] test_greet_and_document\n");
+}
 
 #if defined(HIE_ENABLE_SIMD_SEAM)
 // Standalone reimplementation of solve_seam's pre-SIMD scalar algorithm,
@@ -316,6 +348,7 @@ static void test_render_graph_evaluate() {
 int main() {
     std::printf("=== HIE Solver Unit Tests ===\n");
 
+    test_greet_and_document();
     test_seam_basic();
     test_seam_masked_barrier();
 #if defined(HIE_ENABLE_SIMD_SEAM)

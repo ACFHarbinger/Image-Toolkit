@@ -63,6 +63,8 @@ jobs:
 
       - name: Check theme-token CSS freshness (W0-07 / #871)
         run: uv run python middleware/validation/check_css_tokens_freshness.py
+      - name: Check documentation spine & module contract hashes (W0-21 / #885)
+        run: uv run python middleware/validation/check_docs_freshness.py
 
       - name: mypy — strict modules (§5.5A / A.10)
         run: >
@@ -282,7 +284,7 @@ jobs:
       - name: Run LoC gate
         run: >
           uv run python middleware/validation/count_loc.py
-          middleware/src gui/src
+          middleware/src gui/src frontend/src
           --max-code-lines 500
           --exceptions-file docs/loc_exceptions.txt
           --fail-over
@@ -388,6 +390,9 @@ jobs:
 
       - name: Install root dependencies
         run: npm ci
+
+      - name: Lint frontend boundaries (W0-17)
+        run: npm run lint --workspace=frontend
 
       - name: Build frontend (React)
         run: npm run build-frontend

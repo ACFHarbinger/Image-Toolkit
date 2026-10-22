@@ -50,6 +50,41 @@ def get_docstring_lines(source: str) -> Set[int]:
     return doc_lines
 
 
+def analyze_ts_file(source: str) -> Dict[str, int]:
+    """Analyze TypeScript/TSX/JavaScript file lines.
+
+    Args:
+        source (str): Source code content.
+
+    Returns:
+        Dict[str, int]: Line metrics (code, comment, docstring, total).
+    """
+    lines = source.splitlines()
+    n_code, n_comments, n_docs = 0, 0, 0
+    in_block = False
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if in_block:
+            n_docs += 1
+            if "*/" in stripped:
+                in_block = False
+            continue
+        if stripped.startswith("/*"):
+            n_docs += 1
+            if "*/" not in stripped[2:]:
+                in_block = True
+            continue
+        if stripped.startswith("//"):
+            n_comments += 1
+            continue
+        n_code += 1
+
+    return {"code": n_code, "comment": n_comments, "docstring": n_docs, "total": n_code + n_comments + n_docs}
+
+
 def analyze_file(filepath: str) -> Dict[str, int]:
     """Analyze file.
 
@@ -65,6 +100,9 @@ def analyze_file(filepath: str) -> Dict[str, int]:
             lines = source.splitlines()
     except (UnicodeDecodeError, PermissionError):
         return {"code": 0, "comment": 0, "docstring": 0, "total": 0}
+
+    if filepath.endswith((".ts", ".tsx", ".js", ".jsx")):
+        return analyze_ts_file(source)
 
     docstring_lines_set = get_docstring_lines(source)
     n_code, n_comments, n_docs = 0, 0, 0
@@ -197,7 +235,8 @@ def main() -> None:
 
     console = Console()
     file_data: List[Dict] = []
-    skip_dirs = {".git", "__pycache__", "venv", ".venv", "node_modules"}
+    skip_dirs = {".git", "__pycache__", "venv", ".venv", "node_modules", "dist", "build", ".pixi"}
+    target_exts = (".py", ".ts", ".tsx")
 
     search_paths = args.path if isinstance(args.path, list) else [args.path]
 
@@ -206,7 +245,7 @@ def main() -> None:
             for root, dirs, files in os.walk(search_path):
                 dirs[:] = [d for d in dirs if d not in skip_dirs]
                 for file in files:
-                    if file.endswith(".py"):
+                    if file.endswith(target_exts) and not file.endswith(".d.ts"):
                         full_path = os.path.join(root, file)
                         rel_path = os.path.relpath(full_path, ".")
                         metrics = analyze_file(full_path)
@@ -271,4 +310,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
