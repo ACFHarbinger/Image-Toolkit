@@ -170,6 +170,8 @@ nav:
       - Security: SECURITY.md
       - Dependency Policy: DEPENDENCY_POLICY.md
       - Documentation Standards: DOCUMENTATION_STANDARDS.md
+  - Migration:
+      - Feature Ledger & Parity: migration/parity.md
   - Roadmaps:
       - Master Roadmap: moon/ROADMAP.md
       - Architecture: moon/roadmaps/architecture.md

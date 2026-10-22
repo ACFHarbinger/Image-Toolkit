@@ -17,6 +17,14 @@ check-loc max="500" exceptions="docs/loc_exceptions.txt":
 check-migration-additive base="":
     uv run python middleware/validation/check_migration_additive.py {{if base != "" { "--base " + base } else { "" }}}
 
+# Validate migration/features.toml: route coverage, path existence, ownership, contracts pin (W0-18)
+check-migration-ledger:
+    uv run python middleware/validation/check_migration_ledger.py
+
+# Regenerate docs/migration/parity.md from the ledger (W0-18)
+migration-parity check="":
+    uv run python migration/generate_parity.py {{if check != "" { "--check" } else { "" }}}
+
 # Generate Markdown LoC report
 loc-report output="build/gen/loc_report.md" limit="50":
     uv run python middleware/validation/count_loc.py middleware/src gui/src --sort code --limit {{limit}} --markdown-out {{output}}
