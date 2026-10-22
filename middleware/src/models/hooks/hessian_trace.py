@@ -51,6 +51,7 @@ class HessianTraceReport:
     param_count: int
     batch_size: int
     seed: int
+    probe_scale: int = 1
 
     @property
     def trace_per_param(self) -> float:
@@ -112,6 +113,7 @@ def hutchinson_trace(
     num_vectors: int = DEFAULT_VECTORS,
     seed: int = 0,
     batch_size: int = 0,
+    probe_scale: int = 1,
 ) -> HessianTraceReport:
     """Estimate tr(H) of ``loss_fn`` w.r.t. ``params`` (adapter params).
 
@@ -153,6 +155,7 @@ def hutchinson_trace(
         param_count=param_count,
         batch_size=batch_size,
         seed=seed,
+        probe_scale=probe_scale,
     )
     # Free the double-backward graph before returning.
     loss = None
@@ -173,6 +176,7 @@ class FrozenEvalBatch:
     encoder_hidden_states: torch.Tensor
     added_cond_kwargs: Any = None
     batch_size: int = 0
+    probe_scale: int = 1
 
 
 def freeze_eval_batch(
@@ -185,13 +189,24 @@ def freeze_eval_batch(
     device: str | torch.device,
     add_noise: Callable,
     get_velocity: Callable | None = None,
+    probe_scale: int = 1,
 ) -> FrozenEvalBatch:
     """Detach + clone the current batch's conditioning and draw its
     noise/timesteps once from ``seed`` (independent of the training
-    loop's RNG, so freezing at any step is reproducible)."""
+    loop's RNG, so freezing at any step is reproducible).
+
+    ``probe_scale`` (#756 512px redesign) area-interpolates the latents
+    down by 1/scale before freezing: the gauge measures curvature on a
+    smaller deterministic probe (the 12 GB recipe at 512px training is
+    scale 2). Series stay comparable across checkpoints; runs at
+    different scales are not comparable to each other."""
     generator = torch.Generator(device=device)
     generator.manual_seed(seed)
     latents = latents.detach().clone()
+    if probe_scale > 1:
+        latents = torch.nn.functional.interpolate(
+            latents.float(), scale_factor=1.0 / probe_scale, mode="area"
+        ).to(latents.dtype)
     noise = torch.randn(latents.shape, generator=generator, device=latents.device, dtype=latents.dtype)
     timesteps = torch.randint(
         0, num_train_timesteps, (latents.shape[0],), generator=generator, device=latents.device
@@ -207,6 +222,7 @@ def freeze_eval_batch(
         encoder_hidden_states=encoder_hidden_states.detach().clone(),
         added_cond_kwargs=_freeze_tree(added_cond_kwargs),
         batch_size=int(latents.shape[0]),
+        probe_scale=int(probe_scale),
     )
 
 
@@ -255,6 +271,7 @@ def run_checkpoint_gauge(
                     tuner.noise_scheduler.get_velocity
                     if cfg.prediction_type == "v_prediction" else None
                 ),
+                probe_scale=int(getattr(cfg, "hessian_probe_scale", 1)),
             )
         frozen = tuner._frozen_eval
 
@@ -276,6 +293,7 @@ def run_checkpoint_gauge(
                 frozen_loss, params,
                 num_vectors=cfg.hessian_vectors, seed=cfg.validation_seed,
                 batch_size=frozen.batch_size,
+                probe_scale=frozen.probe_scale,
             )
         if not report.finite:
             log.warning("Hessian trace non-finite at step %s — skipped", step)
