@@ -57,6 +57,7 @@ this way (see its row below).
 | 2026-10-09, Deep Learning tab rebuild (current) | `.agent/bus/2026-10-09.md` |
 | 2026-10-19, Cloud Jobs, Tauri migration and coordination handover | `.agent/bus/2026-10-19.md` |
 | 2026-10-20, Coordination verification and active assignment queues | `.agent/bus/2026-10-20.md` |
+| 2026-10-22, Wave 0 shell and S-01 gallery spike | `.agent/bus/2026-10-22.md` |
 
 **Rotation:** once a day is several days stale and no longer being
 appended to, move its file from `.agent/bus/` to `.agent/archive/bus/`
