@@ -11,7 +11,7 @@ count-loc group_by="0":
 
 # Enforce maximum lines of code per file (exits non-zero on violation)
 check-loc max="500" exceptions="docs/loc_exceptions.txt":
-    uv run python middleware/validation/count_loc.py middleware/src gui/src --max-code-lines {{max}} --exceptions-file {{exceptions}} --fail-over
+    uv run python middleware/validation/count_loc.py middleware/src gui/src frontend/src --max-code-lines {{max}} --exceptions-file {{exceptions}} --fail-over
 
 # Enforce additive-only schema migrations while a PySide6 row lives (W0-20)
 check-migration-additive base="":
@@ -27,7 +27,7 @@ check-parity-doc:
 
 # Generate Markdown LoC report
 loc-report output="build/gen/loc_report.md" limit="50":
-    uv run python middleware/validation/count_loc.py middleware/src gui/src --sort code --limit {{limit}} --markdown-out {{output}}
+    uv run python middleware/validation/count_loc.py middleware/src gui/src frontend/src --sort code --limit {{limit}} --markdown-out {{output}}
 
 # Tree view of lines of code and comments
 tree-loc:
