@@ -1,0 +1,29 @@
+{
+  "channel": "bridge",
+  "events": [
+    {
+      "channel": "bridge",
+      "seq": 1,
+      "kind": "fact",
+      "durable": false,
+      "ts": "2026-10-20T08:59:58Z",
+      "payload": { "state": "ready" }
+    },
+    {
+      "channel": "bridge",
+      "seq": 2,
+      "kind": "fact",
+      "durable": false,
+      "ts": "2026-10-20T10:15:00Z",
+      "payload": { "state": "down" }
+    },
+    {
+      "channel": "bridge",
+      "seq": 3,
+      "kind": "fact",
+      "durable": false,
+      "ts": "2026-10-20T10:15:03Z",
+      "payload": { "state": "ready" }
+    }
+  ]
+}
