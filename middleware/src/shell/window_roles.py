@@ -2,18 +2,24 @@
 
 Ids match the catalog window set (main, tray, slideshow, cloud.jobs).
 This file is the native-label map the Rust registry embeds; #869/#870
-must not grow a second list of window ids.
+must not grow a second list of window ids. A native label is the optional
+``label`` field, otherwise the id. Tauri accepts only alphanumeric
+characters, ``-``, ``/``, ``:`` and ``_`` — the cloud.jobs role uses
+``cloud-jobs``.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 ROLES_REL = Path("frontend/src-tauri/windows/roles.json")
 CLOUD_STOP_NAME = "cloud_jobs.stop"
+# Tauri's runtime label grammar. Dots are rejected at startup.
+_NATIVE_LABEL = re.compile(r"^[A-Za-z0-9/:_-]+$")
 
 
 def repo_root() -> Path:
@@ -38,15 +44,21 @@ def windows(root: str | None = None) -> list[dict[str, Any]]:
     return entries
 
 
+def native_label(entry: dict[str, Any]) -> str:
+    """Tauri window label for a role. Logical ids may contain dots."""
+    raw = entry.get("label", entry.get("id"))
+    if not isinstance(raw, str) or _NATIVE_LABEL.fullmatch(raw) is None:
+        raise ValueError(f"invalid native window label {raw!r}")
+    return raw
+
+
 def hide_on_close_labels(root: str | None = None) -> list[str]:
-    """Labels ``collect_background_windows`` would hide with ``main``."""
+    """Native labels hidden with ``main`` (not the dotted catalog ids)."""
     labels: list[str] = []
     for entry in windows(root):
         if entry.get("kind") != "webview" or not entry.get("hide_on_close"):
             continue
-        label = entry.get("id")
-        if isinstance(label, str):
-            labels.append(label)
+        labels.append(native_label(entry))
     return labels
 
 

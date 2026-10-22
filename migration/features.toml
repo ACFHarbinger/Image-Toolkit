@@ -8,9 +8,12 @@
 #
 # `id` reuses the #869 catalog ids (middleware/src/shell/catalog.py);
 # window rows use dotted ids outside the catalog.
+# `native_labels` are the Tauri window labels capabilities name. Dots are
+# illegal there, so the cloud.jobs pop-out is cloud-jobs.
 
 [shell]
 windows = ["main", "tray", "slideshow", "cloud.jobs"]
+native_labels = ["cloud-jobs"]
 capabilities = ["default", "cloud-jobs"]
 
 # ── Wave 1: Convert pilot ────────────────────────────────────────────

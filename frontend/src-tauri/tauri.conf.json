@@ -20,7 +20,7 @@
         "fullscreen": false
       },
       {
-        "label": "cloud.jobs",
+        "label": "cloud-jobs",
         "title": "Cloud Jobs",
         "url": "/?window=cloud.jobs",
         "width": 960,

@@ -13,12 +13,29 @@ const ROLES_JSON: &str = include_str!("../windows/roles.json");
 #[derive(Debug, Clone, Deserialize)]
 pub struct WindowRole {
     pub id: String,
+    /// Tauri window label. Dotted catalog ids are not legal labels, so a
+    /// role may set this (cloud.jobs → cloud-jobs). Absent means `id`.
+    #[serde(default)]
+    pub label: Option<String>,
     pub role: String,
     pub kind: String,
     #[serde(default)]
     pub panel_of: Option<String>,
     #[serde(default)]
     pub hide_on_close: bool,
+}
+
+impl WindowRole {
+    pub fn native_label(&self) -> &str {
+        self.label.as_deref().unwrap_or(&self.id)
+    }
+}
+
+fn is_native_label(label: &str) -> bool {
+    !label.is_empty()
+        && label
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '/' | ':' | '_'))
 }
 
 #[derive(Debug, Deserialize)]
@@ -39,12 +56,14 @@ pub fn hide_on_close_labels() -> Vec<String> {
     all_roles()
         .into_iter()
         .filter(|role| role.kind == "webview" && role.hide_on_close)
-        .map(|role| role.id)
+        .map(|role| role.native_label().to_string())
         .collect()
 }
 
 fn find_role(label: &str) -> Option<WindowRole> {
-    all_roles().into_iter().find(|role| role.id == label)
+    all_roles()
+        .into_iter()
+        .find(|role| role.id == label || role.native_label() == label)
 }
 
 pub fn data_dir() -> PathBuf {
@@ -101,9 +120,10 @@ pub fn popout(app: &AppHandle, role: &str) -> Result<(), String> {
     if spec.role != "popout" || spec.kind != "webview" {
         return Err(format!("{role} is not a labeled pop-out"));
     }
+    let label = spec.native_label();
     let window = app
-        .get_webview_window(role)
-        .ok_or_else(|| format!("window {role} is not declared"))?;
+        .get_webview_window(label)
+        .ok_or_else(|| format!("window {label} is not declared"))?;
     window
         .set_skip_taskbar(false)
         .map_err(|err| err.to_string())?;
@@ -113,9 +133,11 @@ pub fn popout(app: &AppHandle, role: &str) -> Result<(), String> {
 }
 
 pub fn focus(app: &AppHandle, role: &str) -> Result<(), String> {
+    let spec = find_role(role).ok_or_else(|| format!("unknown window role {role}"))?;
+    let label = spec.native_label();
     let window = app
-        .get_webview_window(role)
-        .ok_or_else(|| format!("window {role} is not declared"))?;
+        .get_webview_window(label)
+        .ok_or_else(|| format!("window {label} is not declared"))?;
     window
         .set_skip_taskbar(false)
         .map_err(|err| err.to_string())?;
@@ -169,15 +191,29 @@ mod tests {
     fn hide_on_close_covers_main_and_popout() {
         let labels = super::hide_on_close_labels();
         assert!(labels.contains(&"main".to_string()));
-        assert!(labels.contains(&"cloud.jobs".to_string()));
-        assert!(!labels.iter().any(|id| id == "tray" || id == "slideshow"));
+        assert!(labels.contains(&"cloud-jobs".to_string()));
+        assert!(!labels
+            .iter()
+            .any(|id| id == "tray" || id == "slideshow" || id.contains('.')));
     }
 
     #[test]
     fn cloud_jobs_is_a_main_popout() {
-        let spec = super::find_role("cloud.jobs").expect("cloud.jobs");
+        let spec = super::find_role("cloud.jobs").expect("logical id");
+        assert_eq!(spec.native_label(), "cloud-jobs");
+        assert_eq!(
+            super::find_role("cloud-jobs").expect("native label").id,
+            "cloud.jobs"
+        );
         assert_eq!(spec.role, "popout");
         assert_eq!(spec.panel_of.as_deref(), Some("main"));
         assert!(spec.hide_on_close);
+    }
+
+    #[test]
+    fn every_native_label_is_legal() {
+        for role in super::all_roles() {
+            assert!(super::is_native_label(role.native_label()), "{}", role.id);
+        }
     }
 }

@@ -1,6 +1,6 @@
 import React from "react";
 
-/** Gate D panel host. The native window is the labeled `cloud.jobs` pop-out. */
+/** Gate D panel host. Logical role `cloud.jobs`; native window label `cloud-jobs`. */
 export function CloudJobsPopout(): React.ReactElement {
   return (
     <main className="flex min-h-screen flex-col gap-2 p-6">

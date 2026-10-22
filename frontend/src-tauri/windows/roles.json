@@ -8,6 +8,7 @@
     },
     {
       "id": "cloud.jobs",
+      "label": "cloud-jobs",
       "role": "popout",
       "kind": "webview",
       "panel_of": "main",

@@ -17,7 +17,7 @@ from middleware.validation.check_tauri_security import check
 
 def test_hide_on_close_is_the_labeled_webview_set() -> None:
     labels = hide_on_close_labels()
-    assert labels == ["main", "cloud.jobs"]
+    assert labels == ["main", "cloud-jobs"]
     kinds = {entry["id"]: entry["kind"] for entry in windows()}
     assert kinds["tray"] == "tray"
     assert kinds["slideshow"] == "native"
@@ -28,10 +28,11 @@ def test_cloud_jobs_is_a_main_popout_with_its_own_capability() -> None:
     jobs = next(entry for entry in windows() if entry["id"] == "cloud.jobs")
     assert jobs["role"] == "popout"
     assert jobs["panel_of"] == "main"
+    assert jobs["label"] == "cloud-jobs"
 
     cap_path = Path(__file__).resolve().parents[3] / "frontend" / "src-tauri" / "capabilities" / "cloud.jobs.json"
     capability = json.loads(cap_path.read_text(encoding="utf-8"))
-    assert capability["windows"] == ["cloud.jobs"]
+    assert capability["windows"] == ["cloud-jobs"]
     assert capability["permissions"] == ["core:default"]
     blob = json.dumps(capability)
     assert "**" not in blob
