@@ -1,321 +1,243 @@
-"""Unit tests for middleware/validation/check_migration_ledger.py."""
+"""Unit tests for middleware/validation/check_migration_ledger.py and migration/generate_parity.py."""
 
-from __future__ import annotations
-
-import tomllib
+import subprocess
+import sys
+from datetime import date, timedelta
 from pathlib import Path
-from types import SimpleNamespace
 
-from middleware.validation import check_migration_ledger as ledger_mod
-from middleware.validation.check_migration_ledger import (
-    _check_os_checklists,
-    _check_ownership,
-    _check_paths,
-    _check_routes,
-    _check_scenarios,
-    parse_ledger,
-    validate,
-)
+from middleware.src.shell.catalog import CatalogKind, shell_catalog
+from middleware.validation.check_migration_additive import load_ledger
+from middleware.validation.check_migration_ledger import LEDGER_REL, check
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
-def _catalog(ids, aliases=None, windows=("main",)):
-    alias_rows = [
-        SimpleNamespace(alias_id=old, target_id=new, applies_when=when)
-        for when, mapping in (aliases or {}).items()
-        for old, new in mapping.items()
-    ]
-    return SimpleNamespace(
-        entries=[SimpleNamespace(id=entry_id) for entry_id in ids],
-        aliases=alias_rows,
-        windows=[SimpleNamespace(id=window_id) for window_id in windows],
-        alias_map=lambda when: (aliases or {}).get(when, {}),
-    )
+def _toml_value(value):
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, str):
+        return f'"{value}"'
+    if isinstance(value, list):
+        return "[" + ", ".join(_toml_value(item) for item in value) + "]"
+    if isinstance(value, dict):
+        return "{ " + ", ".join(f'"{key}" = {_toml_value(item)}' for key, item in value.items()) + " }"
+    raise TypeError(value)
 
 
-def _feature(**overrides):
-    base = dict(
-        id="convert",
-        title="Convert",
-        issue=894,
-        wave="1",
-        owner="kimi",
-        status="pyside-only",
-        pyside=["gui/src/tabs/core/convert_tab.py"],
-        pyside_exclude=[],
-        tauri=[],
-        service=None,
-        contract=None,
-        docs=[],
-        scenarios=["convert-single-format"],
-        windows=["main"],
-        capabilities=[],
-        routes=[ledger_mod.Route(old="convert", to="system.convert", alias=None)],
-        os_checklist=[
-            ledger_mod.OsEntry(os=name, status="pending", notes="")
-            for name in ("linux", "windows", "macos")
-        ],
-        notes="",
-    )
-    base.update(overrides)
-    return ledger_mod.Feature(**base)
-
-
-def _write_ledger(tmp_path: Path, body: str) -> Path:
-    path = tmp_path / "migration" / "features.toml"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(body, encoding="utf-8")
-    return path
-
-
-MINIMAL_LEDGER = """
-[ledger]
-version = 1
-contracts_hash = "abc123"
-
-[[feature]]
-id = "convert"
-title = "Convert"
-issue = 894
-wave = "1"
-owner = "kimi"
-status = "pyside-only"
-pyside = ["gui/src/tabs/core/convert_tab.py"]
-scenarios = ["convert-single-format"]
-windows = ["main"]
-
-[[feature.routes]]
-from = "convert"
-to = "system.convert"
-
-[[feature.os_checklist]]
-os = "linux"
-status = "pending"
-[[feature.os_checklist]]
-os = "windows"
-status = "pending"
-[[feature.os_checklist]]
-os = "macos"
-status = "pending"
-"""
-
-
-def test_parse_minimal_ledger(tmp_path: Path):
-    path = _write_ledger(tmp_path, MINIMAL_LEDGER)
-    ledger = parse_ledger(tomllib.loads(path.read_text(encoding="utf-8")))
-    assert ledger.errors == []
-    (feature,) = ledger.features
-    assert feature.id == "convert"
-    assert feature.routes == [ledger_mod.Route(old="convert", to="system.convert", alias=None)]
-    assert [entry.os for entry in feature.os_checklist] == ["linux", "windows", "macos"]
-
-
-def test_parse_flags_missing_fields_and_unknown_keys(tmp_path: Path):
-    body = MINIMAL_LEDGER.replace('title = "Convert"\n', "").replace(
-        'status = "pyside-only"', 'status = "gone"\nowned_by = "nobody"'
-    )
-    path = _write_ledger(tmp_path, body)
-    ledger = parse_ledger(tomllib.loads(path.read_text(encoding="utf-8")))
-    assert any("missing title" in error for error in ledger.errors)
-    assert any("unknown status 'gone'" in error for error in ledger.errors)
-    assert any("unknown field 'owned_by'" in error for error in ledger.errors)
-
-
-def test_parse_flags_duplicate_ids_and_bad_scenarios(tmp_path: Path):
-    body = MINIMAL_LEDGER + "\n[[feature]]\n" + MINIMAL_LEDGER.split("[[feature]]\n", 1)[1].replace(
-        "convert-single-format", "Convert Single"
-    )
-    path = _write_ledger(tmp_path, body)
-    ledger = parse_ledger(tomllib.loads(path.read_text(encoding="utf-8")))
-    assert any("duplicated" in error for error in ledger.errors)
-    assert any("'Convert Single' must be kebab-case" in error for error in _check_scenarios(ledger.features))
-
-
-def test_route_coverage_both_ways():
-    ids = {"system.convert", "system.merge"}
-    features = [_feature()]
-    errors = _check_routes(ids, {}, features)
-    assert errors == ["catalog id 'system.merge' is not covered by any ledger row"]
-
-    features[0].routes.append(ledger_mod.Route(old=None, to="elsewhere", alias=None))
-    errors = _check_routes(ids, {}, features)
-    assert any("'elsewhere' is not a catalog id" in error for error in errors)
-
-
-def test_route_double_claim_and_alias_matching():
-    ids = {"ml.training", "dl.train", "dl.review"}
-    aliases = {"experimental-dl": {"ml.training": "dl.train"}}
-    bad = _feature(
-        routes=[
-            ledger_mod.Route(old="train", to="ml.training", alias=None),
-            ledger_mod.Route(old="train", to="ml.training", alias=None),
-            ledger_mod.Route(old="ml.training", to="dl.review", alias="experimental-dl"),
-        ]
-    )
-    errors = _check_routes(ids, aliases, [bad])
-    assert any("'ml.training' is claimed by both" in error for error in errors)
-    assert any("old route 'train' is mapped by both" in error for error in errors)
-    assert any("does not match the catalog's 'experimental-dl' alias map" in error for error in errors)
-
-    good = _feature(
-        routes=[
-            ledger_mod.Route(old="train", to="ml.training", alias=None),
-            ledger_mod.Route(old="ml.training", to="dl.train", alias="experimental-dl"),
-            ledger_mod.Route(old=None, to="dl.review", alias=None),
-        ]
-    )
-    assert _check_routes(ids, aliases, [good]) == []
-
-
-def test_alias_rows_may_share_a_target():
-    ids = {"ml.evaluation", "ml.inference", "dl.review"}
-    aliases = {"experimental-dl": {"ml.evaluation": "dl.review", "ml.inference": "dl.review"}}
-    feature = _feature(
-        routes=[
-            ledger_mod.Route(old="evaluate", to="ml.evaluation", alias=None),
-            ledger_mod.Route(old="inference", to="ml.inference", alias=None),
-            ledger_mod.Route(old="ml.evaluation", to="dl.review", alias="experimental-dl"),
-            ledger_mod.Route(old="ml.inference", to="dl.review", alias="experimental-dl"),
-        ]
-    )
-    assert _check_routes(ids, aliases, [feature]) == []
-
-
-def test_missing_catalog_alias_row_is_an_error():
-    ids = {"ml.training", "dl.train", "dl.review"}
-    aliases = {
-        "experimental-dl": {
-            "ml.training": "dl.train",
-            "ml.inference": "dl.review",
+def _valid_features():
+    """One ledger row per catalog entry, mirroring the real ledger's shape."""
+    catalog = shell_catalog()
+    workspace_routes = {}
+    for entry in catalog.entries:
+        if entry.kind is CatalogKind.ROUTE:
+            workspace_routes.setdefault(entry.workspace_id, []).append(entry.id)
+    features = {}
+    for entry in catalog.entries:
+        if entry.kind is CatalogKind.ROUTE:
+            continue
+        kind = "page" if entry.kind is CatalogKind.PAGE else "workspace"
+        features[entry.id] = {
+            "id": entry.id,
+            "kind": kind,
+            "title": entry.title,
+            "owner": "unclaimed",
+            "wave": "wave-1",
+            "issue": 1,
+            "status": "pyside-only",
+            "routes": [entry.id] if kind == "page" else sorted(workspace_routes[entry.id]),
+            "route_map": ({entry.legacy_frontend_id: entry.id} if entry.legacy_frontend_id else {}),
+            "pyside": [],
+            "tauri": [],
+            "service": "",
+            "contract": "",
+            "docs": "",
+            "scenarios": [],
+            "os_checklist": [],
         }
+    for alias in catalog.aliases:
+        owner = next(
+            feature
+            for feature in features.values()
+            if alias.target_id in feature["routes"] or feature["id"] == alias.target_id
+        )
+        owner["route_map"][alias.alias_id] = alias.target_id
+    return features
+
+
+def _write_ledger(root: Path, features, shell=None, shared=(), exceptions=()):
+    if shell is None:
+        shell = {"windows": sorted(window.id for window in shell_catalog().windows), "capabilities": ["default"]}
+    lines = ["[shell]"]
+    lines += [f"{key} = {_toml_value(value)}" for key, value in shell.items()]
+    for feature in features:
+        lines.append("\n[[feature]]")
+        lines += [f"{key} = {_toml_value(value)}" for key, value in feature.items()]
+    for entry in shared:
+        lines.append("\n[[shared]]")
+        lines += [f"{key} = {_toml_value(value)}" for key, value in entry.items()]
+    for record in exceptions:
+        lines.append("\n[[exception]]")
+        lines += [f"{key} = {_toml_value(value)}" for key, value in record.items()]
+    ledger = root / LEDGER_REL
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    ledger.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return ledger
+
+
+def _check(root: Path):
+    return check(root)
+
+
+def test_valid_minimal_ledger_passes(tmp_path):
+    _write_ledger(tmp_path, _valid_features().values())
+    assert _check(tmp_path) == []
+
+
+def test_duplicate_id_fails(tmp_path):
+    features = list(_valid_features().values())
+    features.append(dict(features[0]))
+    _write_ledger(tmp_path, features)
+    assert any("duplicate id" in violation for violation in _check(tmp_path))
+
+
+def test_unowned_catalog_route_fails(tmp_path):
+    features = _valid_features()
+    stitch = features["stitch"]
+    stitch["routes"] = [route for route in stitch["routes"] if route != "stitch.graph"]
+    _write_ledger(tmp_path, features.values())
+    assert any("'stitch.graph' is not owned" in violation for violation in _check(tmp_path))
+
+
+def test_unknown_catalog_route_fails(tmp_path):
+    features = _valid_features()
+    features["system.convert"]["routes"] = ["system.convert", "system.bogus"]
+    _write_ledger(tmp_path, features.values())
+    assert any("unknown catalog id 'system.bogus'" in violation for violation in _check(tmp_path))
+
+
+def test_missing_alias_in_route_map_fails(tmp_path):
+    features = _valid_features()
+    dl = features["dl"]
+    dl["route_map"] = {old: new for old, new in dl["route_map"].items() if old != "ml.training"}
+    _write_ledger(tmp_path, features.values())
+    assert any("catalog alias 'ml.training'" in violation for violation in _check(tmp_path))
+
+
+def test_missing_path_fails(tmp_path):
+    features = _valid_features()
+    features["system.convert"]["pyside"] = ["gui/src/tabs/core/convert_tab.py"]
+    _write_ledger(tmp_path, features.values())
+    assert any("does not exist" in violation for violation in _check(tmp_path))
+
+
+def test_both_without_scenarios_fails(tmp_path):
+    features = _valid_features()
+    convert = features["system.convert"]
+    convert["status"] = "both"
+    convert["pyside"] = ["gui/src/tabs/core/convert_tab.py"]
+    (tmp_path / "gui/src/tabs/core").mkdir(parents=True)
+    (tmp_path / "gui/src/tabs/core/convert_tab.py").write_text("# stub\n", encoding="utf-8")
+    _write_ledger(tmp_path, features.values(), shared=[{"path": "gui/src", "owner": "x", "note": "n"}])
+    violations = _check(tmp_path)
+    assert any("'both' requires at least one parity scenario" in violation for violation in violations)
+    assert any("owned by both" in violation for violation in violations)
+
+
+def test_frontend_only_row_may_skip_scenarios(tmp_path):
+    features = _valid_features()
+    benchmarks = features["developer.benchmarks"]
+    benchmarks["status"] = "both"
+    benchmarks["tauri"] = ["frontend/src/tabs/apollo"]
+    (tmp_path / "frontend/src/tabs/apollo").mkdir(parents=True)
+    _write_ledger(tmp_path, features.values())
+    assert _check(tmp_path) == []
+
+
+def test_parity_passed_with_unchecked_os_item_fails(tmp_path):
+    features = _valid_features()
+    wallpaper = features["system.wallpaper"]
+    wallpaper["status"] = "parity-passed"
+    wallpaper["docs"] = "docs/wallpaper.md"
+    wallpaper["scenarios"] = ["middleware/test/parity/wallpaper.py"]
+    wallpaper["os_checklist"] = [{"item": "per-monitor wallpaper", "platform": "linux", "checked": False}]
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs/wallpaper.md").write_text("x\n", encoding="utf-8")
+    (tmp_path / "middleware/test/parity").mkdir(parents=True)
+    (tmp_path / "middleware/test/parity/wallpaper.py").write_text("# stub\n", encoding="utf-8")
+    _write_ledger(tmp_path, features.values())
+    assert any("checked os_checklist" in violation for violation in _check(tmp_path))
+
+
+def test_expired_exception_fails(tmp_path):
+    expired = (date.today() - timedelta(days=1)).isoformat()
+    record = {
+        "feature": "system.convert",
+        "path": "middleware/migrations/005.py",
+        "reason": "bounded destructive step",
+        "issue": 884,
+        "approved_by": "Harbinger",
+        "expires": expired,
     }
-    feature = _feature(
-        routes=[
-            ledger_mod.Route(old="train", to="ml.training", alias=None),
-            ledger_mod.Route(old="ml.training", to="dl.train", alias="experimental-dl"),
-            ledger_mod.Route(old=None, to="dl.review", alias=None),
-        ]
-    )
-    errors = _check_routes(ids, aliases, [feature])
-    assert any(
-        error == "catalog alias 'experimental-dl': 'ml.inference' → 'dl.review' has no ledger row"
-        for error in errors
-    )
+    _write_ledger(tmp_path, _valid_features().values(), exceptions=[record])
+    assert any("expired" in violation for violation in _check(tmp_path))
 
 
-def test_plain_route_from_cannot_be_a_catalog_id():
-    ids = {"system.convert", "dl.train"}
-    feature = _feature(
-        routes=[
-            ledger_mod.Route(old="convert", to="system.convert", alias=None),
-            ledger_mod.Route(old="system.convert", to="dl.train", alias=None),
-        ]
-    )
-    errors = _check_routes(ids, {}, [feature])
-    assert any("record the alias condition" in error for error in errors)
+def test_exception_with_unknown_feature_fails(tmp_path):
+    record = {
+        "feature": "system.bogus",
+        "path": "middleware/migrations/005.py",
+        "reason": "bounded destructive step",
+        "issue": 884,
+        "approved_by": "Harbinger",
+    }
+    _write_ledger(tmp_path, _valid_features().values(), exceptions=[record])
+    assert any("unknown feature 'system.bogus'" in violation for violation in _check(tmp_path))
 
 
-def test_paths_exist_for_live_rows_and_are_gone_for_deleted(tmp_path: Path):
+def test_unknown_contract_capability_fails(tmp_path):
+    features = _valid_features()
+    features["system.convert"]["contract"] = "bogus"
+    methods = tmp_path / "contracts/methods.toml"
+    methods.parent.mkdir(parents=True)
+    methods.write_text('[[method]]\nname = "system.ping"\ncapability = "system"\n', encoding="utf-8")
+    _write_ledger(tmp_path, features.values())
+    assert any("contract 'bogus' is not a capability" in violation for violation in _check(tmp_path))
+
+
+def test_unowned_gui_file_fails(tmp_path):
     (tmp_path / "gui/src/tabs/core").mkdir(parents=True)
-    (tmp_path / "gui/src/tabs/core/convert_tab.py").touch()
-    live = _feature()
-    assert _check_paths(tmp_path, [live]) == []
-
-    deleted = _feature(status="pyside-deleted")
-    errors = _check_paths(tmp_path, [deleted])
-    assert any("still exists but the row is pyside-deleted" in error for error in errors)
-
-    missing = _feature(pyside=["gui/src/tabs/core/nope.py"])
-    errors = _check_paths(tmp_path, [missing])
-    assert any("'gui/src/tabs/core/nope.py' does not exist" in error for error in errors)
+    (tmp_path / "gui/src/tabs/core/orphan.py").write_text("# stub\n", encoding="utf-8")
+    _write_ledger(tmp_path, _valid_features().values())
+    assert any("orphan.py is not owned" in violation for violation in _check(tmp_path))
 
 
-def test_exclude_must_live_under_own_paths_and_capabilities_exist(tmp_path: Path):
-    (tmp_path / "gui/src/tabs/core").mkdir(parents=True)
-    (tmp_path / "gui/src/tabs/core/convert_tab.py").touch()
-    (tmp_path / "frontend/src-tauri/capabilities").mkdir(parents=True)
-    bad = _feature(
-        pyside=["gui/src/tabs/core/convert_tab.py", "gui/src/tabs"],
-        pyside_exclude=["gui/src/windows"],
-        capabilities=["default"],
+def _run_generator(root: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(REPO_ROOT / "migration/generate_parity.py"), "--root", str(root), *args],
+        capture_output=True,
+        text=True,
+        check=False,
     )
-    errors = _check_paths(tmp_path, [bad])
-    assert any("pyside_exclude 'gui/src/windows' is not under" in error for error in errors)
-    assert any("capability 'default' has no file" in error for error in errors)
 
 
-def test_ownership_requires_exactly_one_row(tmp_path: Path):
-    gui_src = tmp_path / "gui/src"
-    (gui_src / "tabs/core").mkdir(parents=True)
-    (gui_src / "tabs/core/convert_tab.py").touch()
-    (gui_src / "tabs/core/merge_tab.py").touch()
-    (gui_src / "components").mkdir()
-    (gui_src / "components/kit.py").touch()
-
-    convert = _feature(pyside=["gui/src/tabs/core/convert_tab.py"])
-    shared = _feature(id="shared-qt-infrastructure", pyside=["gui/src/components"])
-    errors = _check_ownership(tmp_path, [convert, shared])
-    assert errors == ["gui/src/tabs/core/merge_tab.py: no ledger row owns this PySide6 file"]
-
-    greedy = _feature(id="shell", pyside=["gui/src"])
-    errors = _check_ownership(tmp_path, [convert, shared, greedy])
-    assert any("owned by multiple rows" in error for error in errors)
-
-    excluded = _feature(
-        id="shell",
-        pyside=["gui/src/tabs"],
-        pyside_exclude=["gui/src/tabs/core/convert_tab.py"],
-    )
-    assert _check_ownership(tmp_path, [convert, shared, excluded]) == []
+def test_generator_check_detects_drift_and_passes_when_fresh(tmp_path):
+    _write_ledger(tmp_path, _valid_features().values())
+    assert _run_generator(tmp_path, "--check").returncode == 1  # not generated yet
+    assert _run_generator(tmp_path).returncode == 0
+    assert _run_generator(tmp_path, "--check").returncode == 0
+    doc = tmp_path / "docs/migration/parity.md"
+    doc.write_text(doc.read_text(encoding="utf-8") + "drift\n", encoding="utf-8")
+    result = _run_generator(tmp_path, "--check")
+    assert result.returncode == 1
+    assert "drift detected" in result.stdout
 
 
-def test_ownership_ignores_bytecode_next_to_owned_sources(tmp_path: Path):
-    gui_src = tmp_path / "gui/src/tabs"
-    gui_src.mkdir(parents=True)
-    (gui_src / "convert_tab.py").touch()
-    (gui_src / "convert_tab.pyc").write_bytes(b"pyc")
-    cache = gui_src / "__pycache__"
-    cache.mkdir()
-    (cache / "convert_tab.cpython-311.pyc").write_bytes(b"pyc")
-    owner = _feature(pyside=["gui/src/tabs/convert_tab.py"])
-    assert _check_ownership(tmp_path, [owner]) == []
+def test_real_repo_ledger_passes():
+    assert check(REPO_ROOT) == []
 
 
-def test_deleted_rows_do_not_participate_in_ownership(tmp_path: Path):
-    gui_src = tmp_path / "gui/src"
-    (gui_src / "tabs").mkdir(parents=True)
-    (gui_src / "tabs/old.py").touch()
-    owner = _feature(pyside=["gui/src/tabs"])
-    ghost = _feature(id="retired", status="pyside-deleted", pyside=["gui/src/gone"])
-    assert _check_ownership(tmp_path, [owner, ghost]) == []
-
-
-def test_scenarios_present_and_unique():
-    first = _feature()
-    second = _feature(id="merge", scenarios=["convert-single-format"])
-    errors = _check_scenarios([first, second])
-    assert any("declared by both" in error for error in errors)
-    third = _feature(id="empty", scenarios=[])
-    assert any("at least one scenario is required" in error for error in _check_scenarios([third]))
-
-
-def test_os_checklist_gate_on_deletion():
-    feature = _feature()
-    assert _check_os_checklists([feature]) == []
-
-    deleted = _feature(status="pyside-deleted")
-    assert any("passed/na" in error for error in _check_os_checklists([deleted]))
-
-    deleted.os_checklist = [
-        ledger_mod.OsEntry(os=name, status="passed", notes="") for name in ("linux", "windows", "macos")
-    ]
-    assert _check_os_checklists([deleted]) == []
-
-    short = _feature(os_checklist=[ledger_mod.OsEntry(os="linux", status="pending", notes="")])
-    assert any("must cover exactly" in error for error in _check_os_checklists([short]))
-
-
-def test_shipped_ledger_is_valid():
-    """The committed ledger must pass every rule against the real tree."""
-    assert validate(REPO_ROOT) == []
+def test_real_ledger_round_trips_through_additive_loader():
+    _, _, errors = load_ledger(REPO_ROOT / LEDGER_REL)
+    assert errors == []
