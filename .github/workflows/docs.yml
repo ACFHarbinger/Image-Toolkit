@@ -81,6 +81,9 @@ jobs:
       - name: Install Python and documentation dependencies (skip Rust build)
         run: uv sync --frozen --group dev --group docs --no-install-project
 
+      - name: Validate documentation spine & module contract hashes (W0-21 / #885)
+        run: uv run python middleware/validation/check_docs_freshness.py
+
       - name: Build MkDocs portal (strict — breaks on warnings)
         run: uv run mkdocs build --config-file docs/mkdocs.yml --strict --verbose
         env:

@@ -135,8 +135,29 @@ nav:
       - Quick Start: readme.md
       - Development: DEVELOPMENT.md
       - Architecture: ARCHITECTURE.md
+      - ASP Stitching Architecture: ASP_ARCHITECTURE.md
       - Troubleshooting: TROUBLESHOOTING.md
       - Glossary: GLOSSARY.md
+  - Architecture Decisions (ADRs):
+      - Overview: adr/index.md
+      - ADR-0001 Tauri Desktop & Freeze: adr/0001-tauri-single-desktop-ui-and-pyside-freeze.md
+      - ADR-0002 Sidecar & JSON-RPC Bridge: adr/0002-supervised-python-sidecar-and-jsonrpc-bridge.md
+      - ADR-0003 Contracts & EventHub: adr/0003-json-schema-contracts-and-eventhub.md
+      - ADR-0004 Supervisor & Daemons: adr/0004-process-supervisor-and-sibling-daemons.md
+      - ADR-0005 C++ Vault & Sealed Leases: adr/0005-cpp-vault-and-sealed-per-store-leases.md
+      - ADR-0006 Settings & Additive Migrations: adr/0006-unified-settings-and-additive-schema-migrations.md
+      - ADR-0007 Vite, CSP & Catalog Shell: adr/0007-vite-platform-csp-and-catalog-shell.md
+      - ADR-0008 C++ Stills & WebGL Canvas: adr/0008-cpp-thumbnail-service-and-webgl-canvas-host.md
+      - ADR-0009 Services & Boundaries: adr/0009-command-handler-services-and-enforced-boundaries.md
+      - ADR-0010 Renames & One CMake Build: adr/0010-package-renames-and-submodule-absorption.md
+      - ADR-0011 Ledger, Parity & Packaging: adr/0011-migration-ledger-parity-and-coexistence-packaging.md
+      - ADR-0012 Cloud Jobs Store & Reconciler: adr/0012-cloud-jobs-sqlcipher-store-and-sharded-reconciler.md
+      - ADR-0013 Cloud Jobs Preflight & Cost: adr/0013-cloud-jobs-preflight-risk-rules-and-cost-caps.md
+      - ADR-0014 Cloud Jobs Daemon & Watchdog: adr/0014-cloud-jobs-daemon-watchdog-relay-and-data-plane.md
+  - Modules:
+      - Overview: modules/index.md
+      - Module Template: modules/_template.md
+      - Convert Service: modules/convert.md
   - Tutorials:
       - Overview: tutorials/index.md
       - System Tools: tutorials/system_tools.md
