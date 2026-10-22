@@ -232,6 +232,31 @@ for mod_name in list(sys.modules):
         assert feat_violation.returncode != 0
         assert "boundaries/dependencies" in (feat_violation.stdout + feat_violation.stderr)
 
+        # Verify conditional React Hook triggers react-hooks/rules-of-hooks error
+        bad_hook_code = (
+            'import { useState } from "react";\n'
+            "export function BadHookComponent({ flag }: { flag: boolean }) {\n"
+            "  if (flag) {\n"
+            "    useState(0);\n"
+            "  }\n"
+            "  return null;\n"
+            "}\n"
+        )
+        hook_violation = subprocess.run(
+            [
+                str(npx_or_eslint),
+                "--stdin",
+                "--stdin-filename",
+                str(frontend_dir / "src/tabs/core/__hook_probe__.tsx"),
+            ],
+            input=bad_hook_code,
+            cwd=str(frontend_dir),
+            capture_output=True,
+            text=True,
+        )
+        assert hook_violation.returncode != 0
+        assert "react-hooks/rules-of-hooks" in (hook_violation.stdout + hook_violation.stderr)
+
 
 def test_converter_delegates_to_existing_core(tmp_path, monkeypatch):
     from middleware.src.core.image.image_converter import ImageFormatConverter
