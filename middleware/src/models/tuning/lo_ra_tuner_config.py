@@ -71,6 +71,15 @@ class LoRATunerConfig:
     # Load the frozen base (UNet, VAE, text encoders) in bf16. peft keeps
     # adapter weights fp32. Halves base-weight VRAM (needed for SDXL on 12 GB).
     full_bf16: bool = False
+
+    # Memory tricks (#756 H4 wiring): all consumed by the V2 trainer via
+    # train_caches.py. Latent caching skips stochastic photometric
+    # augmentations; TE-output caching freezes shuffle_tags/tag_dropout
+    # (caption dropout stays per step); xformers is opportunistic.
+    xformers: bool = False
+    cache_latents: bool = False
+    cache_latents_to_disk: bool = False
+    cache_text_encoder_outputs: bool = False
     # Seeds Python/NumPy/torch RNGs (noise, timesteps, adapter init) when set.
     seed: Optional[int] = None
     max_train_steps: Optional[int] = 2000
