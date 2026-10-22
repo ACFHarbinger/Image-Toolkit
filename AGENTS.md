@@ -186,3 +186,12 @@ suggestion:
 **Helper Extension**. Manifest V3.
 *   **Function**: Context menu to "Save Image".
 *   **Standards**: Service workers (no persistent background pages). Sanitize inputs.
+
+## Cursor Cloud specific instructions
+
+*   Activate `.venv` before Python work (`source .venv/bin/activate`). That environment is Python 3.11, installed by `uv`. `/usr/bin/python3` is 3.12 and cannot import this project.
+*   Refresh dependencies with `uv sync --frozen --all-groups --all-packages`. Leave off `--all-extras`: that extra compiles CUDA extensions and needs `nvcc`.
+*   `/usr/bin/c++` is Clang and links against GCC 14. Rebuild the native module with `CC=gcc CXX=g++`. After a successful build the extension is `backend.cpython-311-x86_64-linux-gnu.so` at the repo root.
+*   Convert an image with `python middleware/main.py core convert -i <file> -o <out> -f jpg`. Put scratch outputs under `~/Downloads/Data/Tests/`.
+*   The browser shell is `npm run start-frontend` (Vite on port 3000, bound to IPv6 localhost). Its login form calls Tauri, so it does not authenticate in a plain browser. `npm run dev` is the Tauri desktop shell.
+*   `desktop/linux/scripts/setup_env.sh` runs `uv init` and is not the setup this environment uses.
