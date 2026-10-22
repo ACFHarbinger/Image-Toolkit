@@ -11,7 +11,7 @@
 
 [shell]
 windows = ["main", "tray", "slideshow", "cloud.jobs"]
-capabilities = ["default"]
+capabilities = ["default", "cloud-jobs"]
 
 # ── Wave 1: Convert pilot ────────────────────────────────────────────
 
