@@ -1,0 +1,517 @@
+"""Validate the migration ledger (W0-18, #882).
+
+`migration/features.toml` is the PySide6 → Tauri migration inventory of
+record: one row per capability, with the route map, owned paths, scenarios,
+an OS checklist, and a pin on the contracts hash (#874). This check enforces
+the rules from docs/moon/roadmaps/tauri_migration.md §2 so the ledger cannot
+rot:
+
+1. Route coverage both ways: every catalog id in
+   `middleware.src.shell.catalog` appears as the ``to`` of exactly one
+   ledger route, and every ledger ``to`` is a real catalog id. Alias rows
+   must match the catalog's own alias map.
+2. Path existence/deletion: paths listed on a live row must exist; paths on
+   a ``pyside-deleted`` row must be gone.
+3. Ownership: every file under ``gui/src`` is covered by exactly one row's
+   ``pyside`` paths (after that row's ``pyside_exclude``), so no PySide6
+   file is unowned or double-owned.
+4. Scenario presence: every row names at least one framework-neutral
+   scenario (implemented by the #883 parity harness); scenario ids are
+   unique across rows.
+5. OS checklist: every row carries linux/windows/macos entries; a
+   ``pyside-deleted`` row must have every entry ticked (passed/na).
+6. The contracts-hash pin matches ``contracts/CONTRACTS.sha256``; bump it
+   in the same PR that changes contracts.
+7. ``[[exception]]`` records reference a known feature and carry the fields
+   #884's additive-migration guard consumes.
+
+Stdlib-only apart from the repo's own catalog module (which is itself
+stdlib-only).
+
+Example:
+    >>> python middleware/validation/check_migration_ledger.py
+    >>> python middleware/validation/check_migration_ledger.py --root /path/to/repo
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+import tomllib
+from dataclasses import dataclass, field
+from datetime import date
+from pathlib import Path
+
+LEDGER_REL = Path("migration/features.toml")
+CONTRACTS_HASH_REL = Path("contracts/CONTRACTS.sha256")
+METHODS_REL = Path("contracts/methods.toml")
+CAPABILITIES_REL = Path("frontend/src-tauri/capabilities")
+GUI_SRC_REL = Path("gui/src")
+
+LEDGER_VERSION = 1
+STATUSES = frozenset({"pyside-only", "both", "parity-passed", "pyside-deleted"})
+OS_NAMES = frozenset({"linux", "windows", "macos"})
+OS_STATUSES = frozenset({"pending", "automated", "passed", "na"})
+FEATURE_KEYS = frozenset({
+    "id", "title", "issue", "wave", "owner", "status", "notes",
+    "pyside", "pyside_exclude", "tauri", "service", "contract", "docs",
+    "scenarios", "windows", "capabilities", "routes", "os_checklist",
+})
+ROUTE_KEYS = frozenset({"from", "to", "alias"})
+EXCEPTION_KEYS = frozenset({"feature", "path", "reason", "issue", "approved_by", "expires"})
+_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+
+
+@dataclass(frozen=True)
+class Route:
+    old: str | None
+    to: str
+    alias: str | None
+
+
+@dataclass(frozen=True)
+class OsEntry:
+    os: str
+    status: str
+    notes: str
+
+
+@dataclass
+class Feature:
+    id: str
+    title: str
+    issue: int
+    wave: str
+    owner: str
+    status: str
+    pyside: list[str]
+    pyside_exclude: list[str]
+    tauri: list[str]
+    service: str | None
+    contract: str | None
+    docs: list[str]
+    scenarios: list[str]
+    windows: list[str]
+    capabilities: list[str]
+    routes: list[Route]
+    os_checklist: list[OsEntry]
+    notes: str
+
+
+@dataclass
+class Ledger:
+    contracts_hash: str
+    features: list[Feature]
+    exceptions: list[dict]
+    errors: list[str] = field(default_factory=list)
+
+
+def _str_list(raw: object, key: str, feature_id: str, errors: list[str]) -> list[str]:
+    if raw is None:
+        return []
+    if not isinstance(raw, list) or not all(isinstance(item, str) and item.strip() for item in raw):
+        errors.append(f"feature {feature_id!r}: {key} must be a list of non-empty strings")
+        return []
+    return [item.strip() for item in raw]
+
+
+def _opt_str(raw: object) -> str | None:
+    """A stripped non-empty string, or None."""
+    if raw is None:
+        return None
+    return str(raw).strip() or None
+
+
+def parse_ledger(data: dict) -> Ledger:
+    """Parse the TOML document, collecting schema violations."""
+    errors: list[str] = []
+    head = data.get("ledger", {})
+    if not isinstance(head, dict) or head.get("version") != LEDGER_VERSION:
+        errors.append(f"[ledger] version must be {LEDGER_VERSION}")
+        contracts_hash = ""
+    else:
+        contracts_hash = str(head.get("contracts_hash", "")).strip()
+        if not contracts_hash:
+            errors.append("[ledger] contracts_hash is required")
+
+    features: list[Feature] = []
+    seen_ids: set[str] = set()
+    for raw in data.get("feature", []):
+        if not isinstance(raw, dict):
+            errors.append("every [[feature]] must be a table")
+            continue
+        feature_id = str(raw.get("id", "")).strip()
+        for key in raw:
+            if key not in FEATURE_KEYS:
+                errors.append(f"feature {feature_id!r}: unknown field {key!r}")
+        if not _ID_RE.match(feature_id):
+            errors.append(f"feature id {feature_id!r} must be kebab-case")
+        elif feature_id in seen_ids:
+            errors.append(f"feature id {feature_id!r} is duplicated")
+        seen_ids.add(feature_id)
+
+        missing = [
+            key
+            for key in ("title", "wave", "owner", "status")
+            if not str(raw.get(key, "")).strip()
+        ]
+        if not isinstance(raw.get("issue"), int) or raw.get("issue", 0) <= 0:
+            missing.append("issue (positive int)")
+        if missing:
+            errors.append(f"feature {feature_id!r}: missing {', '.join(missing)}")
+        status = str(raw.get("status", ""))
+        if status and status not in STATUSES:
+            errors.append(f"feature {feature_id!r}: unknown status {status!r}")
+
+        routes: list[Route] = []
+        for raw_route in raw.get("routes", []):
+            if not isinstance(raw_route, dict):
+                errors.append(f"feature {feature_id!r}: every [[feature.routes]] must be a table")
+                continue
+            for key in raw_route:
+                if key not in ROUTE_KEYS:
+                    errors.append(f"feature {feature_id!r}: unknown route field {key!r}")
+            to = str(raw_route.get("to", "")).strip()
+            if not to:
+                errors.append(f"feature {feature_id!r}: route is missing its catalog id (to)")
+                continue
+            routes.append(
+                Route(
+                    old=_opt_str(raw_route.get("from")),
+                    to=to,
+                    alias=_opt_str(raw_route.get("alias")),
+                )
+            )
+
+        os_checklist: list[OsEntry] = []
+        for raw_os in raw.get("os_checklist", []):
+            if not isinstance(raw_os, dict):
+                errors.append(f"feature {feature_id!r}: every [[feature.os_checklist]] must be a table")
+                continue
+            os_checklist.append(
+                OsEntry(
+                    os=str(raw_os.get("os", "")).strip(),
+                    status=str(raw_os.get("status", "")).strip(),
+                    notes=str(raw_os.get("notes", "")).strip(),
+                )
+            )
+
+        service = str(raw.get("service", "")).strip() or None
+        contract = str(raw.get("contract", "")).strip() or None
+        features.append(
+            Feature(
+                id=feature_id,
+                title=str(raw.get("title", "")).strip(),
+                issue=int(raw.get("issue", 0) or 0),
+                wave=str(raw.get("wave", "")).strip(),
+                owner=str(raw.get("owner", "")).strip(),
+                status=status,
+                pyside=_str_list(raw.get("pyside"), "pyside", feature_id, errors),
+                pyside_exclude=_str_list(raw.get("pyside_exclude"), "pyside_exclude", feature_id, errors),
+                tauri=_str_list(raw.get("tauri"), "tauri", feature_id, errors),
+                service=service,
+                contract=contract,
+                docs=_str_list(raw.get("docs"), "docs", feature_id, errors),
+                scenarios=_str_list(raw.get("scenarios"), "scenarios", feature_id, errors),
+                windows=_str_list(raw.get("windows"), "windows", feature_id, errors),
+                capabilities=_str_list(raw.get("capabilities"), "capabilities", feature_id, errors),
+                routes=routes,
+                os_checklist=os_checklist,
+                notes=str(raw.get("notes", "")).strip(),
+            )
+        )
+
+    exceptions: list[dict] = []
+    for raw_exception in data.get("exception", []):
+        if not isinstance(raw_exception, dict):
+            errors.append("every [[exception]] must be a table")
+            continue
+        for key in raw_exception:
+            if key not in EXCEPTION_KEYS:
+                errors.append(f"[[exception]] has unknown field {key!r}")
+        missing = [key for key in EXCEPTION_KEYS - {"expires"} if not str(raw_exception.get(key, "")).strip()]
+        if missing:
+            errors.append(f"[[exception]] missing {', '.join(sorted(missing))}")
+        expires = raw_exception.get("expires")
+        if expires:
+            try:
+                date.fromisoformat(str(expires))
+            except ValueError:
+                errors.append("[[exception]] has an invalid expires date")
+        exceptions.append({key: str(value) for key, value in raw_exception.items()})
+
+    return Ledger(contracts_hash=contracts_hash, features=features, exceptions=exceptions, errors=errors)
+
+
+def _covers(record_path: str, file_path: str) -> bool:
+    normalized = record_path.rstrip("/")
+    return file_path == normalized or file_path.startswith(f"{normalized}/")
+
+
+def _owner_of(file_path: str, features: list[Feature]) -> list[str]:
+    owners: list[str] = []
+    for feature in features:
+        if not any(_covers(path, file_path) for path in feature.pyside):
+            continue
+        if any(_covers(excluded, file_path) for excluded in feature.pyside_exclude):
+            continue
+        owners.append(feature.id)
+    return owners
+
+
+def _check_routes(catalog_ids: set[str], alias_maps: dict[str, dict[str, str]], features: list[Feature]) -> list[str]:
+    errors: list[str] = []
+    # Canonical (non-alias) rows own a catalog id exactly once; alias rows
+    # re-point an old catalog id and may share a target (e.g. both
+    # ml.evaluation and ml.inference alias to dl.review).
+    canonical: dict[str, str] = {}
+    covered: set[str] = set()
+    old_routes: dict[str, str] = {}
+    for feature in features:
+        for route in feature.routes:
+            if route.to not in catalog_ids:
+                errors.append(f"feature {feature.id!r}: route target {route.to!r} is not a catalog id")
+                continue
+            covered.add(route.to)
+            if not route.alias:
+                if route.to in canonical:
+                    errors.append(
+                        f"catalog id {route.to!r} is claimed by both {canonical[route.to]!r} and {feature.id!r}"
+                    )
+                canonical.setdefault(route.to, feature.id)
+            if route.old:
+                if route.old in old_routes:
+                    errors.append(
+                        f"old route {route.old!r} is mapped by both {old_routes[route.old]!r} and {feature.id!r}"
+                    )
+                old_routes.setdefault(route.old, feature.id)
+            if route.alias:
+                alias_map = alias_maps.get(route.alias)
+                if alias_map is None:
+                    errors.append(f"feature {feature.id!r}: unknown alias condition {route.alias!r}")
+                elif route.old is None or alias_map.get(route.old) != route.to:
+                    errors.append(
+                        f"feature {feature.id!r}: alias row {route.old} → {route.to} "
+                        f"does not match the catalog's {route.alias!r} alias map"
+                    )
+            elif route.old in catalog_ids and route.old != route.to:
+                # A from that names another catalog id is an alias row and
+                # must say so; plain rows map a legacy id onto a catalog id.
+                errors.append(
+                    f"feature {feature.id!r}: route from {route.old!r} is itself a catalog id; "
+                    "record the alias condition"
+                )
+    for catalog_id in sorted(catalog_ids - covered):
+        errors.append(f"catalog id {catalog_id!r} is not covered by any ledger row")
+    return errors
+
+
+def _check_paths(root: Path, features: list[Feature]) -> list[str]:
+    errors: list[str] = []
+    for feature in features:
+        for excluded in feature.pyside_exclude:
+            if not any(_covers(path, excluded) for path in feature.pyside):
+                errors.append(
+                    f"feature {feature.id!r}: pyside_exclude {excluded!r} is not under any of its pyside paths"
+                )
+        listed = list(feature.pyside) + list(feature.pyside_exclude)
+        if feature.status != "pyside-deleted":
+            listed += feature.tauri + feature.docs
+            if feature.service:
+                listed.append(feature.service)
+            for path in listed:
+                if not (root / path).exists():
+                    errors.append(f"feature {feature.id!r}: path {path!r} does not exist")
+        else:
+            for path in feature.pyside:
+                if (root / path).exists():
+                    errors.append(
+                        f"feature {feature.id!r}: path {path!r} still exists but the row is pyside-deleted"
+                    )
+        for capability in feature.capabilities:
+            capability_file = root / CAPABILITIES_REL / f"{capability}.json"
+            if not capability_file.is_file():
+                errors.append(
+                    f"feature {feature.id!r}: capability {capability!r} has no file at {capability_file}"
+                )
+    return errors
+
+
+def _check_ownership(root: Path, features: list[Feature]) -> list[str]:
+    errors: list[str] = []
+    gui_src = root / GUI_SRC_REL
+    if not gui_src.is_dir():
+        return [f"missing {GUI_SRC_REL}"]
+    live = [feature for feature in features if feature.status != "pyside-deleted"]
+    for file_path in sorted(path for path in gui_src.rglob("*") if path.is_file()):
+        relative = file_path.relative_to(root).as_posix()
+        owners = _owner_of(relative, live)
+        if not owners:
+            errors.append(f"{relative}: no ledger row owns this PySide6 file")
+        elif len(owners) > 1:
+            errors.append(f"{relative}: owned by multiple rows: {', '.join(owners)}")
+    return errors
+
+
+def _check_scenarios(features: list[Feature]) -> list[str]:
+    errors: list[str] = []
+    seen: dict[str, str] = {}
+    for feature in features:
+        if not feature.scenarios:
+            errors.append(f"feature {feature.id!r}: at least one scenario is required")
+        for scenario in feature.scenarios:
+            if not _ID_RE.match(scenario):
+                errors.append(f"feature {feature.id!r}: scenario {scenario!r} must be kebab-case")
+            elif scenario in seen:
+                errors.append(
+                    f"scenario {scenario!r} is declared by both {seen[scenario]!r} and {feature.id!r}"
+                )
+            seen.setdefault(scenario, feature.id)
+    return errors
+
+
+def _check_os_checklists(features: list[Feature]) -> list[str]:
+    errors: list[str] = []
+    for feature in features:
+        entries = {entry.os: entry for entry in feature.os_checklist}
+        if set(entries) != OS_NAMES:
+            errors.append(
+                f"feature {feature.id!r}: os_checklist must cover exactly {sorted(OS_NAMES)}"
+            )
+        for entry in feature.os_checklist:
+            if entry.status not in OS_STATUSES:
+                errors.append(
+                    f"feature {feature.id!r}: os_checklist {entry.os!r} has unknown status {entry.status!r}"
+                )
+        if feature.status == "pyside-deleted" and any(
+            entry.status not in {"passed", "na"} for entry in feature.os_checklist
+        ):
+            errors.append(
+                f"feature {feature.id!r}: pyside-deleted requires every os_checklist entry passed/na"
+            )
+    return errors
+
+
+def _check_windows(catalog_window_ids: set[str], features: list[Feature]) -> list[str]:
+    errors: list[str] = []
+    referenced: set[str] = set()
+    for feature in features:
+        if not feature.windows:
+            errors.append(f"feature {feature.id!r}: at least one window is required")
+        for window in feature.windows:
+            if window not in catalog_window_ids:
+                errors.append(f"feature {feature.id!r}: unknown window {window!r}")
+            referenced.add(window)
+    for window in sorted(catalog_window_ids - referenced):
+        errors.append(f"catalog window {window!r} is not referenced by any ledger row")
+    return errors
+
+
+def _check_contracts_pin(root: Path, ledger: Ledger) -> list[str]:
+    if not ledger.contracts_hash:
+        return []
+    hash_path = root / CONTRACTS_HASH_REL
+    try:
+        total = next(
+            line.split()[1]
+            for line in hash_path.read_text(encoding="utf-8").splitlines()
+            if line.startswith("total")
+        )
+    except (FileNotFoundError, StopIteration, IndexError) as exc:
+        return [f"cannot read the contracts hash from {CONTRACTS_HASH_REL}: {exc}"]
+    if ledger.contracts_hash != total:
+        return [
+            f"[ledger] contracts_hash {ledger.contracts_hash} is stale; "
+            f"contracts/CONTRACTS.sha256 total is {total} — bump the pin in the same PR"
+        ]
+    return []
+
+
+def _check_contract_refs(root: Path, features: list[Feature]) -> list[str]:
+    referenced = {feature.contract for feature in features if feature.contract}
+    if not referenced:
+        return []
+    try:
+        methods = tomllib.loads((root / METHODS_REL).read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        return [f"cannot read {METHODS_REL}: {exc}"]
+    known = {str(method.get("capability", "")) for method in methods.get("method", [])}
+    return [
+        f"feature {feature.id!r}: contract {feature.contract!r} is not a capability in {METHODS_REL}"
+        for feature in features
+        if feature.contract and feature.contract not in known
+    ]
+
+
+def _check_exceptions(ledger: Ledger) -> list[str]:
+    known = {feature.id for feature in ledger.features}
+    errors: list[str] = []
+    for exception in ledger.exceptions:
+        if exception.get("feature") not in known:
+            errors.append(f"[[exception]] references unknown feature {exception.get('feature')!r}")
+    return errors
+
+
+def _load_catalog(root: Path):
+    """Import the repo's shell catalog (stdlib-only module chain)."""
+    root_str = str(root.resolve())
+    if root_str not in sys.path:
+        sys.path.insert(0, root_str)
+    from middleware.src.shell.catalog import shell_catalog
+
+    return shell_catalog()
+
+
+def validate(root: Path, catalog=None) -> list[str]:
+    """Run every ledger rule; return human-readable violations."""
+    ledger_path = root / LEDGER_REL
+    try:
+        data = tomllib.loads(ledger_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return [f"missing {LEDGER_REL}"]
+    except tomllib.TOMLDecodeError as exc:
+        return [f"{LEDGER_REL}: invalid TOML ({exc})"]
+
+    ledger = parse_ledger(data)
+    errors = list(ledger.errors)
+    if catalog is None:
+        catalog = _load_catalog(root)
+    catalog_ids = {entry.id for entry in catalog.entries}
+    alias_maps = {alias.applies_when: catalog.alias_map(alias.applies_when) for alias in catalog.aliases}
+    catalog_window_ids = {window.id for window in catalog.windows}
+
+    errors += _check_routes(catalog_ids, alias_maps, ledger.features)
+    errors += _check_paths(root, ledger.features)
+    errors += _check_ownership(root, ledger.features)
+    errors += _check_scenarios(ledger.features)
+    errors += _check_os_checklists(ledger.features)
+    errors += _check_windows(catalog_window_ids, ledger.features)
+    errors += _check_contracts_pin(root, ledger)
+    errors += _check_contract_refs(root, ledger.features)
+    errors += _check_exceptions(ledger)
+    return errors
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=Path(__file__).resolve().parents[2],
+        help="repository root (default: auto-detect)",
+    )
+    args = parser.parse_args(argv)
+
+    violations = validate(args.root)
+    if violations:
+        for violation in violations:
+            print(f"FAIL {violation}", file=sys.stderr)
+        print(f"{len(violations)} migration-ledger violation(s); see issue #882.", file=sys.stderr)
+        return 1
+    print("PASS migration ledger (routes, paths, ownership, scenarios, os checklist, contracts pin)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
