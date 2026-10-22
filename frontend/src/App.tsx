@@ -346,10 +346,10 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-8 font-sans transition-colors duration-300">
-      <div className="max-w-6xl mx-auto bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-700">
+    <div className="min-h-screen bg-it-window-bg text-it-text p-4 sm:p-8 font-sans transition-colors duration-300">
+      <div className="max-w-6xl mx-auto bg-it-surface rounded-3xl shadow-2xl overflow-hidden border border-it-border">
         {/* Header */}
-        <header className="flex items-center justify-between p-4 bg-violet-700 text-white shadow-lg">
+        <header className="flex items-center justify-between p-4 bg-it-accent text-white shadow-lg">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-extrabold tracking-tight">
               Image Database and Toolkit
@@ -382,14 +382,14 @@ const App: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={openSettings}
-              className="p-2 rounded-lg hover:bg-violet-600 transition-colors"
+              className="p-2 rounded-lg hover:bg-it-accent-hover transition-colors"
               title="Settings"
             >
               <Settings size={20} />
             </button>
             <button
               onClick={logout}
-              className="p-2 rounded-lg hover:bg-violet-600 transition-colors"
+              className="p-2 rounded-lg hover:bg-it-accent-hover transition-colors"
               title="Logout"
             >
               <LogOut size={20} />
@@ -398,12 +398,12 @@ const App: React.FC = () => {
         </header>
 
         {/* Tab Navigation */}
-        <nav className="flex p-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+        <nav className="flex p-2 border-b border-it-border bg-it-window-bg">
           <div ref={primaryDropdownRef} className="relative">
             <button
               onClick={() => setIsPrimaryDropdownOpen((prev) => !prev)}
               className={`flex items-center px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-300 
-                bg-violet-500 text-white shadow-md hover:bg-violet-600
+                bg-it-accent text-white shadow-md hover:bg-it-accent-hover
               `}
             >
               {(() => {
@@ -418,7 +418,7 @@ const App: React.FC = () => {
             </button>
 
             {isPrimaryDropdownOpen && (
-              <div className="absolute top-full left-0 mt-1 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
+              <div className="absolute top-full left-0 mt-1 w-72 bg-it-surface rounded-xl shadow-xl border border-it-border z-50 overflow-hidden">
                 {TAB_GROUPS.map((group) => (
                   <div key={group.title}>
                     <button
@@ -427,10 +427,10 @@ const App: React.FC = () => {
                           prev === group.title ? null : group.title,
                         )
                       }
-                      className={`w-full text-left px-4 py-3 text-sm flex items-center justify-between font-bold border-b dark:border-gray-700
+                      className={`w-full text-left px-4 py-3 text-sm flex items-center justify-between font-bold border-b border-it-border
                         ${openDropdown === group.title
-                          ? "bg-gray-100 dark:bg-gray-700 text-violet-600 dark:text-violet-300"
-                          : "text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700"
+                          ? "bg-it-surface text-it-accent"
+                          : "text-it-text hover:bg-it-surface"
                         }`}
                     >
                       {group.title}
@@ -441,7 +441,7 @@ const App: React.FC = () => {
                     </button>
 
                     {openDropdown === group.title && (
-                      <div className="bg-gray-50 dark:bg-gray-900/50">
+                      <div className="bg-it-window-bg">
                         {group.tabs.map((tab) => {
                           const TabIcon = tab.icon;
                           return (
@@ -450,8 +450,8 @@ const App: React.FC = () => {
                               onClick={() => handleTabClick(tab.id)}
                               className={`w-full text-left pl-10 pr-4 py-2 text-xs flex items-center border-l-4 transition-colors
                                  ${activeTab === tab.id
-                                  ? "border-violet-500 bg-violet-100 dark:bg-violet-900/20 text-violet-700 font-medium"
-                                  : "border-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                  ? "border-it-accent bg-it-surface text-it-accent font-medium"
+                                  : "border-transparent text-it-muted-text hover:bg-it-surface"
                                 }`}
                             >
                               <TabIcon size={14} className="mr-2" />
@@ -488,19 +488,19 @@ const App: React.FC = () => {
         onClick={() => setModal((prev) => ({ ...prev, show: false }))}
       >
         <div
-          className="p-6 bg-white rounded-xl shadow-2xl max-w-sm w-full dark:bg-gray-800"
+          className="p-6 bg-it-surface rounded-xl shadow-2xl max-w-sm w-full border border-it-border"
           onClick={(e) => e.stopPropagation()}
         >
           {modal.content || (
             <p
-              className={`text-center ${modal.type === "error" ? "text-red-500" : "text-gray-900 dark:text-gray-100"}`}
+              className={`text-center ${modal.type === "error" ? "text-red-500" : "text-it-text"}`}
             >
               {modal.message}
             </p>
           )}
           <button
             onClick={() => setModal((prev) => ({ ...prev, show: false }))}
-            className="mt-4 w-full py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition"
+            className="mt-4 w-full py-2 bg-it-accent text-white rounded-lg hover:bg-it-accent-hover transition"
           >
             Close
           </button>

@@ -61,6 +61,9 @@ jobs:
       - name: Check contract freshness (W0-10 / #874)
         run: uv run python contracts/generate.py --check
 
+      - name: Check theme-token CSS freshness (W0-07 / #871)
+        run: uv run python middleware/validation/check_css_tokens_freshness.py
+
       - name: mypy — strict modules (§5.5A / A.10)
         run: >
           uv run mypy
