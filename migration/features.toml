@@ -1,1 +1,1012 @@
-$(cat /tmp/w882/payload.json | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['content'])" 2>/dev/null || echo PLACEHOLDER)
+# migration/features.toml — the migration ledger (W0-18, #882).
+#
+# One record per capability, not per route (OpenCode Q1: stitch is one record
+# with eight routes, Deep Learning one with five). This file is the inventory,
+# the parity gate, and the docs index for the PySide6 → Tauri migration
+# (docs/moon/roadmaps/tauri_migration.md §2).
+#
+# Status values: `pyside-only` | `both` | `parity-passed` | `pyside-deleted`.
+# Deleting a row requires green parity evidence, a ticked OS checklist,
+# Harbinger's sign-off, and one deletion PR that removes that row's PySide6
+# code and tests and nothing else.
+#
+# Consumers — keep these working when editing the schema:
+#   - middleware/validation/check_migration_ledger.py (this file's validator:
+#     route coverage both ways vs middleware.src.shell.catalog, path
+#     existence/deletion, exactly-once gui/src ownership, scenario presence)
+#   - middleware/validation/check_migration_additive.py (#884: reads
+#     [[exception]] records; a pyside-deleted row auto-allows its own paths)
+#   - middleware/validation/check_tauri_security.py (#868: every capability
+#     identifier and window label must appear somewhere in this file)
+#   - migration/generate_parity.py → docs/migration/parity.md (generated; do
+#     not hand-edit — regenerate with `python migration/generate_parity.py`)
+
+[ledger]
+version = 1
+# The contracts/CONTRACTS.sha256 `total` this ledger was written against
+# (#874 coordination). A contract change bumps this pin in the same PR;
+# CI fails on drift.
+contracts_hash = "982b5ee1c894cc7cc385319c615075e261812de38001db245180d72ca8b6e2c7"
+
+# ── Wave 0c — Shell ─────────────────────────────────────────────────────────
+
+[[feature]]
+id = "shell"
+title = "Catalog-driven shell (rail, ribbon, inspector, status bar)"
+issue = 870
+wave = "0c"
+owner = "grok"
+status = "pyside-only"
+notes = "Also owns developer.benchmarks, the frontend-only diagnostics page (no PySide6 row to migrate)."
+pyside = [
+    "gui/src/main_backend.py",
+    "gui/src/qt_event_bridge.py",
+    "gui/src/qt_object_guard.py",
+    "gui/src/file_dialog_patch.py",
+    "gui/src/modules",
+    "gui/src/windows/main",
+    "gui/src/components/navigation",
+    "gui/src/components/inspector",
+    "gui/src/constants/tabs.py",
+    "gui/src/contracts",
+]
+pyside_exclude = [
+    "gui/src/modules/dl_workspace.py",
+    "gui/src/modules/stitch_workspace.py",
+    "gui/src/modules/comfy_workspace_controller.py",
+    "gui/src/windows/main/_shortcuts.py",
+    "gui/src/windows/main/_tray.py",
+]
+tauri = ["frontend/src/App.tsx", "frontend/src/shell"]
+windows = ["main"]
+scenarios = ["shell-renders-catalog-rail", "shell-navigates-by-catalog-id"]
+
+[[feature.routes]]
+from = "benchmarks"
+to = "developer.benchmarks"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+notes = "Wayland and X11."
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "design-tokens"
+title = "Design tokens → generated CSS variables"
+issue = 871
+wave = "0c"
+owner = "mistral"
+status = "pyside-only"
+notes = "QSS is not ported by hand; both shells consume the generated variables."
+pyside = ["gui/src/theming", "gui/src/styles"]
+pyside_exclude = [
+    "gui/src/theming/wallpaper_graph_palette.py",
+    "gui/src/theming/er_view_palette.py",
+]
+windows = ["main"]
+scenarios = ["tokens-generate-css-variables", "theme-switch-light-dark"]
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "shortcuts"
+title = "One serializable shortcut registry bound by both shells"
+issue = 872
+wave = "0c"
+owner = "cursor"
+status = "pyside-only"
+pyside = [
+    "gui/src/utils/manager/shortcut_manager.py",
+    "gui/src/windows/main/_shortcuts.py",
+]
+windows = ["main"]
+scenarios = ["shortcut-registry-binds-both-shells", "shortcut-conflict-detection"]
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "window-management"
+title = "WindowManager role map, native tray, hide-all on close"
+issue = 873
+wave = "0c"
+owner = "cursor"
+status = "pyside-only"
+pyside = [
+    "gui/src/windows/__init__.py",
+    "gui/src/windows/window_manager.py",
+    "gui/src/windows/window_service.py",
+    "gui/src/windows/main/_tray.py",
+    "gui/src/constants/windows.py",
+]
+windows = ["main", "tray", "slideshow", "cloud.jobs"]
+capabilities = ["default"]
+scenarios = ["tray-hide-all-on-close", "single-instance-focus-second-launch", "popout-window-role-map"]
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+notes = "KDE/GNOME Wayland + X11 tray behaviour (spike S-03, #889)."
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+# ── Wave 0e — Foundations ───────────────────────────────────────────────────
+
+[[feature]]
+id = "settings-service"
+title = "One settings service for both GUIs (scopes preserved)"
+issue = 880
+wave = "0e"
+owner = "mistral"
+status = "pyside-only"
+notes = "Keeps DEVICE/ACCOUNT/SESSION scopes from gui/src/preferences/store.py; migrates legacy settings with a backup first."
+pyside = ["gui/src/preferences"]
+windows = ["main"]
+scenarios = ["settings-scopes-preserved", "legacy-settings-migration-with-backup"]
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+# ── Wave 0f — Feasibility spikes ────────────────────────────────────────────
+
+[[feature]]
+id = "gallery-thumbnails"
+title = "Gallery thumbnails via the C++ render-cache service"
+issue = 887
+wave = "0f"
+owner = "grok"
+status = "pyside-only"
+notes = "Spike S-01: bounded stills (middle frame) written to ~/.image-toolkit/cache/render/ and streamed over asset://. No-go keeps the PySide6 gallery alive past its wave."
+pyside = [
+    "gui/src/thumbnails",
+    "gui/src/components/gallery",
+    "gui/src/components/virtual_gallery",
+    "gui/src/constants/gallery.py",
+    "gui/src/services/preview_service.py",
+]
+windows = ["main"]
+scenarios = ["gallery-bounded-stills-middle-frame", "gallery-animated-preview-cancel"]
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+# ── Wave 1 — Convert pilot ──────────────────────────────────────────────────
+
+[[feature]]
+id = "convert"
+title = "Convert"
+issue = 894
+wave = "1"
+owner = "kimi"
+status = "pyside-only"
+notes = "P-01 pilot; includes the media-convert and sampler sub-tabs. Success = first Rust duplicate (core_commands.rs conversion) deleted."
+pyside = [
+    "gui/src/tabs/core/convert_tab.py",
+    "gui/src/tabs/core/media_convert_subtab",
+    "gui/src/tabs/core/sampler_subtab",
+    "gui/qml/tabs/core/ConvertTab.qml",
+    "gui/qml/tabs/core/common/FormatSubtab.qml",
+    "gui/qml/tabs/core/common/SamplerSubtab.qml",
+]
+tauri = ["frontend/src/tabs/core/ConvertTab.tsx"]
+windows = ["main"]
+scenarios = ["convert-single-format", "convert-batch-format-filter", "sampler-scale-mode-resample"]
+
+[[feature.routes]]
+from = "convert"
+to = "system.convert"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+# ── Wave 3 — Library ────────────────────────────────────────────────────────
+
+[[feature]]
+id = "image-viewers"
+title = "Image preview, compare and drag-preview viewers"
+issue = 895
+wave = "3"
+owner = "unassigned"
+status = "pyside-only"
+notes = "L-01: cross-cutting viewers used by every later wave."
+pyside = [
+    "gui/src/windows/image_preview_window.py",
+    "gui/src/windows/image_compare_window.py",
+    "gui/src/windows/drag_preview_window.py",
+    "gui/qml/windows/ImagePreviewWindow.qml",
+]
+windows = ["main"]
+scenarios = ["preview-window-open-large-image", "compare-window-swipe", "drag-preview-follows-cursor"]
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "library-listings"
+title = "Library: Listings"
+issue = 896
+wave = "3"
+owner = "unassigned"
+status = "pyside-only"
+pyside = [
+    "gui/src/tabs/database/listings_tab.py",
+    "gui/src/tabs/database/listings_subtab",
+    "gui/src/constants/listings.py",
+    "gui/qml/tabs/core/ListingsTab.qml",
+    "gui/qml/tabs/core/common/EntityListingsSubtab.qml",
+    "gui/qml/tabs/core/common/SeriesListingsSubtab.qml",
+]
+windows = ["main"]
+scenarios = ["listings-entity-series-crud", "listings-recommendation-refresh"]
+
+[[feature.routes]]
+to = "library.listings"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "library-search"
+title = "Library: Image Search"
+issue = 897
+wave = "3"
+owner = "unassigned"
+status = "pyside-only"
+pyside = ["gui/src/tabs/database/search_tab", "gui/qml/tabs/database/SearchTab.qml"]
+tauri = ["frontend/src/tabs/database/SearchTab.tsx"]
+windows = ["main"]
+scenarios = ["search-tag-and-format-filters", "search-semantic-query"]
+
+[[feature.routes]]
+from = "search"
+to = "library.search"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "library-scan"
+title = "Library: Scan and Tag"
+issue = 898
+wave = "3"
+owner = "unassigned"
+status = "pyside-only"
+pyside = [
+    "gui/src/tabs/database/scan_metadata_tab",
+    "gui/src/services/directory_scan_service.py",
+    "gui/qml/tabs/database/ScanMetadataTab.qml",
+]
+tauri = ["frontend/src/tabs/database/ScanMetadataTab.tsx"]
+windows = ["main"]
+scenarios = ["scan-directory-upsert", "scan-pagination-lazy-load"]
+
+[[feature.routes]]
+from = "scan"
+to = "library.scan"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "library-management"
+title = "Library: Management"
+issue = 899
+wave = "3"
+owner = "unassigned"
+status = "pyside-only"
+pyside = ["gui/src/tabs/database/database_tab", "gui/qml/tabs/database/DatabaseTab.qml"]
+tauri = ["frontend/src/tabs/database/DatabaseTab.tsx"]
+windows = ["main"]
+scenarios = ["database-groups-and-tags-crud", "database-bulk-import"]
+
+[[feature.routes]]
+from = "database"
+to = "library.management"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "library-data-browser"
+title = "Library: Data Browser"
+issue = 900
+wave = "3"
+owner = "unassigned"
+status = "pyside-only"
+pyside = ["gui/src/tabs/database/data_browser_tab", "gui/src/theming/er_view_palette.py"]
+windows = ["main"]
+scenarios = ["data-browser-query-filter", "data-browser-export"]
+
+[[feature.routes]]
+to = "library.data-browser"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+# ── Wave 4 — System ─────────────────────────────────────────────────────────
+
+[[feature]]
+id = "merge"
+title = "System: Merge"
+issue = 903
+wave = "4"
+owner = "unassigned"
+status = "pyside-only"
+notes = "Y-01: includes the merge canvas on the shared canvas host (Y-00, #902); retires the core_commands.rs merge duplicate."
+pyside = ["gui/src/tabs/core/merge_tab", "gui/qml/tabs/core/MergeTab.qml"]
+tauri = ["frontend/src/tabs/core/MergeTab.tsx"]
+windows = ["main"]
+scenarios = ["merge-canvas-compose", "merge-scan-input"]
+
+[[feature.routes]]
+from = "merge"
+to = "system.merge"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "similarity"
+title = "System: Similarity"
+issue = 904
+wave = "4"
+owner = "unassigned"
+status = "pyside-only"
+pyside = ["gui/src/tabs/core/similarity_tab", "gui/qml/tabs/core/SimilarityTab.qml"]
+tauri = ["frontend/src/tabs/core/DeleteTab.tsx"]
+windows = ["main"]
+scenarios = ["similarity-scan-clusters", "similarity-triage-delete"]
+
+[[feature.routes]]
+from = "delete"
+to = "system.similarity"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "extractor"
+title = "System: Extractor"
+issue = 905
+wave = "4"
+owner = "unassigned"
+status = "pyside-only"
+notes = "Y-03: video + image sub-tabs, frame-slice canvas; retires video_commands.rs."
+pyside = [
+    "gui/src/tabs/core/extractor_tab",
+    "gui/src/tabs/core/image_extractor_canvas.py",
+    "gui/src/tabs/core/image_extractor_gallery.py",
+    "gui/src/tabs/core/image_extractor_subtab.py",
+    "gui/src/tabs/core/protos/extractor_tab.py",
+    "gui/qml/tabs/core/ImageExtractorTab.qml",
+]
+tauri = ["frontend/src/tabs/core/ImageExtractorTab.tsx"]
+windows = ["main"]
+scenarios = ["extractor-frame-cuts", "extractor-queue-processing"]
+
+[[feature.routes]]
+from = "extractor"
+to = "system.extractor"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+# ── Wave 5 — Web ────────────────────────────────────────────────────────────
+
+[[feature]]
+id = "web-crawler"
+title = "Web: Crawler"
+issue = 906
+wave = "5"
+owner = "unassigned"
+status = "pyside-only"
+pyside = ["gui/src/tabs/web/image_crawler_tab", "gui/qml/tabs/web/ImageCrawlTab.qml"]
+tauri = ["frontend/src/tabs/web/ImageCrawlerTab.tsx"]
+windows = ["main"]
+scenarios = ["crawler-board-settings", "crawler-webdriver-launch"]
+
+[[feature.routes]]
+from = "crawler"
+to = "web.crawler"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "web-requests"
+title = "Web: Requests"
+issue = 907
+wave = "5"
+owner = "unassigned"
+status = "pyside-only"
+pyside = ["gui/src/tabs/web/web_requests_tab.py", "gui/qml/tabs/web/WebRequestsTab.qml"]
+tauri = ["frontend/src/tabs/web/WebRequestsTab.tsx"]
+windows = ["main"]
+scenarios = ["requests-batch-submit", "requests-persistence"]
+
+[[feature.routes]]
+from = "webreq"
+to = "web.requests"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "cloud-sync"
+title = "Web: Cloud Synchronization"
+issue = 908
+wave = "5"
+owner = "unassigned"
+status = "pyside-only"
+pyside = ["gui/src/tabs/web/drive_sync_tab", "gui/qml/tabs/web/DriveSyncTab.qml"]
+tauri = ["frontend/src/tabs/web/DriveSyncTab.tsx"]
+windows = ["main"]
+scenarios = ["drive-sync-provider-switch", "drive-sync-share-folder"]
+
+[[feature.routes]]
+from = "drive"
+to = "web.drive-sync"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "media-loader"
+title = "Web: Media Loader"
+issue = 909
+wave = "5"
+owner = "unassigned"
+status = "pyside-only"
+pyside = ["gui/src/tabs/web/media_loader_tab"]
+windows = ["main"]
+scenarios = ["media-loader-download-queue", "media-loader-source-switch"]
+
+[[feature.routes]]
+to = "web.media-loader"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "reverse-search"
+title = "Web: Reverse Search"
+issue = 910
+wave = "5"
+owner = "unassigned"
+status = "pyside-only"
+pyside = ["gui/src/tabs/web/reverse_search_tab.py", "gui/qml/tabs/web/ReverseImageSearchTab.qml"]
+tauri = ["frontend/src/tabs/web/ReverseSearchTab.tsx"]
+windows = ["main"]
+scenarios = ["reverse-search-by-image"]
+
+[[feature.routes]]
+from = "revsearch"
+to = "web.reverse-search"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "entity-recon"
+title = "Web: Entity Reconnaissance"
+issue = 911
+wave = "5"
+owner = "unassigned"
+status = "pyside-only"
+pyside = ["gui/src/tabs/web/entity_recon_tab", "gui/qml/tabs/web/EntityReconTab.qml"]
+windows = ["main"]
+scenarios = ["entity-recon-identity-resolution", "entity-recon-provenance-export"]
+
+[[feature.routes]]
+to = "web.entity-recon"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+# ── Wave 6 — Deep Learning ──────────────────────────────────────────────────
+
+[[feature]]
+id = "deep-learning"
+title = "Deep Learning workspace"
+issue = 912
+wave = "6"
+owner = "unassigned"
+status = "pyside-only"
+notes = "D-01: one record, five routes (dl workspace + train/generate/review/runs). The ml.* pages map onto the dl workspace behind the experimental-dl compatibility aliases."
+pyside = [
+    "gui/src/tabs/models",
+    "gui/src/modules/dl_workspace.py",
+    "gui/src/modules/comfy_workspace_controller.py",
+    "gui/src/components/prompt_edit.py",
+    "gui/src/components/prompt_vocabulary.py",
+    "gui/qml/tabs/models",
+]
+tauri = ["frontend/src/tabs/models"]
+windows = ["main"]
+scenarios = ["dl-train-run-telemetry", "dl-generate-matrix-sweep", "dl-review-record-jsonl"]
+
+[[feature.routes]]
+from = "train"
+to = "ml.training"
+[[feature.routes]]
+from = "generate"
+to = "ml.generation"
+[[feature.routes]]
+from = "evaluate"
+to = "ml.evaluation"
+[[feature.routes]]
+from = "inference"
+to = "ml.inference"
+[[feature.routes]]
+to = "ml.comfyui"
+[[feature.routes]]
+to = "dl"
+[[feature.routes]]
+to = "dl.runs"
+[[feature.routes]]
+from = "ml.training"
+to = "dl.train"
+alias = "experimental-dl"
+[[feature.routes]]
+from = "ml.generation"
+to = "dl.generate"
+alias = "experimental-dl"
+[[feature.routes]]
+from = "ml.evaluation"
+to = "dl.review"
+alias = "experimental-dl"
+[[feature.routes]]
+from = "ml.inference"
+to = "dl.review"
+alias = "experimental-dl"
+[[feature.routes]]
+from = "ml.comfyui"
+to = "dl.generate"
+alias = "experimental-dl"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+# ── Wave 7 — Wallpaper ──────────────────────────────────────────────────────
+
+[[feature]]
+id = "wallpaper"
+title = "Wallpaper and the slideshow presenter window"
+issue = 913
+wave = "7"
+owner = "unassigned"
+status = "pyside-only"
+notes = "A-01: System Display + Monitor Display, slideshows and daemons; the slideshow presenter is a separate native window."
+pyside = [
+    "gui/src/tabs/core/wallpaper_tab",
+    "gui/src/tabs/core/protos/monitor_display_subtab.py",
+    "gui/src/tabs/core/protos/system_display_subtab.py",
+    "gui/src/tabs/core/protos/wallpaper_common_base.py",
+    "gui/src/windows/slideshow_backend.py",
+    "gui/src/windows/slideshow_window.py",
+    "gui/src/theming/wallpaper_graph_palette.py",
+    "gui/qml/tabs/core/WallpaperTab.qml",
+    "gui/qml/tabs/core/common/MonitorDisplaySubtab.qml",
+    "gui/qml/tabs/core/common/SystemDisplaySubtab.qml",
+    "gui/qml/tabs/core/common/WallpaperCommon.qml",
+    "gui/qml/windows/SlideshowWindow.qml",
+]
+tauri = ["frontend/src/tabs/core/WallpaperTab.tsx"]
+windows = ["main", "slideshow"]
+scenarios = ["wallpaper-per-monitor-set", "slideshow-daemon-survives-window-close", "wallpaper-graph-traversal"]
+
+[[feature.routes]]
+from = "wallpaper"
+to = "system.wallpaper"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+notes = "KDE/GNOME Wayland + X11 per-monitor control (spike S-07, #893); qdbus-qt6 compat."
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+# ── Wave 8 — Editors ────────────────────────────────────────────────────────
+
+[[feature]]
+id = "stitch"
+title = "Image Stitching workspace"
+issue = 914
+wave = "8"
+owner = "unassigned"
+status = "pyside-only"
+notes = "E-01: one record, eight routes, on the shared canvas host. The PySide6 UI is the ASP submodule's gui (absorbed per #867)."
+pyside = ["submodules/ASP/gui", "gui/src/modules/stitch_workspace.py"]
+windows = ["main"]
+scenarios = ["stitch-panorama-pipeline", "stitch-graph-adjust-canvas"]
+
+[[feature.routes]]
+to = "stitch"
+[[feature.routes]]
+to = "stitch.stitch"
+[[feature.routes]]
+to = "stitch.graph"
+[[feature.routes]]
+to = "stitch.adjust"
+[[feature.routes]]
+to = "stitch.canvas"
+[[feature.routes]]
+to = "stitch.statistics"
+[[feature.routes]]
+to = "stitch.sequence-builder"
+[[feature.routes]]
+to = "stitch.hybrid"
+[[feature.routes]]
+to = "stitch.animation-clusters"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "hybrid-editor"
+title = "Hybrid Image Editor (HIE)"
+issue = 915
+wave = "8"
+owner = "unassigned"
+status = "pyside-only"
+notes = "E-02: the PySide6 UI is the HIE submodule's gui (absorbed per #867)."
+pyside = ["submodules/HIE/gui"]
+tauri = ["frontend/src/tabs/editor"]
+windows = ["main"]
+scenarios = ["hie-layer-edit-session", "hie-video-editor-tab"]
+
+[[feature.routes]]
+from = "hie_editor"
+to = "editor.hybrid"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "manga"
+title = "Manga: Colorization, Animation, Puppeteering (CSG)"
+issue = 916
+wave = "8"
+owner = "unassigned"
+status = "pyside-only"
+notes = "E-03: the PySide6 UI is the CSG submodule's gui (absorbed per #867)."
+pyside = ["submodules/CSG/gui"]
+windows = ["main"]
+scenarios = ["manga-colorize-page", "manga-animation-puppet"]
+
+[[feature.routes]]
+to = "manga.colorization"
+[[feature.routes]]
+to = "manga.animation"
+[[feature.routes]]
+to = "manga.puppeteering"
+
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+# ── Wave 9 — Settings, auth and the vault ───────────────────────────────────
+
+[[feature]]
+id = "settings-window"
+title = "Settings window (appearance, profiles, shortcuts, tab config, credentials, reset)"
+issue = 917
+wave = "9"
+owner = "unassigned"
+status = "pyside-only"
+pyside = ["gui/src/windows/settings", "gui/qml/windows/SettingsWindow.qml"]
+windows = ["main"]
+scenarios = ["settings-appearance-apply", "settings-tab-config-persist"]
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "auth-vault-ui"
+title = "Authentication / vault unlock UI on the C++ session handle"
+issue = 918
+wave = "9"
+owner = "unassigned"
+status = "pyside-only"
+notes = "T-02: retires auth_commands.rs; the session handle comes from the C++ vault (#879)."
+pyside = ["gui/src/windows/authentication", "gui/qml/windows/LoginWindow.qml"]
+windows = ["main"]
+scenarios = ["vault-unlock-session-handle", "vault-lock-all"]
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "logging-metadata-windows"
+title = "Logging and metadata windows"
+issue = 919
+wave = "9"
+owner = "unassigned"
+status = "pyside-only"
+pyside = [
+    "gui/src/windows/logging",
+    "gui/src/windows/metadata",
+    "gui/src/constants/logging.py",
+    "gui/qml/windows/LogWindow.qml",
+]
+windows = ["main"]
+scenarios = ["logging-window-streams-records", "metadata-batch-edit"]
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+[[feature]]
+id = "cloud-compute-window"
+title = "Cloud Compute setup window"
+issue = 920
+wave = "9"
+owner = "unassigned"
+status = "pyside-only"
+pyside = ["gui/src/windows/cloud"]
+windows = ["main"]
+scenarios = ["cloud-compute-provider-setup", "cloud-compute-usage-charts"]
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+# ── Retirement ──────────────────────────────────────────────────────────────
+
+[[feature]]
+id = "shared-qt-infrastructure"
+title = "Shared Qt widget/helper infrastructure (no independent Tauri destination)"
+issue = 921
+wave = "retire"
+owner = "unassigned"
+status = "pyside-only"
+notes = "R-01: deleted with gui/ itself once every consuming row is gone. Includes the shared database-bound elements (gui/src/elements) used across the library rows and the lazy tab re-export shim. A row's deletion PR may pull genuinely single-consumer files from this record into its own."
+pyside = [
+    "gui/src/__init__.py",
+    "gui/src/classes",
+    "gui/src/components",
+    "gui/src/constants",
+    "gui/src/elements",
+    "gui/src/helpers",
+    "gui/src/services/__init__.py",
+    "gui/src/utils",
+    "gui/src/tabs/__init__.py",
+    "gui/src/tabs/core/__init__.py",
+    "gui/src/tabs/core/protos/__init__.py",
+    "gui/src/tabs/database/__init__.py",
+    "gui/src/tabs/web/__init__.py",
+    "gui/qml/Main.qml",
+    "gui/qml/Style.qml",
+    "gui/qml/qmldir",
+    "gui/qml/components",
+    "gui/qml/dialogs",
+]
+pyside_exclude = [
+    "gui/src/components/gallery",
+    "gui/src/components/virtual_gallery",
+    "gui/src/components/navigation",
+    "gui/src/components/inspector",
+    "gui/src/components/prompt_edit.py",
+    "gui/src/components/prompt_vocabulary.py",
+    "gui/src/constants/tabs.py",
+    "gui/src/constants/windows.py",
+    "gui/src/constants/listings.py",
+    "gui/src/constants/logging.py",
+    "gui/src/constants/gallery.py",
+    "gui/src/utils/manager/shortcut_manager.py",
+]
+windows = ["main"]
+scenarios = ["app-startup-smoke-main-window"]
+[[feature.os_checklist]]
+os = "linux"
+status = "pending"
+[[feature.os_checklist]]
+os = "windows"
+status = "pending"
+[[feature.os_checklist]]
+os = "macos"
+status = "pending"
+
+# ── Exceptions ──────────────────────────────────────────────────────────────
+# Bounded escapes from the gui/src freeze or the additive-only migration rule
+# (#884). Fields: feature, path (exact or glob), reason, issue, approved_by,
+# optional expires (YYYY-MM-DD). Expired or incomplete records suppress
+# nothing. None at birth.
