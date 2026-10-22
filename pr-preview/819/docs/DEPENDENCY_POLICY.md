@@ -94,7 +94,7 @@ Once approved, add to the correct requirements file and run `uv lock` / `cargo u
 
 ## Removing a Dependency
 
-1. Verify no code paths import the package: `grep -r "import <pkg>" backend/ base/ frontend/src/ app/`.
+1. Verify no code paths import the package: `grep -r "import <pkg>" middleware/ backend/ frontend/src/ app/`.
 2. Remove from `requirements.txt` / `Cargo.toml` / `package.json`.
 3. Regenerate the lockfile: `uv lock` / `cargo update` / `npm install`.
 4. Run the full test suite.
@@ -133,7 +133,7 @@ If a vulnerability cannot be patched within the SLA (see Upgrade Cadence), docum
 - **pybind11:** Pin to the same minor version in `pyproject.toml` and in the CMake `FetchContent` declaration to avoid ABI mismatches between the `.so` the dev builds and what CI builds.
 - **Avoid at the top level of `animation/` or `compositing.py`:** `diffusers`, `transformers`, `accelerate`. These must be lazy-imported (see §3.10 in `performance.md`).
 
-### C++ (`base/`)
+### C++ (`backend/`)
 
 - **pybind11:** The extension targets the active Python 3.11+ ABI. Do not mix pybind11 versions across the CMake configure and the Python package — they must agree.
 - **OpenMP:** Thread pool is shared with the test suite. Tests that need deterministic ordering should set `OMP_NUM_THREADS=1` in the environment.

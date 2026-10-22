@@ -29,7 +29,7 @@
 
 ## Python (Google-style docstrings)
 
-All public functions, methods, and classes in `backend/src/` must have Google-style docstrings. Private helpers (`_name`) are exempt but encouraged for complex logic.
+All public functions, methods, and classes in `middleware/src/` must have Google-style docstrings. Private helpers (`_name`) are exempt but encouraged for complex logic.
 
 ### Required sections
 
@@ -80,17 +80,17 @@ def compute_aligned_ssim(img_a: np.ndarray, img_b: np.ndarray, *, sigma: float =
 
 ```bash
 # Check style
-pydoclint --style=google --arg-type-hints-in-signature=true backend/src/
+pydoclint --style=google --arg-type-hints-in-signature=true middleware/src/
 
 # Run doctests
-pytest --doctest-modules backend/src/animation/
+pytest --doctest-modules middleware/src/animation/
 ```
 
 ---
 
 ## <a id="cpp-doxygen-comments"></a>C++ (Doxygen `///` comments)
 
-All public functions and classes in `base/include/` and `base/src/` must have Doxygen `///` block comments. Module-level documentation uses a `@file` block at the top of each header.
+All public functions and classes in `backend/include/` and `backend/src/` must have Doxygen `///` block comments. Module-level documentation uses a `@file` block at the top of each header.
 
 ### Required sections
 
@@ -99,7 +99,7 @@ All public functions and classes in `base/include/` and `base/src/` must have Do
 | Summary line | Always |
 | `@param` | Function has ≥ 2 non-trivial parameters |
 | `@throws` | Function throws or propagates exceptions |
-| `@example` | Public function in `base/include/math/` or any pybind11-exported function |
+| `@example` | Public function in `backend/include/math/` or any pybind11-exported function |
 
 ### Format
 
@@ -337,7 +337,7 @@ See `.github/workflows/docs.yml` and `.github/workflows/ci.yml`. The following a
 
 - `mkdocs build --strict` — broken links or missing doc pages fail the build.
 - `just test-base-cpp` — any failing C++ Catch2 test fails the build.
-- `pydoclint` — undocumented public functions in `backend/src/animation/` fail the build.
+- `pydoclint` — undocumented public functions in `middleware/src/animation/` fail the build.
 - `lychee` — broken internal Markdown links fail the build.
 
 ### CI gates (advisory)
