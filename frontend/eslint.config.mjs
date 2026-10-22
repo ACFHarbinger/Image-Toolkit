@@ -3,6 +3,7 @@ import js from "@eslint/js";
 import tseslint from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 import boundaries from "eslint-plugin-boundaries";
+import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 
 export default [
@@ -18,17 +19,9 @@ export default [
       parserOptions: { sourceType: "module", ecmaFeatures: { jsx: true } },
       globals: { ...globals.browser, ...globals.node },
     },
-    linterOptions: {
-      reportUnusedDisableDirectives: "off",
-    },
     plugins: {
       "@typescript-eslint": tseslint,
-      "react-hooks": {
-        rules: {
-          "exhaustive-deps": { create: () => ({}) },
-          "rules-of-hooks": { create: () => ({}) },
-        },
-      },
+      "react-hooks": reactHooks,
       boundaries,
     },
     settings: {
@@ -77,6 +70,8 @@ export default [
       "no-undef": "off",
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
       "boundaries/dependencies": [
         "error",
         {
