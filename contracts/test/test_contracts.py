@@ -172,3 +172,51 @@ class TestGeneratedArtifacts:
             check=False,
         )
         assert result.returncode == 0, result.stdout + result.stderr
+
+
+class TestEventFixtures:
+    """Shared fixtures consumed by the EventHub TS tests (#878).
+
+    Every event must satisfy the event envelope and its channel's payload
+    schema; sequences must be gapless from 1 so a fixture can double as a
+    catch-up replay script.
+    """
+
+    FIXTURES = ROOT / "test" / "fixtures" / "events"
+
+    def _payload_validator(self, channel: str) -> jsonschema.Draft202012Validator:
+        _schemas, methods = generate.load_inputs()
+        row = next((r for r in methods["channel"] if r["name"] == channel), None)
+        assert row is not None, f"methods.toml has no channel {channel!r}"
+        stem, _, title = row["payload"].partition(".")
+        raw = json.loads((ROOT / "schemas" / "capability" / f"{stem}.json").read_text(encoding="utf-8"))
+        assert title in raw.get("$defs", {}), f"{row['payload']!r} not found in $defs"
+        # Reference the $defs entry through its registered $id so internal
+        # cross-references (e.g. #/$defs/JobState) resolve against the
+        # whole source document.
+        return jsonschema.Draft202012Validator({"$ref": f"{raw['$id']}#/$defs/{title}"}, registry=_registry())
+
+    def _fixture_files(self) -> list[Path]:
+        files = sorted(self.FIXTURES.glob("*.json"))
+        assert files, f"no fixture files under {self.FIXTURES}"
+        return files
+
+    def test_fixtures_match_declared_channels(self):
+        _schemas, methods = generate.load_inputs()
+        declared = {row["name"] for row in methods["channel"]}
+        fixture_channels = {json.loads(path.read_text(encoding="utf-8"))["channel"] for path in self._fixture_files()}
+        assert fixture_channels <= declared, f"fixtures for undeclared channels: {fixture_channels - declared}"
+
+    def test_events_validate_and_sequences_are_gapless(self):
+        envelope = _validator("envelope/event.json")
+        for path in self._fixture_files():
+            data = json.loads(path.read_text(encoding="utf-8"))
+            channel = data["channel"]
+            payload_check = self._payload_validator(channel)
+            seqs = []
+            for event in data["events"]:
+                assert envelope.is_valid(event), f"{path.name}: envelope invalid: {event}"
+                assert event["channel"] == channel, f"{path.name}: channel mismatch: {event}"
+                assert payload_check.is_valid(event["payload"]), f"{path.name}: payload invalid: {event}"
+                seqs.append(event["seq"])
+            assert seqs == list(range(1, len(seqs) + 1)), f"{path.name}: sequences must be gapless from 1: {seqs}"

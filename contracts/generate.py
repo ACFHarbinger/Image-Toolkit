@@ -6,6 +6,7 @@ Outputs (all committed; CI freshness-checks via ``--check``):
 - generated/ts/<stem>.ts + index.ts      (webview / EventHub consumers)
 - generated/python/contracts_generated.py   (middleware consumers)
 - generated/rust/contracts.rs            (wired into src-tauri by #876)
+- ../frontend/src/eventhub/generated/channels.ts  (EventHub registry, #878)
 - CONTRACTS.sha256                       (per-source hashes + total)
 
 Stdlib-only: the CI freshness check runs in the lint job with no extra
@@ -279,6 +280,84 @@ def emit_ts(schemas: list[SchemaFile], emittable: dict[Ref, Any], by_stem: dict[
     return files
 
 
+# ------------------------------------------------------------- EventHub emit
+#
+# The EventHub (#878) consumes the [[channel]] rows of methods.toml as a
+# generated registry so channel names, payload/snapshot bindings and the
+# durable default cannot drift from the contracts. Emitted inside
+# frontend/src so no bundler alias or fs.allow config is needed.
+
+
+CHANNEL_PATTERN = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$")
+EVENTHUB_TS_IMPORT_BASE = "../../../../contracts/generated/ts"
+
+
+def emit_ts_channels(methods: dict[str, Any]) -> str:
+    rows = methods.get("channel", [])
+    if not rows:
+        sys.exit("methods.toml: at least one [[channel]] row is required")
+    seen: set[str] = set()
+    entries: list[tuple[str, Ref, Ref, bool, list[str], list[str], str]] = []
+    for row in rows:
+        name = row.get("name", "")
+        if not CHANNEL_PATTERN.match(name):
+            sys.exit(f"methods.toml: channel name {name!r} does not match {CHANNEL_PATTERN.pattern}")
+        if name in seen:
+            sys.exit(f"methods.toml: duplicate channel {name!r}")
+        seen.add(name)
+        entries.append(
+            (
+                name,
+                _split_ref(row["payload"]),
+                _split_ref(row["snapshot"]),
+                bool(row.get("durable_default", False)),
+                [str(p) for p in row.get("producers", [])],
+                [str(c) for c in row.get("consumers", [])],
+                str(row.get("notes", "")),
+            )
+        )
+    importing = {ref for _, payload, snapshot, *_ in entries for ref in (payload, snapshot)}
+    imports = []
+    for dep_file in sorted({r.file for r in importing}):
+        titles = sorted(r.title for r in importing if r.file == dep_file)
+        imports.append(
+            f'import type {{ {", ".join(titles)} }} from "{EVENTHUB_TS_IMPORT_BASE}/{dep_file}";'
+        )
+    lines = imports + [""]
+    names = ", ".join(json.dumps(name) for name, *_ in entries)
+    lines.append(f"export const CHANNEL_NAMES = [{names}] as const;")
+    lines.append("export type ChannelName = (typeof CHANNEL_NAMES)[number];")
+    lines.append("")
+    lines.append("export interface ChannelSpec<P, S> {")
+    lines.append("  readonly name: ChannelName;")
+    lines.append("  readonly payloadTitle: string;")
+    lines.append("  readonly snapshotTitle: string;")
+    lines.append("  readonly durableDefault: boolean;")
+    lines.append("  readonly producers: readonly string[];")
+    lines.append("  readonly consumers: readonly string[];")
+    lines.append("  readonly notes: string;")
+    lines.append("}")
+    lines.append("")
+    lines.append("export interface ChannelRegistry {")
+    for name, payload, snapshot, *_ in entries:
+        lines.append(f"  readonly {json.dumps(name)}: ChannelSpec<{payload.title}, {snapshot.title}>;")
+    lines.append("}")
+    lines.append("")
+    lines.append("export const CHANNEL_REGISTRY: ChannelRegistry = {")
+    for name, payload, snapshot, durable, producers, consumers, notes in entries:
+        lines.append(f"  {json.dumps(name)}: {{")
+        lines.append(f"    name: {json.dumps(name)},")
+        lines.append(f"    payloadTitle: {json.dumps(payload.title)},")
+        lines.append(f"    snapshotTitle: {json.dumps(snapshot.title)},")
+        lines.append(f"    durableDefault: {'true' if durable else 'false'},")
+        lines.append(f"    producers: [{', '.join(json.dumps(p) for p in producers)}],")
+        lines.append(f"    consumers: [{', '.join(json.dumps(c) for c in consumers)}],")
+        lines.append(f"    notes: {json.dumps(notes)},")
+        lines.append("  },")
+    lines.append("};")
+    return "\n".join(lines) + "\n"
+
+
 # ------------------------------------------------------------- Python emit
 
 
@@ -496,6 +575,7 @@ def build_outputs() -> dict[str, str]:
     outputs = emit_ts(schemas, emittable, by_stem)
     outputs["generated/python/contracts_generated.py"] = emit_python(emittable, by_stem)
     outputs["generated/rust/contracts.rs"] = emit_rust(emittable, by_stem)
+    outputs["../frontend/src/eventhub/generated/channels.ts"] = emit_ts_channels(methods)
     outputs["CONTRACTS.sha256"] = "# " + GENERATED_MARK + ". Do not edit.\n" + f"total  {total}\n" + "\n".join(body) + "\n"
     for rel, text in list(outputs.items()):
         marker = "#" if rel.endswith(".py") else "//"
@@ -533,7 +613,7 @@ def main() -> None:
         path = ROOT / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
-    print(f"generated {len(outputs)} files under contracts/")
+    print(f"generated {len(outputs)} files")
 
 
 if __name__ == "__main__":
