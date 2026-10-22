@@ -25,8 +25,8 @@ class Registry(TypedDict):
 
 def load_registry(path: Optional[Path] = None) -> Registry:
     if path is None:
-        # Default relative to repo or installed location; callers should pass explicit path
-        path = Path(__file__).parent.parent.parent / "contracts" / "shortcuts" / "registry.json"
+        # registry.py lives in middleware/src/shortcuts/, so the repo root is four parents up.
+        path = Path(__file__).resolve().parents[3] / "contracts" / "shortcuts" / "registry.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     if data.get("version") != 1:
         raise ValueError(f"Unsupported registry version: {data.get('version')}")
