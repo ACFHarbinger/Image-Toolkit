@@ -467,6 +467,14 @@ check-loc max="500" exceptions="docs/loc_exceptions.txt": helper::_print_header
 check-migration-additive base="": helper::_print_header
     just validation::check-migration-additive '{{base}}'
 
+# Validate the migration ledger against the #869 catalog and the tree (W0-18)
+check-migration-ledger: helper::_print_header
+    just validation::check-migration-ledger
+
+# Fail if docs/migration/parity.md drifts from migration/features.toml (W0-18)
+check-parity-doc: helper::_print_header
+    just validation::check-parity-doc
+
 # Generate Markdown LoC report
 loc-report output="build/gen/loc_report.md" limit="50": helper::_print_header
     just validation::loc-report '{{output}}' '{{limit}}'
