@@ -12,6 +12,7 @@ Verifies:
 from __future__ import annotations
 
 import dataclasses
+import subprocess
 import sys
 from pathlib import Path
 
@@ -21,7 +22,7 @@ from middleware.src.services.base import (
     Handler,
     ServiceProtocol,
 )
-from middleware.src.services.convert import (
+from middleware.src.services.convert.api import (
     BatchConvertCommand,
     BatchConvertHandler,
     ConvertService,
@@ -173,13 +174,63 @@ class TestConvertServiceOperations:
 
 class TestServiceBoundaries:
     def test_no_gui_or_pyside_imports_in_services(self):
-        import middleware.src.services.convert  # noqa: F401
+        code = """
+import sys
+import middleware.src.services.convert.api
+for mod_name in list(sys.modules):
+    assert not mod_name.startswith(("PySide6", "gui.")), f"Unexpected import: {mod_name}"
+"""
+        subprocess.run([sys.executable, "-c", code], check=True)
 
-        # Ensure no GUI modules were imported into sys.modules by loading services
-        assert "PySide6" not in sys.modules
-        for mod_name in list(sys.modules.keys()):
-            if mod_name.startswith("gui."):
-                pytest.fail(f"Service layer transitively imported GUI module: {mod_name}")
+    def test_frontend_eslint_boundaries_reject_cross_feature_import(self, tmp_path):
+        repo_root = Path(__file__).resolve().parents[3]
+        frontend_dir = repo_root / "frontend"
+        npx_or_eslint = frontend_dir.parent / "node_modules" / ".bin" / "eslint"
+        if not npx_or_eslint.exists():
+            pytest.skip("eslint binary not installed in node_modules")
+
+        # Verify clean lint on existing ConvertTab
+        clean = subprocess.run(
+            [str(npx_or_eslint), "src/tabs/core/ConvertTab.tsx"],
+            cwd=str(frontend_dir),
+            capture_output=True,
+            text=True,
+        )
+        assert clean.returncode == 0, clean.stdout + clean.stderr
+
+        # Verify cross-tab-domain import triggers boundaries/dependencies error
+        bad_code = 'import "../web/ImageCrawlerTab";\nexport const x = 1;\n'
+        violation = subprocess.run(
+            [
+                str(npx_or_eslint),
+                "--stdin",
+                "--stdin-filename",
+                str(frontend_dir / "src/tabs/core/__boundary_probe__.ts"),
+            ],
+            input=bad_code,
+            cwd=str(frontend_dir),
+            capture_output=True,
+            text=True,
+        )
+        assert violation.returncode != 0
+        assert "boundaries/dependencies" in (violation.stdout + violation.stderr)
+
+        # Verify feature importing tab triggers boundaries/dependencies error
+        bad_feature_code = 'import "../../tabs/core/ConvertTab";\nexport const y = 1;\n'
+        feat_violation = subprocess.run(
+            [
+                str(npx_or_eslint),
+                "--stdin",
+                "--stdin-filename",
+                str(frontend_dir / "src/features/convert/__boundary_probe__.ts"),
+            ],
+            input=bad_feature_code,
+            cwd=str(frontend_dir),
+            capture_output=True,
+            text=True,
+        )
+        assert feat_violation.returncode != 0
+        assert "boundaries/dependencies" in (feat_violation.stdout + feat_violation.stderr)
 
 
 def test_converter_delegates_to_existing_core(tmp_path, monkeypatch):

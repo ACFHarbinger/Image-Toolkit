@@ -2,23 +2,24 @@
 
 from __future__ import annotations
 
-from middleware.src.services.convert.commands import (
+from middleware.src.services.convert.api import (
     BatchConvertCommand,
+    BatchConvertHandler,
     BatchConvertResult,
+    ConvertService,
+    ConvertServiceProtocol,
     ConvertSingleCommand,
+    ConvertSingleHandler,
     ConvertSingleResult,
 )
-from middleware.src.services.convert.handlers import BatchConvertHandler, ConvertSingleHandler
-from middleware.src.services.convert.protocols import ConvertServiceProtocol
-from middleware.src.services.convert.service import ConvertService
 
 __all__ = [
     "BatchConvertCommand",
+    "BatchConvertHandler",
     "BatchConvertResult",
     "ConvertService",
     "ConvertServiceProtocol",
     "ConvertSingleCommand",
     "ConvertSingleHandler",
-    "BatchConvertHandler",
     "ConvertSingleResult",
 ]
