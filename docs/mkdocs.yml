@@ -1,3 +1,5 @@
+# Image-Toolkit Documentation Portal — MkDocs Configuration
+
 site_name: Image-Toolkit Documentation
 site_description: >-
   Unified documentation portal for Image-Toolkit — image database, ASP pipeline,
@@ -170,8 +172,6 @@ nav:
       - Security: SECURITY.md
       - Dependency Policy: DEPENDENCY_POLICY.md
       - Documentation Standards: DOCUMENTATION_STANDARDS.md
-  - Migration:
-      - Feature Ledger & Parity: migration/parity.md
   - Roadmaps:
       - Master Roadmap: moon/ROADMAP.md
       - Architecture: moon/roadmaps/architecture.md
