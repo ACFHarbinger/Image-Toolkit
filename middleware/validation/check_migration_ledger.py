@@ -101,7 +101,9 @@ def _owned_py_files(root: Path, pattern: str) -> set[str]:
     owned: set[str] = []
     for match in _resolve(root, pattern):
         candidates = match.rglob("*.py") if match.is_dir() else iter([match])
-        owned.extend(str(path.relative_to(root)) for path in candidates if path.suffix == ".py")
+        owned.extend(
+            str(path.relative_to(root)) for path in candidates if path.suffix == ".py" and "__pycache__" not in path.parts
+        )
     gui_prefix = f"{PYSIDE_ROOT}/"
     return {path for path in owned if path.startswith(gui_prefix)}
 
@@ -290,6 +292,8 @@ def _ownership_violations(root: Path, features: list[dict], shared: list[Any]) -
     gui_root = root / PYSIDE_ROOT
     if gui_root.is_dir():
         for path in sorted(gui_root.rglob("*.py")):
+            if "__pycache__" in path.parts:
+                continue
             rel = str(path.relative_to(root))
             if rel not in owner_of:
                 violations.append(f"{rel} is not owned by any feature row or [[shared]] entry")

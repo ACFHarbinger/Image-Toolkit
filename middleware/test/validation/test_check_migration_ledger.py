@@ -213,6 +213,14 @@ def test_unowned_gui_file_fails(tmp_path):
     assert any("orphan.py is not owned" in violation for violation in _check(tmp_path))
 
 
+def test_pycache_files_are_not_flagged_as_unowned(tmp_path):
+    pycache = tmp_path / "gui/src/tabs/core/__pycache__"
+    pycache.mkdir(parents=True)
+    (pycache / "orphan.cpython-312.py").write_text("# stub\n", encoding="utf-8")
+    _write_ledger(tmp_path, _valid_features().values())
+    assert not any("__pycache__" in violation for violation in _check(tmp_path))
+
+
 def _run_generator(root: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, str(REPO_ROOT / "migration/generate_parity.py"), "--root", str(root), *args],
