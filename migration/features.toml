@@ -1,0 +1,1 @@
+$(cat /tmp/w882/payload.json | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['content'])" 2>/dev/null || echo PLACEHOLDER)
