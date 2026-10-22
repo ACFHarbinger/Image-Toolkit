@@ -1,0 +1,805 @@
+# Migration ledger (W0-18 / #882) — one record per capability.
+#
+# Source of truth for the PySide6 → Tauri migration described in
+# docs/moon/roadmaps/tauri_migration.md §2. Validated by
+# middleware/validation/check_migration_ledger.py; rendered into
+# docs/migration/parity.md by migration/generate_parity.py (do not edit
+# the generated file). Schema and lifecycle: migration/README.md.
+#
+# `id` reuses the #869 catalog ids (middleware/src/shell/catalog.py);
+# window rows use dotted ids outside the catalog.
+
+[shell]
+windows = ["main", "tray", "slideshow", "cloud.jobs"]
+capabilities = ["default"]
+
+# ── Wave 1: Convert pilot ────────────────────────────────────────────
+
+[[feature]]
+id = "system.convert"
+kind = "page"
+title = "Convert"
+owner = "Kimi"
+wave = "wave-1"
+issue = 894
+status = "pyside-only"
+routes = ["system.convert"]
+route_map = { convert = "system.convert" }
+pyside = [
+    "gui/src/tabs/core/convert_tab.py",
+    "gui/src/tabs/core/media_convert_subtab",
+    "gui/src/tabs/core/sampler_subtab",
+]
+tauri = ["frontend/src/tabs/core/ConvertTab.tsx"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+# ── Wave 3: Library ──────────────────────────────────────────────────
+
+[[feature]]
+id = "library.preview"
+kind = "window"
+title = "Image preview, compare and drag-preview viewers"
+owner = "unclaimed"
+wave = "wave-3"
+issue = 895
+status = "pyside-only"
+routes = []
+route_map = {}
+pyside = [
+    "gui/src/windows/image_preview_window.py",
+    "gui/src/windows/image_compare_window.py",
+    "gui/src/windows/drag_preview_window.py",
+]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = [
+    { item = "Drag-preview in and out of the webview (spike S-05)", platform = "linux", checked = false },
+    { item = "Drag-preview in and out of the webview (spike S-05)", platform = "windows", checked = false },
+    { item = "Drag-preview in and out of the webview (spike S-05)", platform = "macos", checked = false },
+]
+
+[[feature]]
+id = "library.listings"
+kind = "page"
+title = "Listings"
+owner = "unclaimed"
+wave = "wave-3"
+issue = 896
+status = "pyside-only"
+routes = ["library.listings"]
+route_map = {}
+pyside = ["gui/src/tabs/database/listings_tab.py", "gui/src/tabs/database/listings_subtab"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "library.search"
+kind = "page"
+title = "Image Search"
+owner = "unclaimed"
+wave = "wave-3"
+issue = 897
+status = "pyside-only"
+routes = ["library.search"]
+route_map = { search = "library.search" }
+pyside = ["gui/src/tabs/database/search_tab"]
+tauri = ["frontend/src/tabs/database/SearchTab.tsx"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "library.scan"
+kind = "page"
+title = "Scan and Tag"
+owner = "unclaimed"
+wave = "wave-3"
+issue = 898
+status = "pyside-only"
+routes = ["library.scan"]
+route_map = { scan = "library.scan" }
+pyside = ["gui/src/tabs/database/scan_metadata_tab"]
+tauri = ["frontend/src/tabs/database/ScanMetadataTab.tsx"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "library.management"
+kind = "page"
+title = "Management"
+owner = "unclaimed"
+wave = "wave-3"
+issue = 899
+status = "pyside-only"
+routes = ["library.management"]
+route_map = { database = "library.management" }
+pyside = ["gui/src/tabs/database/database_tab"]
+tauri = ["frontend/src/tabs/database/DatabaseTab.tsx"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "library.data-browser"
+kind = "page"
+title = "Data Browser"
+owner = "unclaimed"
+wave = "wave-3"
+issue = 900
+status = "pyside-only"
+routes = ["library.data-browser"]
+route_map = {}
+pyside = ["gui/src/tabs/database/data_browser_tab"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+# ── Wave 4: System ───────────────────────────────────────────────────
+
+[[feature]]
+id = "system.merge"
+kind = "page"
+title = "Merge"
+owner = "unclaimed"
+wave = "wave-4"
+issue = 903
+status = "pyside-only"
+routes = ["system.merge"]
+route_map = { merge = "system.merge" }
+pyside = ["gui/src/tabs/core/merge_tab"]
+tauri = ["frontend/src/tabs/core/MergeTab.tsx"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "system.similarity"
+kind = "page"
+title = "Similarity"
+owner = "unclaimed"
+wave = "wave-4"
+issue = 904
+status = "pyside-only"
+routes = ["system.similarity"]
+route_map = { delete = "system.similarity" }
+pyside = ["gui/src/tabs/core/similarity_tab"]
+tauri = ["frontend/src/tabs/core/DeleteTab.tsx"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "system.extractor"
+kind = "page"
+title = "Extractor"
+owner = "unclaimed"
+wave = "wave-4"
+issue = 905
+status = "pyside-only"
+routes = ["system.extractor"]
+route_map = { extractor = "system.extractor" }
+pyside = [
+    "gui/src/tabs/core/extractor_tab",
+    "gui/src/tabs/core/image_extractor_canvas.py",
+    "gui/src/tabs/core/image_extractor_gallery.py",
+    "gui/src/tabs/core/image_extractor_subtab.py",
+]
+tauri = ["frontend/src/tabs/core/ImageExtractorTab.tsx"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+# ── Wave 5: Web ──────────────────────────────────────────────────────
+
+[[feature]]
+id = "web.crawler"
+kind = "page"
+title = "Crawler"
+owner = "unclaimed"
+wave = "wave-5"
+issue = 906
+status = "pyside-only"
+routes = ["web.crawler"]
+route_map = { crawler = "web.crawler" }
+pyside = ["gui/src/tabs/web/image_crawler_tab"]
+tauri = ["frontend/src/tabs/web/ImageCrawlerTab.tsx"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "web.requests"
+kind = "page"
+title = "Requests"
+owner = "unclaimed"
+wave = "wave-5"
+issue = 907
+status = "pyside-only"
+routes = ["web.requests"]
+route_map = { webreq = "web.requests" }
+pyside = ["gui/src/tabs/web/web_requests_tab.py"]
+tauri = ["frontend/src/tabs/web/WebRequestsTab.tsx"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "web.drive-sync"
+kind = "page"
+title = "Cloud Synchronization"
+owner = "unclaimed"
+wave = "wave-5"
+issue = 908
+status = "pyside-only"
+routes = ["web.drive-sync"]
+route_map = { drive = "web.drive-sync" }
+pyside = ["gui/src/tabs/web/drive_sync_tab"]
+tauri = ["frontend/src/tabs/web/DriveSyncTab.tsx"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "web.media-loader"
+kind = "page"
+title = "Media Loader"
+owner = "unclaimed"
+wave = "wave-5"
+issue = 909
+status = "pyside-only"
+routes = ["web.media-loader"]
+route_map = {}
+pyside = ["gui/src/tabs/web/media_loader_tab"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "web.reverse-search"
+kind = "page"
+title = "Reverse Search"
+owner = "unclaimed"
+wave = "wave-5"
+issue = 910
+status = "pyside-only"
+routes = ["web.reverse-search"]
+route_map = { revsearch = "web.reverse-search" }
+pyside = ["gui/src/tabs/web/reverse_search_tab.py"]
+tauri = ["frontend/src/tabs/web/ReverseSearchTab.tsx"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "web.entity-recon"
+kind = "page"
+title = "Entity Reconnaissance"
+owner = "unclaimed"
+wave = "wave-5"
+issue = 911
+status = "pyside-only"
+routes = ["web.entity-recon"]
+route_map = {}
+pyside = ["gui/src/tabs/web/entity_recon_tab"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+# ── Wave 6: Deep Learning workspace ──────────────────────────────────
+
+[[feature]]
+id = "dl"
+kind = "workspace"
+title = "Deep Learning"
+owner = "unclaimed"
+wave = "wave-6"
+issue = 912
+status = "pyside-only"
+routes = [
+    "dl.train",
+    "dl.generate",
+    "dl.review",
+    "dl.runs",
+    "ml.training",
+    "ml.generation",
+    "ml.evaluation",
+    "ml.inference",
+    "ml.comfyui",
+]
+route_map = { "ml.training" = "dl.train", "ml.generation" = "dl.generate", "ml.evaluation" = "dl.review", "ml.inference" = "dl.review", "ml.comfyui" = "dl.generate", train = "dl.train", generate = "dl.generate", evaluate = "dl.review", inference = "dl.review" }
+pyside = [
+    "gui/src/tabs/models",
+    "gui/src/modules/dl_workspace.py",
+    "gui/src/modules/comfy_workspace_controller.py",
+]
+tauri = ["frontend/src/tabs/models"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+# ── Wave 7: Wallpaper ────────────────────────────────────────────────
+
+[[feature]]
+id = "system.wallpaper"
+kind = "page"
+title = "Wallpaper"
+owner = "unclaimed"
+wave = "wave-7"
+issue = 913
+status = "pyside-only"
+routes = ["system.wallpaper"]
+route_map = { wallpaper = "system.wallpaper" }
+pyside = [
+    "gui/src/tabs/core/wallpaper_tab",
+    "gui/src/windows/slideshow_backend.py",
+    "gui/src/windows/slideshow_window.py",
+]
+tauri = ["frontend/src/tabs/core/WallpaperTab.tsx"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = [
+    { item = "Per-monitor wallpaper control and slideshow presenter window (spike S-07)", platform = "linux", checked = false },
+    { item = "Per-monitor wallpaper control and slideshow presenter window (spike S-07)", platform = "windows", checked = false },
+    { item = "Per-monitor wallpaper control and slideshow presenter window (spike S-07)", platform = "macos", checked = false },
+]
+
+# ── Wave 8: Editors ──────────────────────────────────────────────────
+
+[[feature]]
+id = "stitch"
+kind = "workspace"
+title = "Image Stitching"
+owner = "unclaimed"
+wave = "wave-8"
+issue = 914
+status = "pyside-only"
+routes = [
+    "stitch.stitch",
+    "stitch.graph",
+    "stitch.adjust",
+    "stitch.canvas",
+    "stitch.statistics",
+    "stitch.sequence-builder",
+    "stitch.hybrid",
+    "stitch.animation-clusters",
+]
+route_map = {}
+pyside = ["gui/src/modules/stitch_workspace.py", "submodules/ASP/gui/src"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "editor.hybrid"
+kind = "page"
+title = "Hybrid Editor"
+owner = "unclaimed"
+wave = "wave-8"
+issue = 915
+status = "pyside-only"
+routes = ["editor.hybrid"]
+route_map = { hie_editor = "editor.hybrid" }
+pyside = [
+    "submodules/HIE/gui/src/hie_tab.py",
+    "submodules/HIE/gui/src/tabs",
+    "submodules/HIE/gui/src/viewport.py",
+]
+tauri = ["frontend/src/tabs/editor"]
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "manga.colorization"
+kind = "page"
+title = "Colorization"
+owner = "unclaimed"
+wave = "wave-8"
+issue = 916
+status = "pyside-only"
+routes = ["manga.colorization"]
+route_map = {}
+pyside = [
+    "submodules/CSG/gui/src/tabs/colorization_tab.py",
+    "submodules/CSG/gui/src/tabs/reference_coloring_tab.py",
+]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "manga.animation"
+kind = "page"
+title = "Animation"
+owner = "unclaimed"
+wave = "wave-8"
+issue = 916
+status = "pyside-only"
+routes = ["manga.animation"]
+route_map = {}
+pyside = ["submodules/CSG/gui/src/tabs/animation_tab.py"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "manga.puppeteering"
+kind = "page"
+title = "Puppeteering"
+owner = "unclaimed"
+wave = "wave-8"
+issue = 916
+status = "pyside-only"
+routes = ["manga.puppeteering"]
+route_map = {}
+pyside = ["submodules/CSG/gui/src/tabs/puppeteering_tab.py"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+# ── Wave 9: Windows ──────────────────────────────────────────────────
+
+[[feature]]
+id = "window.settings"
+kind = "window"
+title = "Settings window"
+owner = "unclaimed"
+wave = "wave-9"
+issue = 917
+status = "pyside-only"
+routes = []
+route_map = {}
+pyside = ["gui/src/windows/settings"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "window.auth"
+kind = "window"
+title = "Authentication / vault unlock"
+owner = "unclaimed"
+wave = "wave-9"
+issue = 918
+status = "pyside-only"
+routes = []
+route_map = {}
+pyside = ["gui/src/windows/authentication"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "window.logging"
+kind = "window"
+title = "Logging and metadata windows"
+owner = "unclaimed"
+wave = "wave-9"
+issue = 919
+status = "pyside-only"
+routes = []
+route_map = {}
+pyside = [
+    "gui/src/windows/logging",
+    "gui/src/windows/metadata",
+    "gui/src/modules/pilots",
+]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "window.cloud-compute"
+kind = "window"
+title = "Cloud Compute setup window"
+owner = "unclaimed"
+wave = "wave-9"
+issue = 920
+status = "pyside-only"
+routes = []
+route_map = {}
+pyside = ["gui/src/windows/cloud"]
+tauri = []
+service = ""
+contract = ""
+docs = ""
+scenarios = []
+os_checklist = []
+
+# ── Wave 0: frontend-only surfaces ───────────────────────────────────
+
+[[feature]]
+id = "developer.benchmarks"
+kind = "page"
+title = "Benchmarks"
+owner = "unclaimed"
+wave = "wave-0"
+issue = 864
+status = "both"
+routes = ["developer.benchmarks"]
+route_map = { benchmarks = "developer.benchmarks" }
+pyside = []
+tauri = ["frontend/src/tabs/apollo"]
+service = ""
+contract = ""
+docs = "docs/BENCHMARKS.md"
+scenarios = []
+os_checklist = []
+
+# ── Shared Qt infrastructure ─────────────────────────────────────────
+# gui/src code not owned by a feature row. Each entry names the Wave-0
+# issue whose deliverable replaces or absorbs it. None of this is ported
+# by hand; it is deleted with gui/ in #921 once its consumers are gone.
+
+[[shared]]
+path = "gui/src/__init__.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt package marker; deleted with gui/ in #921."
+
+[[shared]]
+path = "gui/src/main_backend.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt app bootstrap; the Tauri supervisor (#877) replaces it."
+
+[[shared]]
+path = "gui/src/qt_event_bridge.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt event bridge; the generated EventHub (#878) replaces it."
+
+[[shared]]
+path = "gui/src/qt_object_guard.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt lifetime guard; no webview equivalent, deleted with gui/."
+
+[[shared]]
+path = "gui/src/file_dialog_patch.py"
+owner = "Cursor"
+note = "#873 (W0-09): Qt file-dialog patching; native dialogs move into the Rust shell."
+
+[[shared]]
+path = "gui/src/tabs/__init__.py"
+owner = "Grok"
+note = "#869 (W0-05): lazy tab re-export machinery; catalog ids replace it."
+
+[[shared]]
+path = "gui/src/tabs/core/__init__.py"
+owner = "Grok"
+note = "#869 (W0-05): lazy tab re-export machinery; catalog ids replace it."
+
+[[shared]]
+path = "gui/src/tabs/core/protos"
+owner = "unclaimed"
+note = "Legacy prototype tabs (extractor/wallpaper); deleted with rows #905/#913."
+
+[[shared]]
+path = "gui/src/tabs/database/__init__.py"
+owner = "Grok"
+note = "#869 (W0-05): lazy tab re-export machinery; catalog ids replace it."
+
+[[shared]]
+path = "gui/src/tabs/web/__init__.py"
+owner = "Grok"
+note = "#869 (W0-05): lazy tab re-export machinery; catalog ids replace it."
+
+[[shared]]
+path = "gui/src/modules/__init__.py"
+owner = "Grok"
+note = "#870 (W0-06): catalog-driven Qt shell infrastructure; deleted with gui/."
+
+[[shared]]
+path = "gui/src/modules/application_catalog.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt descriptor catalog; the serializable catalog (#869) is the registry."
+
+[[shared]]
+path = "gui/src/modules/catalog.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt descriptor catalog; the serializable catalog (#869) is the registry."
+
+[[shared]]
+path = "gui/src/modules/context.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt module context; deleted with the Qt shell."
+
+[[shared]]
+path = "gui/src/modules/descriptor.py"
+owner = "Grok"
+note = "#869 (W0-05): QWidget-bound descriptors; superseded by the serializable catalog."
+
+[[shared]]
+path = "gui/src/modules/events.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt shell events; the generated EventHub (#878) replaces them."
+
+[[shared]]
+path = "gui/src/modules/host.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt module host; deleted with the Qt shell."
+
+[[shared]]
+path = "gui/src/modules/legacy_bridge.py"
+owner = "Grok"
+note = "#870 (W0-06): classic-shell bridge; deleted with the Qt shell."
+
+[[shared]]
+path = "gui/src/modules/library_service.py"
+owner = "Gemini"
+note = "#881 (W0-17): absorbed into middleware/src/services/ (library rows, wave-3)."
+
+[[shared]]
+path = "gui/src/modules/registry.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt module registry; the serializable catalog (#869) replaces it."
+
+[[shared]]
+path = "gui/src/modules/runtime.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt runtime shell handles; deleted with the Qt shell."
+
+[[shared]]
+path = "gui/src/modules/runtime_shell_flag.py"
+owner = "Grok"
+note = "#870 (W0-06): runtime-shell rollout flag; deleted with the Qt shell."
+
+[[shared]]
+path = "gui/src/modules/tab_factory.py"
+owner = "Grok"
+note = "#870 (W0-06): Qt tab construction; the React shell owns construction post-migration."
+
+[[shared]]
+path = "gui/src/windows/__init__.py"
+owner = "Cursor"
+note = "#873 (W0-09): window package marker; WindowManager role map replaces it."
+
+[[shared]]
+path = "gui/src/windows/main"
+owner = "Cursor"
+note = "#873 (W0-09): main window, tray and hide-all behaviour; ported by the WindowManager role map."
+
+[[shared]]
+path = "gui/src/windows/window_manager.py"
+owner = "Cursor"
+note = "#873 (W0-09): Qt window manager; the Tauri WindowManager role map replaces it."
+
+[[shared]]
+path = "gui/src/windows/window_service.py"
+owner = "Cursor"
+note = "#873 (W0-09): Qt window service; the Tauri WindowManager role map replaces it."
+
+[[shared]]
+path = "gui/src/theming"
+owner = "Mistral"
+note = "#871 (W0-07): design tokens become generated CSS variables; QSS is not ported."
+
+[[shared]]
+path = "gui/src/preferences"
+owner = "Mistral"
+note = "#880 (W0-16): the shared settings service keeps these keys/scopes; window.settings (#917) owns only the window UI."
+
+[[shared]]
+path = "gui/src/helpers"
+owner = "Gemini"
+note = "#881 (W0-17): Qt workers become thin shims over services; each is deleted with its row."
+
+[[shared]]
+path = "gui/src/services"
+owner = "Gemini"
+note = "#881 (W0-17): absorbed into middleware/src/services/."
+
+[[shared]]
+path = "gui/src/utils"
+owner = "Cursor"
+note = "#872 (W0-08): shortcut_manager lifts into the serializable shortcut registry; the rest is deleted with its consumers."
+
+[[shared]]
+path = "gui/src/components"
+owner = "Grok"
+note = "#870 (W0-06): shared Qt widgets; replaced by the React component library (Storybook, #885)."
+
+[[shared]]
+path = "gui/src/elements"
+owner = "Grok"
+note = "#870 (W0-06): shared Qt widgets; replaced by the React component library (Storybook, #885)."
+
+[[shared]]
+path = "gui/src/classes"
+owner = "Grok"
+note = "#870 (W0-06): gallery base classes; replaced by the shared canvas host (#888/#902) and React components."
+
+[[shared]]
+path = "gui/src/constants"
+owner = "Grok"
+note = "#870 (W0-06): Qt UI constants; deleted with their consumers."
+
+[[shared]]
+path = "gui/src/contracts"
+owner = "Grok"
+note = "#870 (W0-06): Qt tab-config contracts; the bridge contracts (#874) replace them."
+
+[[shared]]
+path = "gui/src/styles"
+owner = "Mistral"
+note = "#871 (W0-07): QSS and motion helpers; design tokens become generated CSS variables."
+
+[[shared]]
+path = "gui/src/thumbnails"
+owner = "Grok"
+note = "#887 (S-01): replaced by the C++ thumbnail service streamed over asset://."
+
+# No [[exception]] records yet. Schema (consumed by
+# middleware/validation/check_migration_additive.py, #884):
+# [[exception]]
+# feature = "<feature id>"     # existing ledger row
+# path = "<exact path or glob>"
+# reason = "<why this freeze/additivity breach is bounded>"
+# issue = <int>
+# approved_by = "<agent or Harbinger>"
+# expires = <YYYY-MM-DD>       # optional; expired records do not suppress
