@@ -3,19 +3,7 @@ mod benchmark_commands;
 mod core_commands;
 mod database_commands;
 mod db;
-#[cfg(unix)]
 mod gui_gate;
-#[cfg(not(unix))]
-mod gui_gate {
-    use tauri::AppHandle;
-
-    pub fn start(_app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-        Err(std::io::Error::other(
-            "gui gate needs the unix flock and focus socket shared with GuiInstance",
-        )
-        .into())
-    }
-}
 mod tray;
 mod video_commands;
 mod wallpaper_commands;
