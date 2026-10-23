@@ -149,14 +149,22 @@ fn serve(gate: OwnedGate, mut on_focus: impl FnMut()) {
         if gate.stop.load(Ordering::Relaxed) {
             break;
         }
-        let mut conn = match gate.listener.accept() {
-            Ok((conn, _)) => conn,
-            Err(_) => break,
-        };
-        if gate.stop.load(Ordering::Relaxed) {
-            break;
+        match gate.listener.accept() {
+            Ok((mut conn, _)) => {
+                if gate.stop.load(Ordering::Relaxed) {
+                    break;
+                }
+                handle_conn(&mut conn, &mut on_focus);
+            }
+            // A transient accept error (ECONNABORTED, EMFILE, ...) must not
+            // kill the listener: a dead listener makes later instances
+            // exit after a failed focus request, with no window restored.
+            // Back off and keep serving while the gate is held.
+            Err(err) => {
+                log::warn!("gui gate accept error: {err}");
+                thread::sleep(Duration::from_millis(50));
+            }
         }
-        handle_conn(&mut conn, &mut on_focus);
     }
 }
 
