@@ -1,8 +1,64 @@
-// GENERATED — contract hash 982b5ee1c894cc7cc385319c615075e261812de38001db245180d72ca8b6e2c7. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 48a603dc6dcc15a3a230962ec97d6ff121dc28bd5222277e1eb476fb951789d0. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ConvertBatchParams {
+    pub input_dir: String,
+    pub output_dir: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_format: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_formats: Option<Vec<String>>,
+    /// must be 95 (enforced by the framing layer, #875)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quality: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recursive: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub overwrite: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ConvertBatchResult {
+    pub total_discovered: i64,
+    pub succeeded: i64,
+    pub failed: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_paths: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub elapsed_seconds: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub errors: Option<Vec<String>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ConvertParams {
+    pub input_path: String,
+    pub output_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_format: Option<String>,
+    /// must be 95 (enforced by the framing layer, #875)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quality: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub overwrite: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ConvertResult {
+    pub input_path: String,
+    pub output_path: String,
+    pub success: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size_bytes: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub elapsed_seconds: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct BridgeError {

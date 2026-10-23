@@ -45,19 +45,6 @@ pub fn scan_files(
 }
 
 #[tauri::command]
-pub async fn convert_image_batch(
-    _pairs: Vec<(String, String)>,
-    _output_format: String,
-    _delete_original: Option<bool>,
-    _aspect_ratio: Option<f32>,
-    _ar_mode: Option<String>,
-) -> Result<Vec<String>, String> {
-    // TODO: Implement image conversion once base library is refactored
-    log::warn!("Image conversion not yet implemented in Tauri backend");
-    Err("Image conversion not yet implemented".to_string())
-}
-
-#[tauri::command]
 pub fn delete_files(paths: Vec<String>) -> Result<usize, String> {
     let mut count = 0;
     for path in paths {

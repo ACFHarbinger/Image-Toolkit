@@ -1,4 +1,4 @@
-# GENERATED — contract hash 982b5ee1c894cc7cc385319c615075e261812de38001db245180d72ca8b6e2c7. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 48a603dc6dcc15a3a230962ec97d6ff121dc28bd5222277e1eb476fb951789d0. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -8,6 +8,46 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from typing import Any, Literal
+
+@dataclass(frozen=True)
+class ConvertBatchParams:
+    input_dir: str
+    output_dir: str
+    output_format: str | None = None
+    input_formats: (list[str]) | None = None
+    quality: Literal[95] | None = None
+    recursive: bool | None = None
+    overwrite: bool | None = None
+
+
+@dataclass(frozen=True)
+class ConvertBatchResult:
+    total_discovered: int
+    succeeded: int
+    failed: int
+    output_paths: (list[str]) | None = None
+    elapsed_seconds: float | None = None
+    errors: (list[str]) | None = None
+
+
+@dataclass(frozen=True)
+class ConvertParams:
+    input_path: str
+    output_path: str
+    output_format: str | None = None
+    quality: Literal[95] | None = None
+    overwrite: bool | None = None
+
+
+@dataclass(frozen=True)
+class ConvertResult:
+    input_path: str
+    output_path: str
+    success: bool
+    size_bytes: int | None = None
+    elapsed_seconds: float | None = None
+    error: (str | None) | None = None
+
 
 @dataclass(frozen=True)
 class BridgeError:

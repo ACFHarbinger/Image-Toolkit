@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { LogOut, Settings } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
+import { HostClient, RustTransport } from "../hostclient";
 import { useAppStore } from "../store/appStore";
 import { shellCatalog } from "./catalog";
 import { Inspector } from "./Inspector";
@@ -39,6 +40,27 @@ export function Shell({ showModal }: ShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
+  const hostClient = useMemo(
+    () =>
+      new HostClient(new RustTransport(), {
+        clientName: "tauri-shell",
+        clientVersion: "1.0.0",
+      }),
+    [],
+  );
+
+  useEffect(() => {
+    let alive = true;
+    void hostClient.connect().catch(() => {
+      if (!alive) {
+        return;
+      }
+    });
+    return () => {
+      alive = false;
+      void hostClient.close();
+    };
+  }, [hostClient]);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,6 +147,7 @@ export function Shell({ showModal }: ShellProps) {
                   entry={active}
                   showModal={showModal}
                   onAddImagesToDb={onAddImagesToDb}
+                  hostClient={hostClient}
                 />
               )}
             </main>

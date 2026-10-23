@@ -1,5 +1,6 @@
 mod auth_commands;
 mod benchmark_commands;
+mod bridge_commands;
 mod core_commands;
 mod database_commands;
 mod db;
@@ -24,7 +25,6 @@ pub fn run() {
             wallpaper_commands::toggle_slideshow_daemon,
             // Core file commands
             core_commands::scan_files,
-            core_commands::convert_image_batch,
             core_commands::delete_files,
             core_commands::delete_directory,
             core_commands::merge_images,
@@ -53,7 +53,8 @@ pub fn run() {
             window_registry::window_popout,
             window_registry::window_hide_all,
             window_registry::window_restore,
-            window_registry::window_focus
+            window_registry::window_focus,
+            bridge_commands::bridge_request
         ])
         .on_window_event(|window, event| window_registry::on_window_event(window, event))
         .setup(|app| {

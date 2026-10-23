@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/convert.json",
+  "title": "ConvertCapability",
+  "description": "Image conversion for the Convert pilot (#894). Quality is fixed at the canonical converter value (95); any other value is rejected.",
+  "type": "object",
+  "$defs": {
+    "ConvertParams": {
+      "title": "ConvertParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input_path", "output_path"],
+      "properties": {
+        "input_path": { "type": "string", "minLength": 1 },
+        "output_path": { "type": "string", "minLength": 1 },
+        "output_format": { "type": "string", "minLength": 1 },
+        "quality": { "const": 95 },
+        "overwrite": { "type": "boolean" }
+      }
+    },
+    "ConvertResult": {
+      "title": "ConvertResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input_path", "output_path", "success"],
+      "properties": {
+        "input_path": { "type": "string" },
+        "output_path": { "type": "string" },
+        "success": { "type": "boolean" },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "elapsed_seconds": { "type": "number", "minimum": 0 },
+        "error": { "type": ["string", "null"] }
+      }
+    },
+    "ConvertBatchParams": {
+      "title": "ConvertBatchParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input_dir", "output_dir"],
+      "properties": {
+        "input_dir": { "type": "string", "minLength": 1 },
+        "output_dir": { "type": "string", "minLength": 1 },
+        "output_format": { "type": "string", "minLength": 1 },
+        "input_formats": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "quality": { "const": 95 },
+        "recursive": { "type": "boolean" },
+        "overwrite": { "type": "boolean" }
+      }
+    },
+    "ConvertBatchResult": {
+      "title": "ConvertBatchResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total_discovered", "succeeded", "failed"],
+      "properties": {
+        "total_discovered": { "type": "integer", "minimum": 0 },
+        "succeeded": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "output_paths": { "type": "array", "items": { "type": "string" } },
+        "elapsed_seconds": { "type": "number", "minimum": 0 },
+        "errors": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

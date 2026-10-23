@@ -1,4 +1,4 @@
-// GENERATED — contract hash 982b5ee1c894cc7cc385319c615075e261812de38001db245180d72ca8b6e2c7. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 48a603dc6dcc15a3a230962ec97d6ff121dc28bd5222277e1eb476fb951789d0. Do not edit; edit the schema and regenerate.
 
 export interface BridgeEvent {
   readonly channel: string;

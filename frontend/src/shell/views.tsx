@@ -27,7 +27,7 @@ export interface ViewProps {
     duration?: number,
   ) => void;
   onAddImagesToDb?: (files: File[]) => void;
-  hostClient?: HostClient;
+  hostClient: HostClient;
 }
 
 export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
@@ -67,6 +67,6 @@ export function CatalogView({
     );
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
-  const convertProps = entry.id === "system.convert" && hostClient ? { hostClient } : {};
+  const convertProps = entry.id === "system.convert" ? { hostClient } : {};
   return <View showModal={showModal} {...extra} {...convertProps} />;
 }
