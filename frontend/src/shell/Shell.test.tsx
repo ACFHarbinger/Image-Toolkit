@@ -42,8 +42,17 @@ test("convert calls the shell HostClient over bridge_request", async () => {
     if (command !== "bridge_request") {
       return {};
     }
-    const request = (args as { request?: { id?: string; method?: string; params?: { input_path?: string } } } | undefined)
-      ?.request;
+    const request = (
+      args as
+        | {
+            request?: {
+              id?: string;
+              method?: string;
+              params?: { input_path?: string; output_path?: string; output_format?: string };
+            };
+          }
+        | undefined
+    )?.request;
     if (!request) {
       return {};
     }
@@ -72,14 +81,23 @@ test("convert calls the shell HostClient over bridge_request", async () => {
   renderLoggedIn();
   const pilot = await screen.findByTestId("convert-pilot");
   fireEvent.change(pilot.querySelectorAll("input")[0], { target: { value: "/pics/a.png" } });
-  fireEvent.change(pilot.querySelectorAll("input")[1], { target: { value: "/tmp/out.png" } });
+  fireEvent.change(pilot.querySelectorAll("input")[1], { target: { value: "/tmp/out.jpg" } });
   fireEvent.click(pilot.querySelector("button") as HTMLButtonElement);
   expect(await screen.findByText("Status: ok")).toBeInTheDocument();
   await waitFor(() => {
-    const methods = vi.mocked(invoke).mock.calls
+    const convert = vi.mocked(invoke).mock.calls
       .filter((call) => call[0] === "bridge_request")
-      .map((call) => (call[1] as { request: { method: string } }).request.method);
-    expect(methods).toContain("convert.convert");
+      .map(
+        (call) =>
+          (
+            call[1] as {
+              request: { method: string; params?: { output_path?: string; output_format?: string } };
+            }
+          ).request,
+      )
+      .find((request) => request.method === "convert.convert");
+    expect(convert?.params?.output_format).toBe("jpg");
+    expect(convert?.params?.output_path).toBe("/tmp/out.jpg");
   });
 });
 

@@ -1,4 +1,4 @@
-// GENERATED — contract hash 48a603dc6dcc15a3a230962ec97d6ff121dc28bd5222277e1eb476fb951789d0. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 458ae5d7b75d09fd889bc0a4f1c891ad9d5fc73cf5612a38292f3dbc0bcc24f2. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -23,15 +23,7 @@ pub struct ConvertBatchParams {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ConvertBatchResult {
-    pub total_discovered: i64,
-    pub succeeded: i64,
-    pub failed: i64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub output_paths: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub elapsed_seconds: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub errors: Option<Vec<String>>,
+    pub job_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -133,6 +125,8 @@ pub struct JobStatus {
     pub progress: Option<JobProgress>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<BridgeError>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<std::collections::HashMap<String, serde_json::Value>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

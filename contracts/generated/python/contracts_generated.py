@@ -1,4 +1,4 @@
-# GENERATED — contract hash 48a603dc6dcc15a3a230962ec97d6ff121dc28bd5222277e1eb476fb951789d0. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 458ae5d7b75d09fd889bc0a4f1c891ad9d5fc73cf5612a38292f3dbc0bcc24f2. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -22,12 +22,7 @@ class ConvertBatchParams:
 
 @dataclass(frozen=True)
 class ConvertBatchResult:
-    total_discovered: int
-    succeeded: int
-    failed: int
-    output_paths: (list[str]) | None = None
-    elapsed_seconds: float | None = None
-    errors: (list[str]) | None = None
+    job_id: str
 
 
 @dataclass(frozen=True)
@@ -115,6 +110,7 @@ class JobStatus:
     state: JobState
     progress: JobProgress | None = None
     error: BridgeError | None = None
+    result: (dict[str, Any]) | None = None
 
 
 @dataclass(frozen=True)

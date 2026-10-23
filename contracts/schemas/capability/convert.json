@@ -55,14 +55,10 @@
       "title": "ConvertBatchResult",
       "type": "object",
       "additionalProperties": false,
-      "required": ["total_discovered", "succeeded", "failed"],
+      "description": "Accepted batch. Counts and paths are on jobs.status result when the job reaches a terminal state.",
+      "required": ["job_id"],
       "properties": {
-        "total_discovered": { "type": "integer", "minimum": 0 },
-        "succeeded": { "type": "integer", "minimum": 0 },
-        "failed": { "type": "integer", "minimum": 0 },
-        "output_paths": { "type": "array", "items": { "type": "string" } },
-        "elapsed_seconds": { "type": "number", "minimum": 0 },
-        "errors": { "type": "array", "items": { "type": "string" } }
+        "job_id": { "type": "string", "minLength": 1 }
       }
     }
   }

@@ -102,7 +102,7 @@ owner = 894
 [[method]]
 name = "convert.convert_batch"
 capability = "convert"
-summary = "Convert a batch of images (pilot #894). Quality is the canonical converter value, 95."
+summary = "Queue a cancellable batch conversion (pilot #894). Poll jobs.status for counts; quality stays 95."
 params = "convert.ConvertBatchParams"
 result = "convert.ConvertBatchResult"
 errors = ["convert.failed"]

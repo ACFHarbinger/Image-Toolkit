@@ -490,3 +490,9 @@ data/benchmarks/
 # Addendum 20). Move them to ~/.image-toolkit/telemetry/ for analysis.
 hs_err_pid*.log
 core.[0-9]*
+
+# Staged Tauri sidecar runtime (copied at package time)
+frontend/src-tauri/resources/sidecar-runtime/.venv/
+frontend/src-tauri/resources/sidecar-runtime/middleware/
+frontend/src-tauri/resources/sidecar-runtime/*.so
+frontend/src-tauri/resources/sidecar-runtime/RUNTIME.json

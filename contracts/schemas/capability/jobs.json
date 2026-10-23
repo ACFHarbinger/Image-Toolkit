@@ -86,7 +86,8 @@
         "kind": { "type": "string", "minLength": 1 },
         "state": { "$ref": "#/$defs/JobState" },
         "progress": { "$ref": "#/$defs/JobProgress" },
-        "error": { "$ref": "../envelope/error.json" }
+        "error": { "$ref": "../envelope/error.json" },
+        "result": { "type": "object" }
       }
     },
     "ListParams": {
