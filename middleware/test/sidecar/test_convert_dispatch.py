@@ -144,7 +144,12 @@ def test_cancel_is_answered_while_a_batch_is_still_running(tmp_path) -> None:
     serve_thread = threading.Thread(target=server.serve, daemon=True)
     serve_thread.start()
     try:
-        _write(client_in, "system.handshake", {"protocol": PROTOCOL_NAME, "client": {"name": "pytest", "version": "1.0.0"}}, "hs")
+        _write(
+            client_in,
+            "system.handshake",
+            {"protocol": PROTOCOL_NAME, "client": {"name": "pytest", "version": "1.0.0"}},
+            "hs",
+        )
         _read_until(frames, lambda frame: frame.get("id") == "hs")
         source = tmp_path / "in"
         source.mkdir()

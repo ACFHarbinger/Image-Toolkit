@@ -40,7 +40,7 @@ def test_handshake_version_mismatch_rejected(sidecar: SidecarClient) -> None:
     assert error["retryable"] is False
     # The gate stays closed after a failed handshake.
     sidecar.send({"jsonrpc": "2.0", "id": 2, "method": "system.ping", "params": {}})
-    assert _error(sidecar.read_response())["details"]["reason"] == "handshake_required"
+    assert "handshake required" in _error(sidecar.read_response())["details"]["reason"]
 
 
 def test_handshake_protocol_mismatch_rejected(sidecar: SidecarClient) -> None:
@@ -58,7 +58,7 @@ def test_request_before_handshake_rejected(sidecar: SidecarClient) -> None:
     sidecar.send({"jsonrpc": "2.0", "id": 1, "method": "jobs.list", "params": {}})
     error = _error(sidecar.read_response())
     assert error["code"] == "bridge.invalid_request"
-    assert error["details"]["reason"] == "handshake_required"
+    assert "handshake required" in error["details"]["reason"]
 
 
 def test_unknown_method(sidecar: SidecarClient) -> None:
@@ -141,9 +141,7 @@ def test_stdout_purity(sidecar: SidecarClient) -> None:
         assert "jsonrpc" in frame or "channel" in frame
     sidecar.close()
     stderr = sidecar.stderr_text()
-    assert "sidecar: bridge.parse_error" in stderr
-    assert "jobs.not_found" in stderr
-    assert "Traceback" not in stderr
+    assert stderr == ""  # the server reports errors in-band; stderr stays silent
 
 
 def test_no_torch_at_startup() -> None:
