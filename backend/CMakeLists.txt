@@ -216,6 +216,7 @@ pybind11_add_module(backend
     # Image I/O + filesystem (Phase 2)
     src/image/image_batch.cpp
     src/image/scan_files.cpp
+    src/image/render_cache.cpp
 
     # Video thumbnails (Phase 3)
     src/video/video_batch.cpp

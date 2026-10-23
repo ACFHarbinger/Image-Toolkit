@@ -34,6 +34,7 @@ void register_fg_register(py::module_& m);
 // Native base submodules (Phases 2–5, complete)
 // ---------------------------------------------------------------------------
 void register_image(py::module_& m);      // Phase 2: image I/O + filesystem
+void register_render_cache(py::module_& m); // S-01: bounded stills into the render cache
 void register_video(py::module_& m);      // Phase 3: video thumbnails
 void register_secret(py::module_& m);     // Phase 4: secure vector database
 void register_database(py::module_& m);   // Phase DB: unified library database
@@ -189,6 +190,7 @@ PYBIND11_MODULE(backend, m) {
     register_fg_register(m_fgreg);
 
     register_image(m_images);
+    register_render_cache(m_images);
     register_video(m_video);
     register_secret(m_vault);
     register_database(m_database);
@@ -227,6 +229,7 @@ PYBIND11_MODULE(backend, m) {
     // Backwards Compatibility: Export methods directly to root module
     // ------------------------------------------------------------------
     m.attr("load_image_batch")               = m_images.attr("load_image_batch");
+    m.attr("write_render_stills")            = m_images.attr("write_render_stills");
     m.attr("scan_files")                     = m_images.attr("scan_files");
     m.attr("scan_files_single")              = m_images.attr("scan_files_single");
     // Alias multi to the standard scan_files for backwards compatibility
