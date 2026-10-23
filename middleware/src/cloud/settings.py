@@ -57,6 +57,12 @@ class CloudSettings:
     cache_budget_gb: float = 200.0
     output_retention_days: int = 14
 
+    # Notifications (roadmap: daemon desktop notices plus a webhook or
+    # email sink for when the desktop is off — both set in Settings).
+    notify_desktop: bool = True
+    notify_webhook_url: str = ""
+    notify_email: str = ""
+
     def validate(self) -> None:
         if self.packing_mode not in PACKING_MODES:
             raise ValueError(f"packing_mode must be one of {PACKING_MODES}")

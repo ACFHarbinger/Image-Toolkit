@@ -5,11 +5,19 @@ import type {
   ConvertBatchResult,
   ConvertParams,
   ConvertResult,
+  GetManyParams,
+  GetManyResult,
+  GetParams,
+  GetResult,
   HandshakeResult,
   JobStatus,
   ListParams,
   ListResult,
   PingResult,
+  SetManyParams,
+  SetManyResult,
+  SetParams,
+  SetResult,
   SubmitParams,
   SubmitResult,
 } from "../../../contracts/generated/ts";
@@ -91,6 +99,27 @@ export class HostClient {
       "convert.convert_batch",
       params as unknown as Record<string, unknown>,
     );
+  }
+
+  /** Bridge settings value: any JSON the settings service accepts. */
+  async getSetting(params: GetParams): Promise<GetResult> {
+    await this.connect();
+    return this.send<GetResult>("settings.get", params as unknown as Record<string, unknown>);
+  }
+
+  async setSetting(params: SetParams): Promise<SetResult> {
+    await this.connect();
+    return this.send<SetResult>("settings.set", params as unknown as Record<string, unknown>);
+  }
+
+  async getSettings(params: GetManyParams): Promise<GetManyResult> {
+    await this.connect();
+    return this.send<GetManyResult>("settings.get_many", params as unknown as Record<string, unknown>);
+  }
+
+  async setSettings(params: SetManyParams): Promise<SetManyResult> {
+    await this.connect();
+    return this.send<SetManyResult>("settings.set_many", params as unknown as Record<string, unknown>);
   }
 
   onEvent(listener: Parameters<NonNullable<BridgeTransport["onEvent"]>>[0]): () => void {

@@ -111,6 +111,54 @@ emits = ["jobs"]
 stability = "experimental"
 owner = 894
 
+[[method]]
+name = "settings.get"
+capability = "settings"
+summary = "Read one settings-service key; catalog defaults fill absent values (D5 / #851)."
+params = "settings.GetParams"
+result = "settings.GetResult"
+errors = ["settings.invalid_value"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 851
+
+[[method]]
+name = "settings.set"
+capability = "settings"
+summary = "Validate and store one key in its ownership scope (D5 / #851)."
+params = "settings.SetParams"
+result = "settings.SetResult"
+errors = ["settings.invalid_value"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 851
+
+[[method]]
+name = "settings.get_many"
+capability = "settings"
+summary = "Bulk read for a settings form; one round trip over the stdio bridge (D5 / #851)."
+params = "settings.GetManyParams"
+result = "settings.GetManyResult"
+errors = ["settings.invalid_value"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 851
+
+[[method]]
+name = "settings.set_many"
+capability = "settings"
+summary = "Bulk validate-and-store; all keys write or none do (D5 / #851)."
+params = "settings.SetManyParams"
+result = "settings.SetManyResult"
+errors = ["settings.invalid_value"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 851
+
 [[channel]]
 name = "jobs"
 payload = "jobs.JobEventPayload"

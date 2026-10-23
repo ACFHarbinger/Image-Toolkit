@@ -1,0 +1,129 @@
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, expect, test, vi } from "vitest";
+import type { GetResult, SetResult } from "../../../../contracts/generated/ts";
+import { CloudJobsSettings } from "./CloudJobsSettings";
+import { CLOUD_JOBS_SETTINGS_KEY, type CloudJobsSettingsDocument } from "./cloudSettings";
+
+afterEach(() => cleanup());
+
+function documentFixture(overrides: Partial<CloudJobsSettingsDocument> = {}): CloudJobsSettingsDocument {
+  return {
+    estimates_enabled: true,
+    warnings_enabled: true,
+    hard_caps_enabled: true,
+    default_max_runtime_s: 21600,
+    default_max_spend_usd: 10,
+    monthly_cap_usd: 100,
+    warn_job_spend_usd: 5,
+    warn_runtime_s: 10800,
+    warn_egress_gb: 20,
+    warn_price_age_days: 30,
+    warn_cap_fraction: 0.8,
+    max_concurrent_jobs: 4,
+    max_concurrent_gpu_instances: 2,
+    max_reserved_usd: 50,
+    max_attempts: 3,
+    fallback_enabled: false,
+    default_regions: { gcp: "us-central1" },
+    sensitive_allowlist: ["gcp"],
+    packing_mode: "one_to_one",
+    share_cache_volumes: true,
+    history_retention_days: 90,
+    staged_input_ttl_days: 0,
+    cache_ttl_days: 30,
+    cache_budget_gb: 200,
+    output_retention_days: 14,
+    notify_desktop: true,
+    notify_webhook_url: "",
+    notify_email: "",
+    ...overrides,
+  };
+}
+
+function stubClient() {
+  return {
+    getSetting: vi.fn(async (): Promise<GetResult> => ({
+      key: CLOUD_JOBS_SETTINGS_KEY,
+      value: documentFixture() as unknown as GetResult["value"],
+      scope: "account" as const,
+    })),
+    setSetting: vi.fn(
+      async (_params: { key: string; value: unknown }): Promise<SetResult> => ({
+        key: CLOUD_JOBS_SETTINGS_KEY,
+        value: documentFixture() as unknown as SetResult["value"],
+        scope: "account" as const,
+      }),
+    ),
+  };
+}
+
+test("loads the document over settings.get and renders the D5 sections", async () => {
+  const client = stubClient();
+  render(<CloudJobsSettings hostClient={client as never} />);
+
+  expect(await screen.findByTestId("cloud-jobs-settings")).toBeInTheDocument();
+  expect(client.getSetting).toHaveBeenCalledWith({ key: CLOUD_JOBS_SETTINGS_KEY });
+  for (const section of ["safeguards", "caps", "thresholds", "admission", "recovery", "instances", "retention", "notifications", "placement"]) {
+    expect(screen.getByTestId(`cloud-jobs-section-${section}`)).toBeInTheDocument();
+  }
+  expect((screen.getByTestId("setting-monthly_cap_usd") as HTMLInputElement).value).toBe("100");
+  expect((screen.getByTestId("setting-fallback_enabled") as HTMLInputElement).checked).toBe(false);
+  expect((screen.getByTestId("setting-notify_webhook_url") as HTMLInputElement).value).toBe("");
+});
+
+test("an edit and Save writes the whole document through settings.set", async () => {
+  const client = stubClient();
+  client.setSetting.mockImplementation(async (_params) => ({
+    key: CLOUD_JOBS_SETTINGS_KEY,
+    value: documentFixture({ monthly_cap_usd: 250 }) as unknown as SetResult["value"],
+    scope: "account",
+  }));
+  render(<CloudJobsSettings hostClient={client as never} />);
+  await screen.findByTestId("cloud-jobs-settings");
+
+  fireEvent.change(screen.getByTestId("setting-monthly_cap_usd"), { target: { value: "250" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  await waitFor(() => {
+    expect(client.setSetting).toHaveBeenCalledTimes(1);
+  });
+  const params = client.setSetting.mock.calls[0][0] as unknown as { key: string; value: CloudJobsSettingsDocument };
+  expect(params.key).toBe(CLOUD_JOBS_SETTINGS_KEY);
+  expect(params.value.monthly_cap_usd).toBe(250);
+  // Untouched fields ride along: the document saves whole.
+  expect(params.value.packing_mode).toBe("one_to_one");
+});
+
+test("a rejected save surfaces the error without losing the form", async () => {
+  const client = stubClient();
+  client.setSetting.mockRejectedValue(new Error("packing_mode must be one of PACKING_MODES"));
+  render(<CloudJobsSettings hostClient={client as never} />);
+  await screen.findByTestId("cloud-jobs-settings");
+
+  fireEvent.change(screen.getByTestId("setting-packing_mode"), { target: { value: "parallel" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent(/packing_mode/i);
+  // The edited value is still on screen, not reset by the failure.
+  expect((screen.getByTestId("setting-packing_mode") as HTMLSelectElement).value).toBe("parallel");
+});
+
+test("the regions editor edits, adds and removes provider rows", async () => {
+  const client = stubClient();
+  render(<CloudJobsSettings hostClient={client as never} />);
+  await screen.findByTestId("cloud-jobs-settings");
+
+  fireEvent.change(screen.getByLabelText("region for gcp"), { target: { value: "europe-west1" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add region" }));
+  const providerInputs = screen.getAllByLabelText(/region provider/);
+  expect(providerInputs).toHaveLength(2); // "" sorts before "gcp"
+
+  // Name the new provider row and give it a region.
+  fireEvent.change(providerInputs[0], { target: { value: "aws" } });
+  fireEvent.change(screen.getByLabelText("region for aws"), { target: { value: "us-east-1" } });
+
+  fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]);
+  expect(screen.queryByLabelText("region for aws")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("region for gcp")).toBeInTheDocument();
+});

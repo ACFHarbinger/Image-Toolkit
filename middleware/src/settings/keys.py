@@ -320,16 +320,31 @@ KNOWN_DEFINITIONS: list[SettingDefinition] = [
 
 _DEFINITIONS_BY_KEY: dict[str, SettingDefinition] = {d.key: d for d in KNOWN_DEFINITIONS}
 
+# Capability-owned catalogs (e.g. Cloud Jobs D5) register here instead of
+# joining KNOWN_DEFINITIONS: that list is parity-frozen against the W0-20
+# gui catalog (test_keys_catalog.py), and the frozen gui/src copy must not
+# learn new keys.
+_EXTENSION_DEFINITIONS_BY_KEY: dict[str, SettingDefinition] = {}
+
+
+def register_definitions(definitions: list[SettingDefinition]) -> None:
+    """Add capability-owned keys to the typed catalog without gui parity."""
+    _EXTENSION_DEFINITIONS_BY_KEY.update({d.key: d for d in definitions})
+
+
+def _known_definition(key: str) -> Optional[SettingDefinition]:
+    return _DEFINITIONS_BY_KEY.get(key) or _EXTENSION_DEFINITIONS_BY_KEY.get(key)
+
 
 def definition_for(key: str) -> Optional[SettingDefinition]:
     """Look up a known setting definition by key."""
-    return _DEFINITIONS_BY_KEY.get(key)
+    return _known_definition(key)
 
 
 def infer_scope(key: str) -> SettingScope:
     """Determine the ownership scope for a key string (heuristic mirror of
     the Qt store's ``infer_scope`` — known keys first, then namespaces)."""
-    definition = _DEFINITIONS_BY_KEY.get(key)
+    definition = _known_definition(key)
     if definition is not None:
         return definition.scope
 
