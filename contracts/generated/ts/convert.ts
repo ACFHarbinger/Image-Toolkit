@@ -1,4 +1,4 @@
-// GENERATED — contract hash 43786106791c039a8287c7b4e4ad317f69a1e4ab0543c78a9ff14b6c8e29e7d2. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 08faec06515d9a8705e5ee5589a1933a46e3091792150fb9145b7bdb772a2acb. Do not edit; edit the schema and regenerate.
 
 export interface ConvertBatchParams {
   readonly input_dir: string;
