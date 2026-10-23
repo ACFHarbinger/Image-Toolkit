@@ -206,3 +206,11 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') }}
           files: dist/release/*
           generate_release_notes: true
+
+  tauri-driver:
+    name: tauri-driver smoke (W0-19 / #883)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Per-release WebDriver smoke
+        run: bash frontend/e2e/tauri-driver-smoke.sh

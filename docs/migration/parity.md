@@ -20,7 +20,7 @@ the status lifecycle and deletion gate are documented in
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
-| system.convert | Convert | Kimi | [#894](https://github.com/ACFHarbinger/Image-Toolkit/issues/894) | pyside-only | system.convert | — | 0 |
+| system.convert | Convert | Kimi | [#894](https://github.com/ACFHarbinger/Image-Toolkit/issues/894) | pyside-only | system.convert | — | 1 |
 
 ## wave-3
 
