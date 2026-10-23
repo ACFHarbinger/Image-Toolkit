@@ -64,6 +64,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Native Tauri tray, hide-all on close, and a WindowManager role map (`main`, labeled `cloud.jobs` pop-out). Closing `main` hides every labeled webview; a second GUI instance focuses the first through #877's `request_focus`. Files: `frontend/src-tauri/src/{tray,window_registry,gui_gate}.rs`, `middleware/src/supervisor/gui_shell.py`.
 - Cloud Jobs core (#826–#829), Qt-free, in `backend/src/cloud/`:
   - **Job spec:** `spec.py` and `sharding.py` give a provider-neutral `JobSpec` built from shards. Extraction splits by file, ComfyUI by prompt (fixed seeds), indexing by image-ID range; LoRA is one shard.
   - **Provider contract:** `adapter.py` defines the adapter interface and a capability manifest.
