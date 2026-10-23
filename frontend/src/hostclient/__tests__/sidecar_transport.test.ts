@@ -1,101 +1,205 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from "vitest";
-import { HostClientError } from "../errors";
-import { SidecarTransport } from "../sidecar";
-import type { BridgeEvent } from "../types";
-import { FakeSidecar, loopbackPair } from "./loopback";
+import { describe, expect, it } from "vitest";
 
-function setup(options = {}, transportOptions = {}) {
-  const pair = loopbackPair();
-  new FakeSidecar(pair.server, options);
-  const transport = new SidecarTransport(pair.client, transportOptions);
-  return { pair, transport };
+import type { BridgeRequest } from "../../../../contracts/generated/ts";
+import { BridgeTransportError } from "../errors";
+import { SidecarTransport, type SidecarConnection } from "../sidecar";
+
+function jsonLine(frame: unknown): string {
+  return `${JSON.stringify(frame)}\n`;
+}
+
+function request(id: string, method: string): BridgeRequest {
+  return { jsonrpc: "2.0", id, method, params: {} };
+}
+
+interface Harness {
+  connection: SidecarConnection;
+  sent: string[];
+  emit(line: string): void;
+  drop(reason?: unknown): void;
+  failReconnect(error: Error): void;
+  reconnects(): number;
+}
+
+function harness(): Harness {
+  const sent: string[] = [];
+  const lineListeners = new Set<(line: string) => void>();
+  const closeListeners = new Set<(reason?: unknown) => void>();
+  let reconnects = 0;
+  let reconnectError: Error | undefined;
+  const connection: SidecarConnection = {
+    sendLine(line: string) {
+      sent.push(line);
+    },
+    onLine(listener: (line: string) => void) {
+      lineListeners.add(listener);
+      return () => lineListeners.delete(listener);
+    },
+    onClose(listener: (reason?: unknown) => void) {
+      closeListeners.add(listener);
+      return () => closeListeners.delete(listener);
+    },
+    reconnect() {
+      if (reconnectError) {
+        throw reconnectError;
+      }
+      reconnects += 1;
+    },
+  };
+  return {
+    connection,
+    sent,
+    emit(line: string) {
+      for (const listener of lineListeners) listener(line);
+    },
+    drop(reason?: unknown) {
+      for (const listener of closeListeners) listener(reason);
+    },
+    failReconnect(error: Error) {
+      reconnectError = error;
+    },
+    reconnects: () => reconnects,
+  };
 }
 
 describe("SidecarTransport", () => {
-  it("attaches with handshake and negotiates the version range", async () => {
-    const { transport } = setup();
-    const result = await transport.attach();
-    expect(result.protocol).toBe("image-toolkit-bridge");
-    expect(result.compatibility).toEqual({ min: "1.0.0", max: "1.0.0" });
-    expect(result.capabilities).toEqual(["system", "jobs"]);
+  it("sends one JSON line and resolves the matching response", async () => {
+    const pipe = harness();
+    const transport = new SidecarTransport(pipe.connection);
+    const pending = transport.request(request("1", "system.ping"));
+    expect(pipe.sent).toEqual([jsonLine(request("1", "system.ping"))]);
+    pipe.emit(jsonLine({ jsonrpc: "2.0", id: "1", result: { ok: true } }));
+    await expect(pending).resolves.toMatchObject({ id: "1", result: { ok: true } });
   });
 
-  it("rejects attach when the sidecar reports a version mismatch", async () => {
-    const { transport } = setup({}, { clientVersion: "0.0.1" });
-    await expect(transport.attach()).rejects.toMatchObject({
-      code: "bridge.version_mismatch",
-      retryable: false,
-    });
-  });
-
-  it("rejects attach locally when the reported range excludes our version", async () => {
-    const pair = loopbackPair();
-    pair.server.onLine((line) => {
-      const frame = JSON.parse(line);
-      pair.server.send(
-        JSON.stringify({
-          jsonrpc: "2.0",
-          id: frame.id,
-          result: {
-            protocol: "image-toolkit-bridge",
-            version: "2.0.0",
-            compatibility: { min: "2.0.0", max: "2.0.0" },
-            capabilities: ["system"],
-          },
-        }),
-      );
-    });
-    const transport = new SidecarTransport(pair.client, { clientVersion: "1.0.0" });
-    await expect(transport.attach()).rejects.toMatchObject({
-      code: "bridge.version_mismatch",
-      retryable: false,
-    });
-  });
-
-  it("round-trips a request after implicit attach", async () => {
-    const { transport } = setup();
-    await expect(transport.request("system.ping", {})).resolves.toEqual({ ok: true });
-  });
-
-  it("decodes the wire error envelope into HostClientError", async () => {
-    const { transport } = setup();
-    const error = await transport
-      .request("jobs.status", { job_id: "nope" })
-      .catch((caught: unknown) => caught);
-    expect(error).toBeInstanceOf(HostClientError);
-    expect(error).toMatchObject({
-      code: "jobs.not_found",
-      retryable: false,
-      details: { job_id: "nope" },
-    });
-    expect((error as HostClientError).message_key).toBeTruthy();
-  });
-
-  it("forwards event frames to onEvent", async () => {
-    const events: BridgeEvent[] = [];
-    const { transport } = setup({}, { onEvent: (event: BridgeEvent) => events.push(event) });
-    await transport.request("jobs.submit", { kind: "demo", spec: {} });
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({ channel: "jobs", durable: true, payload: { state: "queued" } });
-  });
-
-  it("rejects in-flight requests on close with bridge.down", async () => {
-    const pair = loopbackPair(); // no responder attached
-    const transport = new SidecarTransport(pair.client);
-    const pending = transport.request("system.ping", {});
-    transport.close();
-    await expect(pending).rejects.toMatchObject({ code: "bridge.down", retryable: true });
-  });
-
-  it("reports a non-JSON line as a protocol error", () => {
-    const onProtocolError = vi.fn();
-    const pair = loopbackPair();
-    const transport = new SidecarTransport(pair.client, { onProtocolError });
-    pair.server.send("this is not json");
-    expect(onProtocolError).toHaveBeenCalledWith(
-      expect.objectContaining({ code: "bridge.parse_error" }),
+  it("returns an error envelope for the caller to decode", async () => {
+    const pipe = harness();
+    const transport = new SidecarTransport(pipe.connection);
+    const pending = transport.request(request("2", "jobs.status"));
+    pipe.emit(
+      jsonLine({
+        jsonrpc: "2.0",
+        id: "2",
+        error: {
+          code: -32000,
+          message: "bridge.errors.not_found",
+          data: { code: "jobs.not_found", retryable: false, message_key: "bridge.errors.not_found" },
+        },
+      }),
     );
-    transport.close();
+    await expect(pending).resolves.toMatchObject({
+      id: "2",
+      error: { data: { code: "jobs.not_found", retryable: false } },
+    });
+  });
+
+  it("forwards event frames and still resolves the later response", async () => {
+    const pipe = harness();
+    const transport = new SidecarTransport(pipe.connection);
+    const events: unknown[] = [];
+    transport.onEvent((frame) => events.push(frame));
+    const pending = transport.request(request("3", "jobs.submit"));
+    pipe.emit(
+      jsonLine({
+        channel: "jobs",
+        seq: 1,
+        kind: "fact",
+        durable: true,
+        ts: "2026-10-23T00:00:00Z",
+        payload: { state: "queued" },
+      }),
+    );
+    expect(events).toEqual([expect.objectContaining({ channel: "jobs", payload: { state: "queued" } })]);
+    pipe.emit(jsonLine({ jsonrpc: "2.0", id: "3", result: { job_id: "job-1" } }));
+    await expect(pending).resolves.toMatchObject({ id: "3" });
+  });
+
+  it("rejects a null id before sending", async () => {
+    const pipe = harness();
+    const transport = new SidecarTransport(pipe.connection);
+    await expect(
+      transport.request({ jsonrpc: "2.0", id: null, method: "system.ping" }),
+    ).rejects.toBeInstanceOf(BridgeTransportError);
+    expect(pipe.sent).toEqual([]);
+  });
+
+  it("rejects in-flight work on close and does not send after that", async () => {
+    const pipe = harness();
+    const transport = new SidecarTransport(pipe.connection);
+    const pending = transport.request(request("4", "system.ping"));
+    await transport.close();
+    await expect(pending).rejects.toBeInstanceOf(BridgeTransportError);
+    await transport.reset();
+    await expect(transport.request(request("5", "system.ping"))).rejects.toMatchObject({
+      message: "sidecar transport is closed",
+    });
+    expect(pipe.sent).toHaveLength(1);
+    expect(pipe.reconnects()).toBe(0);
+  });
+
+  it("rejects pending requests when a line is not JSON", async () => {
+    const pipe = harness();
+    const transport = new SidecarTransport(pipe.connection);
+    const pending = transport.request(request("6", "system.ping"));
+    pipe.emit("this is not json\n");
+    await expect(pending).rejects.toMatchObject({ message: "sidecar emitted a non-JSON frame" });
+  });
+
+  it("blocks the next request after the connection drops", async () => {
+    const pipe = harness();
+    const transport = new SidecarTransport(pipe.connection);
+    const pending = transport.request(request("7", "system.ping"));
+    pipe.drop(new BridgeTransportError("sidecar closed"));
+    await expect(pending).rejects.toMatchObject({ message: "sidecar closed" });
+    await expect(transport.request(request("8", "system.ping"))).rejects.toMatchObject({
+      message: "sidecar transport is closed",
+    });
+    expect(pipe.sent).toHaveLength(1);
+  });
+
+  it("stays closed when close() lands while reconnect is pending", async () => {
+    const pipe = harness();
+    let releaseReconnect!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseReconnect = resolve;
+    });
+    const connection: SidecarConnection = {
+      ...pipe.connection,
+      reconnect() {
+        return gate;
+      },
+    };
+    const transport = new SidecarTransport(connection);
+    pipe.drop();
+    const resetting = transport.reset();
+    await transport.close();
+    releaseReconnect();
+    await resetting;
+    await expect(transport.request(request("11", "system.ping"))).rejects.toMatchObject({
+      message: "sidecar transport is closed",
+    });
+    expect(pipe.sent).toHaveLength(0);
+  });
+
+  it("sends again after reconnect and stays closed when reconnect fails", async () => {
+    const pipe = harness();
+    const transport = new SidecarTransport(pipe.connection);
+    pipe.drop();
+    await transport.reset();
+    expect(pipe.reconnects()).toBe(1);
+    const pending = transport.request(request("9", "system.ping"));
+    expect(pipe.sent.at(-1)).toBe(jsonLine(request("9", "system.ping")));
+    pipe.emit(jsonLine({ jsonrpc: "2.0", id: "9", result: { ok: true } }));
+    await expect(pending).resolves.toMatchObject({ id: "9" });
+
+    pipe.failReconnect(new Error("bind failed"));
+    pipe.drop();
+    await expect(transport.reset()).rejects.toThrow("bind failed");
+    await expect(transport.request(request("10", "system.ping"))).rejects.toMatchObject({
+      message: "sidecar transport is closed",
+    });
+    expect(pipe.sent).toEqual([jsonLine(request("9", "system.ping"))]);
+    expect(pipe.reconnects()).toBe(1);
   });
 });

@@ -25,7 +25,10 @@ export class SidecarTransport implements BridgeTransport {
   private readonly eventListeners = new Set<(frame: BridgeEvent) => void>();
   private readonly detachLine: () => void;
   private readonly detachClose?: () => void;
+  /** A dropped connection. Cleared only after `reconnect()` resolves. */
   private closed = false;
+  /** `close()` is terminal: listeners are gone, so reset must not reopen it. */
+  private stopped = false;
 
   constructor(connection: SidecarConnection) {
     this.connection = connection;
@@ -62,13 +65,24 @@ export class SidecarTransport implements BridgeTransport {
   }
 
   async reset(): Promise<void> {
+    if (this.stopped) {
+      return;
+    }
     await this.connection.reconnect?.();
+    // close() during the await detaches the listeners and rejects pending
+    // work; reopening after that would strand later requests — sent on a
+    // transport whose line listener is gone, pending forever.
+    if (this.stopped) {
+      return;
+    }
+    this.closed = false;
   }
 
   async close(): Promise<void> {
-    if (this.closed) {
+    if (this.stopped) {
       return;
     }
+    this.stopped = true;
     this.closed = true;
     this.detachLine();
     this.detachClose?.();
