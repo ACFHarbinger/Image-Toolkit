@@ -1,4 +1,4 @@
-# GENERATED — contract hash 458ae5d7b75d09fd889bc0a4f1c891ad9d5fc73cf5612a38292f3dbc0bcc24f2. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 8df3e3c358bb96402c6c835a3701454161463c07b6f8d0517b138016d22ef4a0. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -8,6 +8,28 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from typing import Any, Literal
+
+@dataclass(frozen=True)
+class PrefillParams:
+    owner: str
+    estimated_gb: float
+    device_gb: float
+
+
+@dataclass(frozen=True)
+class PrefillResult:
+    offered: bool
+    submitted: Literal[False]
+    reason: str
+    estimate_usd: float
+    estimate_known: bool
+    kind: str
+    vram_gb_min: float
+    provider: str
+    region: str
+    runtime_s: float
+    job_id: str
+
 
 @dataclass(frozen=True)
 class ConvertBatchParams:

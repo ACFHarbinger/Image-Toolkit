@@ -35,7 +35,7 @@ def test_handshake_result_and_ping_validate() -> None:
     result = handshake["result"]
     assert result["protocol"] == PROTOCOL_NAME
     assert result["compatibility"] == {"min": "1.0.0", "max": "1.0.0"}
-    assert set(result["capabilities"]) == {"system", "jobs", "convert"}
+    assert set(result["capabilities"]) == {"system", "jobs", "convert", "cloud_offer"}
     assert _request(server, "system.ping", {}, "ping")["result"] == {"ok": True}
 
 
@@ -123,3 +123,33 @@ def test_serve_stdout_carries_only_json_frames() -> None:
     assert frames[1]["error"]["data"]["code"] == "bridge.parse_error"
     assert frames[2]["result"] == {"ok": True}
     assert stderr.getvalue() == ""
+
+
+def test_fitting_vram_is_not_offered() -> None:
+    server = SidecarServer(stdout=io.StringIO())
+    _handshake(server)
+    result = _request(
+        server,
+        "cloud_offer.prefill",
+        {"owner": "generate", "estimated_gb": 1.0, "device_gb": 10.0},
+    )["result"]
+    assert result["offered"] is False
+    assert result["submitted"] is False
+    assert result["job_id"] == ""
+
+
+def test_vram_refusal_prefills_without_submitting() -> None:
+    server = SidecarServer(stdout=io.StringIO())
+    _handshake(server)
+    result = _request(
+        server,
+        "cloud_offer.prefill",
+        {"owner": "train-lora", "estimated_gb": 9.1, "device_gb": 10.0},
+    )["result"]
+    assert result["offered"] is True
+    assert result["submitted"] is False
+    assert result["kind"] == "lora_train"
+    assert result["vram_gb_min"] == 9.1
+    assert result["provider"] == "gcp"
+    assert result["job_id"].startswith("cj-")
+    assert "GPU admission refused" in result["reason"]

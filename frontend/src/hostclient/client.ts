@@ -5,6 +5,8 @@ import type {
   ConvertBatchResult,
   ConvertParams,
   ConvertResult,
+  PrefillParams,
+  PrefillResult,
   HandshakeResult,
   JobStatus,
   ListParams,
@@ -78,6 +80,11 @@ export class HostClient {
   async listJobs(params: ListParams = {}): Promise<ListResult> {
     await this.connect();
     return this.send<ListResult>("jobs.list", params as unknown as Record<string, unknown>);
+  }
+
+  async cloudOfferPrefill(params: PrefillParams): Promise<PrefillResult> {
+    await this.connect();
+    return this.send<PrefillResult>("cloud_offer.prefill", params as unknown as Record<string, unknown>);
   }
 
   async convert(params: ConvertParams): Promise<ConvertResult> {

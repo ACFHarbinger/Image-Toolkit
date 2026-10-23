@@ -1,8 +1,31 @@
-// GENERATED — contract hash 458ae5d7b75d09fd889bc0a4f1c891ad9d5fc73cf5612a38292f3dbc0bcc24f2. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 8df3e3c358bb96402c6c835a3701454161463c07b6f8d0517b138016d22ef4a0. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefillParams {
+    pub owner: String,
+    pub estimated_gb: f64,
+    pub device_gb: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefillResult {
+    pub offered: bool,
+    /// must be false (enforced by the framing layer, #875)
+    pub submitted: bool,
+    pub reason: String,
+    pub estimate_usd: f64,
+    pub estimate_known: bool,
+    pub kind: String,
+    pub vram_gb_min: f64,
+    pub provider: String,
+    pub region: String,
+    pub runtime_s: f64,
+    pub job_id: String,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ConvertBatchParams {

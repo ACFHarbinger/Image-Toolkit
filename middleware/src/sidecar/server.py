@@ -27,6 +27,7 @@ from middleware.src.bridge import (
     iter_frames,
     write_frame,
 )
+from middleware.src.sidecar.handlers.cloud_offer import handle_prefill
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
 from middleware.src.sidecar.jobs import JobRegistry
 
@@ -120,6 +121,8 @@ class SidecarServer:
             return handle_convert(params)
         if method == "convert.convert_batch":
             return start_convert_batch(self.jobs, params)
+        if method == "cloud_offer.prefill":
+            return handle_prefill(params)
         raise BridgeAppError("bridge.method_not_found", details={"method": method})
 
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:

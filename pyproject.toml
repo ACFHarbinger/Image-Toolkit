@@ -324,4 +324,5 @@ name = "middleware.src.services features must be independent"
 type = "independence"
 modules = [
     "middleware.src.services.convert",
+    "middleware.src.services.cloud_offer",
 ]
