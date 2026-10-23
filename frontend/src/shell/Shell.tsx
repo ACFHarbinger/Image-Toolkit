@@ -133,12 +133,12 @@ export function Shell({ showModal }: ShellProps) {
                   : "min-h-0 flex-1 overflow-y-auto"
               }
             >
-              {active && (
+              {active && hostClient && (
                 <CatalogView
                   entry={active}
                   showModal={showModal}
                   onAddImagesToDb={onAddImagesToDb}
-                  hostClient={hostClient ?? undefined}
+                  hostClient={hostClient}
                 />
               )}
             </main>
