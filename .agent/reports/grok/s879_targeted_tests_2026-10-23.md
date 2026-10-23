@@ -1,42 +1,28 @@
-# Targeted Tests for #879 Supervisor Binding Enforcement
+# #879 targeted verification plan
 
-**Date:** 2026-10-23
+Status: proposed coverage only; no new tests are implemented or reported passing by this branch.
 
-## Test additions (targeted only)
+Use the existing vault fixture and isolate data through `tmp_path` under `~/Downloads/Data/Tests/`. Do not create guest vaults in user directories. The current `handoff_daemon_lease` API has no `enforce_binding` argument; adapt tests to the production enforcement design when implemented.
 
-In `middleware/test/database/test_vault_sealed_leases.py` (class TestSealedStoreLeases):
+Required cases:
 
-```python
-def test_enforce_binding_raises_on_missing(self):
-    vm = VaultManager.create_guest_vault("test")
-    with pytest.raises(ValueError, match="pid"):
-        vm.handoff_daemon_lease(
-            "store", "daemon", "/tmp",
-            pid=0, ttl_seconds=3600, supervisor_session="sess",
-            enforce_binding=True,
-        )
-    with pytest.raises(ValueError, match="ttl"):
-        vm.handoff_daemon_lease(
-            "store", "daemon", "/tmp",
-            pid=123, ttl_seconds=0, supervisor_session="sess",
-            enforce_binding=True,
-        )
-    with pytest.raises(ValueError, match="session"):
-        vm.handoff_daemon_lease(
-            "store", "daemon", "/tmp",
-            pid=123, ttl_seconds=3600, supervisor_session="",
-            enforce_binding=True,
-        )
+- Reject zero/negative PID, zero/negative TTL and empty/whitespace session before minting; verify the native mint is not called.
+- Supply the actual spawned PID and expected supervisor session; keep the child unready until private lease delivery succeeds.
+- Fail closed and clean up a spawned child on mint/delivery failure; never expose lease material through logs, argv or heartbeats.
+- Verify restart uses the replacement PID, renewal occurs before expiry, and reattached durable children follow the defined session transition.
+- Preserve multi-store daemon key reuse; reject another daemon's key, insecure permissions and missing configured keys.
+- Exercise genuine separate-process store access with matching bindings and reject wrong PID/session and expired leases.
+
+Existing coverage includes `test_supervisor_session_binding` and `test_genuine_separate_daemon_process` in `middleware/test/database/test_vault_sealed_leases.py`; inspect assertions rather than treating their names as proof of production integration.
+
+Example bounded command after the new tests exist, with a fresh basetemp:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. python -m pytest -q -o addopts='' \
+  --confcutdir=middleware/test/database -p no:cacheprovider \
+  --basetemp="$HOME/Downloads/Data/Tests/s879-binding-check" \
+  middleware/test/database/test_vault_sealed_leases.py \
+  -k 'enforce_binding or pid or ttl or session' --tb=short
 ```
 
-Existing tests already cover:
-- PID match / mismatch on unseal (`test_pid_binding`, `test_genuine_separate_daemon_process`)
-- TTL expiry (`test_ttl_expiration`)
-- Session match / mismatch (`test_supervisor_session_binding`)
-- 0600 key permissions and insecure rejection
-
-For supervisor: assert `supervisor.supervisor_session` is a non-empty UUID after init; handoff is called for durable daemons (mock vault).
-
-Run: `pytest middleware/test/database/test_vault_sealed_leases.py -k enforce_binding or pid or ttl or session --tb=short`
-
-No full suite. RESOURCE RULE observed.
+Run any new supervisor cases as one selected fast test file. Full suites, GPU/corpus runs and benchmarks still require Codex coordination and Harbinger's explicit authorization per run. None is authorized or launched by this plan.

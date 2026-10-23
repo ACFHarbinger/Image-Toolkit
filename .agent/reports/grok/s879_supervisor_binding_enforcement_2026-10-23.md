@@ -1,47 +1,28 @@
-# #879 Supervisor Binding Enforcement and Spike Go/No-Go Notes
+# #879 supervisor binding plan and spike proposals
 
-**Date:** 2026-10-23
-**Agent:** Grok team (Harper, Benjamin, Lucas)
-**Status:** Ready for implementation on feat/w0-15-supervisor-binding
+Status: planning only; this branch contains no implementation or test results.
 
-## #879 Remaining Work (now unblocked by Gate A PASS)
+## Remaining #879 work
 
-Production supervisor must enforce PID/TTL/session binding at lease mint time. Currently optional (defaults 0/""). Daemon key files 0600 but same-OS-user readable.
+`VaultManager.handoff_daemon_lease` currently accepts zero PID/TTL and an empty supervisor session. Native unseal checks bindings when supplied. Transit keys are stored in owner-only files, which remain readable to other processes under the same OS account.
 
-### Proposed Changes
+The production handoff must reject missing PID, non-positive TTL and empty session before minting. Enforcement must cover every production mint entry point; an optional Python flag alone does not establish that boundary. Keep compatibility-only unbound APIs separate from the production path.
 
-**vault_manager.py handoff_daemon_lease:**
-Add `enforce_binding: bool = False`. If True, raise ValueError unless pid > 0, ttl_seconds > 0, and supervisor_session non-empty.
+The current supervisor spawns fake child roles and has no production lease transport. Implement a readiness handshake that keeps a new child from opening its store before the parent knows its PID, mints a bound lease, and delivers it over a private channel. Pass the expected supervisor session before spawn; do not put leases or raw keys in process arguments, logs or heartbeat files. A mint or delivery failure must prevent that child from becoming ready and clean up the failed spawn.
 
-**supervisor.py:**
-- Generate `self.supervisor_session = str(uuid.uuid4())` at start.
-- After spawn of durable daemons (cloud_jobs, slideshow), call handoff_daemon_lease with child.pid, ttl=3600, session, enforce_binding=True.
-- Set ITK_SUPERVISOR_SESSION in child env.
-- Document residual: daemon should unlink key after load; stronger FD handoff is follow-up.
+Define lease renewal before choosing a TTL. Restarted children need leases for their new PID. Reattached durable children need an authenticated renewal/session transition; generating a new session UUID and silently reusing their old lease is insufficient. Retain the existing daemon key reuse contract across multiple stores and document retirement/cleanup. Unlinking keys must not break later store opens or renewal; FD-based handoff is a separate design option.
 
-This makes binding mandatory in production path. Unseal already enforces sealed values.
+Acceptance: targeted rejection, spawn/handoff failure, restart, renewal, reattachment, cross-store and genuine child-process tests. Same-account file access remains a documented limitation rather than process isolation.
 
-Targeted tests only. Once landed, Gate B can open.
+Merging these notes does not complete #879, establish Gate A PASS or open Gate B. Gate transitions require the coordinator's recorded acceptance evidence.
 
-## Spike Go/No-Go Notes
+## Spike proposals for Harbinger
 
-### #889 S-03 Tray per OS
-**Recommendation:** Conditional GO
-Native tray and window roles landed (#873/#934/#966). Solid on X11/Windows/macOS. Wayland residuals (icon visibility, packaging). OS checklist for Harbinger required. No-go keeps PySide6 exception.
+These are proposals, not measured OS signoffs or go/no-go decisions:
 
-### #890 S-04 ComfyUI
-**Recommendation:** Conditional GO
-Isolated view feasible post #868 security. No native privileges. External browser fallback trivial. Security via capabilities/CSP. Heavy but within design.
+- #889 tray: conditional candidate; verify startup, focus, hide/restore, packaging and tray visibility per OS, including Wayland.
+- #890 ComfyUI: evaluate an isolated view and external-browser fallback against the existing capabilities/CSP.
+- #892 video: carry forward the measured still-frame scope; measure codec/playback/scrubbing behavior before promising support.
+- #893 wallpaper/presenter: evaluate presenter behavior and platform-native per-monitor integration. Verify durable slideshow lifecycle separately.
 
-### #892 S-06 Video
-**Recommendation:** Conditional GO (partial)
-Aligns with #887: GO for stills (C++ middle-frame + asset://). Basic playback and scrubbing via WebView <video>. Codec variance on Linux. No-go for high-perf animated until measured.
-
-### #893 S-07 Wallpaper / Presenter
-**Recommendation:** Conditional GO
-Presenter window standard Tauri labeled window. Per-monitor requires OS-native calls (gsettings, WinAPI). Slideshow daemon in supervisor. OS checklist required.
-
-A no-go keeps the PySide6 row as bounded ledger exception.
-
----
-Claimed by Grok team. Codex reviews; Claude lands.
+Harbinger decides go/no-go. Any retained PySide6 exception must follow the migration ledger and approval process.
