@@ -57,10 +57,72 @@ def fake_child_argv(role: str, data_dir: Path) -> list[str]:
     ]
 
 
+def resolve_backend_python(
+    data_dir: Path | None = None,
+    explicit: str | None = None,
+) -> str:
+    """Resolve the Python interpreter for the sidecar during coexistence.
+
+    Order of precedence:
+    1. Explicit path passed by caller
+    2. IMAGE_TOOLKIT_BACKEND_PYTHON environment variable
+    3. IMAGE_TOOLKIT_RUNTIME environment variable
+    4. Pointer file in data_dir (backend_python.txt)
+    5. Standard packaged/installed paths (/opt/image-toolkit/...)
+    6. Local repo virtualenv (.venv/bin/python)
+    7. Current running Python interpreter
+    """
+    if explicit:
+        return explicit
+
+    env_explicit = os.environ.get("IMAGE_TOOLKIT_BACKEND_PYTHON")
+    if env_explicit and os.path.isfile(env_explicit) and os.access(env_explicit, os.X_OK):
+        return env_explicit
+
+    env_runtime = os.environ.get("IMAGE_TOOLKIT_RUNTIME")
+    if env_runtime:
+        runtime_root = Path(env_runtime)
+        for rel in (
+            "python/bin/python3",
+            "python/bin/python",
+            "python/python.exe",
+            ".venv/bin/python",
+            ".venv/bin/python3",
+            "bin/python3",
+            "bin/python",
+        ):
+            candidate = runtime_root / rel
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                return str(candidate)
+
+    if data_dir is not None:
+        pointer = data_dir / "backend_python.txt"
+        if pointer.is_file():
+            try:
+                candidate = Path(pointer.read_text(encoding="utf-8").strip())
+                if candidate.is_file() and os.access(candidate, os.X_OK):
+                    return str(candidate)
+            except OSError:
+                pass
+
+    for candidate_path in (
+        Path("/opt/image-toolkit/sidecar-runtime/python/bin/python3"),
+        Path("/opt/image-toolkit/sidecar-runtime/bin/python3"),
+        Path("/opt/image-toolkit/python/bin/python3"),
+        ROOT_DIR / ".venv" / "bin" / "python",
+        ROOT_DIR / ".venv" / "bin" / "python3",
+    ):
+        if candidate_path.is_file() and os.access(candidate_path, os.X_OK):
+            return str(candidate_path)
+
+    return sys.executable
+
+
 def sidecar_argv(data_dir: Path, *, python_executable: str | None = None) -> list[str]:
-    """Real #876 sidecar command with an explicit installed runtime."""
+    """Real #876 sidecar command with an explicit or resolved installed runtime."""
+    resolved = resolve_backend_python(data_dir, explicit=python_executable)
     return [
-        python_executable or sys.executable,
+        resolved,
         "-m",
         "middleware.src.sidecar",
         "--data-dir",

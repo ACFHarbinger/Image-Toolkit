@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useMemo, useState } from "react";
 import { LogOut, Settings } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { HostClient, RustTransport } from "../hostclient";
+import { APP_VERSION } from "../version";
 import { useAppStore } from "../store/appStore";
 import { shellCatalog } from "./catalog";
 import { Inspector } from "./Inspector";
@@ -46,7 +47,7 @@ export function Shell({ showModal }: ShellProps) {
     // Each effect setup owns its client, including StrictMode's setup/cleanup replay.
     const client = new HostClient(new RustTransport(), {
       clientName: "tauri-shell",
-      clientVersion: "1.0.0",
+      clientVersion: APP_VERSION,
     });
     setHostClient(client);
     void client.connect().catch(() => {});

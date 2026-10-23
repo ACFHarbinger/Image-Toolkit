@@ -131,6 +131,11 @@ fn resolve_runtime(probe: &RuntimeProbe) -> Result<Runtime, String> {
         candidates.push(exe_dir.join("../lib/image-toolkit/sidecar-runtime"));
         candidates.push(exe_dir.join("../share/image-toolkit/sidecar-runtime"));
     }
+    #[cfg(unix)]
+    {
+        candidates.push(PathBuf::from("/opt/image-toolkit/sidecar-runtime"));
+        candidates.push(PathBuf::from("/opt/image-toolkit"));
+    }
     for candidate in candidates {
         if let Some(runtime) = runtime_at(&candidate) {
             return Ok(runtime);
@@ -303,7 +308,7 @@ fn handshake_request(id: &str) -> Value {
         "method": "system.handshake",
         "params": {
             "protocol": "image-toolkit-bridge",
-            "client": {"name": "tauri-shell", "version": "1.0.0"}
+            "client": {"name": "tauri-shell", "version": env!("CARGO_PKG_VERSION")}
         }
     })
 }

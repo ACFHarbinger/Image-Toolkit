@@ -17,6 +17,13 @@ bump new_version:
 bundle-linux:
     @source .venv/bin/activate && python tools/release/package_linux.py
 
+# Build Tauri Linux release bundle (Tauri -> .deb)
+bundle-tauri:
+    @source .venv/bin/activate && python tools/release/package_tauri.py
+
+# Build both Linux bundles during coexistence (PyInstaller + Tauri)
+bundle-all-linux: bundle-linux bundle-tauri
+
 # Build Windows release bundle (PyInstaller -> zip)
 bundle-windows:
     @source .venv/bin/activate && python tools/release/package_windows.py
