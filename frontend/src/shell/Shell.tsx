@@ -40,27 +40,18 @@ export function Shell({ showModal }: ShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
-  const hostClient = useMemo(
-    () =>
-      new HostClient(new RustTransport(), {
-        clientName: "tauri-shell",
-        clientVersion: "1.0.0",
-      }),
-    [],
-  );
+  const [hostClient, setHostClient] = useState<HostClient | null>(null);
 
   useEffect(() => {
-    let alive = true;
-    void hostClient.connect().catch(() => {
-      if (!alive) {
-        return;
-      }
+    // Each effect setup owns its client, including StrictMode's setup/cleanup replay.
+    const client = new HostClient(new RustTransport(), {
+      clientName: "tauri-shell",
+      clientVersion: "1.0.0",
     });
-    return () => {
-      alive = false;
-      void hostClient.close();
-    };
-  }, [hostClient]);
+    setHostClient(client);
+    void client.connect().catch(() => {});
+    return () => { void client.close(); };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,7 +138,7 @@ export function Shell({ showModal }: ShellProps) {
                   entry={active}
                   showModal={showModal}
                   onAddImagesToDb={onAddImagesToDb}
-                  hostClient={hostClient}
+                  hostClient={hostClient ?? undefined}
                 />
               )}
             </main>

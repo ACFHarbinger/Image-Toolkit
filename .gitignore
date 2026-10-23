@@ -496,3 +496,5 @@ frontend/src-tauri/resources/sidecar-runtime/.venv/
 frontend/src-tauri/resources/sidecar-runtime/middleware/
 frontend/src-tauri/resources/sidecar-runtime/*.so
 frontend/src-tauri/resources/sidecar-runtime/RUNTIME.json
+frontend/src-tauri/resources/sidecar-runtime/python/
+frontend/src-tauri/resources/sidecar-runtime/contracts/

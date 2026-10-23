@@ -15,7 +15,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::sync::Mutex;
 use std::time::Duration;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 struct Session {
     stdin: ChildStdin,
@@ -72,6 +72,8 @@ fn is_executable(path: &Path) -> bool {
 
 fn python_in(root: &Path) -> Option<PathBuf> {
     for relative in [
+        "python/bin/python3",
+        "python/python.exe",
         ".venv/bin/python",
         ".venv/bin/python3",
         "bin/python3",
@@ -179,7 +181,16 @@ fn fail_pending(pending: &Mutex<HashMap<String, Sender<Result<Value, String>>>>,
     }
 }
 
-fn spawn_session(resource_dir: Option<PathBuf>) -> Result<Session, String> {
+fn is_event(frame: &Value) -> bool {
+    frame.get("channel").and_then(Value::as_str).is_some()
+        && frame.get("seq").and_then(Value::as_u64).is_some()
+        && frame.get("payload").is_some()
+}
+
+fn spawn_session(
+    resource_dir: Option<PathBuf>,
+    app: Option<tauri::AppHandle>,
+) -> Result<Session, String> {
     let launch = launch_for(resource_dir)?;
     let mut command = Command::new(&launch.program);
     command.args(&launch.args);
@@ -188,8 +199,13 @@ fn spawn_session(resource_dir: Option<PathBuf>) -> Result<Session, String> {
     }
     if let Some(pythonpath) = &launch.pythonpath {
         command.env("PYTHONPATH", pythonpath);
-        command.env("VIRTUAL_ENV", pythonpath.join(".venv"));
+        if pythonpath.join(".venv").is_dir() {
+            command.env("VIRTUAL_ENV", pythonpath.join(".venv"));
+        } else {
+            command.env_remove("VIRTUAL_ENV");
+        }
     }
+    command.env_remove("PYTHONHOME");
     command.env("PYTHONNOUSERSITE", "1");
     let mut child = command
         .stdin(Stdio::piped())
@@ -219,6 +235,11 @@ fn spawn_session(resource_dir: Option<PathBuf>) -> Result<Session, String> {
                 continue;
             };
             if frame.get("jsonrpc").is_none() {
+                if is_event(&frame) {
+                    if let Some(app) = &app {
+                        let _ = app.emit("bridge-event", &frame);
+                    }
+                }
                 continue;
             }
             let Some(id) = frame.get("id") else { continue };
@@ -355,7 +376,11 @@ fn mark_handshaken() {
     }
 }
 
-fn ensure_ready(method: &str, resource_dir: Option<PathBuf>) -> Result<(), String> {
+fn ensure_ready(
+    method: &str,
+    resource_dir: Option<PathBuf>,
+    app: Option<tauri::AppHandle>,
+) -> Result<(), String> {
     let handshake_id = {
         let mut slot = SESSION
             .lock()
@@ -368,7 +393,7 @@ fn ensure_ready(method: &str, resource_dir: Option<PathBuf>) -> Result<(), Strin
             if let Some(old) = slot.take() {
                 retire(old);
             }
-            *slot = Some(spawn_session(resource_dir)?);
+            *slot = Some(spawn_session(resource_dir, app)?);
         }
         let session = slot.as_ref().expect("session was just stored");
         if session.handshaken.load(Ordering::SeqCst) || method == "system.handshake" {
@@ -395,7 +420,11 @@ fn transport_lost(error: &str) -> bool {
     error.contains("exited") || error.contains("not running") || error.contains("failed to write")
 }
 
-fn exchange(request: Value, resource_dir: Option<PathBuf>) -> Result<Value, String> {
+fn exchange_with_events(
+    request: Value,
+    resource_dir: Option<PathBuf>,
+    app: Option<tauri::AppHandle>,
+) -> Result<Value, String> {
     let method = request
         .get("method")
         .and_then(|value| value.as_str())
@@ -403,7 +432,7 @@ fn exchange(request: Value, resource_dir: Option<PathBuf>) -> Result<Value, Stri
         .to_string();
     let mut last_error = "sidecar exited".to_string();
     for attempt in 0..2 {
-        if let Err(error) = ensure_ready(&method, resource_dir.clone()) {
+        if let Err(error) = ensure_ready(&method, resource_dir.clone(), app.clone()) {
             last_error = error;
             if attempt == 0 && transport_lost(&last_error) {
                 invalidate_session();
@@ -431,9 +460,16 @@ fn exchange(request: Value, resource_dir: Option<PathBuf>) -> Result<Value, Stri
 #[tauri::command]
 pub async fn bridge_request(app: tauri::AppHandle, request: Value) -> Result<Value, String> {
     let resource_dir = app.path().resource_dir().ok();
-    tauri::async_runtime::spawn_blocking(move || exchange(request, resource_dir))
-        .await
-        .map_err(|error| format!("bridge request task failed: {error}"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        exchange_with_events(request, resource_dir, Some(app))
+    })
+    .await
+    .map_err(|error| format!("bridge request task failed: {error}"))?
+}
+
+#[cfg(test)]
+fn exchange(request: Value, resource_dir: Option<PathBuf>) -> Result<Value, String> {
+    exchange_with_events(request, resource_dir, None)
 }
 
 #[cfg(test)]
@@ -463,6 +499,17 @@ mod tests {
         let marker = root.join("middleware/src/sidecar/__main__.py");
         fs::create_dir_all(marker.parent().unwrap()).unwrap();
         fs::write(marker, b"").unwrap();
+    }
+
+    #[test]
+    fn recognizes_job_events_without_response_ids() {
+        assert!(is_event(
+            &json!({"channel": "jobs", "seq": 1, "payload": {"state": "done"}})
+        ));
+        assert!(!is_event(&json!({"jsonrpc": "2.0", "id": 1, "result": {}})));
+        assert!(!is_event(
+            &json!({"channel": "jobs", "seq": -1, "payload": {}})
+        ));
     }
 
     #[test]
