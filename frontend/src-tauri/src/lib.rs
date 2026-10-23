@@ -3,8 +3,23 @@ mod benchmark_commands;
 mod core_commands;
 mod database_commands;
 mod db;
+#[cfg(unix)]
+mod gui_gate;
+#[cfg(not(unix))]
+mod gui_gate {
+    use tauri::AppHandle;
+
+    pub fn start(_app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+        Err(std::io::Error::other(
+            "gui gate needs the unix flock and focus socket shared with GuiInstance",
+        )
+        .into())
+    }
+}
+mod tray;
 mod video_commands;
 mod wallpaper_commands;
+mod window_registry;
 
 use std::env;
 use tauri::Manager;
@@ -46,8 +61,13 @@ pub fn run() {
             database_commands::test_database_connection,
             database_commands::batch_add_images,
             // Benchmark analytics
-            benchmark_commands::load_benchmark_reports
+            benchmark_commands::load_benchmark_reports,
+            window_registry::window_popout,
+            window_registry::window_hide_all,
+            window_registry::window_restore,
+            window_registry::window_focus
         ])
+        .on_window_event(|window, event| window_registry::on_window_event(window, event))
         .setup(|app| {
             // Setup logging
             if cfg!(debug_assertions) {
@@ -57,6 +77,10 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            app.manage(window_registry::TrayHidden::default());
+            tray::install(app)?;
+            gui_gate::start(app.handle())?;
 
             // Initialize database connection in the background
             let app_handle = app.handle().clone();

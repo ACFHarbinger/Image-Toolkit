@@ -27,11 +27,11 @@
 | `gui/src/windows/settings/_reset_state.py` | 432 | 16 | 17 | 465 |
 | `gui/src/helpers/core/_queue_extraction_process.py` | 429 | 7 | 29 | 465 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 418 | 27 | 20 | 465 |
-| `gui/src/windows/image_preview_window.py` | 417 | 68 | 42 | 527 |
 | `middleware/src/core/guidance_schema.py` | 415 | 20 | 58 | 493 |
 | `middleware/src/models/core/comfy_manager.py` | 413 | 65 | 46 | 524 |
 | `middleware/src/core/guidance_vision.py` | 404 | 1 | 25 | 430 |
 | `gui/src/tabs/models/gen/lora_generate_tab.py` | 403 | 16 | 3 | 422 |
+| `gui/src/windows/image_preview_window.py` | 402 | 67 | 42 | 511 |
 | `gui/src/windows/settings/_appearance.py` | 400 | 31 | 18 | 449 |
 | `gui/src/windows/main/_session_recovery.py` | 400 | 31 | 28 | 459 |
 | `gui/src/tabs/models/gen/generate_surface.py` | 399 | 2 | 11 | 412 |
@@ -53,7 +53,7 @@
 | `middleware/src/models/core/comfy_provenance.py` | 357 | 16 | 32 | 405 |
 | `gui/src/tabs/core/extractor_tab/_extraction_workers.py` | 355 | 11 | 9 | 375 |
 | `middleware/src/models/tuning/cbir_tuner.py` | 352 | 32 | 76 | 460 |
+| `middleware/src/app.py` | 346 | 112 | 50 | 508 |
 | `gui/src/tabs/core/extractor_tab/_queue_panel.py` | 346 | 36 | 32 | 414 |
 | `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
-| `gui/src/windows/settings/settings_window.py` | 345 | 28 | 10 | 383 |
-| **TOTALS** | **108296** | **6644** | **11102** | **126042** |
+| **TOTALS** | **108421** | **6644** | **11123** | **126188** |
