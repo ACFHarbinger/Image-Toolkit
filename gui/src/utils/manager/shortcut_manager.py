@@ -36,10 +36,10 @@ from __future__ import annotations
 import json
 from typing import Optional
 
+from middleware.src.shortcuts.registry import active_keys, load_registry
 from PySide6.QtGui import QKeyEvent, QKeySequence
 
 from gui.src.constants.utils import _KEYBINDINGS_PATH
-from middleware.src.shortcuts.registry import load_registry
 
 # ---------------------------------------------------------------------------
 # Registry definition — loaded from the shared serializable source
@@ -50,9 +50,6 @@ SHORTCUT_REGISTRY: list[dict] = _SHARED["actions"]
 
 class ShortcutRegistry:
     def __init__(self) -> None:
-        self._defaults: dict[str, str] = {
-            e["id"]: e["default"] for e in SHORTCUT_REGISTRY
-        }
         # action_id -> {"default_enabled": bool, "custom": [key_str, ...]}
         self._state: dict[str, dict] = {}
         self._load()
@@ -108,16 +105,12 @@ class ShortcutRegistry:
         return list(self._entry_state(action_id).get("custom", []))
 
     def get_all_keys(self, action_id: str) -> list[str]:
-        """Every currently active key string for *action_id* (default, if
-        enabled, followed by every custom binding)."""
-        st = self._entry_state(action_id)
-        keys: list[str] = []
-        if st.get("default_enabled", True):
-            default = self._defaults.get(action_id, "")
-            if default:
-                keys.append(default)
-        keys.extend(k for k in st.get("custom", []) if k)
-        return keys
+        """Every currently active key string for *action_id*.
+
+        Default chords, including ``also`` aliases, stay together: turning
+        the default off drops the aliases. Custom bindings are independent.
+        """
+        return active_keys(_SHARED, self._state, action_id)
 
     def get_key(self, action_id: str) -> str:
         """The single "primary" active key string for an action -- the
