@@ -271,14 +271,25 @@ pybind11_add_module(backend
     # Phase 11: math bindings
     src/math/math_bindings.cpp
 
-    # Hybrid Image Editor (HIE) — exact & metaheuristic optimization solvers.
+    # Hybrid Image Editor (HIE) — render graph, exact & metaheuristic optimization solvers.
     # Sources live in the HIE submodule; compiled here so they link into the
-    # single `base` native extension, same pattern as the ASP sources above.
+    # single `backend` native extension, same pattern as the ASP sources above.
+    ../submodules/HIE/logic/src/greet.cpp
+    ../submodules/HIE/logic/src/render_graph.cpp
     ../submodules/HIE/logic/src/exact_solvers.cpp
     ../submodules/HIE/logic/src/exact_solvers_bindings.cpp
     ../submodules/HIE/logic/src/metaheuristics.cpp
     ../submodules/HIE/logic/src/metaheuristics_bindings.cpp
 )
+
+option(HIE_ENABLE_SIMD_SEAM "Compile solve_seam's DP row fill with AVX2 (x86) / NEON (ARM) vectorization" OFF)
+if(HIE_ENABLE_SIMD_SEAM)
+    target_compile_definitions(backend PRIVATE HIE_ENABLE_SIMD_SEAM)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64|i.86)$")
+        set_source_files_properties(../submodules/HIE/logic/src/exact_solvers.cpp PROPERTIES
+            COMPILE_OPTIONS "-mavx2;-mfma")
+    endif()
+endif()
 
 target_include_directories(backend PRIVATE
     include/

@@ -11,7 +11,11 @@ You're already using it — this page is rendered by the [Vue documentation site
 | Section | Description |
 |---------|-------------|
 | [Quick Start](../README.md) | 5-minute setup, environment bootstrapping, CLI reference |
-| [Architecture](ARCHITECTURE.md) | Module dependency graph, data-flow diagrams, tech stack |
+| [Development](DEVELOPMENT.md) | Developer onboarding, build workflow, adding a capability |
+| [Architecture](ARCHITECTURE.md) | C4 system context, container, and component diagrams |
+| [ASP Stitching Architecture](ASP_ARCHITECTURE.md) | 13-stage Anime Stitch Pipeline reference and stage flowcharts |
+| [Architecture Decisions (ADRs)](adr/index.md) | Locked decisions from Tauri Migration and Cloud Jobs roadmaps |
+| [Modules](modules/index.md) | Capability module READMEs and contract SHA-256 spine |
 | [Troubleshooting](TROUBLESHOOTING.md) | PySide6 crashes, ASP errors, C++ builds, Hydra, mobile |
 | [Python API](api/python/animation.md) | Auto-generated reference from Google-style docstrings |
 | [C++ API](api/rust/math.md) | Math backbone: linalg, stats, distance, information, graph |
@@ -29,33 +33,32 @@ You're already using it — this page is rendered by the [Vue documentation site
 ```mermaid
 graph TD
     subgraph Frontend["Frontend Layer"]
-        FE["React 19 + Tauri (Rust)\nfrontend/"]
-        EL["Electron dev mode"]
+        FE["React 19 + Tauri 2 (Rust)\nfrontend/"]
         MB["Android (Kotlin)\niOS (Swift)\napp/"]
         EXT["Browser Extension\nManifest V3\nextension/"]
     end
 
-    subgraph Backend["Backend Layer"]
-        PY["Python Orchestrator\nbackend/"]
-        RU["C++ Core (pybind11/OpenMP)\nbase/src/"]
-        ML["PyTorch Models\nbackend/src/models/"]
-        HY["Hydra CLI\nbackend/dispatcher"]   
+    subgraph Middleware["Middleware Layer"]
+        PY["Python Orchestrator & Services\nmiddleware/src/services/"]
+        RU["C++17 Core (pybind11/OpenMP)\nbackend/"]
+        ML["PyTorch Models\nmiddleware/src/models/"]
+        CL["Cloud Jobs Engine\nmiddleware/src/cloud/"]
     end
 
-    subgraph Data["Data Layer"]
-        PG["PostgreSQL + pgvector"]
-        VT["VaultManager\nAES-256-GCM"]
+    subgraph Data["Encrypted Data Layer"]
+        DB["SQLCipher Unified Stores\nlibrary.db · cloud_jobs.db"]
+        VT["C++ Vault & Sealed Leases\nbackend::vault"]
     end
 
-    FE -->|Tauri IPC| PY
-    FE -->|REST / WebSocket| PY
+    FE -->|JSON-RPC / stdio| PY
+    FE -->|asset:// stills| RU
     PY -->|pybind11 FFI| RU
-    PY -->|SQL| PG
     PY --> ML
-    HY --> PY
+    PY --> CL
+    RU -->|SQLCipher| DB
+    RU --> VT
     MB -->|HTTP| PY
     EXT -->|HTTP| PY
-    PY --> VT
 ```
 
 ---

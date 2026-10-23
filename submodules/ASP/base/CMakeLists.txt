@@ -69,7 +69,7 @@ add_library(animation_impl STATIC
 )
 
 target_include_directories(animation_impl PUBLIC
-    ${IMAGE_TOOLKIT_ROOT}/base/include
+    ${IMAGE_TOOLKIT_ROOT}/backend/include
     ${OpenCV_INCLUDE_DIRS}
     ${pybind11_INCLUDE_DIRS}
 )

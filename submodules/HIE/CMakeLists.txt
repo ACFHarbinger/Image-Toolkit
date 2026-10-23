@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.20)
 project(hybrid_image_editor LANGUAGES CXX)
 
+# NOTE (W0-03 Phase B / #867):
+# HIE's C++ logic, solvers, unit tests (`hie_solver_tests`), and benchmarks
+# (`backend_bench_hie`) are compiled directly in the unified Image-Toolkit
+# `backend/CMakeLists.txt` build tree (`just build::build-base` and
+# `just test-base-cpp`). This standalone CMakeLists.txt is retained only as a
+# fallback for isolated submodule editing.
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 

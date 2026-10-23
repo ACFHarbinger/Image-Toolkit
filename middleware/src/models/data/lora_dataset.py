@@ -268,7 +268,10 @@ class LoRADatasetV2(Dataset):
         return ", ".join(tags) + (". " + s.caption if s.caption and s.caption not in tags else "")
 
     # ------------------------------------------------------------------
-    def __getitem__(self, idx: int) -> dict:
+    def base_pixels(self, idx: int) -> tuple[torch.Tensor, tuple[int, int]]:
+        """Deterministic bucket transform (resize + center crop) without
+        the stochastic photometric augmentations. Latent caching
+        (#756 H4 follow-up) encodes exactly this, one copy of the logic."""
         s = self.samples[idx]
         with Image.open(s.image_path) as im:
             im = im.convert("RGB")
@@ -281,8 +284,11 @@ class LoRADatasetV2(Dataset):
             ct = (nh - th) // 2
             im = im.crop((cl, ct, cl + tw, ct + th))
             crop_tl = (ct, cl)         # (top, left) for SDXL paper convention
+        return TF.to_tensor(im), crop_tl  # CHW [0,1]
 
-        x = TF.to_tensor(im)           # CHW [0,1]
+    def __getitem__(self, idx: int) -> dict:
+        s = self.samples[idx]
+        x, crop_tl = self.base_pixels(idx)
 
         # BaSiC photometric normalisation
         if self.basic is not None and random.random() < self.apply_basic_prob:
@@ -300,7 +306,8 @@ class LoRADatasetV2(Dataset):
         fg_mask = None
         if self.birefnet is not None:
             try:
-                fg_mask = self.birefnet.get_soft_mask(im)  # (H,W) float32 [0,1]
+                with Image.open(s.image_path) as mask_im:
+                    fg_mask = self.birefnet.get_soft_mask(mask_im.convert("RGB"))  # (H,W) float32 [0,1]
                 if not isinstance(fg_mask, torch.Tensor):
                     fg_mask = torch.from_numpy(np.array(fg_mask, dtype="float32"))
                 fg_mask = fg_mask.unsqueeze(0)             # (1,H,W)
@@ -325,6 +332,7 @@ class LoRADatasetV2(Dataset):
 
         result = {
             "pixel_values": x,
+            "sample_index": idx,
             "input_ids_one": ids1,
             "original_size": torch.tensor(list(s.original_size), dtype=torch.long),
             "target_size": torch.tensor(list(s.bucket), dtype=torch.long),

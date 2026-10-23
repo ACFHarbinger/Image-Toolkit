@@ -71,6 +71,15 @@ class LoRATunerConfig:
     # Load the frozen base (UNet, VAE, text encoders) in bf16. peft keeps
     # adapter weights fp32. Halves base-weight VRAM (needed for SDXL on 12 GB).
     full_bf16: bool = False
+
+    # Memory tricks (#756 H4 wiring): all consumed by the V2 trainer via
+    # train_caches.py. Latent caching skips stochastic photometric
+    # augmentations; TE-output caching freezes shuffle_tags/tag_dropout
+    # (caption dropout stays per step); xformers is opportunistic.
+    xformers: bool = False
+    cache_latents: bool = False
+    cache_latents_to_disk: bool = False
+    cache_text_encoder_outputs: bool = False
     # Seeds Python/NumPy/torch RNGs (noise, timesteps, adapter init) when set.
     seed: Optional[int] = None
     max_train_steps: Optional[int] = 2000
@@ -108,6 +117,12 @@ class LoRATunerConfig:
     # #756: Hutchinson Hessian-trace probes per checkpoint (0 disables the
     # curvature diagnostic). Disabled until GPU memory cost is validated.
     hessian_vectors: int = 0
+
+    # 512px gauge redesign (#756 follow-up): area-interpolate the frozen
+    # probe batch down by 1/scale before freezing. 1 = full-resolution
+    # probe; 2 = the 12 GB recipe at 512px training. Runs at different
+    # scales are not comparable to each other.
+    hessian_probe_scale: int = 1
 
     # Logging: the dead use_wandb/wandb_project/use_tensorboard fields were
     # removed (#741) — nothing consumed them; the Hydra logging.* tree is a

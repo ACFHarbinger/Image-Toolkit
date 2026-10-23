@@ -146,6 +146,11 @@ for _dist in (
         pass
 
 datas.append((os.path.join(ROOT_DIR, 'pyproject.toml'), '.'))
+# Shared shortcut contract. The frozen app reads it from _MEIPASS (#872).
+datas.append((
+    os.path.join(ROOT_DIR, 'contracts', 'shortcuts', 'registry.json'),
+    os.path.join('contracts', 'shortcuts'),
+))
 
 # Non-.py runtime resources loaded by path from the source packages — QML (73),
 # QSS themes, YAML configs, SQL schema, HTML/CSS/JS, .qrc, qmldir.

@@ -183,6 +183,4 @@ asp-run-hugin *ARGS:
 
 # Needs OpenCV 4.6+ dev headers + this repo checked out under Image-Toolkit/submodules/
 test-base-cpp:
-    cd ../.. && cmake -S base -B base/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
-    cd ../.. && cmake --build base/build --parallel
-    cd ../.. && ctest --test-dir base/build --output-on-failure
+    cd ../../../.. && just test-base-cpp
