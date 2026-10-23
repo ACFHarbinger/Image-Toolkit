@@ -100,6 +100,18 @@ stability = "experimental"
 owner = 894
 
 [[method]]
+name = "cloud_jobs.summary"
+capability = "cloud_jobs"
+summary = "Header badge for the cloud.jobs shell: running job count and reserved spend (#847)."
+params = "cloud_jobs.SummaryParams"
+result = "cloud_jobs.SummaryResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 847
+
+[[method]]
 name = "convert.convert_batch"
 capability = "convert"
 summary = "Queue a cancellable batch conversion (pilot #894). Poll jobs.status for counts; quality stays 95."

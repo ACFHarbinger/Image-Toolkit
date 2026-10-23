@@ -8,7 +8,7 @@ the status lifecycle and deletion gate are documented in
 
 ## Summary
 
-- 28 feature rows: pyside-only × 27, both × 1, parity-passed × 0, pyside-deleted × 0
+- 29 feature rows: pyside-only × 28, both × 1, parity-passed × 0, pyside-deleted × 0
 
 ## wave-0
 
@@ -20,6 +20,7 @@ the status lifecycle and deletion gate are documented in
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
+| cloud.jobs | Cloud Jobs window | Grok | [#847](https://github.com/ACFHarbinger/Image-Toolkit/issues/847) | pyside-only | — | — | 0 |
 | system.convert | Convert | Kimi | [#894](https://github.com/ACFHarbinger/Image-Toolkit/issues/894) | pyside-only | system.convert | — | 0 |
 
 ## wave-3

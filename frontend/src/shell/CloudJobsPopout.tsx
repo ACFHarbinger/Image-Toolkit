@@ -1,11 +1,22 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { HostClient, RustTransport } from "../hostclient";
+import { CloudJobsWindow } from "./CloudJobsWindow";
+import { useCloudBadge } from "./useCloudBadge";
 
-/** Gate D panel host. Logical role `cloud.jobs`; native window label `cloud-jobs`. */
+/** Gate D pop-out. Logical role `cloud.jobs`; native window label `cloud-jobs`. */
 export function CloudJobsPopout(): React.ReactElement {
-  return (
-    <main className="flex min-h-screen flex-col gap-2 p-6">
-      <h1>Cloud Jobs</h1>
-      <p>This labeled pop-out is ready for Gate D. The header badge stays on main.</p>
-    </main>
-  );
+  const [client, setClient] = useState<HostClient | null>(null);
+  useEffect(() => {
+    const next = new HostClient(new RustTransport(), {
+      clientName: "cloud-jobs-window",
+      clientVersion: "1.0.0",
+    });
+    setClient(next);
+    void next.connect().catch(() => {});
+    return () => {
+      void next.close();
+    };
+  }, []);
+  const badge = useCloudBadge(client);
+  return <CloudJobsWindow badge={badge} />;
 }

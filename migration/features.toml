@@ -40,6 +40,28 @@ docs = "docs/guides/adding_a_capability.md"
 scenarios = []
 os_checklist = []
 
+[[feature]]
+id = "cloud.jobs"
+kind = "window"
+title = "Cloud Jobs window"
+owner = "Grok"
+wave = "wave-1"
+issue = 847
+status = "pyside-only"
+routes = []
+route_map = {}
+pyside = []
+tauri = [
+    "frontend/src/shell/CloudJobsWindow.tsx",
+    "frontend/src/shell/CloudJobsControl.tsx",
+    "frontend/src/shell/CloudComputeSurface.tsx",
+]
+service = "middleware/src/services/cloud_jobs/badge.py"
+contract = "cloud_jobs"
+docs = "docs/modules/cloud_jobs.md"
+scenarios = []
+os_checklist = []
+
 # ── Wave 3: Library ──────────────────────────────────────────────────
 
 [[feature]]
