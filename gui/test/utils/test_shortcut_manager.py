@@ -100,6 +100,14 @@ class TestGetAllKeys:
         reg.save({"gallery.select_all": {"default_enabled": False, "custom": ["Meta+A", "Meta+B"]}})
         assert reg.get_all_keys("gallery.select_all") == ["Meta+A", "Meta+B"]
 
+    def test_default_aliases_follow_the_default_toggle(self):
+        reg = shortcut_manager.ShortcutRegistry()
+        assert reg.get_all_keys("preview.zoom_in") == ["Ctrl+=", "Ctrl+Shift++"]
+        assert reg.get_all_keys("gallery.open_preview") == ["Return", "Space"]
+        assert reg.get_all_keys("preview.fullscreen") == ["F11", "F"]
+        reg.save({"preview.zoom_in": {"default_enabled": False, "custom": []}})
+        assert reg.get_all_keys("preview.zoom_in") == []
+
     def test_default_disabled_no_customs_is_empty(self):
         reg = shortcut_manager.ShortcutRegistry()
         reg.save({"gallery.select_all": {"default_enabled": False, "custom": []}})

@@ -23,7 +23,6 @@ class _KeyboardNavMixin:
         from ....utils.manager.shortcut_manager import get_registry
 
         reg = get_registry()
-        key = event.key()  # pyrefly: ignore [missing-attribute]
         if reg.matches(event, "gallery.select_all"):  # pyrefly: ignore [bad-argument-type]
             self.select_all_items()
             event.accept()
@@ -42,7 +41,7 @@ class _KeyboardNavMixin:
         elif reg.matches(event, "gallery.nav_down"):  # pyrefly: ignore [bad-argument-type]
             self._navigate_gallery(Qt.Key.Key_Down)
             event.accept()
-        elif reg.matches(event, "gallery.open_preview") or key == Qt.Key.Key_Space:  # pyrefly: ignore [bad-argument-type]
+        elif reg.matches(event, "gallery.open_preview"):  # pyrefly: ignore [bad-argument-type]
             self._preview_focused_item()
             event.accept()
         elif reg.matches(event, "gallery.export_paths"):  # pyrefly: ignore [bad-argument-type]
@@ -64,7 +63,7 @@ class _KeyboardNavMixin:
             if nxt:
                 self._navigate_to_dir(nxt)
             event.accept()
-        elif reg.matches(event, "gallery.compare_selected") or key == Qt.Key.Key_C:  # pyrefly: ignore [bad-argument-type]
+        elif reg.matches(event, "gallery.compare_selected"):  # pyrefly: ignore [bad-argument-type]
             if hasattr(self, "_compare_selected_images"):
                 self._compare_selected_images()
                 event.accept()
