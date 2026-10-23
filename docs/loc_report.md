@@ -7,8 +7,8 @@
 | Path | Code | Comments | Docstrings | Total |
 |---|---:|---:|---:|---:|
 | `gui/src/windows/settings/_credentials.py` | 500 | 32 | 14 | 546 |
-| `middleware/src/models/tuning/lo_ra_tuner_v2.py` | 493 | 51 | 29 | 573 |
 | `gui/src/tabs/models/delta/lora_train_tab.py` | 489 | 13 | 6 | 508 |
+| `middleware/src/models/tuning/lo_ra_tuner_v2.py` | 488 | 49 | 29 | 566 |
 | `gui/src/helpers/web/cloud/local_dir_sync_worker.py` | 475 | 58 | 69 | 602 |
 | `gui/src/windows/image_compare_window.py` | 473 | 18 | 8 | 499 |
 | `gui/src/classes/base/gallery_base.py` | 472 | 116 | 100 | 688 |
@@ -56,4 +56,4 @@
 | `middleware/src/app.py` | 346 | 112 | 50 | 508 |
 | `gui/src/tabs/core/extractor_tab/_queue_panel.py` | 346 | 36 | 32 | 414 |
 | `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
-| **TOTALS** | **108435** | **6648** | **11128** | **126211** |
+| **TOTALS** | **108704** | **6652** | **11181** | **126537** |
