@@ -11,7 +11,10 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from middleware.src.constants.paths import ROOT_DIR
+# Keep process startup light: importing middleware.src.constants.paths through
+# the package executes every constants module, including NumPy-backed animation
+# constants. The supervisor and bridge children need only the checkout root.
+ROOT_DIR = Path(__file__).resolve().parents[3]
 
 SIDECAR = "sidecar"
 CLOUD_JOBS = "cloud_jobs"
@@ -49,6 +52,17 @@ def fake_child_argv(role: str, data_dir: Path) -> list[str]:
         "middleware.src.supervisor.fake_child",
         "--role",
         role,
+        "--data-dir",
+        str(data_dir),
+    ]
+
+
+def sidecar_argv(data_dir: Path, *, python_executable: str | None = None) -> list[str]:
+    """Real #876 sidecar command with an explicit installed runtime."""
+    return [
+        python_executable or sys.executable,
+        "-m",
+        "middleware.src.sidecar",
         "--data-dir",
         str(data_dir),
     ]
@@ -105,13 +119,30 @@ def write_pid(data_dir: Path, name: str, pid: int) -> None:
     tmp.replace(path)
 
 
-def spawn(name: str, data_dir: Path, argv: list[str] | None = None) -> ChildHandle:
-    cmd = argv if argv is not None else fake_child_argv(name, data_dir)
+def spawn(
+    name: str,
+    data_dir: Path,
+    argv: list[str] | None = None,
+    *,
+    use_real_sidecar: bool = False,
+    python_executable: str | None = None,
+) -> ChildHandle:
+    real_sidecar = name == SIDECAR and use_real_sidecar and argv is None
+    if argv is not None:
+        cmd = argv
+    elif real_sidecar:
+        cmd = sidecar_argv(data_dir, python_executable=python_executable)
+    else:
+        cmd = fake_child_argv(name, data_dir)
     proc = subprocess.Popen(
         cmd,
         start_new_session=True,
         env=child_env(),
         cwd=str(ROOT_DIR),
+        # A supervisor-owned real sidecar waits on an open stdin pipe; protocol
+        # clients own a separate piped sidecar process until the shell attach
+        # path is wired.
+        stdin=subprocess.PIPE if real_sidecar else None,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )

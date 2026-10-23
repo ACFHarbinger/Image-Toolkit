@@ -1,0 +1,157 @@
+"""Synchronous JSON-RPC/stdio sidecar server.
+
+All stdout writes go through ``bridge.framing``: responses and validated event
+frames only. Diagnostics stay on stderr and never include tracebacks.
+"""
+
+from __future__ import annotations
+
+import sys
+import threading
+from typing import Any, TextIO
+
+from middleware.src.bridge import (
+    COMPATIBILITY_MAX,
+    COMPATIBILITY_MIN,
+    PROTOCOL_NAME,
+    BridgeAppError,
+    Catalog,
+    FrameValidationError,
+    build_handshake_result,
+    build_ping_result,
+    build_response,
+    catalog,
+    decode_request,
+    from_exception,
+    in_compatibility_range,
+    iter_frames,
+    write_frame,
+)
+from middleware.src.sidecar.jobs import JobRegistry
+
+
+class SidecarServer:
+    """Dispatch contract methods after the readiness/version handshake."""
+
+    def __init__(
+        self,
+        *,
+        table: Catalog | None = None,
+        stdin: TextIO | None = None,
+        stdout: TextIO | None = None,
+        stderr: TextIO | None = None,
+    ) -> None:
+        self.table = table or catalog()
+        self.stdin = stdin or sys.stdin
+        self.stdout = stdout or sys.stdout
+        self.stderr = stderr or sys.stderr
+        self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
+        self._handshaken = False
+        self._write_mu = threading.Lock()
+
+    @property
+    def handshaken(self) -> bool:
+        return self._handshaken
+
+    def serve(self) -> None:
+        """Read frames until EOF; a bad line gets an error response, not a crash."""
+        while True:
+            try:
+                for frame in iter_frames(self.stdin):
+                    response = self.handle_frame(frame)
+                    if response is not None:
+                        self._write_protocol(response)
+                return
+            except BridgeAppError as exc:
+                self._write_protocol(build_response(None, error=exc, table=self.table))
+            except Exception as exc:  # keep the supervisor's child alive past bad input
+                self._write_protocol(build_response(None, error=from_exception(exc), table=self.table))
+
+    def handle_frame(self, frame: Any) -> dict[str, Any] | None:
+        request_id = self._frame_id(frame)
+        try:
+            request = decode_request(frame, table=self.table)
+            request_id = request["id"]
+            method = str(request["method"])
+            params = request.get("params", {})
+            if method not in self.table.methods:
+                raise BridgeAppError("bridge.method_not_found", details={"method": method})
+            if method != "system.handshake" and not self._handshaken:
+                raise BridgeAppError(
+                    "bridge.invalid_request",
+                    retryable=True,
+                    details={"reason": "system.handshake required before command dispatch"},
+                )
+            errors = self.table.validate_params(method, params)
+            if errors:
+                raise BridgeAppError(
+                    "bridge.invalid_params",
+                    retryable=True,
+                    details={"errors": [str(error) for error in errors]},
+                )
+            result = self._dispatch(method, params)
+            errors = self.table.validate_result(method, result)
+            if errors:
+                raise BridgeAppError(
+                    "app.internal",
+                    details={"errors": [str(error) for error in errors]},
+                )
+            return build_response(request_id, result=result, table=self.table)
+        except (BridgeAppError, FrameValidationError, ValueError, TypeError) as exc:
+            return build_response(request_id, error=from_exception(exc), table=self.table)
+        except Exception as exc:
+            return build_response(request_id, error=from_exception(exc), table=self.table)
+
+    def _dispatch(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "system.handshake":
+            return self._handshake(params)
+        if method == "system.ping":
+            return build_ping_result(table=self.table)
+        if method == "jobs.submit":
+            return self.jobs.submit(params)
+        if method == "jobs.status":
+            return self.jobs.status(params)
+        if method == "jobs.list":
+            return self.jobs.list(params)
+        if method == "jobs.cancel":
+            return self.jobs.cancel(params)
+        raise BridgeAppError("bridge.method_not_found", details={"method": method})
+
+    def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:
+        protocol = params["protocol"]
+        if protocol != PROTOCOL_NAME:
+            raise BridgeAppError(
+                "bridge.protocol_mismatch",
+                details={"expected": PROTOCOL_NAME, "got": protocol},
+            )
+        client_version = params["client"]["version"]
+        if not in_compatibility_range(
+            client_version,
+            minimum=COMPATIBILITY_MIN,
+            maximum=COMPATIBILITY_MAX,
+        ):
+            raise BridgeAppError(
+                "bridge.version_mismatch",
+                details={
+                    "client": client_version,
+                    "min": COMPATIBILITY_MIN,
+                    "max": COMPATIBILITY_MAX,
+                },
+            )
+        result = build_handshake_result(table=self.table)
+        self._handshaken = True
+        return result
+
+    def _write_event(self, frame: dict[str, Any]) -> None:
+        self._write_protocol(frame)
+
+    def _write_protocol(self, frame: dict[str, Any]) -> None:
+        with self._write_mu:
+            write_frame(self.stdout, frame)
+
+    @staticmethod
+    def _frame_id(frame: Any) -> str | int | None:
+        if not isinstance(frame, dict):
+            return None
+        request_id = frame.get("id")
+        return request_id if isinstance(request_id, (str, int)) and not isinstance(request_id, bool) else None

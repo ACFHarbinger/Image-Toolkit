@@ -1,10 +1,10 @@
 """Process supervisor for the Tauri/PySide6 desktop (issue #877 / W0-13).
 
 The supervisor runs outside the webview and starts the sidecar, Cloud Jobs
-daemon and slideshow daemon as siblings. Fake children stand in until
-#875/#876 land. Closing the GUI does not stop durable siblings; a sidecar
-crash emits ``bridge.down`` then ``bridge.ready`` without touching daemon
-PIDs.
+daemon and slideshow daemon as siblings. Fake children remain the lifecycle
+default for #877 tests; pass ``use_real_sidecar=True`` to run the #876
+sidecar. Closing the GUI does not stop durable siblings; a sidecar crash
+emits ``bridge.down`` then ``bridge.ready`` without touching daemon PIDs.
 """
 
 from middleware.src.supervisor.autostart import disable as disable_autostart
