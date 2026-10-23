@@ -20,7 +20,7 @@
     "aurelia": "^2.0.0-beta.26",
     "framer-motion": "^13.4.4",
     "highlight.js": "^11.11.1",
-    "katex": "^0.18.10",
+    "katex": "^0.19.0",
     "lucide-react": "^1.48.0",
     "markdown-it": "^15.0.2",
     "markdown-it-anchor": "^10.0.0",
