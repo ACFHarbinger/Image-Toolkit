@@ -96,6 +96,7 @@ dependencies = [
  "chrono",
  "dotenv",
  "image",
+ "libc",
  "log",
  "once_cell",
  "pgvector",

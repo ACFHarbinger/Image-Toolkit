@@ -93,7 +93,7 @@ class _KeyboardNavMixin:
         elif reg.matches(event, "gallery.nav_down"): # pyrefly: ignore [bad-argument-type]
             self._navigate_gallery(_Qt.Key.Key_Down)
             event.accept()
-        elif reg.matches(event, "gallery.open_preview") or event.key() == _Qt.Key.Key_Space: # pyrefly: ignore [bad-argument-type, missing-attribute]
+        elif reg.matches(event, "gallery.open_preview"): # pyrefly: ignore [bad-argument-type]
             self._preview_focused_item()
             event.accept()
         elif reg.matches(event, "gallery.rename"): # pyrefly: ignore [bad-argument-type]

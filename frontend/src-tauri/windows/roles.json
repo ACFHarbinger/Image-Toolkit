@@ -1,0 +1,31 @@
+{
+  "windows": [
+    {
+      "id": "main",
+      "role": "main",
+      "kind": "webview",
+      "hide_on_close": true
+    },
+    {
+      "id": "cloud.jobs",
+      "label": "cloud-jobs",
+      "role": "popout",
+      "kind": "webview",
+      "panel_of": "main",
+      "hide_on_close": true
+    },
+    {
+      "id": "tray",
+      "role": "tray",
+      "kind": "tray",
+      "hide_on_close": false
+    },
+    {
+      "id": "slideshow",
+      "role": "slideshow",
+      "kind": "native",
+      "hide_on_close": false,
+      "deferred": "#893"
+    }
+  ]
+}

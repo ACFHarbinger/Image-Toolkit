@@ -18,6 +18,7 @@ from middleware.src.supervisor.envelope import (
     ErrorEnvelope,
 )
 from middleware.src.supervisor.gui_gate import GuiInstance
+from middleware.src.supervisor.gui_shell import claim_or_focus
 from middleware.src.supervisor.supervisor import Supervisor
 
 __all__ = [
@@ -28,6 +29,7 @@ __all__ = [
     "ErrorEnvelope",
     "GuiInstance",
     "Supervisor",
+    "claim_or_focus",
     "autostart_enabled",
     "disable_autostart",
     "enable_autostart",
