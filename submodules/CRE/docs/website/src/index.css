@@ -1,7 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root { font-family: 'DM Sans', system-ui, sans-serif; color: #f4f1eb; background: #0d0d10; font-synthesis: none; text-rendering: optimizeLegibility; }
 * { box-sizing: border-box; }
