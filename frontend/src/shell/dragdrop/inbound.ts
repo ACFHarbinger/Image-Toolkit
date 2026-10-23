@@ -18,6 +18,24 @@ export interface TauriDropPosition {
   readonly y: number;
 }
 
+/**
+ * Hit-test a native drop position against a target's client rect. Tauri
+ * reports physical pixels; DOM rects are CSS pixels, so convert by the
+ * device pixel ratio (falling back to 1 for a bogus ratio). Without this,
+ * every mounted target receives every webview-wide native drop, and drops
+ * outside the import target still import.
+ */
+export function positionHitsTarget(
+  position: TauriDropPosition,
+  rect: Pick<DOMRect, "left" | "right" | "top" | "bottom">,
+  devicePixelRatio: number,
+): boolean {
+  const ratio = devicePixelRatio > 0 ? devicePixelRatio : 1;
+  const x = position.x / ratio;
+  const y = position.y / ratio;
+  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
 export type TauriDropEvent = {
   readonly type: "over" | "enter" | "leave" | "drop";
   readonly position: TauriDropPosition;
@@ -190,6 +208,19 @@ export function useFileDropTarget(
       extensions: options.extensions,
     });
     const unsubscribeTauri = subscribeTauriDrop((evt) => {
+      if (evt.type === "drop") {
+        const current = ref.current;
+        if (!current) return;
+        if (
+          !positionHitsTarget(
+            evt.position,
+            current.getBoundingClientRect(),
+            window.devicePixelRatio,
+          )
+        ) {
+          return;
+        }
+      }
       void handler.handleTauriEvent(evt);
     });
     const onDragOver = (event: DragEvent) => {

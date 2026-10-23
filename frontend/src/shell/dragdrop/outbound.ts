@@ -33,15 +33,18 @@ export function buildDownloadUrlPayload(mime: string, filename: string, blobUrl:
 }
 
 /**
- * Populate a DataTransfer for dragging out. Multiple items ride as
- * newline-joined DownloadURL entries plus a CRLF-joined uri-list.
+ * Populate a DataTransfer for dragging out. Chromium's DownloadURL type
+ * carries exactly one `mime:filename:url` tuple — extra newline-joined
+ * entries are swallowed into the first URL rather than becoming extra
+ * downloads — so only the first item rides it. All items still ride the
+ * uri-list for URL-only targets. Multi-file drag-out to a file manager
+ * needs the native seam (registerNativeDragOut); until then it degrades
+ * to one copied file plus uri-list entries.
  */
 export function applyDragSource(dt: DataTransfer, items: readonly OutboundDragItem[]): void {
   if (items.length === 0) return;
-  dt.setData(
-    "DownloadURL",
-    items.map((item) => buildDownloadUrlPayload(item.mime, item.filename, item.blobUrl)).join("\n"),
-  );
+  const first = items[0];
+  dt.setData("DownloadURL", buildDownloadUrlPayload(first.mime, first.filename, first.blobUrl));
   dt.setData("text/uri-list", items.map((item) => item.blobUrl).join("\r\n"));
   dt.effectAllowed = "copy";
 }
