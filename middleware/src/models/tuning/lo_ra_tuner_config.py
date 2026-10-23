@@ -118,6 +118,12 @@ class LoRATunerConfig:
     # curvature diagnostic). Disabled until GPU memory cost is validated.
     hessian_vectors: int = 0
 
+    # 512px gauge redesign (#756 follow-up): area-interpolate the frozen
+    # probe batch down by 1/scale before freezing. 1 = full-resolution
+    # probe; 2 = the 12 GB recipe at 512px training. Runs at different
+    # scales are not comparable to each other.
+    hessian_probe_scale: int = 1
+
     # Logging: the dead use_wandb/wandb_project/use_tensorboard fields were
     # removed (#741) — nothing consumed them; the Hydra logging.* tree is a
     # separate config consumed by anime_training_pipeline.
