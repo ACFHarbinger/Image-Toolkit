@@ -74,20 +74,40 @@ pub fn data_dir() -> PathBuf {
     PathBuf::from(home.unwrap_or_else(|| ".".into())).join(".image-toolkit")
 }
 
+/// Keep labels already hidden, and record any that are visible on this call.
+///
+/// A second hide runs after those windows are already hidden. Replacing the
+/// saved set with "what is visible now" would drop the pop-out, and restore
+/// would show only main.
+pub fn merge_hidden_labels(saved: &[String], currently_visible: &[String]) -> Vec<String> {
+    let mut next = saved.to_vec();
+    for label in currently_visible {
+        if !next.iter().any(|existing| existing == label) {
+            next.push(label.clone());
+        }
+    }
+    next
+}
+
 pub fn hide_all(app: &AppHandle) -> Result<(), String> {
-    let mut hidden = Vec::new();
+    let saved = if let Some(state) = app.try_state::<TrayHidden>() {
+        state.0.lock().map_err(|err| err.to_string())?.clone()
+    } else {
+        Vec::new()
+    };
+    let mut visible = Vec::new();
     for label in hide_on_close_labels() {
         let Some(window) = app.get_webview_window(&label) else {
             continue;
         };
         if window.is_visible().unwrap_or(false) {
-            hidden.push(label);
+            visible.push(label);
         }
         let _ = window.hide();
         let _ = window.set_skip_taskbar(true);
     }
     if let Some(state) = app.try_state::<TrayHidden>() {
-        *state.0.lock().map_err(|err| err.to_string())? = hidden;
+        *state.0.lock().map_err(|err| err.to_string())? = merge_hidden_labels(&saved, &visible);
     }
     Ok(())
 }
@@ -208,6 +228,21 @@ mod tests {
         assert_eq!(spec.role, "popout");
         assert_eq!(spec.panel_of.as_deref(), Some("main"));
         assert!(spec.hide_on_close);
+    }
+
+    #[test]
+    fn repeated_hide_keeps_the_saved_popout() {
+        let first = super::merge_hidden_labels(&[], &["main".into(), "cloud-jobs".into()]);
+        assert_eq!(first, ["main".to_string(), "cloud-jobs".to_string()]);
+        let second = super::merge_hidden_labels(&first, &[]);
+        assert_eq!(second, first);
+    }
+
+    #[test]
+    fn later_hide_keeps_earlier_windows_and_adds_new_ones() {
+        let saved = vec!["main".to_string()];
+        let merged = super::merge_hidden_labels(&saved, &["cloud-jobs".into()]);
+        assert_eq!(merged, ["main".to_string(), "cloud-jobs".to_string()]);
     }
 
     #[test]
