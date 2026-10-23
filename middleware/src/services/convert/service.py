@@ -28,6 +28,10 @@ class ConvertService(ConvertServiceProtocol):
         """Convert a single image."""
         return self._single_handler.handle(command)
 
-    def convert_batch(self, command: BatchConvertCommand) -> BatchConvertResult:
-        """Convert a batch of images from a source directory."""
-        return self._batch_handler.handle(command)
+    def convert_batch(self, command: BatchConvertCommand, *, checkpoint=None) -> BatchConvertResult:
+        """Convert a batch of images from a source directory.
+
+        ``checkpoint(done, total)`` runs before each file so a caller can
+        record progress or raise to stop the rest of the batch.
+        """
+        return self._batch_handler.handle(command, checkpoint=checkpoint)

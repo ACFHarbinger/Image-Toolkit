@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import tempfile
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from middleware.src.services.base import CommandValidationError, Handler
@@ -93,7 +94,12 @@ class BatchConvertHandler(Handler[BatchConvertCommand, BatchConvertResult]):
     def __init__(self, single_handler: Handler[ConvertSingleCommand, ConvertSingleResult] | None = None) -> None:
         self._single_handler = single_handler or ConvertSingleHandler()
 
-    def handle(self, command: BatchConvertCommand) -> BatchConvertResult:
+    def handle(
+        self,
+        command: BatchConvertCommand,
+        *,
+        checkpoint: Callable[[int, int], None] | None = None,
+    ) -> BatchConvertResult:
         t0 = time.monotonic()
         in_dir = Path(command.input_dir)
         out_dir = Path(command.output_dir)
@@ -133,7 +139,12 @@ class BatchConvertHandler(Handler[BatchConvertCommand, BatchConvertResult]):
         outputs: list[str] = []
         errors: list[str] = []
 
-        for src in candidates:
+        if checkpoint is not None:
+            checkpoint(0, len(candidates))
+
+        for index, src in enumerate(candidates):
+            if checkpoint is not None:
+                checkpoint(index, len(candidates))
             rel_name = src.stem + "." + out_ext
             if command.recursive:
                 rel_dir = src.parent.relative_to(in_dir)

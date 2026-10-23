@@ -26,18 +26,21 @@ class JobRecord:
     state: str = "queued"
     progress: dict[str, int] | None = None
     error: dict[str, Any] | None = None
+    result: dict[str, Any] | None = None
 
     def status(self) -> dict[str, Any]:
-        result: dict[str, Any] = {
+        payload: dict[str, Any] = {
             "job_id": self.job_id,
             "kind": self.kind,
             "state": self.state,
         }
         if self.progress is not None:
-            result["progress"] = dict(self.progress)
+            payload["progress"] = dict(self.progress)
         if self.error is not None:
-            result["error"] = dict(self.error)
-        return result
+            payload["error"] = dict(self.error)
+        if self.result is not None:
+            payload["result"] = dict(self.result)
+        return payload
 
 
 class JobRegistry:
@@ -109,13 +112,49 @@ class JobRegistry:
             self._emit(job_id, "cancelled")
         return result
 
-    def _emit(self, job_id: str, state: str) -> None:
+    def open_job(self, kind: str, spec: dict[str, Any]) -> tuple[str, Any]:
+        """Register a service-owned job and return ``(job_id, cancel_token)``."""
+        job_id = uuid.uuid4().hex
+        with self._mu:
+            token = self._cancel.register(job_id)
+            self._jobs[job_id] = JobRecord(job_id=job_id, kind=kind, spec=dict(spec))
+        self._emit(job_id, "queued")
+        return job_id, token
+
+    def transition(
+        self,
+        job_id: str,
+        state: str,
+        *,
+        progress: dict[str, int] | None = None,
+        error: dict[str, Any] | None = None,
+        result: dict[str, Any] | None = None,
+    ) -> bool:
+        """Move a non-terminal job. A cancel that already landed is left alone."""
+        with self._mu:
+            job = self._jobs.get(job_id)
+            if job is None or job.state in TERMINAL_JOB_STATES:
+                return False
+            job.state = state
+            if progress is not None:
+                job.progress = dict(progress)
+            if error is not None:
+                job.error = dict(error)
+            if result is not None:
+                job.result = dict(result)
+            if state in TERMINAL_JOB_STATES:
+                self._cancel.mark_terminal(job_id)
+            emitted_progress = dict(job.progress) if job.progress is not None else None
+        self._emit(job_id, state, emitted_progress)
+        return True
+
+    def _emit(self, job_id: str, state: str, progress: dict[str, int] | None = None) -> None:
         if self._event_sink is None:
             return
         with self._mu:
             self._seq += 1
             seq = self._seq
-        self._event_sink(job_event(job_id, state, seq=seq, table=self.table))
+        self._event_sink(job_event(job_id, state, seq=seq, progress=progress, table=self.table))
 
     def _validate_params(self, method: str, params: dict[str, Any]) -> None:
         errors = self.table.validate_params(method, params)

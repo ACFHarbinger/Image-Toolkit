@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { LogOut, Settings } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
+import { HostClient, RustTransport } from "../hostclient";
 import { useAppStore } from "../store/appStore";
 import { shellCatalog } from "./catalog";
 import { Inspector } from "./Inspector";
@@ -39,6 +40,18 @@ export function Shell({ showModal }: ShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
+  const [hostClient, setHostClient] = useState<HostClient | null>(null);
+
+  useEffect(() => {
+    // Each effect setup owns its client, including StrictMode's setup/cleanup replay.
+    const client = new HostClient(new RustTransport(), {
+      clientName: "tauri-shell",
+      clientVersion: "1.0.0",
+    });
+    setHostClient(client);
+    void client.connect().catch(() => {});
+    return () => { void client.close(); };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,11 +133,12 @@ export function Shell({ showModal }: ShellProps) {
                   : "min-h-0 flex-1 overflow-y-auto"
               }
             >
-              {active && (
+              {active && hostClient && (
                 <CatalogView
                   entry={active}
                   showModal={showModal}
                   onAddImagesToDb={onAddImagesToDb}
+                  hostClient={hostClient}
                 />
               )}
             </main>

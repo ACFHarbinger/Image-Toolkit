@@ -1,5 +1,5 @@
 import { ComponentType, ReactNode } from "react";
-import ConvertTab from "../tabs/core/ConvertTab";
+import { ConvertPilot } from "../views/ConvertPilot";
 import MergeTab from "../tabs/core/MergeTab";
 import DeleteTab from "../tabs/core/DeleteTab";
 import WallpaperTab from "../tabs/core/WallpaperTab";
@@ -18,6 +18,7 @@ import { R3GANEvaluateTab } from "../tabs/models/R3GANEvaluateTab";
 import { BenchmarkDashboard } from "../tabs/apollo/BenchmarkDashboard";
 import { HieEditorTab } from "../tabs/editor/HieEditorTab";
 import { CatalogEntry } from "./catalog";
+import type { HostClient } from "../hostclient";
 
 export interface ViewProps {
   showModal: (
@@ -26,11 +27,11 @@ export interface ViewProps {
     duration?: number,
   ) => void;
   onAddImagesToDb?: (files: File[]) => void;
+  hostClient: HostClient;
 }
 
-/** Views keyed by catalog id. A new page does not extend a tab-id union. */
 export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
-  "system.convert": ConvertTab,
+  "system.convert": ConvertPilot,
   "system.merge": MergeTab,
   "system.similarity": DeleteTab,
   "system.extractor": ImageExtractorTab,
@@ -50,26 +51,22 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "developer.benchmarks": BenchmarkDashboard,
 };
 
-export function UnportedCatalogView({ entry }: { entry: CatalogEntry }) {
-  return (
-    <div data-testid="unported-view" className="p-8 text-sm text-gray-600 dark:text-gray-300">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{entry.title}</h2>
-      <p className="mt-2">
-        Catalog id <code>{entry.id}</code> has no webview yet.
-      </p>
-    </div>
-  );
-}
-
 export function CatalogView({
   entry,
   showModal,
   onAddImagesToDb,
+  hostClient,
 }: ViewProps & { entry: CatalogEntry }) {
   const View = CATALOG_VIEWS[entry.id];
   if (!View) {
-    return <UnportedCatalogView entry={entry} />;
+    return (
+      <div data-testid="unported-view">
+        <h2>{entry.title}</h2>
+        <p>Catalog id {entry.id} has no webview yet.</p>
+      </div>
+    );
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
-  return <View showModal={showModal} {...extra} />;
+  const convertProps = entry.id === "system.convert" ? { hostClient } : {};
+  return <View showModal={showModal} {...extra} {...convertProps} />;
 }

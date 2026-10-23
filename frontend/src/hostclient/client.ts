@@ -1,6 +1,10 @@
 import type {
   BridgeResponse,
   CancelResult,
+  ConvertBatchParams,
+  ConvertBatchResult,
+  ConvertParams,
+  ConvertResult,
   HandshakeResult,
   JobStatus,
   ListParams,
@@ -74,6 +78,19 @@ export class HostClient {
   async listJobs(params: ListParams = {}): Promise<ListResult> {
     await this.connect();
     return this.send<ListResult>("jobs.list", params as unknown as Record<string, unknown>);
+  }
+
+  async convert(params: ConvertParams): Promise<ConvertResult> {
+    await this.connect();
+    return this.send<ConvertResult>("convert.convert", params as unknown as Record<string, unknown>);
+  }
+
+  async convertBatch(params: ConvertBatchParams): Promise<ConvertBatchResult> {
+    await this.connect();
+    return this.send<ConvertBatchResult>(
+      "convert.convert_batch",
+      params as unknown as Record<string, unknown>,
+    );
   }
 
   onEvent(listener: Parameters<NonNullable<BridgeTransport["onEvent"]>>[0]): () => void {

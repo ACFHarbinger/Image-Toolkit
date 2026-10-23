@@ -1,4 +1,4 @@
-// GENERATED — contract hash 982b5ee1c894cc7cc385319c615075e261812de38001db245180d72ca8b6e2c7. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 458ae5d7b75d09fd889bc0a4f1c891ad9d5fc73cf5612a38292f3dbc0bcc24f2. Do not edit; edit the schema and regenerate.
 import type { BridgeError } from "./error";
 
 export interface CancelParams {
@@ -26,6 +26,7 @@ export interface JobStatus {
   readonly state: JobState;
   readonly progress?: JobProgress;
   readonly error?: BridgeError;
+  readonly result?: Record<string, unknown>;
 }
 export interface ListParams {
   readonly states?: Array<JobState>;

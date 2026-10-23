@@ -33,10 +33,10 @@ pyside = [
     "gui/src/tabs/core/media_convert_subtab",
     "gui/src/tabs/core/sampler_subtab",
 ]
-tauri = ["frontend/src/tabs/core/ConvertTab.tsx"]
-service = ""
-contract = ""
-docs = ""
+tauri = ["frontend/src/views/ConvertPilot.tsx"]
+service = "middleware/src/services/convert/service.py"
+contract = "convert"
+docs = "docs/guides/adding_a_capability.md"
 scenarios = []
 os_checklist = []
 

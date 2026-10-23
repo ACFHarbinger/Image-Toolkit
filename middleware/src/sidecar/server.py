@@ -27,6 +27,7 @@ from middleware.src.bridge import (
     iter_frames,
     write_frame,
 )
+from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
 from middleware.src.sidecar.jobs import JobRegistry
 
 
@@ -115,6 +116,10 @@ class SidecarServer:
             return self.jobs.list(params)
         if method == "jobs.cancel":
             return self.jobs.cancel(params)
+        if method == "convert.convert":
+            return handle_convert(params)
+        if method == "convert.convert_batch":
+            return start_convert_batch(self.jobs, params)
         raise BridgeAppError("bridge.method_not_found", details={"method": method})
 
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:
