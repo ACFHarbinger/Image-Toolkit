@@ -69,6 +69,12 @@ export class SidecarTransport implements BridgeTransport {
       return;
     }
     await this.connection.reconnect?.();
+    // close() during the await detaches the listeners and rejects pending
+    // work; reopening after that would strand later requests — sent on a
+    // transport whose line listener is gone, pending forever.
+    if (this.stopped) {
+      return;
+    }
     this.closed = false;
   }
 

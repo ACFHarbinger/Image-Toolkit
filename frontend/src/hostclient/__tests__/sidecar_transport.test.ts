@@ -158,6 +158,30 @@ describe("SidecarTransport", () => {
     expect(pipe.sent).toHaveLength(1);
   });
 
+  it("stays closed when close() lands while reconnect is pending", async () => {
+    const pipe = harness();
+    let releaseReconnect!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseReconnect = resolve;
+    });
+    const connection: SidecarConnection = {
+      ...pipe.connection,
+      reconnect() {
+        return gate;
+      },
+    };
+    const transport = new SidecarTransport(connection);
+    pipe.drop();
+    const resetting = transport.reset();
+    await transport.close();
+    releaseReconnect();
+    await resetting;
+    await expect(transport.request(request("11", "system.ping"))).rejects.toMatchObject({
+      message: "sidecar transport is closed",
+    });
+    expect(pipe.sent).toHaveLength(0);
+  });
+
   it("sends again after reconnect and stays closed when reconnect fails", async () => {
     const pipe = harness();
     const transport = new SidecarTransport(pipe.connection);
