@@ -1,8 +1,54 @@
-// GENERATED — contract hash 458ae5d7b75d09fd889bc0a4f1c891ad9d5fc73cf5612a38292f3dbc0bcc24f2. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 5a4561cc935e5e7098bbb70e673dbe80fcc9da00470d369b67b897593f256ffe. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ResourceRow {
+    pub provider: String,
+    pub kind: String,
+    pub resource_id: String,
+    pub region: String,
+    pub job_id: String,
+    pub orphan: bool,
+}
+
+pub type ResourcesParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ResourcesResult {
+    pub available: bool,
+    pub resources: Vec<ResourceRow>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SpendByProvider {
+    pub provider: String,
+    pub actual_usd: f64,
+}
+
+pub type SpendParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SpendResult {
+    pub available: bool,
+    pub month_actual_usd: f64,
+    pub reserved_usd: f64,
+    pub by_provider: Vec<SpendByProvider>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct TerminateParams {
+    pub resource_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct TerminateResult {
+    pub accepted: bool,
+    pub resource_id: String,
+    pub reason: String,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ConvertBatchParams {

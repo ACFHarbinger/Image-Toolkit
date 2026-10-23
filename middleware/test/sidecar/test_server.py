@@ -35,7 +35,7 @@ def test_handshake_result_and_ping_validate() -> None:
     result = handshake["result"]
     assert result["protocol"] == PROTOCOL_NAME
     assert result["compatibility"] == {"min": "1.0.0", "max": "1.0.0"}
-    assert set(result["capabilities"]) == {"system", "jobs", "convert"}
+    assert set(result["capabilities"]) == {"system", "jobs", "convert", "cloud_jobs"}
     assert _request(server, "system.ping", {}, "ping")["result"] == {"ok": True}
 
 
@@ -123,3 +123,47 @@ def test_serve_stdout_carries_only_json_frames() -> None:
     assert frames[1]["error"]["data"]["code"] == "bridge.parse_error"
     assert frames[2]["result"] == {"ok": True}
     assert stderr.getvalue() == ""
+
+
+def test_cloud_jobs_views_are_unavailable_without_a_projection() -> None:
+    server = SidecarServer(stdout=io.StringIO())
+    _handshake(server)
+    resources = _request(server, "cloud_jobs.resources", {})["result"]
+    spend = _request(server, "cloud_jobs.spend", {})["result"]
+    terminate = _request(server, "cloud_jobs.terminate", {"resource_id": "inst-1"})["result"]
+    assert resources == {"available": False, "resources": []}
+    assert spend["available"] is False
+    assert terminate["accepted"] is False
+    assert terminate["reason"] == "no daemon lease"
+
+
+def test_cloud_jobs_views_use_the_attached_projection() -> None:
+    from middleware.src.services.cloud_jobs.projection import CloudProjection
+
+    server = SidecarServer(
+        stdout=io.StringIO(),
+        cloud_projection=CloudProjection(
+            resources=(
+                {
+                    "provider": "gcp",
+                    "kind": "instance",
+                    "resource_id": "inst-1",
+                    "region": "us-central1",
+                    "tags": {"it-job-id": "missing"},
+                },
+            ),
+            known_job_ids=frozenset(),
+            spend=({"kind": "actual", "amount_usd": 1.25, "provider": "gcp", "ts": 1_800_000_000.0},),
+            now=1_800_000_000.0,
+            daemon_attached=True,
+        ),
+    )
+    _handshake(server)
+    resources = _request(server, "cloud_jobs.resources", {})["result"]
+    assert resources["available"] is True
+    assert resources["resources"][0]["orphan"] is True
+    spend = _request(server, "cloud_jobs.spend", {})["result"]
+    assert spend["month_actual_usd"] == 1.25
+    terminate = _request(server, "cloud_jobs.terminate", {"resource_id": "inst-1"})["result"]
+    assert terminate["accepted"] is False
+    assert "daemon command path" in terminate["reason"]

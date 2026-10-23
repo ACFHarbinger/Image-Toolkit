@@ -1,4 +1,4 @@
-# GENERATED — contract hash 458ae5d7b75d09fd889bc0a4f1c891ad9d5fc73cf5612a38292f3dbc0bcc24f2. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 5a4561cc935e5e7098bbb70e673dbe80fcc9da00470d369b67b897593f256ffe. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -8,6 +8,48 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from typing import Any, Literal
+
+@dataclass(frozen=True)
+class ResourceRow:
+    provider: str
+    kind: str
+    resource_id: str
+    region: str
+    job_id: str
+    orphan: bool
+
+
+@dataclass(frozen=True)
+class ResourcesResult:
+    available: bool
+    resources: list[ResourceRow]
+
+
+@dataclass(frozen=True)
+class SpendByProvider:
+    provider: str
+    actual_usd: float
+
+
+@dataclass(frozen=True)
+class SpendResult:
+    available: bool
+    month_actual_usd: float
+    reserved_usd: float
+    by_provider: list[SpendByProvider]
+
+
+@dataclass(frozen=True)
+class TerminateParams:
+    resource_id: str
+
+
+@dataclass(frozen=True)
+class TerminateResult:
+    accepted: bool
+    resource_id: str
+    reason: str
+
 
 @dataclass(frozen=True)
 class ConvertBatchParams:
@@ -208,6 +250,12 @@ class HandshakeResult:
 @dataclass(frozen=True)
 class PingResult:
     ok: Literal[True]
+
+
+ResourcesParams = dict[str, Any]
+
+
+SpendParams = dict[str, Any]
 
 
 BridgeResponse = ResultResponse | ErrorResponse

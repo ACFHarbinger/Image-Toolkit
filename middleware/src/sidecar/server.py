@@ -27,6 +27,8 @@ from middleware.src.bridge import (
     iter_frames,
     write_frame,
 )
+from middleware.src.services.cloud_jobs.projection import CloudProjection
+from middleware.src.sidecar.handlers.cloud_jobs import handle_resources, handle_spend, handle_terminate
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
 from middleware.src.sidecar.jobs import JobRegistry
 
@@ -41,11 +43,13 @@ class SidecarServer:
         stdin: TextIO | None = None,
         stdout: TextIO | None = None,
         stderr: TextIO | None = None,
+        cloud_projection: CloudProjection | None = None,
     ) -> None:
         self.table = table or catalog()
         self.stdin = stdin or sys.stdin
         self.stdout = stdout or sys.stdout
         self.stderr = stderr or sys.stderr
+        self.cloud_projection = cloud_projection
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self._handshaken = False
         self._write_mu = threading.Lock()
@@ -116,6 +120,12 @@ class SidecarServer:
             return self.jobs.list(params)
         if method == "jobs.cancel":
             return self.jobs.cancel(params)
+        if method == "cloud_jobs.resources":
+            return handle_resources(self.cloud_projection)
+        if method == "cloud_jobs.spend":
+            return handle_spend(self.cloud_projection)
+        if method == "cloud_jobs.terminate":
+            return handle_terminate(self.cloud_projection, params)
         if method == "convert.convert":
             return handle_convert(params)
         if method == "convert.convert_batch":

@@ -1,4 +1,4 @@
-// GENERATED — contract hash 458ae5d7b75d09fd889bc0a4f1c891ad9d5fc73cf5612a38292f3dbc0bcc24f2. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 5a4561cc935e5e7098bbb70e673dbe80fcc9da00470d369b67b897593f256ffe. Do not edit; edit the schema and regenerate.
 import type { JobEventPayload, JobListSnapshot } from "../../../../contracts/generated/ts/jobs";
 import type { BridgeStatePayload, BridgeStateSnapshot } from "../../../../contracts/generated/ts/system";
 
