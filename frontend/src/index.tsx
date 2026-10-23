@@ -4,6 +4,8 @@ import "./index.css";
 import App from "./App";
 import { AppStoreProvider } from "./store/AppStoreProvider";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
+import { CloudJobsPopout } from "./shell/CloudJobsPopout";
+import { windowRole } from "./shell/windowRole";
 
 console.log("--- REACT BOOTSTRAP STARTING ---");
 
@@ -14,12 +16,17 @@ if (!rootElement) {
 }
 
 const root = ReactDOM.createRoot(rootElement as HTMLElement);
+const role = windowRole();
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <AppStoreProvider>
-        <App />
-      </AppStoreProvider>
+      {role === "cloud.jobs" ? (
+        <CloudJobsPopout />
+      ) : (
+        <AppStoreProvider>
+          <App />
+        </AppStoreProvider>
+      )}
     </ErrorBoundary>
   </React.StrictMode>,
 );
