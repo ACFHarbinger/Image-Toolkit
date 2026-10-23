@@ -342,6 +342,10 @@ def _build_tuner(cfg: DictConfig):
         gradient_checkpointing=bool(train_cfg.get("gradient_checkpointing", True)),
         mixed_precision=str(train_cfg.get("mixed_precision", "bf16")),
         full_bf16=bool(train_cfg.get("full_bf16", False)),
+        xformers=bool(train_cfg.get("xformers", False)),
+        cache_latents=bool(train_cfg.get("cache_latents", False)),
+        cache_latents_to_disk=bool(train_cfg.get("cache_latents_to_disk", False)),
+        cache_text_encoder_outputs=bool(train_cfg.get("cache_text_encoder_outputs", False)),
         seed=None if cfg.get("seed") is None else int(cfg.get("seed")),
         max_train_epochs=train_cfg.get("max_train_epochs", None),
         max_train_steps=train_cfg.get("max_train_steps", None),
@@ -360,6 +364,7 @@ def _build_tuner(cfg: DictConfig):
         validation_seed=int(cfg.get("validation_seed", cfg.get("seed", 42))),
         sample_grids=bool(train_cfg.get("sample_grids", True)),
         hessian_vectors=int(train_cfg.get("hessian_vectors", 0)),
+        hessian_probe_scale=int(train_cfg.get("hessian_probe_scale", 1)),
     )
 
     stage = str(train_cfg.get("stage", "lora"))

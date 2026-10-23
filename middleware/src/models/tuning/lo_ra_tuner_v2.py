@@ -69,6 +69,12 @@ from middleware.src.models.tuning.sample_grids import (
     default_sample_prompts as _default_sample_prompts,
 )
 from middleware.src.models.tuning.sample_grids import sampling_state
+from middleware.src.models.tuning.train_caches import (
+    build_tuner_caches,
+    enable_attention_backend,
+    step_conditioning,
+    step_latents,
+)
 
 log = logging.getLogger(__name__)
 
@@ -380,12 +386,20 @@ class LoRATunerV2:
     # ------------------------------------------------------------------
     # Training loop
     # ------------------------------------------------------------------
+    def _build_train_caches(self, dataloader) -> None:
+        build_tuner_caches(self, dataloader)
+
+    def _step_latents(self, batch) -> torch.Tensor:
+        return step_latents(self, batch)
+
     def train(self, dataloader: DataLoader, diagnostics=None):
         cfg = self.cfg
         self._last_sampled_step = None
         self._frozen_eval = None  # #756: frozen at the first checkpoint
         self.build_adapters()
         optimizer = self.build_optimizer()
+        enable_attention_backend(self.unet, cfg.xformers)
+        self._build_train_caches(dataloader)
 
         num_update_steps_per_epoch = max(
             len(dataloader) // cfg.gradient_accumulation_steps, 1
@@ -425,11 +439,7 @@ class LoRATunerV2:
 
             for batch in prog:
                 with self.accelerator.accumulate(self.unet):
-                    # Encode images to latents
-                    with torch.no_grad():
-                        px = batch["pixel_values"].to(dtype=self.vae.dtype)
-                        latents = self.vae.encode(px).latent_dist.sample()
-                        latents = latents * self.vae.config.scaling_factor
+                    latents = self._step_latents(batch)
 
                     noise = torch.randn_like(latents)
                     if cfg.noise_offset > 0:
@@ -449,25 +459,10 @@ class LoRATunerV2:
                     else:
                         target = noise
 
-                    # Text conditioning
-                    added_cond_kwargs = None
-                    if self.is_sdxl:
-                        prompt_embeds, pooled = self.encode_prompt_sdxl(
-                            batch.get("prompt", [""] * bsz)
-                            if "prompt" in batch
-                            else self._ids_to_prompts(batch.get("input_ids_one"))
-                        )
-                        # SDXL micro-conditioning
-                        orig = batch.get("original_size", torch.tensor([[1024, 1024]] * bsz)).to(latents.device)
-                        tgt = batch.get("target_size", torch.tensor([[1024, 1024]] * bsz)).to(latents.device)
-                        ctl = batch.get("crop_top_left", torch.zeros(bsz, 2)).to(latents.device)
-                        time_ids = torch.cat([orig, ctl, tgt], dim=-1).to(dtype=prompt_embeds.dtype)
-                        added_cond_kwargs = {"text_embeds": pooled, "time_ids": time_ids}
-                        encoder_hidden_states = prompt_embeds
-                    else:
-                        input_ids = batch["input_ids_one"].to(self.accelerator.device)
-                        with torch.no_grad():
-                            encoder_hidden_states = self.text_encoder_one(input_ids)[0]
+                    # Text conditioning (cached, or per-step encoders)
+                    encoder_hidden_states, added_cond_kwargs = step_conditioning(
+                        self, batch, bsz, latents.device
+                    )
 
                     # UNet forward
                     model_pred = self.unet(

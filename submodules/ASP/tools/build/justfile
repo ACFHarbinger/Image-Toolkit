@@ -9,4 +9,4 @@ backend:
     cd backend && uv build
 
 base:
-    cmake -S base -B base/build -DCMAKE_BUILD_TYPE=Release && cmake --build base/build -j
+    cd ../../../.. && just build::build-base

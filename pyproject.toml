@@ -259,6 +259,9 @@ forbidden_modules = ["PySide6"]
 ignore_imports = [
     "middleware.src.app -> PySide6",
     "middleware.src.app -> gui.src.windows",
+    # grimp records the submodule, so the package edge above does not
+    # cover the focus path that raises the existing main window.
+    "middleware.src.app -> gui.src.windows.window_manager",
 ]
 
 [[tool.importlinter.contracts]]
@@ -275,6 +278,7 @@ source_modules = [
     "middleware.src.errors",
     "middleware.src.utils",
     "middleware.src.supervisor",
+    "middleware.src.services",
 ]
 forbidden_modules = ["gui"]
 
@@ -299,3 +303,25 @@ type = "forbidden"
 source_modules = ["gui.src.classes"]
 forbidden_modules = ["gui.src.tabs"]
 ignore_imports = ["gui.src.classes.** -> gui.src.windows.**"]
+
+[[tool.importlinter.contracts]]
+# Domain services must never import GUI modules (Issue #881, Wave 0e W0-17).
+name = "middleware.src.services must not import GUI"
+type = "forbidden"
+source_modules = ["middleware.src.services"]
+forbidden_modules = ["gui"]
+
+[[tool.importlinter.contracts]]
+# Domain services must never import PySide (Issue #881, Wave 0e W0-17).
+name = "middleware.src.services must not import PySide"
+type = "forbidden"
+source_modules = ["middleware.src.services"]
+forbidden_modules = ["PySide6"]
+
+[[tool.importlinter.contracts]]
+# Feature services must be mutually independent (Issue #881, Wave 0e W0-17).
+name = "middleware.src.services features must be independent"
+type = "independence"
+modules = [
+    "middleware.src.services.convert",
+]

@@ -134,28 +134,17 @@ class ImagePreviewWindow(QDialog):
         vbox = QVBoxLayout(self)
         vbox.addLayout(main_content_layout)
 
-        # 4. Setup Shortcuts (GUI/UX §2.29 — registry-driven)
+        # 4. Setup Shortcuts (GUI/UX §2.29 — registry-driven, #872)
         _reg = get_registry()
-        self.zoom_in_shortcut = QShortcut(
-            _reg.get_key_sequence("preview.zoom_in"), self
-        )
-        self.zoom_out_shortcut = QShortcut(
-            _reg.get_key_sequence("preview.zoom_out"), self
-        )
-        # Secondary zoom-in alias: Ctrl+Shift++ (always active, not configurable)
-        self.zoom_in_shortcut_plus = QShortcut(
-            QKeySequence(Qt.Modifier.CTRL | Qt.Key.Key_Plus), self # pyrefly: ignore [no-matching-overload, unsupported-operation]
-        )
-
-        self.zoom_in_shortcut.activated.connect(
-            lambda: self.adjust_zoom(self.ZOOM_STEP)
-        )
-        self.zoom_out_shortcut.activated.connect(
-            lambda: self.adjust_zoom(-self.ZOOM_STEP)
-        )
-        self.zoom_in_shortcut_plus.activated.connect(
-            lambda: self.adjust_zoom(self.ZOOM_STEP)
-        )
+        self._zoom_shortcuts: list[QShortcut] = []
+        for action_id, step in (
+            ("preview.zoom_in", self.ZOOM_STEP),
+            ("preview.zoom_out", -self.ZOOM_STEP),
+        ):
+            for key in _reg.get_all_keys(action_id):
+                shortcut = QShortcut(QKeySequence(key), self)
+                shortcut.activated.connect(lambda _checked=False, delta=step: self.adjust_zoom(delta))
+                self._zoom_shortcuts.append(shortcut)
 
         self._update_navigation_button_state()
 
@@ -593,10 +582,6 @@ class ImagePreviewWindow(QDialog):
     def keyPressEvent(self, event: QKeyEvent):
         """Key navigation/actions — §2.29 registry-driven (zoom via QShortcut above)."""
         reg = get_registry()
-        key = event.key()
-        no_mod = (
-            not event.modifiers() or event.modifiers() == Qt.KeyboardModifier.NoModifier
-        )
 
         if reg.matches(event, "preview.next"):
             self._navigate(1)
@@ -606,9 +591,7 @@ class ImagePreviewWindow(QDialog):
             self.close()
         elif reg.matches(event, "preview.copy"):
             self.copy_image_to_clipboard()
-        elif reg.matches(event, "preview.fullscreen") or (
-            key == Qt.Key.Key_F and no_mod
-        ):
+        elif reg.matches(event, "preview.fullscreen"):
             self._toggle_fullscreen()
         elif reg.matches(event, "preview.fit_width"):
             self._fit_to_width()
