@@ -54,15 +54,25 @@ describe("buildDownloadUrlPayload", () => {
 });
 
 describe("applyDragSource", () => {
-  test("sets DownloadURL and text/uri-list, and allows copy", () => {
+  test("sets a single DownloadURL tuple plus the full uri-list, and allows copy", () => {
     const dt = recordingDataTransfer();
     applyDragSource(dt, ITEMS);
+    // Chromium accepts exactly one mime:filename:url tuple; extra items would
+    // be swallowed into the first URL, so only the first rides DownloadURL.
     expect(dt.dump()).toEqual({
-      DownloadURL:
-        "image/png:a.png:blob:http://localhost/uuid-a\nimage/jpeg:b.jpg:blob:http://localhost/uuid-b",
+      DownloadURL: "image/png:a.png:blob:http://localhost/uuid-a",
       "text/uri-list": "blob:http://localhost/uuid-a\r\nblob:http://localhost/uuid-b",
     });
     expect(dt.effectAllowed).toBe("copy");
+  });
+
+  test("single item sets both payload types for that item", () => {
+    const dt = recordingDataTransfer();
+    applyDragSource(dt, [ITEMS[1]]);
+    expect(dt.dump()).toEqual({
+      DownloadURL: "image/jpeg:b.jpg:blob:http://localhost/uuid-b",
+      "text/uri-list": "blob:http://localhost/uuid-b",
+    });
   });
 
   test("no-ops on an empty item list", () => {
