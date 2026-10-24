@@ -21,6 +21,7 @@ ROOT=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 APP=${TAURI_DRIVER_APP:-}
 if [ -z "$APP" ]; then
   for candidate in \
+    "$ROOT/target/release/app" \
     "$ROOT/target/release/image-toolkit" \
     "$ROOT/frontend/src-tauri/target/release/image-toolkit"
   do
@@ -40,7 +41,9 @@ if [ -z "$APP" ] || [ ! -x "$APP" ]; then
 fi
 
 PORT=${TAURI_DRIVER_PORT:-4444}
-tauri-driver --port "$PORT" >/tmp/tauri-driver-smoke.log 2>&1 &
+LOG=${TAURI_DRIVER_LOG:-"$HOME/Downloads/Data/Tests/tauri-driver-smoke/driver.log"}
+mkdir -p "$(dirname "$LOG")"
+tauri-driver --port "$PORT" >"$LOG" 2>&1 &
 DRIVER_PID=$!
 cleanup() {
   kill "$DRIVER_PID" >/dev/null 2>&1 || true

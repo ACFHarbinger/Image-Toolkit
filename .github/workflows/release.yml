@@ -156,7 +156,7 @@ jobs:
 
   publish-release:
     name: Publish Release Draft
-    needs: [build-linux, build-windows]
+    needs: [build-linux, build-windows, tauri-driver]
     runs-on: ubuntu-latest
 
     steps:
@@ -172,6 +172,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist/release-in
+          pattern: release-*
 
       - name: Flatten release artifacts and checksum
         run: |
@@ -208,9 +209,48 @@ jobs:
           generate_release_notes: true
 
   tauri-driver:
-    name: tauri-driver smoke (W0-19 / #883)
-    runs-on: ubuntu-22.04
+    name: Required release WebDriver smoke (W0-19 / #883)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_BUILD_JOBS: 2
+      TAURI_DRIVER_REQUIRED: '1'
     steps:
       - uses: actions/checkout@v4
-      - name: Per-release WebDriver smoke
-        run: bash frontend/e2e/tauri-driver-smoke.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install native build and WebDriver dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev libssl-dev pkg-config build-essential webkit2gtk-driver xvfb
+      - name: Install tauri-driver
+        run: cargo install tauri-driver --locked
+      - name: Build release shell with production web assets
+        run: |
+          npm ci
+          npm run build-frontend
+          cargo build --release --locked -p app
+      - name: Locate release executable from Cargo workspace
+        run: |
+          TARGET_DIR=$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])')
+          test -x "$TARGET_DIR/release/app"
+          echo "TAURI_DRIVER_APP=$TARGET_DIR/release/app" >> "$GITHUB_ENV"
+      - name: Per-release WebDriver smoke (required)
+        run: |
+          mkdir -p "$HOME/Downloads/Data/Tests/release-webdriver"
+          export IMAGE_TOOLKIT_DIR="$HOME/Downloads/Data/Tests/release-webdriver/config"
+          export XDG_CONFIG_HOME="$HOME/Downloads/Data/Tests/release-webdriver/config"
+          export TAURI_DRIVER_LOG="$HOME/Downloads/Data/Tests/release-webdriver/driver.log"
+          xvfb-run -a bash frontend/e2e/tauri-driver-smoke.sh
+      - name: Upload driver diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-driver-diagnostics
+          path: ~/Downloads/Data/Tests/release-webdriver/driver.log
+          if-no-files-found: warn
