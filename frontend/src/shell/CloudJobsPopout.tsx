@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { HostClient, RustTransport } from "../hostclient";
 import { RequestBuilder } from "../views/cloudjobs/RequestBuilder";
+import { CloudJobsWindow } from "./CloudJobsWindow";
+import { useCloudBadge } from "./useCloudBadge";
 
 export type CloudJobsTab = "builder" | "jobs";
 
@@ -20,6 +22,8 @@ export function CloudJobsPopout(): React.ReactElement {
       void next.close();
     };
   }, []);
+
+  const badge = useCloudBadge(client);
 
   return (
     <main data-testid="cloud-jobs-popout" className="flex min-h-screen flex-col bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
@@ -66,11 +70,8 @@ export function CloudJobsPopout(): React.ReactElement {
           <RequestBuilder client={client} />
         )}
         {activeTab === "jobs" && (
-          <div data-testid="cloud-jobs-queue-view" className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-            <h2 className="text-base font-bold">Cloud Job Queue & Activity</h2>
-            <p className="mt-1 text-xs text-gray-500">
-              Active job states and task execution streams. Use Request Builder to submit a new job.
-            </p>
+          <div data-testid="cloud-jobs-queue-view">
+            <CloudJobsWindow badge={badge} />
           </div>
         )}
       </div>

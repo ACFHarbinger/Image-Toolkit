@@ -33,7 +33,7 @@ tauri = ["frontend/src/tabs/core/ConvertTab.tsx"]  # paths under frontend/
 service = ""                 # middleware/src/services/<feature>/ once it exists, else ""
 contract = ""                # capability from contracts/methods.toml once adopted, else ""
 docs = ""                    # module doc path, required for parity-passed
-scenarios = []               # parity scenario paths (#883 fills them)
+scenarios = []               # parity scenario paths (migration/parity, #883)
 os_checklist = [ { item = "…", platform = "linux", checked = false } ]  # platform: linux|windows|macos
 ```
 
@@ -42,6 +42,20 @@ owner per file, no unowned file. `[[shared]]` entries (`{path, owner,
 note}`) cover shell infrastructure with the owning Wave-0 issue in
 `note`. Rows whose Qt code lives in the absorbed submodules point
 `pyside` at `submodules/{ASP,CSG,HIE}/...` (#867 absorbs them).
+
+## Parity scenarios (#883)
+
+`migration/parity/runner.py` loads a JSON scenario. `kind` is `differential`
+(the entry's `pair(tmp)` returns legacy and service projections) or
+`characterization` (the entry's `current(tmp)` against an `oracle` JSON file).
+The comparison is `migration/parity/diff.py`. Entries must not import a UI.
+The convert pilot's scenario is `migration/scenarios/system.convert.json`.
+
+Playwright against the Vite build, with a page-level contract mock, is
+`frontend/e2e/shell.spec.ts` and runs in the PR frontend job. `tauri-driver`
+is `frontend/e2e/tauri-driver-smoke.sh`. The release workflow calls it. A
+runner without the driver records a skip; `TAURI_DRIVER_REQUIRED=1` makes
+that skip a failure. The PR job only runs the script's `--check`.
 
 ## Status lifecycle
 

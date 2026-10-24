@@ -12,6 +12,9 @@ does NOT commit or tag:
 * ``pixi.toml``                 (``[workspace].version``)
 * ``package.json``              (``version``)
 * ``app/android/build.gradle.kts``  (``versionName`` + derived ``versionCode``)
+* ``frontend/package.json``      (``version``)
+* ``frontend/src-tauri/Cargo.toml`` (``[package].version``)
+* ``frontend/src-tauri/tauri.conf.json`` (``version``)
 
 All rewrites are prepared before anything is written, so a validation failure
 leaves the tree untouched.
@@ -89,6 +92,9 @@ def _targets(version: str) -> list[tuple[Path, Callable[[str], str]]]:
         (REPO_ROOT / "pixi.toml", lambda text: _rewrite_toml_version(text, version, "workspace")),
         (REPO_ROOT / "package.json", lambda text: _rewrite_package_json(text, version)),
         (REPO_ROOT / "app/android/build.gradle.kts", lambda text: _rewrite_gradle(text, version)),
+        (REPO_ROOT / "frontend/package.json", lambda text: _rewrite_package_json(text, version)),
+        (REPO_ROOT / "frontend/src-tauri/Cargo.toml", lambda text: _rewrite_toml_version(text, version, "package")),
+        (REPO_ROOT / "frontend/src-tauri/tauri.conf.json", lambda text: _rewrite_package_json(text, version)),
     ]
 
 

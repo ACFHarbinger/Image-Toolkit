@@ -1,4 +1,4 @@
-# GENERATED — contract hash 0e53e547598e72b888deb0e0169a3b6505d29f2d941fe41911a7301fd6bcd455. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 1b786b00c07f6a36997bbfb2c4f7587b3fc5c9afdaf805a1a251a13d3b617e85. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -66,6 +66,13 @@ class PreviewResult:
     issues: list[PreviewIssue]
     needs_ack: list[str]
     capability_override: bool
+
+
+@dataclass(frozen=True)
+class SummaryResult:
+    running: int
+    reserved_usd: float
+    available: bool
 
 
 @dataclass(frozen=True)
@@ -270,6 +277,9 @@ class PingResult:
 
 
 JobSpecDocument = dict[str, Any]
+
+
+SummaryParams = dict[str, Any]
 
 
 BridgeResponse = ResultResponse | ErrorResponse
