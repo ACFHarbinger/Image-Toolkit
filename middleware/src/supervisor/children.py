@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import signal
@@ -28,7 +29,8 @@ class ChildHandle:
     name: str
     pid: int
     durable: bool
-    proc: subprocess.Popen[bytes] | None
+    proc: subprocess.Popen[bytes] | subprocess.Popen[str] | None
+    lease_stdin: object | None = None
 
 
 def child_dir(data_dir: Path) -> Path:
@@ -57,10 +59,72 @@ def fake_child_argv(role: str, data_dir: Path) -> list[str]:
     ]
 
 
+def resolve_backend_python(
+    data_dir: Path | None = None,
+    explicit: str | None = None,
+) -> str:
+    """Resolve the Python interpreter for the sidecar during coexistence.
+
+    Order of precedence:
+    1. Explicit path passed by caller
+    2. IMAGE_TOOLKIT_BACKEND_PYTHON environment variable
+    3. IMAGE_TOOLKIT_RUNTIME environment variable
+    4. Pointer file in data_dir (backend_python.txt)
+    5. Standard packaged/installed paths (/opt/image-toolkit/...)
+    6. Local repo virtualenv (.venv/bin/python)
+    7. Current running Python interpreter
+    """
+    if explicit:
+        return explicit
+
+    env_explicit = os.environ.get("IMAGE_TOOLKIT_BACKEND_PYTHON")
+    if env_explicit and os.path.isfile(env_explicit) and os.access(env_explicit, os.X_OK):
+        return env_explicit
+
+    env_runtime = os.environ.get("IMAGE_TOOLKIT_RUNTIME")
+    if env_runtime:
+        runtime_root = Path(env_runtime)
+        for rel in (
+            "python/bin/python3",
+            "python/bin/python",
+            "python/python.exe",
+            ".venv/bin/python",
+            ".venv/bin/python3",
+            "bin/python3",
+            "bin/python",
+        ):
+            candidate = runtime_root / rel
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                return str(candidate)
+
+    if data_dir is not None:
+        pointer = data_dir / "backend_python.txt"
+        if pointer.is_file():
+            try:
+                candidate = Path(pointer.read_text(encoding="utf-8").strip())
+                if candidate.is_file() and os.access(candidate, os.X_OK):
+                    return str(candidate)
+            except OSError:
+                pass
+
+    for candidate_path in (
+        Path("/opt/image-toolkit/sidecar-runtime/python/bin/python3"),
+        Path("/opt/image-toolkit/sidecar-runtime/bin/python3"),
+        Path("/opt/image-toolkit/python/bin/python3"),
+        ROOT_DIR / ".venv" / "bin" / "python",
+        ROOT_DIR / ".venv" / "bin" / "python3",
+    ):
+        if candidate_path.is_file() and os.access(candidate_path, os.X_OK):
+            return str(candidate_path)
+
+    return sys.executable
+
+
 def sidecar_argv(data_dir: Path, *, python_executable: str | None = None) -> list[str]:
-    """Real #876 sidecar command with an explicit installed runtime."""
+    """Real #876 sidecar command with an explicit or resolved installed runtime."""
+    resolved = resolve_backend_python(data_dir, explicit=python_executable)
     return [
-        python_executable or sys.executable,
+        resolved,
         "-m",
         "middleware.src.sidecar",
         "--data-dir",
@@ -126,6 +190,8 @@ def spawn(
     *,
     use_real_sidecar: bool = False,
     python_executable: str | None = None,
+    lease_wait: bool = False,
+    supervisor_session: str | None = None,
 ) -> ChildHandle:
     real_sidecar = name == SIDECAR and use_real_sidecar and argv is None
     if argv is not None:
@@ -134,20 +200,32 @@ def spawn(
         cmd = sidecar_argv(data_dir, python_executable=python_executable)
     else:
         cmd = fake_child_argv(name, data_dir)
+    env = child_env()
+    if supervisor_session:
+        env["ITK_SUPERVISOR_SESSION"] = supervisor_session
+    if lease_wait:
+        env["IMAGE_TOOLKIT_WAIT_LEASE"] = "1"
     proc = subprocess.Popen(
         cmd,
         start_new_session=True,
-        env=child_env(),
+        env=env,
         cwd=str(ROOT_DIR),
         # A supervisor-owned real sidecar waits on an open stdin pipe; protocol
         # clients own a separate piped sidecar process until the shell attach
-        # path is wired.
-        stdin=subprocess.PIPE if real_sidecar else None,
+        # path is wired. Lease delivery uses the same private pipe and never argv.
+        stdin=subprocess.PIPE if real_sidecar or lease_wait else None,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        text=lease_wait,
     )
     write_pid(data_dir, name, proc.pid)
-    return ChildHandle(name=name, pid=proc.pid, durable=name in DURABLE, proc=proc)
+    return ChildHandle(
+        name=name,
+        pid=proc.pid,
+        durable=name in DURABLE,
+        proc=proc,
+        lease_stdin=proc.stdin if lease_wait else None,
+    )
 
 
 def reattach(name: str, data_dir: Path) -> ChildHandle | None:
@@ -158,6 +236,10 @@ def reattach(name: str, data_dir: Path) -> ChildHandle | None:
 
 
 def terminate(handle: ChildHandle, timeout_s: float = 2.0) -> None:
+    if handle.lease_stdin is not None:
+        with contextlib.suppress(OSError):
+            handle.lease_stdin.close()
+        handle.lease_stdin = None
     if not is_pid_alive(handle.pid):
         return
     try:

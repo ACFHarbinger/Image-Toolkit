@@ -1,17 +1,35 @@
-import { useState, type ReactElement } from "react";
+import React, { useEffect, useState } from "react";
 import { HostClient, RustTransport } from "../hostclient";
+import { CloudJobsWindow } from "./CloudJobsWindow";
 import { RunInCloudOffer, type CloudOffer } from "./RunInCloudOffer";
+import { useCloudBadge } from "./useCloudBadge";
 
-/** Gate D panel host. Logical role `cloud.jobs`; native window label `cloud-jobs`. */
-export function CloudJobsPopout(): ReactElement {
+/** Gate D pop-out. Logical role `cloud.jobs`; native window label `cloud-jobs`. */
+export function CloudJobsPopout(): React.ReactElement {
+  const [client, setClient] = useState<HostClient | null>(null);
   const [offer, setOffer] = useState<CloudOffer | null>(null);
   const [notice, setNotice] = useState("");
 
-  const onPrefill = (owner: string, estimatedGb: number, deviceGb: number) => {
-    const client = new HostClient(new RustTransport(), {
+  useEffect(() => {
+    const next = new HostClient(new RustTransport(), {
       clientName: "cloud-jobs-window",
       clientVersion: "1.0.0",
     });
+    setClient(next);
+    void next.connect().catch(() => {});
+    return () => {
+      void next.close();
+    };
+  }, []);
+
+  const badge = useCloudBadge(client);
+
+  const onPrefill = (owner: string, estimatedGb: number, deviceGb: number) => {
+    if (!client) {
+      setOffer(null);
+      setNotice("cloud offer is unavailable");
+      return;
+    }
     void client
       .cloudOfferPrefill({ owner, estimated_gb: estimatedGb, device_gb: deviceGb })
       .then((result) => {
@@ -21,17 +39,13 @@ export function CloudJobsPopout(): ReactElement {
       .catch(() => {
         setOffer(null);
         setNotice("cloud offer is unavailable");
-      })
-      .finally(() => {
-        void client.close();
       });
   };
 
   return (
-    <main data-testid="cloud-jobs-window" className="flex min-h-screen flex-col gap-4 p-6">
-      <h1>Cloud Jobs</h1>
-      <p>This labeled pop-out is ready for Gate D. The header badge stays on main.</p>
-      <RunInCloudOffer offer={offer} notice={notice} onPrefill={onPrefill} />
-    </main>
+    <CloudJobsWindow
+      badge={badge}
+      offer={<RunInCloudOffer offer={offer} notice={notice} onPrefill={onPrefill} />}
+    />
   );
 }
