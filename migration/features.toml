@@ -37,7 +37,7 @@ tauri = ["frontend/src/views/ConvertPilot.tsx"]
 service = "middleware/src/services/convert/service.py"
 contract = "convert"
 docs = "docs/guides/adding_a_capability.md"
-scenarios = []
+scenarios = ["migration/scenarios/system.convert.json"]
 os_checklist = []
 
 # ── Wave 3: Library ──────────────────────────────────────────────────
