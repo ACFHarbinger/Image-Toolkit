@@ -21,6 +21,7 @@ export function ComfyIsolatedHost({
   probeHeaders = probeEmbeddingHeaders,
   onFallbackToBrowser,
 }: ComfyIsolatedHostProps): React.ReactElement {
+  const [launchError, setLaunchError] = useState<string | null>(null);
   const [url, setUrl] = useState(comfyUrl);
   const [status, setStatus] = useState<"checking" | "ready" | "blocked" | "error">("checking");
   const [compat, setCompat] = useState<ComfyCompatibilityResult | null>(null);
@@ -63,8 +64,13 @@ export function ComfyIsolatedHost({
   }, [url, initialHeaders, probeHeaders]);
 
   const handleOpenExternal = async () => {
-    onFallbackToBrowser?.(url);
-    await openExternalBrowser(url);
+    setLaunchError(null);
+    try {
+      if (!(await openExternalBrowser(url))) throw new Error("The browser did not open.");
+      onFallbackToBrowser?.(url);
+    } catch (error) {
+      setLaunchError(error instanceof Error ? error.message : String(error));
+    }
   };
 
   return (
@@ -107,6 +113,8 @@ export function ComfyIsolatedHost({
           </button>
         </div>
       </header>
+
+      {launchError && <p role="alert" className="p-4 text-red-600">{launchError}</p>}
 
       {/* Main View Area */}
       <div className="relative flex-1 overflow-hidden bg-gray-100 dark:bg-black">

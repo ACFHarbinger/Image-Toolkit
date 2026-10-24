@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ComfyIsolatedHost } from "../ComfyIsolatedHost";
@@ -10,7 +11,10 @@ import {
   validateComfyOrigin,
 } from "../comfySecurity";
 
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn().mockResolvedValue(undefined) }));
+
 afterEach(() => {
+  vi.mocked(invoke).mockReset().mockResolvedValue(undefined);
   cleanup();
 });
 
@@ -77,10 +81,10 @@ describe("ComfyUI Origin & Security Validation (#890, S-04)", () => {
   });
 
   it("handles external browser fallback launch", async () => {
-    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
-    await openExternalBrowser("http://127.0.0.1:8188");
-    expect(openSpy).toHaveBeenCalledWith("http://127.0.0.1:8188", "_blank", "noopener,noreferrer");
-    openSpy.mockRestore();
+    await expect(openExternalBrowser("http://127.0.0.1:8188")).resolves.toBe(true);
+    expect(invoke).toHaveBeenCalledWith("open_comfy_browser", { url: "http://127.0.0.1:8188/" });
+    await expect(openExternalBrowser("https://remote.example")).rejects.toThrow();
+
   });
 });
 
@@ -109,7 +113,7 @@ describe("ComfyIsolatedHost Component (#890, S-04)", () => {
     expect(screen.queryByTestId("comfy-isolated-iframe")).not.toBeInTheDocument();
   });
 
-  it("renders blocked banner and external fallback button when X-Frame-Options is DENY", () => {
+  it("renders blocked banner and external fallback button when X-Frame-Options is DENY", async () => {
     const onFallback = vi.fn();
     render(
       <ComfyIsolatedHost
@@ -124,7 +128,7 @@ describe("ComfyIsolatedHost Component (#890, S-04)", () => {
 
     const fallbackBtn = screen.getByTestId("btn-fallback-external");
     fireEvent.click(fallbackBtn);
-    expect(onFallback).toHaveBeenCalledWith("http://127.0.0.1:8188");
+    await waitFor(() => expect(onFallback).toHaveBeenCalledWith("http://127.0.0.1:8188"));
   });
 
   it("renders security error banner when a non-loopback remote URL is given", () => {
@@ -132,4 +136,14 @@ describe("ComfyIsolatedHost Component (#890, S-04)", () => {
     expect(screen.getByTestId("comfy-error-banner")).toBeInTheDocument();
     expect(screen.getByText(/local loopback interface/)).toBeInTheDocument();
   });
+});
+
+
+it("surfaces native browser launch failures instead of claiming fallback success", async () => {
+  vi.mocked(invoke).mockRejectedValueOnce(new Error("No default browser"));
+  const onFallback = vi.fn();
+  render(<ComfyIsolatedHost initialHeaders={{ "X-Frame-Options": "DENY" }} onFallbackToBrowser={onFallback} />);
+  fireEvent.click(screen.getByTestId("btn-fallback-external"));
+  expect(await screen.findByRole("alert")).toHaveTextContent("No default browser");
+  expect(onFallback).not.toHaveBeenCalled();
 });

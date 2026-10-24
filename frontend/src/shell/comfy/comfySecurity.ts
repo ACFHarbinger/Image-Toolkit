@@ -1,3 +1,5 @@
+import { invoke } from "@tauri-apps/api/core";
+
 /**
  * Security and origin isolation for embedded ComfyUI (#890, S-04).
  *
@@ -160,9 +162,6 @@ export async function openExternalBrowser(url: string): Promise<boolean> {
     throw new Error(validation.error);
   }
 
-  if (typeof window !== "undefined") {
-    const opened = window.open(url, "_blank", "noopener,noreferrer");
-    if (opened) return true;
-  }
-  return false;
+  await invoke("open_comfy_browser", { url: new URL(url.trim()).href });
+  return true;
 }
