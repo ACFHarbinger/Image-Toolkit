@@ -1,8 +1,69 @@
-// GENERATED — contract hash 43786106791c039a8287c7b4e4ad317f69a1e4ab0543c78a9ff14b6c8e29e7d2. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 1b786b00c07f6a36997bbfb2c4f7587b3fc5c9afdaf805a1a251a13d3b617e85. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CloudSubmitParams {
+    pub spec: JobSpecDocument,
+    pub acknowledged: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CloudSubmitResult {
+    pub accepted: bool,
+    pub job_id: String,
+    pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct EstimateBreakdown {
+    pub compute: f64,
+    pub startup: f64,
+    pub ipv4: f64,
+    pub storage: f64,
+    pub egress: f64,
+    pub retries: f64,
+    pub total: f64,
+}
+
+pub type JobSpecDocument = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PreviewIssue {
+    pub stage: String,
+    pub severity: String,
+    pub message: String,
+    pub ack_id: serde_json::Value,
+    pub targets: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PreviewParams {
+    pub spec: JobSpecDocument,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PreviewResult {
+    pub available: bool,
+    pub reason: String,
+    pub job_id: String,
+    pub kind: String,
+    pub provider: String,
+    pub region: String,
+    pub mode: String,
+    pub storage: String,
+    pub data_class: String,
+    pub shards: i64,
+    pub staging_bytes: i64,
+    pub estimate_known: bool,
+    pub estimate: EstimateBreakdown,
+    pub price_age_days: serde_json::Value,
+    pub issues: Vec<PreviewIssue>,
+    pub needs_ack: Vec<String>,
+    pub capability_override: bool,
+}
 
 pub type SummaryParams = std::collections::HashMap<String, serde_json::Value>;
 

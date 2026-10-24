@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "capability/cloud_jobs.json",
   "title": "CloudJobsCapability",
-  "description": "Header badge for the cloud.jobs window (#847). running counts jobs in the active states. reserved_usd is the spend still held on non-terminal jobs. available is false when this process has no projection to read. The method name is cloud_jobs.summary.",
+  "description": "Cloud jobs orchestration: summary badge (#847) and preflight preview / submit (#850).",
   "type": "object",
   "$defs": {
     "SummaryParams": {
@@ -20,6 +20,111 @@
         "running": { "type": "integer", "minimum": 0 },
         "reserved_usd": { "type": "number", "minimum": 0 },
         "available": { "type": "boolean" }
+      }
+    },
+    "JobSpecDocument": {
+      "title": "JobSpecDocument",
+      "type": "object"
+    },
+    "EstimateBreakdown": {
+      "title": "EstimateBreakdown",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["compute", "startup", "ipv4", "storage", "egress", "retries", "total"],
+      "properties": {
+        "compute": { "type": "number" },
+        "startup": { "type": "number" },
+        "ipv4": { "type": "number" },
+        "storage": { "type": "number" },
+        "egress": { "type": "number" },
+        "retries": { "type": "number" },
+        "total": { "type": "number" }
+      }
+    },
+    "PreviewIssue": {
+      "title": "PreviewIssue",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage", "severity", "message", "ack_id", "targets"],
+      "properties": {
+        "stage": { "type": "string" },
+        "severity": { "type": "string" },
+        "message": { "type": "string" },
+        "ack_id": { "type": ["string", "null"] },
+        "targets": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "PreviewParams": {
+      "title": "PreviewParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["spec"],
+      "properties": {
+        "spec": { "$ref": "#/$defs/JobSpecDocument" }
+      }
+    },
+    "PreviewResult": {
+      "title": "PreviewResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available",
+        "reason",
+        "job_id",
+        "kind",
+        "provider",
+        "region",
+        "mode",
+        "storage",
+        "data_class",
+        "shards",
+        "staging_bytes",
+        "estimate_known",
+        "estimate",
+        "price_age_days",
+        "issues",
+        "needs_ack",
+        "capability_override"
+      ],
+      "properties": {
+        "available": { "type": "boolean" },
+        "reason": { "type": "string" },
+        "job_id": { "type": "string" },
+        "kind": { "type": "string" },
+        "provider": { "type": "string" },
+        "region": { "type": "string" },
+        "mode": { "type": "string" },
+        "storage": { "type": "string" },
+        "data_class": { "type": "string" },
+        "shards": { "type": "integer", "minimum": 0 },
+        "staging_bytes": { "type": "integer", "minimum": 0 },
+        "estimate_known": { "type": "boolean" },
+        "estimate": { "$ref": "#/$defs/EstimateBreakdown" },
+        "price_age_days": { "type": ["integer", "null"] },
+        "issues": { "type": "array", "items": { "$ref": "#/$defs/PreviewIssue" } },
+        "needs_ack": { "type": "array", "items": { "type": "string" } },
+        "capability_override": { "type": "boolean" }
+      }
+    },
+    "CloudSubmitParams": {
+      "title": "CloudSubmitParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["spec", "acknowledged"],
+      "properties": {
+        "spec": { "$ref": "#/$defs/JobSpecDocument" },
+        "acknowledged": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "CloudSubmitResult": {
+      "title": "CloudSubmitResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accepted", "job_id", "reason"],
+      "properties": {
+        "accepted": { "type": "boolean" },
+        "job_id": { "type": "string" },
+        "reason": { "type": "string" }
       }
     }
   }

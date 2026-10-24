@@ -3,8 +3,12 @@ import type {
   CancelResult,
   ConvertBatchParams,
   ConvertBatchResult,
+  CloudSubmitParams,
+  CloudSubmitResult,
   ConvertParams,
   ConvertResult,
+  PreviewParams,
+  PreviewResult,
   SummaryResult,
   HandshakeResult,
   JobStatus,
@@ -84,6 +88,16 @@ export class HostClient {
   async cloudJobsSummary(): Promise<SummaryResult> {
     await this.connect();
     return this.send<SummaryResult>("cloud_jobs.summary", {});
+  }
+
+  async cloudJobsPreview(params: PreviewParams): Promise<PreviewResult> {
+    await this.connect();
+    return this.send<PreviewResult>("cloud_jobs.preview", params as unknown as Record<string, unknown>);
+  }
+
+  async cloudJobsSubmit(params: CloudSubmitParams): Promise<CloudSubmitResult> {
+    await this.connect();
+    return this.send<CloudSubmitResult>("cloud_jobs.submit", params as unknown as Record<string, unknown>);
   }
 
   async convert(params: ConvertParams): Promise<ConvertResult> {
