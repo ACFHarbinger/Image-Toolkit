@@ -94,3 +94,32 @@ def test_package_tauri_dry_run(tmp_path):
     artifacts = package_tauri.build_tauri(tmp_path, "1.0.0", dry_run=True)
     assert len(artifacts) == 1
     assert artifacts[0].name == "image-toolkit-tauri_1.0.0_amd64.deb"
+
+
+def test_collect_debs_reads_the_workspace_bundle_and_fails_when_empty(tmp_path):
+    bundle = tmp_path / "target" / "release" / "bundle" / "deb"
+    bundle.mkdir(parents=True)
+    (bundle / "app_1.0.0_amd64.deb").write_bytes(b"deb")
+    out = tmp_path / "out"
+    out.mkdir()
+    copied = package_tauri.collect_debs(bundle, out, "1.0.0")
+    assert copied[0].is_file()
+    assert copied[0].read_bytes() == b"deb"
+    try:
+        package_tauri.collect_debs(tmp_path / "missing", out, "1.0.0")
+    except FileNotFoundError as exc:
+        assert "no Tauri .deb" in str(exc)
+    else:
+        raise AssertionError("empty bundle must fail")
+
+
+def test_handshake_uses_the_protocol_version_not_the_app_version():
+    root = __import__("pathlib").Path(__file__).resolve().parents[3]
+    shell = (root / "frontend/src/shell/Shell.tsx").read_text(encoding="utf-8")
+    rust = (root / "frontend/src-tauri/src/bridge_commands.rs").read_text(encoding="utf-8")
+    from middleware.src.bridge.handshake import COMPATIBILITY_MAX
+
+    assert "clientVersion: APP_VERSION" not in shell
+    assert f'clientVersion: "{COMPATIBILITY_MAX}"' in shell
+    assert 'env!("CARGO_PKG_VERSION")' not in rust
+    assert f'"version": "{COMPATIBILITY_MAX}"' in rust

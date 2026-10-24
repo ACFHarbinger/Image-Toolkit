@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import subprocess
 import sys
@@ -29,6 +30,31 @@ def stage_runtime(frontend_dir: Path) -> None:
     subprocess.run([sys.executable, str(stager)], cwd=frontend_dir, check=True)
 
 
+def cargo_target_dir(manifest_dir: Path) -> Path:
+    """The workspace target directory, which is not always next to the crate."""
+    proc = subprocess.run(
+        ["cargo", "metadata", "--format-version", "1", "--no-deps"],
+        cwd=manifest_dir,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return Path(json.loads(proc.stdout)["target_directory"])
+
+
+def collect_debs(bundle_dir: Path, out_dir: Path, version: str) -> list[Path]:
+    found = sorted(bundle_dir.glob("*.deb")) if bundle_dir.is_dir() else []
+    if not found:
+        raise FileNotFoundError(f"no Tauri .deb collected from {bundle_dir}")
+    artifacts: list[Path] = []
+    for deb in found:
+        dest = out_dir / f"image-toolkit-tauri_{version}_amd64.deb"
+        shutil.copy2(deb, dest)
+        artifacts.append(dest)
+        print(f"✅ Tauri .deb package built: {dest}")
+    return artifacts
+
+
 def build_tauri(out_dir: Path, version: str, *, dry_run: bool = False) -> list[Path]:
     print("==> Packaging Tauri desktop app...")
     frontend_dir = ROOT_DIR / "frontend"
@@ -47,16 +73,8 @@ def build_tauri(out_dir: Path, version: str, *, dry_run: bool = False) -> list[P
     subprocess.run(["npm", "run", "build"], cwd=frontend_dir, check=True)
     subprocess.run(["npm", "run", "tauri:build"], cwd=frontend_dir, check=True)
 
-    bundle_dir = frontend_dir / "src-tauri" / "target" / "release" / "bundle" / "deb"
-    artifacts: list[Path] = []
-    if bundle_dir.is_dir():
-        for deb in bundle_dir.glob("*.deb"):
-            dest = out_dir / f"image-toolkit-tauri_{version}_amd64.deb"
-            shutil.copy2(deb, dest)
-            artifacts.append(dest)
-            print(f"✅ Tauri .deb package built: {dest}")
-
-    return artifacts
+    bundle_dir = cargo_target_dir(frontend_dir / "src-tauri") / "release" / "bundle" / "deb"
+    return collect_debs(bundle_dir, out_dir, version)
 
 
 def main() -> None:

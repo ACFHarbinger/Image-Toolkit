@@ -308,7 +308,7 @@ fn handshake_request(id: &str) -> Value {
         "method": "system.handshake",
         "params": {
             "protocol": "image-toolkit-bridge",
-            "client": {"name": "tauri-shell", "version": env!("CARGO_PKG_VERSION")}
+            "client": {"name": "tauri-shell", "version": "1.0.0"}
         }
     })
 }
