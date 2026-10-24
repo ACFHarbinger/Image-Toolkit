@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Capability ID** | `cloud.jobs` |
-| **Service Package** | `middleware/src/services/cloud_jobs/badge.py` |
+| **Service Package** | `middleware/src/services/cloud_jobs/` |
 | **Frontend View** | `frontend/src/shell/CloudJobsWindow.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/cloud_jobs.json` |
 | **Contract SHA-256** | `4c81075644506a81723408ead2ecfb93737893c4c613aa493daf80ff9e4dcb65` |
@@ -36,5 +36,5 @@ The header has one cloud control. A click shows the labeled `cloud.jobs` window.
 
 ```bash
 source .venv/bin/activate
-PYTHONPATH=. pytest middleware/test/services/test_cloud_jobs_badge.py middleware/test/sidecar/test_server.py middleware/test/bridge/test_handshake_schema.py -q
+PYTHONPATH=. pytest middleware/test/services/test_cloud_jobs_service.py middleware/test/sidecar/test_server.py middleware/test/bridge/test_handshake_schema.py -q
 ```
