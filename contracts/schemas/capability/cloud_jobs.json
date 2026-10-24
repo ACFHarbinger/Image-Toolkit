@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/cloud_jobs.json",
+  "title": "CloudJobsCapability",
+  "description": "Header badge for the cloud.jobs window (#847). running counts jobs in the active states. reserved_usd is the spend still held on non-terminal jobs. available is false when this process has no projection to read. The method name is cloud_jobs.summary.",
+  "type": "object",
+  "$defs": {
+    "SummaryParams": {
+      "title": "SummaryParams",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "SummaryResult": {
+      "title": "SummaryResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["running", "reserved_usd", "available"],
+      "properties": {
+        "running": { "type": "integer", "minimum": 0 },
+        "reserved_usd": { "type": "number", "minimum": 0 },
+        "available": { "type": "boolean" }
+      }
+    }
+  }
+}

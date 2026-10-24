@@ -399,6 +399,11 @@ jobs:
         env:
           CI: false
 
+      - name: Playwright against the Vite build (W0-19 / #883)
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e --workspace=frontend
+
       - name: Install extension dependencies
         working-directory: extension
         run: npm ci
