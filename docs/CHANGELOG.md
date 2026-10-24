@@ -37,6 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- ComfyUI's external-browser fallback uses a native opener restricted to credential-free loopback HTTP(S) URLs and reports launch failures (#993).
 - Release publication requires a provisioned WebDriver smoke: build the release shell, install the driver and display dependencies, and fail instead of skipping missing prerequisites (#987).
 - GUI tests no longer leave `itk-train-dataset-*` staging dirs in `~/Downloads/Data/Tests`. `test_exclusions_force_staging_and_hide_excluded_files` staged with the default root and never cleaned up, leaving one dir per run (20 accumulated). The default staging root is now overridable via `IMAGE_TOOLKIT_STAGING_ROOT`, which an autouse fixture in `gui/test/conftest.py` points at each test's tmp dir. Files: `gui/src/tabs/models/delta/lora_dataset_staging.py`, `gui/test/conftest.py`.
 
