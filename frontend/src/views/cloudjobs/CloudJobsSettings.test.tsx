@@ -127,3 +127,32 @@ test("the regions editor edits, adds and removes provider rows", async () => {
   expect(screen.queryByLabelText("region for aws")).not.toBeInTheDocument();
   expect(screen.getByLabelText("region for gcp")).toBeInTheDocument();
 });
+
+test("an initial load failure is visible and can be retried", async () => {
+  const client = stubClient();
+  client.getSetting.mockRejectedValueOnce(new Error("sidecar unavailable"));
+  render(<CloudJobsSettings hostClient={client as never} />);
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("sidecar unavailable");
+  expect(screen.queryByTestId("cloud-jobs-settings-status")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  expect(await screen.findByTestId("cloud-jobs-settings")).toBeInTheDocument();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(client.getSetting).toHaveBeenCalledTimes(2);
+});
+
+test.each([null, {}, { packing_mode: "one_to_one" }])(
+  "a malformed initial document (%j) reports an error and recovers on retry",
+  async (value) => {
+    const client = stubClient();
+    client.getSetting.mockResolvedValueOnce({
+      key: CLOUD_JOBS_SETTINGS_KEY, value: value as GetResult["value"], scope: "account",
+    });
+    render(<CloudJobsSettings hostClient={client as never} />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("malformed");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByTestId("cloud-jobs-settings")).toBeInTheDocument();
+    expect(client.setSetting).not.toHaveBeenCalled();
+  },
+);

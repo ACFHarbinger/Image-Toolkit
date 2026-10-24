@@ -19,7 +19,21 @@ export interface CloudJobsSettingsProps {
 type Phase = "loading" | "ready" | "saving" | "error";
 
 function isDocument(value: unknown): value is CloudJobsSettingsDocument {
-  return typeof value === "object" && value !== null && "packing_mode" in value;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const regions = record.default_regions;
+  if (typeof regions !== "object" || regions === null || Array.isArray(regions) ||
+      !Object.values(regions).every((region) => typeof region === "string")) return false;
+  return CLOUD_JOBS_SECTIONS.every((section) => section.fields.every((field) => {
+    const entry = record[field.key];
+    switch (field.kind) {
+      case "toggle": return typeof entry === "boolean";
+      case "number": return typeof entry === "number" && Number.isFinite(entry);
+      case "select":
+      case "text": return typeof entry === "string";
+      case "list": return Array.isArray(entry) && entry.every((item) => typeof item === "string");
+    }
+  }));
 }
 
 export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
@@ -68,6 +82,15 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
       setPhase("ready");
     }
   };
+
+  if (phase === "error") {
+    return (
+      <main className="flex flex-col gap-4 p-6">
+        <p role="alert">Could not load Cloud Jobs settings: {error}</p>
+        <button type="button" onClick={() => void load()}>Retry</button>
+      </main>
+    );
+  }
 
   if (phase === "loading" || !document) {
     return <p data-testid="cloud-jobs-settings-status">Loading Cloud Jobs settings…</p>;
