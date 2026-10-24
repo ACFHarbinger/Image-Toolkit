@@ -1,8 +1,21 @@
 @import "./shell/theme-tokens.generated.css";
+@import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* The theme tokens stay the single source: the `it` palette and the
+   [data-theme="dark"] variant point at the generated --it-color-* vars
+   (was tailwind.config.js before the v4 migration, #985). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --color-it-accent: var(--it-color-accent);
+  --color-it-accent-hover: var(--it-color-accent-hover);
+  --color-it-accent-pressed: var(--it-color-accent-pressed);
+  --color-it-surface: var(--it-color-surface);
+  --color-it-window-bg: var(--it-color-window-bg);
+  --color-it-text: var(--it-color-text);
+  --color-it-muted-text: var(--it-color-muted-text);
+  --color-it-border: var(--it-color-border);
+}
 
 body {
   margin: 0;
