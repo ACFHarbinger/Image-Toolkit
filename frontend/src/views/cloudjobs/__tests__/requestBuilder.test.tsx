@@ -263,6 +263,8 @@ describe("RequestBuilder Component (#850)", () => {
     const mockClient = {
       cloudJobsPreview: vi.fn().mockResolvedValue({
         available: true,
+        issues: [],
+        needs_ack: [],
         estimate_known: true,
         estimate: {
           compute: 1.2,
@@ -325,4 +327,34 @@ describe("RequestBuilder Component (#850)", () => {
     fireEvent.click(builderTab);
     expect(screen.getByTestId("cloud-jobs-request-builder")).toBeInTheDocument();
   });
+});
+
+
+it("renders backend-only acknowledgments and submits their authoritative IDs", async () => {
+  const cloudJobsSubmit = vi.fn().mockResolvedValue({ accepted: true, job_id: "accepted", reason: "" });
+  const client = {
+    cloudJobsPreview: vi.fn().mockResolvedValue({ available: true, estimate_known: false, estimate: null,
+      issues: [{ stage: "policy", severity: "warn", message: "Estimate unavailable", ack_id: "pol.no_estimate", targets: [] }],
+      needs_ack: ["pol.no_estimate", "pol.reduced_protection"] }), cloudJobsSubmit,
+  } as unknown as HostClient;
+  render(<RequestBuilder client={client} />);
+  fireEvent.click(screen.getByTestId("review-plan-button"));
+  await screen.findByTestId("ack-checkbox-pol.no_estimate");
+  expect(screen.getByText("Estimate unavailable")).toBeInTheDocument();
+  expect(screen.getByTestId("confirm-submit-button")).toBeDisabled();
+  fireEvent.click(screen.getByTestId("ack-checkbox-pol.no_estimate"));
+  expect(screen.getByTestId("confirm-submit-button")).toBeDisabled();
+  fireEvent.click(screen.getByTestId("ack-checkbox-pol.reduced_protection"));
+  fireEvent.click(screen.getByTestId("confirm-submit-button"));
+  await waitFor(() => expect(cloudJobsSubmit).toHaveBeenCalledTimes(1));
+  expect(cloudJobsSubmit.mock.calls[0][0].acknowledged.sort()).toEqual(["pol.no_estimate", "pol.reduced_protection"]);
+});
+
+it("keeps authoritative blocking findings blocked", async () => {
+  const client = { cloudJobsPreview: vi.fn().mockResolvedValue({ available: true, estimate_known: false, estimate: null,
+    issues: [{ stage: "budget", severity: "block", message: "Account cap exceeded", ack_id: null, targets: [] }], needs_ack: [] }) } as unknown as HostClient;
+  render(<RequestBuilder client={client} />);
+  fireEvent.click(screen.getByTestId("review-plan-button"));
+  await screen.findByText("Account cap exceeded");
+  expect(screen.getByTestId("confirm-submit-button")).toBeDisabled();
 });

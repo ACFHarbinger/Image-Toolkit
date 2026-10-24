@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import type { HostClient } from "../../hostclient";
 import {
   createDefaultJobSpec,
@@ -16,6 +16,8 @@ import {
 } from "./jobSpec";
 import { PlacementSection } from "./PlacementSection";
 import { PlanCostSheet, type CostBreakdown } from "./PlanCostSheet";
+import { previewDiagnosis } from "./previewRisk";
+import type { RiskDiagnosis } from "./risk";
 import { evaluateRisk, getRiskInputClass } from "./risk";
 import { TaskSection } from "./TaskSection";
 
@@ -33,6 +35,9 @@ export function RequestBuilder({ client, onJobSubmitted }: RequestBuilderProps):
   const [estimateKnown, setEstimateKnown] = useState(false);
   const [estimate, setEstimate] = useState<CostBreakdown | null>(null);
   const [submissionAvailable, setSubmissionAvailable] = useState(false);
+
+  const [previewRisk, setPreviewRisk] = useState<RiskDiagnosis | null>(null);
+  const previewGeneration = useRef(0);
 
   const diagnosis = useMemo(() => evaluateRisk(spec), [spec]);
 
@@ -91,6 +96,8 @@ export function RequestBuilder({ client, onJobSubmitted }: RequestBuilderProps):
   };
 
   const openSheet = () => {
+    const generation = ++previewGeneration.current;
+    setPreviewRisk(null);
     setIsSheetOpen(true);
     setEstimateKnown(false);
     setEstimate(null);
@@ -101,11 +108,14 @@ export function RequestBuilder({ client, onJobSubmitted }: RequestBuilderProps):
     void client
       .cloudJobsPreview({ spec: spec as unknown as Record<string, unknown> })
       .then((result) => {
+        if (generation !== previewGeneration.current) return;
+        setPreviewRisk(previewDiagnosis(result));
         setSubmissionAvailable(result.available);
         setEstimateKnown(result.estimate_known);
         setEstimate(result.estimate);
       })
       .catch(() => {
+        if (generation !== previewGeneration.current) return;
         setSubmissionAvailable(false);
         setEstimateKnown(false);
         setEstimate(null);
@@ -116,7 +126,7 @@ export function RequestBuilder({ client, onJobSubmitted }: RequestBuilderProps):
     setIsSubmitting(true);
     setSubmitError(null);
     try {
-      if (!client) {
+      if (!client || !submissionAvailable || !previewRisk?.ok_to_submit(new Set(acknowledged))) {
         setSubmitError("Cloud submission is unavailable");
         return;
       }
@@ -410,9 +420,9 @@ export function RequestBuilder({ client, onJobSubmitted }: RequestBuilderProps):
       {isSheetOpen && (
         <PlanCostSheet
           spec={spec}
-          diagnosis={diagnosis}
+          diagnosis={previewRisk ?? diagnosis}
           onConfirmSubmit={handleSubmit}
-          onClose={() => setIsSheetOpen(false)}
+          onClose={() => { previewGeneration.current += 1; setIsSheetOpen(false); }}
           isSubmitting={isSubmitting}
           estimateKnown={estimateKnown}
           estimate={estimate}
