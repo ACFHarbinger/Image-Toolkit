@@ -1,8 +1,17 @@
-// GENERATED — contract hash fd24c10a6c68f14e14dab5faa90a7731cd8aaa7a57489826f7c8836964930567. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash ec6a61092d909f9e2161d5089fa6ebc740ab2ce342d29bb779e41de84a587bdc. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
 use serde::{Deserialize, Serialize};
+
+pub type SummaryParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SummaryResult {
+    pub running: i64,
+    pub reserved_usd: f64,
+    pub available: bool,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ConvertBatchParams {

@@ -35,7 +35,7 @@ def test_handshake_result_and_ping_validate() -> None:
     result = handshake["result"]
     assert result["protocol"] == PROTOCOL_NAME
     assert result["compatibility"] == {"min": "1.0.0", "max": "1.0.0"}
-    assert set(result["capabilities"]) == {"system", "jobs", "convert", "settings"}
+    assert set(result["capabilities"]) == {"system", "jobs", "convert", "cloud_jobs", "settings"}
     assert _request(server, "system.ping", {}, "ping")["result"] == {"ok": True}
 
 
@@ -123,3 +123,22 @@ def test_serve_stdout_carries_only_json_frames() -> None:
     assert frames[1]["error"]["data"]["code"] == "bridge.parse_error"
     assert frames[2]["result"] == {"ok": True}
     assert stderr.getvalue() == ""
+
+
+def test_cloud_jobs_summary_without_a_store_is_unavailable() -> None:
+    server = SidecarServer(stdout=io.StringIO())
+    _handshake(server)
+    result = _request(server, "cloud_jobs.summary", {})["result"]
+    assert result == {"running": 0, "reserved_usd": 0.0, "available": False}
+
+
+def test_cloud_jobs_summary_uses_the_attached_projection() -> None:
+    server = SidecarServer(
+        stdout=io.StringIO(),
+        badge_source=lambda: [("running", 1.25), ("succeeded", 8.0)],
+    )
+    _handshake(server)
+    result = _request(server, "cloud_jobs.summary", {})["result"]
+    assert result["available"] is True
+    assert result["running"] == 1
+    assert result["reserved_usd"] == 1.25

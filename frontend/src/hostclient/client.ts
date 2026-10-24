@@ -9,6 +9,7 @@ import type {
   GetManyResult,
   GetParams,
   GetResult,
+  SummaryResult,
   HandshakeResult,
   JobStatus,
   ListParams,
@@ -86,6 +87,11 @@ export class HostClient {
   async listJobs(params: ListParams = {}): Promise<ListResult> {
     await this.connect();
     return this.send<ListResult>("jobs.list", params as unknown as Record<string, unknown>);
+  }
+
+  async cloudJobsSummary(): Promise<SummaryResult> {
+    await this.connect();
+    return this.send<SummaryResult>("cloud_jobs.summary", {});
   }
 
   async convert(params: ConvertParams): Promise<ConvertResult> {

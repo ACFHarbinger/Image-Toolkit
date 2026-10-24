@@ -1,0 +1,7 @@
+{
+  "id": "system.convert.ppm-to-png",
+  "feature": "system.convert",
+  "kind": "differential",
+  "entry": "migration/scenarios/convert_ppm.py",
+  "ignore": []
+}

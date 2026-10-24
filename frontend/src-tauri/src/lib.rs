@@ -1,6 +1,7 @@
 mod auth_commands;
 mod benchmark_commands;
 mod bridge_commands;
+mod comfy_commands;
 mod core_commands;
 mod database_commands;
 mod db;
@@ -54,6 +55,7 @@ pub fn run() {
             window_registry::window_hide_all,
             window_registry::window_restore,
             window_registry::window_focus,
+            comfy_commands::open_comfy_browser,
             bridge_commands::bridge_request
         ])
         .on_window_event(|window, event| window_registry::on_window_event(window, event))

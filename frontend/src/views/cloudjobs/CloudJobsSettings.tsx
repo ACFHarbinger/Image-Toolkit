@@ -85,10 +85,10 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
 
   if (phase === "error") {
     return (
-      <main className="flex flex-col gap-4 p-6">
+      <div className="flex flex-col gap-4">
         <p role="alert">Could not load Cloud Jobs settings: {error}</p>
         <button type="button" onClick={() => void load()}>Retry</button>
-      </main>
+      </div>
     );
   }
 
@@ -101,7 +101,7 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
   };
 
   return (
-    <main className="flex min-h-screen flex-col gap-4 p-6" data-testid="cloud-jobs-settings">
+    <div className="flex flex-col gap-4" data-testid="cloud-jobs-settings">
       <header className="flex items-center justify-between">
         <h1 className="text-xl">Cloud Jobs settings</h1>
         <button
@@ -143,7 +143,7 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
           </div>
         </section>
       ))}
-    </main>
+    </div>
   );
 }
 

@@ -1,31 +1,22 @@
 import React, { useEffect, useState } from "react";
 import { HostClient, RustTransport } from "../hostclient";
-import { CloudJobsSettings } from "../views/cloudjobs/CloudJobsSettings";
+import { CloudJobsWindow } from "./CloudJobsWindow";
+import { useCloudBadge } from "./useCloudBadge";
 
-/** Gate D panel host. Logical role `cloud.jobs`; native window label `cloud-jobs`.
- * Owns its bridge client like the main shell: connect on mount, close on unmount. */
+/** Gate D pop-out. Logical role `cloud.jobs`; native window label `cloud-jobs`. */
 export function CloudJobsPopout(): React.ReactElement {
-  const [hostClient, setHostClient] = useState<HostClient | null>(null);
-
+  const [client, setClient] = useState<HostClient | null>(null);
   useEffect(() => {
-    const client = new HostClient(new RustTransport(), {
-      clientName: "cloud-jobs-popout",
+    const next = new HostClient(new RustTransport(), {
+      clientName: "cloud-jobs-window",
       clientVersion: "1.0.0",
     });
-    setHostClient(client);
-    void client.connect().catch(() => {});
+    setClient(next);
+    void next.connect().catch(() => {});
     return () => {
-      void client.close();
+      void next.close();
     };
   }, []);
-
-  if (!hostClient) {
-    return (
-      <main className="flex min-h-screen flex-col gap-2 p-6">
-        <h1>Cloud Jobs</h1>
-        <p>Connecting to the bridge…</p>
-      </main>
-    );
-  }
-  return <CloudJobsSettings hostClient={hostClient} />;
+  const badge = useCloudBadge(client);
+  return <CloudJobsWindow badge={badge} hostClient={client} />;
 }
