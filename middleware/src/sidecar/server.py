@@ -47,6 +47,7 @@ class SidecarServer:
         self.stdout = stdout or sys.stdout
         self.stderr = stderr or sys.stderr
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
+        self.cloud_service = None
         self._handshaken = False
         self._write_mu = threading.Lock()
 
@@ -120,6 +121,14 @@ class SidecarServer:
             return handle_convert(params)
         if method == "convert.convert_batch":
             return start_convert_batch(self.jobs, params)
+        if method == "cloud_jobs.preview":
+            from middleware.src.sidecar.handlers.cloud_submit import handle_preview
+
+            return handle_preview(self.cloud_service, params)
+        if method == "cloud_jobs.submit":
+            from middleware.src.sidecar.handlers.cloud_submit import handle_submit
+
+            return handle_submit(self.cloud_service, params)
         raise BridgeAppError("bridge.method_not_found", details={"method": method})
 
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:

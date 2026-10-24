@@ -15,7 +15,7 @@ import {
   WorkloadKind,
 } from "./jobSpec";
 import { PlacementSection } from "./PlacementSection";
-import { PlanCostSheet } from "./PlanCostSheet";
+import { PlanCostSheet, type CostBreakdown } from "./PlanCostSheet";
 import { evaluateRisk, getRiskInputClass } from "./risk";
 import { TaskSection } from "./TaskSection";
 
@@ -30,6 +30,9 @@ export function RequestBuilder({ client, onJobSubmitted }: RequestBuilderProps):
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastSubmittedId, setLastSubmittedId] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [estimateKnown, setEstimateKnown] = useState(false);
+  const [estimate, setEstimate] = useState<CostBreakdown | null>(null);
+  const [submissionAvailable, setSubmissionAvailable] = useState(false);
 
   const diagnosis = useMemo(() => evaluateRisk(spec), [spec]);
 
@@ -87,21 +90,47 @@ export function RequestBuilder({ client, onJobSubmitted }: RequestBuilderProps):
     }
   };
 
-  const handleSubmit = async () => {
+  const openSheet = () => {
+    setIsSheetOpen(true);
+    setEstimateKnown(false);
+    setEstimate(null);
+    setSubmissionAvailable(false);
+    if (!client) {
+      return;
+    }
+    void client
+      .cloudJobsPreview({ spec: spec as unknown as Record<string, unknown> })
+      .then((result) => {
+        setSubmissionAvailable(result.available);
+        setEstimateKnown(result.estimate_known);
+        setEstimate(result.estimate);
+      })
+      .catch(() => {
+        setSubmissionAvailable(false);
+        setEstimateKnown(false);
+        setEstimate(null);
+      });
+  };
+
+  const handleSubmit = async (acknowledged: string[]) => {
     setIsSubmitting(true);
     setSubmitError(null);
     try {
-      let jobId = spec.job_id;
-      if (client) {
-        const result = await client.submitJob({
-          kind: spec.kind,
-          spec: spec as unknown as Record<string, unknown>,
-        });
-        jobId = result.job_id;
+      if (!client) {
+        setSubmitError("Cloud submission is unavailable");
+        return;
       }
-      setLastSubmittedId(jobId);
+      const result = await client.cloudJobsSubmit({
+        spec: spec as unknown as Record<string, unknown>,
+        acknowledged,
+      });
+      if (!result.accepted) {
+        setSubmitError(result.reason || "Cloud submission is unavailable");
+        return;
+      }
+      setLastSubmittedId(result.job_id);
       setIsSheetOpen(false);
-      onJobSubmitted?.(jobId, spec);
+      onJobSubmitted?.(result.job_id, spec);
     } catch (err: unknown) {
       setSubmitError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -370,7 +399,7 @@ export function RequestBuilder({ client, onJobSubmitted }: RequestBuilderProps):
           <button
             type="button"
             data-testid="review-plan-button"
-            onClick={() => setIsSheetOpen(true)}
+            onClick={openSheet}
             className="rounded-lg bg-indigo-600 px-6 py-2 text-xs font-bold text-white shadow hover:bg-indigo-700"
           >
             Review Plan & Cost Sheet 📋
@@ -385,6 +414,9 @@ export function RequestBuilder({ client, onJobSubmitted }: RequestBuilderProps):
           onConfirmSubmit={handleSubmit}
           onClose={() => setIsSheetOpen(false)}
           isSubmitting={isSubmitting}
+          estimateKnown={estimateKnown}
+          estimate={estimate}
+          submissionAvailable={submissionAvailable}
         />
       )}
     </div>

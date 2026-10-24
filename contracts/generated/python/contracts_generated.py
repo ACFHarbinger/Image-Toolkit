@@ -1,4 +1,4 @@
-# GENERATED — contract hash 458ae5d7b75d09fd889bc0a4f1c891ad9d5fc73cf5612a38292f3dbc0bcc24f2. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 0e53e547598e72b888deb0e0169a3b6505d29f2d941fe41911a7301fd6bcd455. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -8,6 +8,65 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from typing import Any, Literal
+
+@dataclass(frozen=True)
+class CloudSubmitParams:
+    spec: JobSpecDocument
+    acknowledged: list[str]
+
+
+@dataclass(frozen=True)
+class CloudSubmitResult:
+    accepted: bool
+    job_id: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class EstimateBreakdown:
+    compute: float
+    startup: float
+    ipv4: float
+    storage: float
+    egress: float
+    retries: float
+    total: float
+
+
+@dataclass(frozen=True)
+class PreviewIssue:
+    stage: str
+    severity: str
+    message: str
+    ack_id: str | None
+    targets: list[str]
+
+
+@dataclass(frozen=True)
+class PreviewParams:
+    spec: JobSpecDocument
+
+
+@dataclass(frozen=True)
+class PreviewResult:
+    available: bool
+    reason: str
+    job_id: str
+    kind: str
+    provider: str
+    region: str
+    mode: str
+    storage: str
+    data_class: str
+    shards: int
+    staging_bytes: int
+    estimate_known: bool
+    estimate: EstimateBreakdown
+    price_age_days: int | None
+    issues: list[PreviewIssue]
+    needs_ack: list[str]
+    capability_override: bool
+
 
 @dataclass(frozen=True)
 class ConvertBatchParams:
@@ -208,6 +267,9 @@ class HandshakeResult:
 @dataclass(frozen=True)
 class PingResult:
     ok: Literal[True]
+
+
+JobSpecDocument = dict[str, Any]
 
 
 BridgeResponse = ResultResponse | ErrorResponse

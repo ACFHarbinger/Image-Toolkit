@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CloudJobsPopout } from "../../../shell/CloudJobsPopout";
@@ -149,6 +149,36 @@ describe("PlanCostSheet Component (#850)", () => {
     expect(screen.getByText("Plan & Cost Confirmation")).toBeInTheDocument();
     expect(screen.getByText(spec.job_id)).toBeInTheDocument();
     expect(screen.getByText("Estimated Total Job Cost Breakdown")).toBeInTheDocument();
+    expect(screen.getByTestId("pricing-unknown")).toBeInTheDocument();
+    expect(screen.getByTestId("submission-unavailable")).toBeInTheDocument();
+    expect(screen.getByTestId("confirm-submit-button")).toBeDisabled();
+  });
+
+  it("shows the backend breakdown when the catalogue knows the price", () => {
+    const spec = createDefaultJobSpec("extract");
+    const diag = evaluateRisk(spec);
+    render(
+      <PlanCostSheet
+        spec={spec}
+        diagnosis={diag}
+        onConfirmSubmit={vi.fn()}
+        onClose={vi.fn()}
+        estimateKnown
+        submissionAvailable
+        estimate={{
+          compute: 1.2,
+          startup: 0.1,
+          ipv4: 0,
+          storage: 0,
+          egress: 0.04,
+          retries: 0.1,
+          total: 1.44,
+        }}
+      />,
+    );
+    expect(screen.getByText("$1.20")).toBeInTheDocument();
+    expect(screen.getByText("$1.44")).toBeInTheDocument();
+    expect(screen.queryByTestId("pricing-unknown")).not.toBeInTheDocument();
   });
 
   it("disables submit button and shows banner when blocking finding exists", () => {
@@ -183,6 +213,7 @@ describe("PlanCostSheet Component (#850)", () => {
         diagnosis={diag}
         onConfirmSubmit={onConfirm}
         onClose={vi.fn()}
+        submissionAvailable
       />,
     );
 
@@ -194,7 +225,7 @@ describe("PlanCostSheet Component (#850)", () => {
 
     expect(btn).toBeEnabled();
     fireEvent.click(btn);
-    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onConfirm).toHaveBeenCalledWith(["safeguard.spot_unresumable"]);
   });
 });
 
@@ -223,26 +254,61 @@ describe("RequestBuilder Component (#850)", () => {
     expect(screen.getByTestId("field-risk-placement.provider")).toBeInTheDocument();
   });
 
-  it("opens PlanCostSheet on review click and dispatches via client", async () => {
-    const mockSubmit = vi.fn().mockResolvedValue({ job_id: "cj-dispatched-123" });
+  it("opens PlanCostSheet on review click and dispatches via the cloud service", async () => {
+    const mockSubmit = vi.fn().mockResolvedValue({
+      accepted: true,
+      job_id: "cj-dispatched-123",
+      reason: "",
+    });
     const mockClient = {
-      submitJob: mockSubmit,
+      cloudJobsPreview: vi.fn().mockResolvedValue({
+        available: true,
+        estimate_known: true,
+        estimate: {
+          compute: 1.2,
+          startup: 0.1,
+          ipv4: 0,
+          storage: 0,
+          egress: 0,
+          retries: 0.1,
+          total: 1.4,
+        },
+        reason: "",
+      }),
+      cloudJobsSubmit: mockSubmit,
     } as unknown as HostClient;
 
     render(<RequestBuilder client={mockClient} />);
-
-    const reviewBtn = screen.getByTestId("review-plan-button");
-    fireEvent.click(reviewBtn);
-
+    fireEvent.click(screen.getByTestId("review-plan-button"));
     expect(screen.getByTestId("plan-cost-sheet")).toBeInTheDocument();
-
-    const confirmBtn = screen.getByTestId("confirm-submit-button");
-    fireEvent.click(confirmBtn);
-
+    await waitFor(() => {
+      expect(screen.getByText("$1.40")).toBeInTheDocument();
+      expect(screen.getByTestId("confirm-submit-button")).toBeEnabled();
+    });
+    fireEvent.click(screen.getByTestId("confirm-submit-button"));
     await waitFor(() => {
       expect(mockSubmit).toHaveBeenCalledTimes(1);
       expect(screen.getByTestId("submit-success-banner")).toBeInTheDocument();
     });
+  });
+
+  it("does not dispatch when the cloud service is absent", () => {
+    render(<RequestBuilder />);
+    fireEvent.click(screen.getByTestId("review-plan-button"));
+    expect(screen.getByTestId("submission-unavailable")).toBeInTheDocument();
+    expect(screen.getByTestId("confirm-submit-button")).toBeDisabled();
+    expect(screen.queryByTestId("submit-success-banner")).not.toBeInTheDocument();
+  });
+
+  it("leaves the execution mode selector usable when managed batch is unsupported", () => {
+    render(<RequestBuilder />);
+    fireEvent.change(screen.getByTestId("input-provider"), { target: { value: "azure" } });
+    fireEvent.change(screen.getByTestId("input-gpu-class"), { target: { value: "NVIDIA-A100" } });
+    const mode = screen.getByTestId("input-execution-mode");
+    expect(mode).toBeEnabled();
+    expect(within(mode).getByRole("option", { name: /Managed Batch/ })).toBeDisabled();
+    fireEvent.change(mode, { target: { value: "instance" } });
+    expect(mode).toHaveValue("instance");
   });
 
   it("mounts RequestBuilder inside CloudJobsPopout with tab switching", () => {

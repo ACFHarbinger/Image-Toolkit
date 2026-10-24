@@ -111,6 +111,30 @@ emits = ["jobs"]
 stability = "experimental"
 owner = 894
 
+[[method]]
+name = "cloud_jobs.preview"
+capability = "cloud_jobs"
+summary = "Run CloudJobService.preview and return the Plan & cost sheet (#850). Does not submit."
+params = "cloud_jobs.PreviewParams"
+result = "cloud_jobs.PreviewResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 850
+
+[[method]]
+name = "cloud_jobs.submit"
+capability = "cloud_jobs"
+summary = "Submit through CloudJobService with the acknowledgements the sheet collected (#850)."
+params = "cloud_jobs.CloudSubmitParams"
+result = "cloud_jobs.CloudSubmitResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 850
+
 [[channel]]
 name = "jobs"
 payload = "jobs.JobEventPayload"

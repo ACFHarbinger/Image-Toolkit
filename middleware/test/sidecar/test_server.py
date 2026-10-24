@@ -35,7 +35,7 @@ def test_handshake_result_and_ping_validate() -> None:
     result = handshake["result"]
     assert result["protocol"] == PROTOCOL_NAME
     assert result["compatibility"] == {"min": "1.0.0", "max": "1.0.0"}
-    assert set(result["capabilities"]) == {"system", "jobs", "convert"}
+    assert set(result["capabilities"]) == {"system", "jobs", "convert", "cloud_jobs"}
     assert _request(server, "system.ping", {}, "ping")["result"] == {"ok": True}
 
 
@@ -123,3 +123,90 @@ def test_serve_stdout_carries_only_json_frames() -> None:
     assert frames[1]["error"]["data"]["code"] == "bridge.parse_error"
     assert frames[2]["result"] == {"ok": True}
     assert stderr.getvalue() == ""
+
+
+def _spec_document() -> dict[str, Any]:
+    from middleware.src.cloud.spec import ExecutionMode, JobSpec, Placement, ShardSpec, WorkloadKind
+
+    spec = JobSpec(
+        kind=WorkloadKind.EXTRACT,
+        placement=Placement(provider="gcp", region="us-central1", mode=ExecutionMode.MANAGED_BATCH),
+        shards=(ShardSpec(index=0),),
+        title="review",
+    )
+    return spec.to_dict()
+
+
+def test_cloud_submit_is_unavailable_without_a_service() -> None:
+    server = SidecarServer(stdout=io.StringIO())
+    _handshake(server)
+    document = _spec_document()
+    preview = _request(server, "cloud_jobs.preview", {"spec": document})["result"]
+    assert preview["available"] is False
+    assert preview["estimate_known"] is False
+    assert preview["estimate"]["total"] == 0.0
+    submitted = _request(
+        server,
+        "cloud_jobs.submit",
+        {"spec": document, "acknowledged": []},
+    )["result"]
+    assert submitted == {"accepted": False, "job_id": "", "reason": "cloud submission is unavailable"}
+
+
+def test_cloud_submit_uses_the_attached_service() -> None:
+    server = SidecarServer(stdout=io.StringIO())
+    _handshake(server)
+    document = _spec_document()
+    seen: dict[str, Any] = {}
+
+    class _Report:
+        def sheet(self) -> dict[str, Any]:
+            return {
+                "job_id": document["job_id"],
+                "kind": "extract",
+                "provider": "gcp",
+                "region": "us-central1",
+                "mode": "managed_batch",
+                "storage": "bucket",
+                "data_class": "private",
+                "shards": 1,
+                "staging_bytes": 0,
+                "estimate_known": True,
+                "estimate": {
+                    "compute": 1.2,
+                    "startup": 0.1,
+                    "ipv4": 0.0,
+                    "storage": 0.0,
+                    "egress": 0.0,
+                    "retries": 0.1,
+                    "total": 1.4,
+                },
+                "price_age_days": 4,
+                "issues": [],
+                "needs_ack": ["safeguard.spot_unresumable"],
+                "capability_override": False,
+            }
+
+    class _Service:
+        def preview(self, spec: Any) -> _Report:
+            seen["kind"] = spec.kind.value
+            return _Report()
+
+        def submit(self, spec: Any, acknowledged: Any = ()) -> str:
+            seen["acks"] = tuple(acknowledged)
+            return spec.job_id
+
+    server.cloud_service = _Service()
+    preview = _request(server, "cloud_jobs.preview", {"spec": document})["result"]
+    assert preview["available"] is True
+    assert preview["estimate_known"] is True
+    assert preview["estimate"]["compute"] == 1.2
+    assert seen["kind"] == "extract"
+    submitted = _request(
+        server,
+        "cloud_jobs.submit",
+        {"spec": document, "acknowledged": ["safeguard.spot_unresumable"]},
+    )["result"]
+    assert submitted["accepted"] is True
+    assert submitted["job_id"] == document["job_id"]
+    assert seen["acks"] == ("safeguard.spot_unresumable",)

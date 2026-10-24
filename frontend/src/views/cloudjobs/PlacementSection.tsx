@@ -79,15 +79,17 @@ export function PlacementSection({
         <select
           data-testid="input-execution-mode"
           value={spec.placement.mode}
-          disabled={diagnosis.disabled_fields.has("placement.mode")}
           onChange={(e) => onModeChange(e.target.value as ExecutionMode)}
-          className={`mt-1 w-full rounded-md p-2 text-sm ${
-            diagnosis.disabled_fields.has("placement.mode")
-              ? "cursor-not-allowed opacity-50"
-              : ""
-          } ${getRiskInputClass(diagnosis.severity_of("placement.mode"))}`}
+          className={`mt-1 w-full rounded-md p-2 text-sm ${getRiskInputClass(
+            diagnosis.severity_of("placement.mode"),
+          )}`}
         >
-          <option value="managed_batch">Managed Batch (Serverless Worker Pool)</option>
+          <option
+            value="managed_batch"
+            disabled={diagnosis.findings.some((finding) => finding.rule_id === "cap.gpu_mode_unsupported")}
+          >
+            Managed Batch (Serverless Worker Pool)
+          </option>
           <option value="instance">Dedicated Remote Instance (VM/Pod)</option>
         </select>
         {renderFieldRisk("placement.mode")}

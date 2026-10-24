@@ -2,12 +2,25 @@ import React, { useState } from "react";
 import { formatBytes, formatUsd, JobSpec } from "./jobSpec";
 import { getRiskBannerClass, RiskDiagnosis } from "./risk";
 
+export interface CostBreakdown {
+  compute: number;
+  startup: number;
+  ipv4: number;
+  storage: number;
+  egress: number;
+  retries: number;
+  total: number;
+}
+
 export interface PlanCostSheetProps {
   spec: JobSpec;
   diagnosis: RiskDiagnosis;
-  onConfirmSubmit: () => Promise<void> | void;
+  onConfirmSubmit: (acknowledged: string[]) => Promise<void> | void;
   onClose: () => void;
   isSubmitting?: boolean;
+  estimateKnown?: boolean;
+  estimate?: CostBreakdown | null;
+  submissionAvailable?: boolean;
 }
 
 export function PlanCostSheet({
@@ -16,6 +29,9 @@ export function PlanCostSheet({
   onConfirmSubmit,
   onClose,
   isSubmitting = false,
+  estimateKnown = false,
+  estimate = null,
+  submissionAvailable = false,
 }: PlanCostSheetProps): React.ReactElement {
   const [acks, setAcks] = useState<Set<string>>(new Set());
 
@@ -36,16 +52,8 @@ export function PlanCostSheet({
     0,
   );
 
-  // Compute breakdown estimates
-  const computeBase = (spec.limits.max_spend_usd ?? 5.0) * 0.7;
-  const startup = 0.05;
-  const ipv4 = 0.03;
-  const storage = Math.max(0.01, (stagingBytes / (1024 * 1024 * 1024)) * 0.02);
-  const egress = 0.04;
-  const retries = (computeBase + startup + ipv4) * 0.1;
-  const total = computeBase + startup + ipv4 + storage + egress + retries;
-
-  const canSubmit = diagnosis.ok_to_submit(acks) && !isSubmitting;
+  const priced = estimateKnown && estimate !== null;
+  const canSubmit = submissionAvailable && diagnosis.ok_to_submit(acks) && !isSubmitting;
 
   return (
     <div
@@ -120,26 +128,32 @@ export function PlanCostSheet({
               Estimated Total Job Cost Breakdown
             </h3>
             <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
-              <div className="grid grid-cols-2 gap-y-2 text-xs text-gray-600 dark:text-gray-300">
-                <div>Compute runtime:</div>
-                <div className="text-right font-mono">{formatUsd(computeBase)}</div>
-                <div>Node cold-start:</div>
-                <div className="text-right font-mono">{formatUsd(startup)}</div>
-                <div>Public IPv4 address:</div>
-                <div className="text-right font-mono">{formatUsd(ipv4)}</div>
-                <div>Staging bucket storage:</div>
-                <div className="text-right font-mono">{formatUsd(storage)}</div>
-                <div>Egress transfer:</div>
-                <div className="text-right font-mono">{formatUsd(egress)}</div>
-                <div>Retries contingency:</div>
-                <div className="text-right font-mono">{formatUsd(retries)}</div>
-                <div className="border-t border-gray-200 pt-2 font-bold text-gray-900 dark:border-gray-700 dark:text-gray-100">
-                  Estimated Total:
+              {priced && estimate ? (
+                <div className="grid grid-cols-2 gap-y-2 text-xs text-gray-600 dark:text-gray-300">
+                  <div>Compute runtime:</div>
+                  <div className="text-right font-mono">{formatUsd(estimate.compute)}</div>
+                  <div>Node cold-start:</div>
+                  <div className="text-right font-mono">{formatUsd(estimate.startup)}</div>
+                  <div>Public IPv4 address:</div>
+                  <div className="text-right font-mono">{formatUsd(estimate.ipv4)}</div>
+                  <div>Staging bucket storage:</div>
+                  <div className="text-right font-mono">{formatUsd(estimate.storage)}</div>
+                  <div>Egress transfer:</div>
+                  <div className="text-right font-mono">{formatUsd(estimate.egress)}</div>
+                  <div>Retries contingency:</div>
+                  <div className="text-right font-mono">{formatUsd(estimate.retries)}</div>
+                  <div className="border-t border-gray-200 pt-2 font-bold text-gray-900 dark:border-gray-700 dark:text-gray-100">
+                    Estimated Total:
+                  </div>
+                  <div className="border-t border-gray-200 pt-2 text-right font-mono font-bold text-emerald-600 dark:border-gray-700 dark:text-emerald-400">
+                    {formatUsd(estimate.total)}
+                  </div>
                 </div>
-                <div className="border-t border-gray-200 pt-2 text-right font-mono font-bold text-emerald-600 dark:border-gray-700 dark:text-emerald-400">
-                  {formatUsd(total)}
-                </div>
-              </div>
+              ) : (
+                <p data-testid="pricing-unknown" className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                  Pricing unknown. The catalogue has no estimate for this placement.
+                </p>
+              )}
             </div>
           </section>
 
@@ -181,6 +195,15 @@ export function PlanCostSheet({
             </section>
           )}
 
+          {!submissionAvailable && (
+            <div
+              data-testid="submission-unavailable"
+              className="rounded-lg bg-amber-100 p-3 text-xs font-semibold text-amber-900 dark:bg-amber-950/80 dark:text-amber-200"
+            >
+              Cloud submission is unavailable. Confirming this sheet does not dispatch a job.
+            </div>
+          )}
+
           {diagnosis.blocking.length > 0 && (
             <div
               data-testid="blocking-banner"
@@ -201,7 +224,7 @@ export function PlanCostSheet({
             Cancel / Edit Spec
           </button>
           <button
-            onClick={() => void onConfirmSubmit()}
+            onClick={() => void onConfirmSubmit([...acks])}
             disabled={!canSubmit}
             data-testid="confirm-submit-button"
             className="flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
