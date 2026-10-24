@@ -91,6 +91,8 @@ export function Shell({ showModal }: ShellProps) {
     }
     setActiveId(next.id);
     setCategory(next.category);
+    setJobsFallback(false);
+    setComputeOpen(false);
   };
 
   const workspaceId = workspaceIdFor(active);
