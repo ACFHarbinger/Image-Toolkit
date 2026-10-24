@@ -8,7 +8,7 @@
 | **Service Package** | `middleware/src/services/<feature>/` (`api.py`) |
 | **Frontend View** | `frontend/src/features/<feature>/` |
 | **Contract Schema** | `contracts/CONTRACTS.sha256` |
-| **Contract SHA-256** | `5a4561cc935e5e7098bbb70e673dbe80fcc9da00470d369b67b897593f256ffe` |
+| **Contract SHA-256** | `7886a9fb066af0b1778fca0b4bf80c544815754858676745c46d3f584b33e46c` |
 
 ## Overview
 

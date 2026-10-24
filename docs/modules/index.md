@@ -19,5 +19,5 @@ CI runs `python middleware/validation/check_docs_freshness.py`, which verifies t
 | Capability | Service Path | Contract | Module Doc |
 |---|---|---|---|
 | System / Convert (`W0-17` / `P-01`) | `middleware/src/services/convert/` | `contracts/schemas/capability/system.json` | [Convert Service (`convert.md`)](convert.md) |
-| Cloud Jobs resources and spend (`#849`) | `middleware/src/services/cloud_jobs/` | `contracts/schemas/capability/cloud_jobs.json` | [Cloud Jobs (`cloud_jobs.md`)](cloud_jobs.md) |
+| Cloud Jobs window (`#847`, `#849`) | `middleware/src/services/cloud_jobs/` | `contracts/schemas/capability/cloud_jobs.json` | [Cloud Jobs (`cloud_jobs.md`)](cloud_jobs.md) |
 | Module Template | `middleware/src/services/<feature>/` | `contracts/CONTRACTS.sha256` | [Module Template (`_template.md`)](_template.md) |

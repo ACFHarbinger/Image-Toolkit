@@ -1,4 +1,4 @@
-// GENERATED — contract hash 5a4561cc935e5e7098bbb70e673dbe80fcc9da00470d369b67b897593f256ffe. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 7886a9fb066af0b1778fca0b4bf80c544815754858676745c46d3f584b33e46c. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -36,6 +36,15 @@ pub struct SpendResult {
     pub month_actual_usd: f64,
     pub reserved_usd: f64,
     pub by_provider: Vec<SpendByProvider>,
+}
+
+pub type SummaryParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SummaryResult {
+    pub running: i64,
+    pub reserved_usd: f64,
+    pub available: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

@@ -131,6 +131,11 @@ fn resolve_runtime(probe: &RuntimeProbe) -> Result<Runtime, String> {
         candidates.push(exe_dir.join("../lib/image-toolkit/sidecar-runtime"));
         candidates.push(exe_dir.join("../share/image-toolkit/sidecar-runtime"));
     }
+    #[cfg(unix)]
+    {
+        candidates.push(PathBuf::from("/opt/image-toolkit/sidecar-runtime"));
+        candidates.push(PathBuf::from("/opt/image-toolkit"));
+    }
     for candidate in candidates {
         if let Some(runtime) = runtime_at(&candidate) {
             return Ok(runtime);

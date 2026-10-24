@@ -1,37 +1,37 @@
-# Cloud Jobs resources and spend
+# Cloud Jobs window (`cloud.jobs`)
 
 | Field | Value |
 |---|---|
 | **Capability ID** | `cloud.jobs` |
 | **Service Package** | `middleware/src/services/cloud_jobs/` |
-| **Frontend View** | `frontend/src/shell/CloudJobsViews.tsx` |
+| **Frontend View** | `frontend/src/shell/CloudJobsWindow.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/cloud_jobs.json` |
-| **Contract SHA-256** | `383c9796d778174fdd8d7107f560a7a5320fdfd8fb60d72a5fdc6e9d33cf7426` |
+| **Contract SHA-256** | `2f3328bbedb91cf905d6a73fcb17f8e0191d4f0ec5cee0d4e0d4166346b80e00` |
 
 ## Overview
 
-The `cloud.jobs` window lists tagged resources, marks orphans, and draws spend from ledger rows. The sidecar projects rows it is given. It does not open `cloud_jobs.db`. Terminate does not call a provider.
+The header has one cloud control. A click shows the labeled `cloud.jobs` window. The gear, or a shift-click, shows the Cloud Compute setup surface. The badge is the running job count and the reserved spend from `cloud_jobs.summary`. The resources and spend panes project injected rows. The sidecar does not open `cloud_jobs.db`. Terminate does not call a provider.
 
 ## Public Surface
 
-- **Python:** `project_resources`, `project_spend`, and `terminate_result` in `middleware/src/services/cloud_jobs/projection.py`.
-- **Bridge:** `cloud_jobs.resources`, `cloud_jobs.spend`, `cloud_jobs.terminate`.
+- **Python:** `header_badge` and `summary_result` in `badge.py`. `project_resources`, `project_spend`, and `terminate_result` in `projection.py`.
+- **Bridge:** `cloud_jobs.summary`, `cloud_jobs.resources`, `cloud_jobs.spend`, `cloud_jobs.terminate`.
 - **C++ Native Entrypoints:** none.
 
 ## Contract & Routing
 
 - **JSON Schema:** `contracts/schemas/capability/cloud_jobs.json`
-- **Methods:** `cloud_jobs.resources`, `cloud_jobs.spend`, `cloud_jobs.terminate`
+- **Methods:** `cloud_jobs.summary`, `cloud_jobs.resources`, `cloud_jobs.spend`, `cloud_jobs.terminate`
 - **Events:** none
 
 ## Accessibility & Known Gaps
 
-- **Keyboard parity:** each orphan's Terminate control is a button. Spend is text.
-- **Screen-reader notes & known gaps:** spend changes are not a live region. A refused terminate is a text notice.
+- **Keyboard parity:** the Cloud Jobs and Cloud Compute buttons are Tab stops. Each orphan's Terminate control is a button.
+- **Screen-reader notes & known gaps:** badge and spend changes are not a live region. A refused terminate is a text notice.
 
 ## Verification
 
 ```bash
 source .venv/bin/activate
-pytest middleware/test/services/test_cloud_jobs_projection.py middleware/test/sidecar/test_server.py -q
+PYTHONPATH=. pytest middleware/test/services/test_cloud_jobs_badge.py middleware/test/services/test_cloud_jobs_projection.py middleware/test/sidecar/test_server.py -q
 ```

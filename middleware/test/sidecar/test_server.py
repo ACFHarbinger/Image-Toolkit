@@ -125,6 +125,25 @@ def test_serve_stdout_carries_only_json_frames() -> None:
     assert stderr.getvalue() == ""
 
 
+def test_cloud_jobs_summary_without_a_store_is_unavailable() -> None:
+    server = SidecarServer(stdout=io.StringIO())
+    _handshake(server)
+    result = _request(server, "cloud_jobs.summary", {})["result"]
+    assert result == {"running": 0, "reserved_usd": 0.0, "available": False}
+
+
+def test_cloud_jobs_summary_uses_the_attached_projection() -> None:
+    server = SidecarServer(
+        stdout=io.StringIO(),
+        badge_source=lambda: [("running", 1.25), ("succeeded", 8.0)],
+    )
+    _handshake(server)
+    result = _request(server, "cloud_jobs.summary", {})["result"]
+    assert result["available"] is True
+    assert result["running"] == 1
+    assert result["reserved_usd"] == 1.25
+
+
 def test_cloud_jobs_views_are_unavailable_without_a_projection() -> None:
     server = SidecarServer(stdout=io.StringIO())
     _handshake(server)

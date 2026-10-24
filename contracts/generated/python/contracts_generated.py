@@ -1,4 +1,4 @@
-# GENERATED — contract hash 5a4561cc935e5e7098bbb70e673dbe80fcc9da00470d369b67b897593f256ffe. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 7886a9fb066af0b1778fca0b4bf80c544815754858676745c46d3f584b33e46c. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -37,6 +37,13 @@ class SpendResult:
     month_actual_usd: float
     reserved_usd: float
     by_provider: list[SpendByProvider]
+
+
+@dataclass(frozen=True)
+class SummaryResult:
+    running: int
+    reserved_usd: float
+    available: bool
 
 
 @dataclass(frozen=True)
@@ -256,6 +263,9 @@ ResourcesParams = dict[str, Any]
 
 
 SpendParams = dict[str, Any]
+
+
+SummaryParams = dict[str, Any]
 
 
 BridgeResponse = ResultResponse | ErrorResponse
