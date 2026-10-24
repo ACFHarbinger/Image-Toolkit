@@ -11,7 +11,7 @@
             "protocol": "image-toolkit-bridge",
             "version": "1.0.0",
             "compatibility": { "min": "1.0.0", "max": "1.0.0" },
-            "capabilities": ["system", "jobs", "convert", "cloud_jobs"]
+"capabilities": ["system", "jobs", "convert", "cloud_jobs", "settings"]
           }
         }
       },

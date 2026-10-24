@@ -29,6 +29,12 @@ from middleware.src.bridge import (
 )
 from middleware.src.sidecar.handlers.cloud_jobs import BadgeSource, handle_summary
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
+from middleware.src.sidecar.handlers.settings import (
+    handle_settings_get,
+    handle_settings_get_many,
+    handle_settings_set,
+    handle_settings_set_many,
+)
 from middleware.src.sidecar.jobs import JobRegistry
 
 
@@ -125,6 +131,14 @@ class SidecarServer:
             return handle_convert(params)
         if method == "convert.convert_batch":
             return start_convert_batch(self.jobs, params)
+        if method == "settings.get":
+            return handle_settings_get(params)
+        if method == "settings.set":
+            return handle_settings_set(params)
+        if method == "settings.get_many":
+            return handle_settings_get_many(params)
+        if method == "settings.set_many":
+            return handle_settings_set_many(params)
         raise BridgeAppError("bridge.method_not_found", details={"method": method})
 
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:

@@ -1,4 +1,4 @@
-# GENERATED — contract hash 43786106791c039a8287c7b4e4ad317f69a1e4ab0543c78a9ff14b6c8e29e7d2. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash ec6a61092d909f9e2161d5089fa6ebc740ab2ce342d29bb779e41de84a587bdc. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -174,6 +174,57 @@ class RpcErrorObject:
     code: int
     message: str
     data: BridgeError
+
+
+@dataclass(frozen=True)
+class GetManyParams:
+    keys: list[str]
+
+
+@dataclass(frozen=True)
+class GetManyResult:
+    values: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class GetParams:
+    key: str
+
+
+@dataclass(frozen=True)
+class GetResult:
+    key: str
+    value: None | bool | float | str | list[Any] | dict[str, Any]
+    scope: Scope
+
+
+class Scope(str, enum.Enum):
+    DEVICE = "device"
+    ACCOUNT = "account"
+    SESSION = "session"
+
+
+@dataclass(frozen=True)
+class SetManyParams:
+    updates: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class SetManyResult:
+    values: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class SetParams:
+    key: str
+    value: None | bool | float | str | list[Any] | dict[str, Any]
+
+
+@dataclass(frozen=True)
+class SetResult:
+    key: str
+    value: None | bool | float | str | list[Any] | dict[str, Any]
+    scope: Scope
 
 
 @dataclass(frozen=True)

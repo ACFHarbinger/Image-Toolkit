@@ -80,6 +80,10 @@ class SettingsService:
             raise ValueError(f"Value {value!r} failed validation for setting key '{key}'")
         return cast_value
 
+    def validate(self, key: str, value: Any) -> Any:
+        """Cast and validate without writing (bulk writes check first)."""
+        return self._prepare(key, value)
+
     def set(self, key: str, value: Any) -> None:
         """Validate and store a setting in its scope; notify subscribers."""
         value = self._prepare(key, value)

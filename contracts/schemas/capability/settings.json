@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/settings.json",
+  "title": "SettingsCapability",
+  "description": "The #880 settings service over the bridge (D5 / #851). Keys are owned by their scope's store; values are opaque to the bridge and validated by the service's key catalog.",
+  "type": "object",
+  "$defs": {
+    "Scope": {
+      "title": "Scope",
+      "description": "Ownership scope that routed the key (W0-16: device, account, session).",
+      "type": "string",
+      "enum": ["device", "account", "session"]
+    },
+    "GetParams": {
+      "title": "GetParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "GetResult": {
+      "title": "GetResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "value", "scope"],
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "value": { "type": ["null", "boolean", "number", "string", "array", "object"] },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        }
+      }
+    },
+    "SetParams": {
+      "title": "SetParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "value"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": { "type": ["null", "boolean", "number", "string", "array", "object"] }
+      }
+    },
+    "SetResult": {
+      "title": "SetResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "value", "scope"],
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "value": { "type": ["null", "boolean", "number", "string", "array", "object"] },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        }
+      }
+    },
+    "GetManyParams": {
+      "title": "GetManyParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["keys"],
+      "properties": {
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "GetManyResult": {
+      "title": "GetManyResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["values"],
+      "properties": {
+        "values": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "SetManyParams": {
+      "title": "SetManyParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["updates"],
+      "properties": {
+        "updates": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "SetManyResult": {
+      "title": "SetManyResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["values"],
+      "properties": {
+        "values": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}
