@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { JobDetailResult, JobSummaryItem } from "../../../contracts/generated/ts";
 import type { HostClient } from "../hostclient";
 import { JobDetail } from "./JobDetail";
@@ -39,16 +39,27 @@ export function CloudJobsWindow({ badge, client }: CloudJobsWindowProps): React.
     }
   };
 
+  const detailGeneration = useRef(0);
+
   const refreshDetail = async (id: string) => {
     if (!client) return;
+    const generation = ++detailGeneration.current;
     setLoadingDetail(true);
     try {
       const res = await client.cloudJobsDetail({ job_id: id });
+      if (detailGeneration.current !== generation) {
+        return;
+      }
       setDetail(res);
     } catch {
+      if (detailGeneration.current !== generation) {
+        return;
+      }
       setDetail(null);
     } finally {
-      setLoadingDetail(false);
+      if (detailGeneration.current === generation) {
+        setLoadingDetail(false);
+      }
     }
   };
 
@@ -57,11 +68,16 @@ export function CloudJobsWindow({ badge, client }: CloudJobsWindowProps): React.
   }, [client, filterState, filterProvider, searchQuery]);
 
   useEffect(() => {
-    if (selectedJobId) {
-      void refreshDetail(selectedJobId);
-    } else {
+    if (!selectedJobId) {
+      detailGeneration.current += 1;
       setDetail(null);
+      setLoadingDetail(false);
+      return;
     }
+    void refreshDetail(selectedJobId);
+    return () => {
+      detailGeneration.current += 1;
+    };
   }, [client, selectedJobId]);
 
   const handleCancelJob = async (jobId: string) => {

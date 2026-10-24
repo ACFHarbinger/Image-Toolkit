@@ -177,3 +177,31 @@ test("CloudJobsWindow fetches jobs and detail from HostClient", async () => {
     expect(screen.getByTestId("job-detail-card")).toBeInTheDocument();
   });
 });
+
+test("a late detail response does not replace the current selection", async () => {
+  let resolveFirst: (value: typeof MOCK_DETAIL) => void = () => undefined;
+  const first = new Promise<typeof MOCK_DETAIL>((resolve) => {
+    resolveFirst = resolve;
+  });
+  const secondDetail = { ...MOCK_DETAIL, job_id: "job-102", title: "Second job" };
+  const mockClient = {
+    cloudJobsList: vi.fn().mockResolvedValue({ jobs: MOCK_JOBS }),
+    cloudJobsDetail: vi.fn((params: { job_id: string }) =>
+      params.job_id === "job-101" ? first : Promise.resolve(secondDetail),
+    ),
+    cancelJob: vi.fn(),
+  };
+
+  render(<CloudJobsWindow badge="—" client={mockClient as never} />);
+  await screen.findByTestId("job-row-job-101");
+  fireEvent.click(screen.getByTestId("job-row-job-101"));
+  fireEvent.click(await screen.findByTestId("job-row-job-102"));
+  await waitFor(() => {
+    expect(screen.getByTestId("job-detail-card")).toHaveTextContent("Second job");
+  });
+  resolveFirst({ ...MOCK_DETAIL, title: "Stale first job" });
+  await waitFor(() => {
+    expect(screen.getByTestId("job-detail-card")).toHaveTextContent("Second job");
+  });
+  expect(screen.getByTestId("job-detail-card")).not.toHaveTextContent("Stale first job");
+});
