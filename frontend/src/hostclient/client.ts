@@ -5,7 +5,10 @@ import type {
   ConvertBatchResult,
   ConvertParams,
   ConvertResult,
+  ResourcesResult,
+  SpendResult,
   SummaryResult,
+  TerminateResult,
   HandshakeResult,
   JobStatus,
   ListParams,
@@ -84,6 +87,21 @@ export class HostClient {
   async cloudJobsSummary(): Promise<SummaryResult> {
     await this.connect();
     return this.send<SummaryResult>("cloud_jobs.summary", {});
+  }
+
+  async cloudJobsResources(): Promise<ResourcesResult> {
+    await this.connect();
+    return this.send<ResourcesResult>("cloud_jobs.resources", {});
+  }
+
+  async cloudJobsSpend(): Promise<SpendResult> {
+    await this.connect();
+    return this.send<SpendResult>("cloud_jobs.spend", {});
+  }
+
+  async cloudJobsTerminate(resourceId: string): Promise<TerminateResult> {
+    await this.connect();
+    return this.send<TerminateResult>("cloud_jobs.terminate", { resource_id: resourceId });
   }
 
   async convert(params: ConvertParams): Promise<ConvertResult> {

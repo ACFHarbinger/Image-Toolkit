@@ -1,4 +1,4 @@
-# GENERATED — contract hash 43786106791c039a8287c7b4e4ad317f69a1e4ab0543c78a9ff14b6c8e29e7d2. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 7886a9fb066af0b1778fca0b4bf80c544815754858676745c46d3f584b33e46c. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -10,10 +10,52 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 @dataclass(frozen=True)
+class ResourceRow:
+    provider: str
+    kind: str
+    resource_id: str
+    region: str
+    job_id: str
+    orphan: bool
+
+
+@dataclass(frozen=True)
+class ResourcesResult:
+    available: bool
+    resources: list[ResourceRow]
+
+
+@dataclass(frozen=True)
+class SpendByProvider:
+    provider: str
+    actual_usd: float
+
+
+@dataclass(frozen=True)
+class SpendResult:
+    available: bool
+    month_actual_usd: float
+    reserved_usd: float
+    by_provider: list[SpendByProvider]
+
+
+@dataclass(frozen=True)
 class SummaryResult:
     running: int
     reserved_usd: float
     available: bool
+
+
+@dataclass(frozen=True)
+class TerminateParams:
+    resource_id: str
+
+
+@dataclass(frozen=True)
+class TerminateResult:
+    accepted: bool
+    resource_id: str
+    reason: str
 
 
 @dataclass(frozen=True)
@@ -215,6 +257,12 @@ class HandshakeResult:
 @dataclass(frozen=True)
 class PingResult:
     ok: Literal[True]
+
+
+ResourcesParams = dict[str, Any]
+
+
+SpendParams = dict[str, Any]
 
 
 SummaryParams = dict[str, Any]

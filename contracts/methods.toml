@@ -123,6 +123,42 @@ emits = ["jobs"]
 stability = "experimental"
 owner = 894
 
+[[method]]
+name = "cloud_jobs.resources"
+capability = "cloud_jobs"
+summary = "Tagged cloud resources and orphans for the cloud.jobs window (#849)."
+params = "cloud_jobs.ResourcesParams"
+result = "cloud_jobs.ResourcesResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 849
+
+[[method]]
+name = "cloud_jobs.spend"
+capability = "cloud_jobs"
+summary = "Spend dashboard drawn from ledger rows (#849)."
+params = "cloud_jobs.SpendParams"
+result = "cloud_jobs.SpendResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 849
+
+[[method]]
+name = "cloud_jobs.terminate"
+capability = "cloud_jobs"
+summary = "Ask to terminate one tagged resource. Refused without a daemon lease (#849)."
+params = "cloud_jobs.TerminateParams"
+result = "cloud_jobs.TerminateResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 849
+
 [[channel]]
 name = "jobs"
 payload = "jobs.JobEventPayload"

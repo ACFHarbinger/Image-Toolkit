@@ -1,8 +1,42 @@
-// GENERATED — contract hash 43786106791c039a8287c7b4e4ad317f69a1e4ab0543c78a9ff14b6c8e29e7d2. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 7886a9fb066af0b1778fca0b4bf80c544815754858676745c46d3f584b33e46c. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ResourceRow {
+    pub provider: String,
+    pub kind: String,
+    pub resource_id: String,
+    pub region: String,
+    pub job_id: String,
+    pub orphan: bool,
+}
+
+pub type ResourcesParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ResourcesResult {
+    pub available: bool,
+    pub resources: Vec<ResourceRow>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SpendByProvider {
+    pub provider: String,
+    pub actual_usd: f64,
+}
+
+pub type SpendParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SpendResult {
+    pub available: bool,
+    pub month_actual_usd: f64,
+    pub reserved_usd: f64,
+    pub by_provider: Vec<SpendByProvider>,
+}
 
 pub type SummaryParams = std::collections::HashMap<String, serde_json::Value>;
 
@@ -11,6 +45,18 @@ pub struct SummaryResult {
     pub running: i64,
     pub reserved_usd: f64,
     pub available: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct TerminateParams {
+    pub resource_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct TerminateResult {
+    pub accepted: bool,
+    pub resource_id: String,
+    pub reason: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

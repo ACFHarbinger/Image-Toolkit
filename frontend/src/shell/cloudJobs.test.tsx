@@ -33,6 +33,19 @@ test("the jobs window names the panes later gates fill", () => {
   expect(screen.getByTestId("cloud-jobs-spend")).toBeInTheDocument();
 });
 
+test("resources and spend panes replace the empty placeholders", () => {
+  render(
+    <CloudJobsWindow
+      badge="—"
+      resources={<section data-testid="cloud-jobs-resources">tagged</section>}
+      spend={<section data-testid="cloud-jobs-spend">ledger</section>}
+    />,
+  );
+  expect(screen.getByTestId("cloud-jobs-resources")).toHaveTextContent("tagged");
+  expect(screen.getByTestId("cloud-jobs-spend")).toHaveTextContent("ledger");
+  expect(screen.getAllByTestId("cloud-jobs-resources")).toHaveLength(1);
+});
+
 test("cloud compute is the setup surface", () => {
   const onClose = vi.fn();
   render(<CloudComputeSurface onClose={onClose} />);

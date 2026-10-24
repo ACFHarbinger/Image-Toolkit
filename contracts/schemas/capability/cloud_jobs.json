@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "capability/cloud_jobs.json",
   "title": "CloudJobsCapability",
-  "description": "Header badge for the cloud.jobs window (#847). running counts jobs in the active states. reserved_usd is the spend still held on non-terminal jobs. available is false when this process has no projection to read. The method name is cloud_jobs.summary.",
+  "description": "cloud.jobs window (#847, #849). cloud_jobs.summary is the header badge. cloud_jobs.resources, cloud_jobs.spend, and cloud_jobs.terminate project injected rows. The sidecar does not open cloud_jobs.db and terminate does not call a provider.",
   "type": "object",
   "$defs": {
     "SummaryParams": {
@@ -20,6 +20,90 @@
         "running": { "type": "integer", "minimum": 0 },
         "reserved_usd": { "type": "number", "minimum": 0 },
         "available": { "type": "boolean" }
+      }
+    },
+    "ResourcesParams": {
+      "title": "ResourcesParams",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "ResourceRow": {
+      "title": "ResourceRow",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "kind", "resource_id", "region", "job_id", "orphan"],
+      "properties": {
+        "provider": { "type": "string" },
+        "kind": { "type": "string" },
+        "resource_id": { "type": "string" },
+        "region": { "type": "string" },
+        "job_id": { "type": "string" },
+        "orphan": { "type": "boolean" }
+      }
+    },
+    "ResourcesResult": {
+      "title": "ResourcesResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available", "resources"],
+      "properties": {
+        "available": { "type": "boolean" },
+        "resources": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ResourceRow" }
+        }
+      }
+    },
+    "SpendParams": {
+      "title": "SpendParams",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "SpendByProvider": {
+      "title": "SpendByProvider",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "actual_usd"],
+      "properties": {
+        "provider": { "type": "string" },
+        "actual_usd": { "type": "number", "minimum": 0 }
+      }
+    },
+    "SpendResult": {
+      "title": "SpendResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available", "month_actual_usd", "reserved_usd", "by_provider"],
+      "properties": {
+        "available": { "type": "boolean" },
+        "month_actual_usd": { "type": "number", "minimum": 0 },
+        "reserved_usd": { "type": "number", "minimum": 0 },
+        "by_provider": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SpendByProvider" }
+        }
+      }
+    },
+    "TerminateParams": {
+      "title": "TerminateParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource_id"],
+      "properties": {
+        "resource_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "TerminateResult": {
+      "title": "TerminateResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accepted", "resource_id", "reason"],
+      "properties": {
+        "accepted": { "type": "boolean" },
+        "resource_id": { "type": "string" },
+        "reason": { "type": "string" }
       }
     }
   }
