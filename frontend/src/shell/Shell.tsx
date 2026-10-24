@@ -54,6 +54,7 @@ export function Shell({ showModal }: ShellProps) {
     // Each effect setup owns its client, including StrictMode's setup/cleanup replay.
     const client = new HostClient(new RustTransport(), {
       clientName: "tauri-shell",
+      // Protocol compatibility, not the app semver. COMPATIBILITY_MAX is 1.0.0.
       clientVersion: "1.0.0",
     });
     setHostClient(client);

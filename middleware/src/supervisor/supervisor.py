@@ -7,12 +7,24 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
+from middleware.src.supervisor.binding import (
+    DAEMON_STORES,
+    BindingError,
+    DaemonMinter,
+    ProductionHandoff,
+    lease_still_valid,
+    load_lease_meta,
+    load_or_create_session,
+    renew_before,
+    save_lease_meta,
+)
 from middleware.src.supervisor.children import (
     CHILD_NAMES,
     SIDECAR,
     ChildHandle,
     child_running,
     heartbeat,
+    pid_path,
     reattach,
     spawn,
     terminate,
@@ -41,9 +53,14 @@ class Supervisor:
         spawn_child: Callable[[str, Path], ChildHandle] | None = None,
         use_real_sidecar: bool = False,
         python_executable: str | None = None,
+        vault: DaemonMinter | None = None,
+        lease_ttl_seconds: int = 300,
     ) -> None:
         self.data_dir = data_dir
         self.poll_interval_s = poll_interval_s
+        self._handoff = ProductionHandoff(vault) if vault is not None else None
+        self._lease_ttl = lease_ttl_seconds
+        self._session_id: str | None = None
         self._spawn_child = spawn_child or (
             lambda name, path: spawn(
                 name,
@@ -81,15 +98,19 @@ class Supervisor:
             raise RuntimeError(f"supervisor already running for {self.data_dir}")
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self._stop.clear()
-        for name in CHILD_NAMES:
-            handle = reattach(name, self.data_dir)
-            if handle is None:
-                handle = self._spawn_child(name, self.data_dir)
-            with self._mu:
-                self._children[name] = handle
-        self._thread = threading.Thread(
-            target=self._run, name="itk-supervisor", daemon=True
-        )
+        try:
+            if self._handoff is not None:
+                self._session_id, session_existed = load_or_create_session(self.data_dir)
+            else:
+                session_existed = False
+            for name in CHILD_NAMES:
+                handle = self._adopt_or_spawn(name, session_existed)
+                with self._mu:
+                    self._children[name] = handle
+        except Exception:
+            self._fail_start()
+            raise
+        self._thread = threading.Thread(target=self._run, name="itk-supervisor", daemon=True)
         self._thread.start()
 
     def stop(self, *, reap_children: bool = True) -> None:
@@ -157,7 +178,7 @@ class Supervisor:
         if sidecar is not None and not child_running(sidecar):
             self._on_sidecar_down(sidecar.pid)
             if not self._stop.is_set():
-                replacement = self._spawn_child(SIDECAR, self.data_dir)
+                replacement = self._launch(SIDECAR)
                 with self._mu:
                     self._children[SIDECAR] = replacement
                     self._pending_ready = (replacement.pid, sidecar.pid)
@@ -178,10 +199,17 @@ class Supervisor:
             if name == SIDECAR:
                 continue
             child = self.children.get(name)
-            if child is not None and not child_running(child) and not self._stop.is_set():
-                replacement = self._spawn_child(name, self.data_dir)
+            if child is None or self._stop.is_set():
+                continue
+            if not child_running(child):
+                try:
+                    replacement = self._launch(name)
+                except Exception:
+                    continue
                 with self._mu:
                     self._children[name] = replacement
+            elif self._handoff is not None:
+                self._maintain_lease(name, child)
 
     def _on_sidecar_down(self, pid: int) -> None:
         error = bridge_unavailable(sidecar_pid=pid)
@@ -190,9 +218,151 @@ class Supervisor:
                 self._inflight_errors[request_id] = error
                 event.set()
             self._inflight.clear()
-        self._emit(
-            BridgeEvent(name=BRIDGE_DOWN, sidecar_pid=pid, protocol_version=None)
+        self._emit(BridgeEvent(name=BRIDGE_DOWN, sidecar_pid=pid, protocol_version=None))
+
+    def _adopt_or_spawn(self, name: str, session_existed: bool) -> ChildHandle:
+        if self._handoff is None or name not in DAEMON_STORES:
+            existing = reattach(name, self.data_dir)
+            return existing if existing is not None else self._spawn_child(name, self.data_dir)
+        existing = reattach(name, self.data_dir)
+        if (
+            existing is not None
+            and session_existed
+            and self._session_id is not None
+            and lease_still_valid(
+                load_lease_meta(self.data_dir, name),
+                pid=existing.pid,
+                session=self._session_id,
+                now=time.time(),
+                ttl_seconds=self._lease_ttl,
+            )
+        ):
+            return existing
+        if existing is not None:
+            terminate(existing)
+        return self._spawn_bound(name)
+
+    def _launch(self, name: str) -> ChildHandle:
+        if self._handoff is None or name not in DAEMON_STORES:
+            return self._spawn_child(name, self.data_dir)
+        return self._spawn_bound(name)
+
+    def _spawn_bound(self, name: str) -> ChildHandle:
+        if self._handoff is None or self._session_id is None:
+            raise BindingError("production lease handoff is not configured")
+        store = DAEMON_STORES[name]
+        handle = spawn(
+            name,
+            self.data_dir,
+            lease_wait=True,
+            supervisor_session=self._session_id,
         )
+        try:
+            lease = self._handoff.mint(
+                store_name=store,
+                daemon_name=name,
+                data_dir=self.data_dir,
+                pid=handle.pid,
+                ttl_seconds=self._lease_ttl,
+                supervisor_session=self._session_id,
+            )
+            self._deliver(handle, lease)
+            save_lease_meta(
+                self.data_dir,
+                name,
+                pid=handle.pid,
+                session=self._session_id,
+                expires_at=time.time() + self._lease_ttl,
+            )
+        except Exception:
+            terminate(handle)
+            pid_path(self.data_dir, name).unlink(missing_ok=True)
+            raise
+        return handle
+
+    def _maintain_lease(self, name: str, handle: ChildHandle) -> None:
+        """Renew on the private pipe, or respawn a reattached child before expiry.
+
+        A child adopted after a supervisor restart has no stdin in this process.
+        Reusing its old lease under a new session id is not a renewal. When the
+        remaining TTL enters the renewal window, this starts a new PID on the
+        current session instead.
+        """
+        if self._handoff is None or self._session_id is None or name not in DAEMON_STORES:
+            return
+        if handle.lease_stdin is not None:
+            self._renew_if_due(name, handle)
+            return
+        if lease_still_valid(
+            load_lease_meta(self.data_dir, name),
+            pid=handle.pid,
+            session=self._session_id,
+            now=time.time(),
+            ttl_seconds=self._lease_ttl,
+        ):
+            return
+        terminate(handle)
+        if self._stop.is_set():
+            return
+        try:
+            replacement = self._launch(name)
+        except Exception:
+            return
+        with self._mu:
+            self._children[name] = replacement
+
+    def _renew_if_due(self, name: str, handle: ChildHandle) -> None:
+        if self._handoff is None or self._session_id is None or name not in DAEMON_STORES:
+            return
+        meta = load_lease_meta(self.data_dir, name)
+        expires_at = meta.get("expires_at") if meta else None
+        same_binding = (
+            meta is not None
+            and meta.get("pid") == handle.pid
+            and meta.get("session") == self._session_id
+            and isinstance(expires_at, (int, float))
+            and not isinstance(expires_at, bool)
+        )
+        if not same_binding or not isinstance(expires_at, (int, float)):
+            terminate(handle)
+            return
+        if expires_at - time.time() > renew_before(self._lease_ttl):
+            return
+        try:
+            lease = self._handoff.mint(
+                store_name=DAEMON_STORES[name],
+                daemon_name=name,
+                data_dir=self.data_dir,
+                pid=handle.pid,
+                ttl_seconds=self._lease_ttl,
+                supervisor_session=self._session_id,
+            )
+            self._deliver(handle, lease)
+            save_lease_meta(
+                self.data_dir,
+                name,
+                pid=handle.pid,
+                session=self._session_id,
+                expires_at=time.time() + self._lease_ttl,
+            )
+        except Exception:
+            terminate(handle)
+
+    @staticmethod
+    def _deliver(handle: ChildHandle, lease: str) -> None:
+        stdin = handle.lease_stdin
+        if stdin is None or not hasattr(stdin, "write"):
+            raise BindingError(f"no private lease channel for {handle.name}")
+        stdin.write(lease + "\n")
+        stdin.flush()
+
+    def _fail_start(self) -> None:
+        with self._mu:
+            handles = list(self._children.values())
+            self._children.clear()
+        for handle in handles:
+            terminate(handle)
+        self._lock.release()
 
     def _emit(self, event: BridgeEvent) -> None:
         with self._mu:
