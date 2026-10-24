@@ -1,4 +1,4 @@
-// GENERATED — contract hash 43786106791c039a8287c7b4e4ad317f69a1e4ab0543c78a9ff14b6c8e29e7d2. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash d3ad88d256890708aae55f71b8555461f5137da710beb8f83ced0deb22ae992f. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -11,6 +11,29 @@ pub struct SummaryResult {
     pub running: i64,
     pub reserved_usd: f64,
     pub available: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefillParams {
+    pub owner: String,
+    pub estimated_gb: f64,
+    pub device_gb: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefillResult {
+    pub offered: bool,
+    /// must be false (enforced by the framing layer, #875)
+    pub submitted: bool,
+    pub reason: String,
+    pub estimate_usd: f64,
+    pub estimate_known: bool,
+    pub kind: String,
+    pub vram_gb_min: f64,
+    pub provider: String,
+    pub region: String,
+    pub runtime_s: f64,
+    pub job_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

@@ -1,4 +1,4 @@
-# GENERATED — contract hash 43786106791c039a8287c7b4e4ad317f69a1e4ab0543c78a9ff14b6c8e29e7d2. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash d3ad88d256890708aae55f71b8555461f5137da710beb8f83ced0deb22ae992f. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -14,6 +14,28 @@ class SummaryResult:
     running: int
     reserved_usd: float
     available: bool
+
+
+@dataclass(frozen=True)
+class PrefillParams:
+    owner: str
+    estimated_gb: float
+    device_gb: float
+
+
+@dataclass(frozen=True)
+class PrefillResult:
+    offered: bool
+    submitted: Literal[False]
+    reason: str
+    estimate_usd: float
+    estimate_known: bool
+    kind: str
+    vram_gb_min: float
+    provider: str
+    region: str
+    runtime_s: float
+    job_id: str
 
 
 @dataclass(frozen=True)

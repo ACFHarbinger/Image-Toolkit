@@ -123,6 +123,18 @@ emits = ["jobs"]
 stability = "experimental"
 owner = 894
 
+[[method]]
+name = "cloud_offer.prefill"
+capability = "cloud_offer"
+summary = "Prefill a cloud JobSpec when VRAM admission refuses (#852). Does not submit."
+params = "cloud_offer.PrefillParams"
+result = "cloud_offer.PrefillResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 852
+
 [[channel]]
 name = "jobs"
 payload = "jobs.JobEventPayload"
