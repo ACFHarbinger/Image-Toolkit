@@ -77,6 +77,26 @@ describe("Video Asset & Codec Probing (#892, S-06)", () => {
     controller.cancel();
     expect(controller.isBusy).toBe(false);
   });
+
+  it("keeps the latest frame while a seek is in flight", () => {
+    const onSeek = vi.fn();
+    let flush: (time: number) => void = () => undefined;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      flush = callback;
+      return 1;
+    });
+    const controller = createScrubController({ fps: 30, onSeek });
+    controller.scrubToFrame(10);
+    flush(0);
+    expect(onSeek).toHaveBeenCalledTimes(1);
+    controller.scrubToFrame(20);
+    controller.scrubToFrame(30);
+    expect(onSeek).toHaveBeenCalledTimes(1);
+    controller.markSeekCompleted();
+    flush(0);
+    expect(onSeek).toHaveBeenCalledTimes(2);
+    expect(onSeek).toHaveBeenLastCalledWith(1);
+  });
 });
 
 describe("VideoScrubHost Component (#892, S-06)", () => {

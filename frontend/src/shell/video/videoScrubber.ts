@@ -145,25 +145,26 @@ export function createScrubController(options: ScrubControllerOptions) {
     options.onSeek(targetTime);
   };
 
+  const schedule = () => {
+    if (rafId !== null || isSeeking) {
+      return;
+    }
+    if (typeof requestAnimationFrame !== "undefined") {
+      rafId = requestAnimationFrame(flush);
+    } else {
+      flush();
+    }
+  };
+
   return {
     scrubToFrame(frameIndex: number) {
       pendingFrame = frameIndex;
-      if (rafId === null) {
-        if (typeof requestAnimationFrame !== "undefined") {
-          rafId = requestAnimationFrame(flush);
-        } else {
-          flush();
-        }
-      }
+      schedule();
     },
     markSeekCompleted() {
       isSeeking = false;
-      if (pendingFrame !== null && rafId === null) {
-        if (typeof requestAnimationFrame !== "undefined") {
-          rafId = requestAnimationFrame(flush);
-        } else {
-          flush();
-        }
+      if (pendingFrame !== null) {
+        schedule();
       }
     },
     cancel() {
