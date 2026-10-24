@@ -4,18 +4,21 @@ import {
   ComfyCompatibilityResult,
   getComfySandboxPermissions,
   openExternalBrowser,
+  probeEmbeddingHeaders,
   validateComfyOrigin,
 } from "./comfySecurity";
 
 export interface ComfyIsolatedHostProps {
   comfyUrl?: string;
   initialHeaders?: Record<string, string>;
+  probeHeaders?: (url: string) => Promise<Record<string, string>>;
   onFallbackToBrowser?: (url: string) => void;
 }
 
 export function ComfyIsolatedHost({
   comfyUrl = "http://127.0.0.1:8188",
   initialHeaders,
+  probeHeaders = probeEmbeddingHeaders,
   onFallbackToBrowser,
 }: ComfyIsolatedHostProps): React.ReactElement {
   const [url, setUrl] = useState(comfyUrl);
@@ -23,21 +26,41 @@ export function ComfyIsolatedHost({
   const [compat, setCompat] = useState<ComfyCompatibilityResult | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const val = validateComfyOrigin(url);
     if (!val.valid) {
       setStatus("error");
-      setCompat({ embeddable: false, reason: val.error });
+      setCompat({ embeddable: false, checked: true, reason: val.error });
       return;
     }
 
-    const res = checkEmbeddingCompatibility(url, initialHeaders);
-    setCompat(res);
-    if (res.embeddable) {
-      setStatus("ready");
-    } else {
-      setStatus("blocked");
-    }
-  }, [url, initialHeaders]);
+    setStatus("checking");
+    const inspect = async () => {
+      try {
+        const headers = initialHeaders ?? (await probeHeaders(url));
+        if (cancelled) {
+          return;
+        }
+        const res = checkEmbeddingCompatibility(url, headers);
+        setCompat(res);
+        setStatus(res.embeddable ? "ready" : "blocked");
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+        setCompat({
+          embeddable: false,
+          checked: false,
+          reason: err instanceof Error ? err.message : "Embedding probe failed.",
+        });
+        setStatus("blocked");
+      }
+    };
+    void inspect();
+    return () => {
+      cancelled = true;
+    };
+  }, [url, initialHeaders, probeHeaders]);
 
   const handleOpenExternal = async () => {
     onFallbackToBrowser?.(url);
@@ -134,6 +157,14 @@ export function ComfyIsolatedHost({
             data-testid="comfy-isolated-iframe"
             title="ComfyUI Isolated Workspace"
             src={url}
+            onError={() => {
+              setStatus("blocked");
+              setCompat({
+                embeddable: false,
+                checked: true,
+                reason: "The ComfyUI frame failed to load.",
+              });
+            }}
             sandbox={getComfySandboxPermissions()}
             allow="clipboard-read; clipboard-write; fullscreen"
             className="h-full w-full border-0"

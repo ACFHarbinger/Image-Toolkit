@@ -38,8 +38,13 @@ describe("ComfyUI Origin & Security Validation (#890, S-04)", () => {
   });
 
   it("detects X-Frame-Options and CSP frame-ancestors restrictions", () => {
-    const clean = checkEmbeddingCompatibility("http://127.0.0.1:8188");
+    const unprobed = checkEmbeddingCompatibility("http://127.0.0.1:8188");
+    expect(unprobed.embeddable).toBe(false);
+    expect(unprobed.checked).toBe(false);
+
+    const clean = checkEmbeddingCompatibility("http://127.0.0.1:8188", {});
     expect(clean.embeddable).toBe(true);
+    expect(clean.checked).toBe(true);
     expect(clean.wsUrl).toBe("ws://127.0.0.1:8188/ws");
 
     const deny = checkEmbeddingCompatibility("http://127.0.0.1:8188", {
@@ -80,15 +85,28 @@ describe("ComfyUI Origin & Security Validation (#890, S-04)", () => {
 });
 
 describe("ComfyIsolatedHost Component (#890, S-04)", () => {
-  it("renders isolated view with strict sandbox iframe when embeddable", () => {
-    render(<ComfyIsolatedHost comfyUrl="http://127.0.0.1:8188" />);
+  it("renders isolated view with strict sandbox iframe when embeddable", async () => {
+    render(<ComfyIsolatedHost comfyUrl="http://127.0.0.1:8188" probeHeaders={async () => ({})} />);
 
     expect(screen.getByTestId("comfy-isolated-host")).toBeInTheDocument();
     expect(screen.getByTestId("comfy-isolation-badge")).toHaveTextContent("Zero Native Privileges");
 
-    const iframe = screen.getByTestId("comfy-isolated-iframe");
+    const iframe = await screen.findByTestId("comfy-isolated-iframe");
     expect(iframe).toHaveAttribute("src", "http://127.0.0.1:8188");
     expect(iframe).toHaveAttribute("sandbox", getComfySandboxPermissions());
+  });
+
+  it("shows the fallback when the probe cannot read embedding headers", async () => {
+    render(
+      <ComfyIsolatedHost
+        comfyUrl="http://127.0.0.1:8188"
+        probeHeaders={async () => {
+          throw new Error("probe failed");
+        }}
+      />,
+    );
+    expect(await screen.findByTestId("comfy-blocked-banner")).toBeInTheDocument();
+    expect(screen.queryByTestId("comfy-isolated-iframe")).not.toBeInTheDocument();
   });
 
   it("renders blocked banner and external fallback button when X-Frame-Options is DENY", () => {

@@ -13,6 +13,7 @@ export interface ComfyValidationResult {
 
 export interface ComfyCompatibilityResult {
   embeddable: boolean;
+  checked: boolean;
   reason?: string;
   wsUrl?: string;
 }
@@ -77,7 +78,11 @@ export function checkEmbeddingCompatibility(
 ): ComfyCompatibilityResult {
   const validation = validateComfyOrigin(urlString);
   if (!validation.valid) {
-    return { embeddable: false, reason: validation.error };
+    return { embeddable: false, checked: true, reason: validation.error };
+  }
+
+  if (!headers) {
+    return { embeddable: false, checked: false, reason: "Embedding headers were not probed." };
   }
 
   if (headers) {
@@ -91,12 +96,14 @@ export function checkEmbeddingCompatibility(
       if (xfo.includes("deny")) {
         return {
           embeddable: false,
+          checked: true,
           reason: "ComfyUI server configured with 'X-Frame-Options: DENY', which blocks iframe embedding.",
         };
       }
       if (xfo.includes("sameorigin")) {
         return {
           embeddable: false,
+          checked: true,
           reason: "ComfyUI server configured with 'X-Frame-Options: SAMEORIGIN', blocking cross-origin Tauri embedding.",
         };
       }
@@ -107,6 +114,7 @@ export function checkEmbeddingCompatibility(
       if (csp.includes("frame-ancestors 'none'") || csp.includes("frame-ancestors 'self'")) {
         return {
           embeddable: false,
+          checked: true,
           reason: `ComfyUI CSP directive '${csp}' prohibits embedding in Tauri.`,
         };
       }
@@ -115,8 +123,23 @@ export function checkEmbeddingCompatibility(
 
   return {
     embeddable: true,
+    checked: true,
     wsUrl: buildComfyWebSocketUrl(urlString),
   };
+}
+
+/** Read embedding headers from the Comfy server. A failure is not a successful probe. */
+export async function probeEmbeddingHeaders(urlString: string): Promise<Record<string, string>> {
+  const validation = validateComfyOrigin(urlString);
+  if (!validation.valid) {
+    throw new Error(validation.error ?? "invalid ComfyUI URL");
+  }
+  const response = await fetch(urlString, { method: "GET" });
+  const headers: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    headers[key] = value;
+  });
+  return headers;
 }
 
 /**
