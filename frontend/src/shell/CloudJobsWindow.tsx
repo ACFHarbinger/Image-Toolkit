@@ -16,7 +16,6 @@ export function CloudJobsWindow({ badge, client }: CloudJobsWindowProps): React.
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [detail, setDetail] = useState<JobDetailResult | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
 
   const [filterState, setFilterState] = useState("");
   const [filterProvider, setFilterProvider] = useState("");
@@ -80,21 +79,6 @@ export function CloudJobsWindow({ badge, client }: CloudJobsWindowProps): React.
     };
   }, [client, selectedJobId]);
 
-  const handleCancelJob = async (jobId: string) => {
-    if (!client) return;
-    setCancelling(true);
-    try {
-      await client.cancelJob(jobId);
-      if (selectedJobId === jobId) {
-        await refreshDetail(jobId);
-      }
-      await refreshJobs();
-    } catch {
-      // Ignored
-    } finally {
-      setCancelling(false);
-    }
-  };
 
   return (
     <main data-testid="cloud-jobs-window" className="flex min-h-screen flex-col gap-6 p-6">
@@ -126,8 +110,7 @@ export function CloudJobsWindow({ badge, client }: CloudJobsWindowProps): React.
         <JobDetail
           detail={detail}
           loading={loadingDetail}
-          onCancel={handleCancelJob}
-          cancelling={cancelling}
+          cancelUnavailableReason="Cloud cancellation is unavailable until the authenticated cloud command path is connected."
         />
       </section>
 

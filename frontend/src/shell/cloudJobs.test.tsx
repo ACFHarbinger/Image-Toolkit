@@ -205,3 +205,16 @@ test("a late detail response does not replace the current selection", async () =
   });
   expect(screen.getByTestId("job-detail-card")).not.toHaveTextContent("Stale first job");
 });
+
+
+test("cloud jobs never call the unrelated in-memory cancellation route", async () => {
+  const client = { cloudJobsList: vi.fn().mockResolvedValue({ jobs: MOCK_JOBS }),
+    cloudJobsDetail: vi.fn().mockResolvedValue(MOCK_DETAIL), cancelJob: vi.fn() };
+  render(<CloudJobsWindow badge="—" client={client as never} />);
+  fireEvent.click(await screen.findByTestId("job-row-job-101"));
+  const button = await screen.findByTestId("job-cancel-button");
+  expect(button).toBeDisabled();
+  expect(screen.getByTestId("cloud-cancel-unavailable")).toHaveTextContent("unavailable");
+  fireEvent.click(button);
+  expect(client.cancelJob).not.toHaveBeenCalled();
+});

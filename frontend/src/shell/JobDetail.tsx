@@ -6,6 +6,7 @@ export interface JobDetailProps {
   readonly loading?: boolean;
   readonly onCancel?: (jobId: string) => void;
   readonly cancelling?: boolean;
+  readonly cancelUnavailableReason?: string;
 }
 
 const ACTIVE_STATES = new Set(["queued", "provisioning", "running"]);
@@ -15,6 +16,7 @@ export function JobDetail({
   loading = false,
   onCancel,
   cancelling = false,
+  cancelUnavailableReason,
 }: JobDetailProps): React.ReactElement {
   if (loading) {
     return (
@@ -49,18 +51,23 @@ export function JobDetail({
           </p>
         </div>
 
-        {canCancel && onCancel && (
+        {canCancel && (onCancel || cancelUnavailableReason) && (
           <button
             data-testid="job-cancel-button"
             type="button"
-            disabled={cancelling}
-            onClick={() => onCancel(detail.job_id)}
+            disabled={cancelling || !onCancel || Boolean(cancelUnavailableReason)}
+            title={cancelUnavailableReason}
+            onClick={() => onCancel?.(detail.job_id)}
             className="rounded bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-50"
           >
             {cancelling ? "Cancelling..." : "Cancel Job"}
           </button>
         )}
       </div>
+
+      {canCancel && cancelUnavailableReason && (
+        <p role="status" data-testid="cloud-cancel-unavailable">{cancelUnavailableReason}</p>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div data-testid="job-detail-metrics" className="rounded bg-zinc-50 p-3 dark:bg-zinc-900">
