@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/wallpaper.json",
+  "title": "WallpaperCapability",
+  "description": "Multi-monitor wallpaper configuration and background slideshow daemon management (A-01 #913).",
+  "type": "object",
+  "$defs": {
+    "MonitorInfo": {
+      "title": "MonitorInfo",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "width", "height", "x", "y", "is_primary"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "x": { "type": "integer" },
+        "y": { "type": "integer" },
+        "is_primary": { "type": "boolean" }
+      }
+    },
+    "GetMonitorsParams": {
+      "title": "GetMonitorsParams",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "GetMonitorsResult": {
+      "title": "GetMonitorsResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["monitors", "desktop_environment"],
+      "properties": {
+        "monitors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/MonitorInfo" }
+        },
+        "desktop_environment": { "type": "string" }
+      }
+    },
+    "SetWallpaperParams": {
+      "title": "SetWallpaperParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path_map"],
+      "properties": {
+        "path_map": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "style": {
+          "type": "string",
+          "enum": ["fill", "fit", "stretch", "center", "tile", "span"]
+        },
+        "monitors": {
+          "type": "array",
+          "items": { "type": "integer" }
+        },
+        "background_color": { "type": ["string", "null"] }
+      }
+    },
+    "SetWallpaperResult": {
+      "title": "SetWallpaperResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "applied_monitors"],
+      "properties": {
+        "success": { "type": "boolean" },
+        "message": { "type": "string" },
+        "applied_monitors": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "SlideshowConfigParams": {
+      "title": "SlideshowConfigParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["update"],
+      "properties": {
+        "update": { "type": "boolean" },
+        "interval_seconds": { "type": ["integer", "null"], "minimum": 1 },
+        "style": { "type": ["string", "null"] },
+        "monitor_queues": {
+          "type": ["object", "null"],
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "current_paths": {
+          "type": ["object", "null"],
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "SlideshowConfigResult": {
+      "title": "SlideshowConfigResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interval_seconds", "style", "monitor_queues", "current_paths", "config_path"],
+      "properties": {
+        "interval_seconds": { "type": "integer", "minimum": 1 },
+        "style": { "type": "string" },
+        "monitor_queues": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "current_paths": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "config_path": { "type": "string" }
+      }
+    },
+    "SlideshowToggleParams": {
+      "title": "SlideshowToggleParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["running"],
+      "properties": {
+        "running": { "type": "boolean" }
+      }
+    },
+    "SlideshowToggleResult": {
+      "title": "SlideshowToggleResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["running", "message"],
+      "properties": {
+        "running": { "type": "boolean" },
+        "pid": { "type": ["integer", "null"] },
+        "message": { "type": "string" }
+      }
+    }
+  }
+}

@@ -63,6 +63,7 @@ def test_handshake_request_result_roundtrip() -> None:
         "merge",
         "similarity",
         "extractor",
+        "wallpaper",
     }
     # the built result validates against the contract schemas
     assert TABLE.validate_result("system.handshake", result) == []

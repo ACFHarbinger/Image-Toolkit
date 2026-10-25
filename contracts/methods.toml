@@ -452,6 +452,54 @@ emits = []
 stability = "experimental"
 owner = 905
 
+[[method]]
+name = "wallpaper.get_monitors"
+capability = "wallpaper"
+summary = "Discover connected monitors with geometries and display identifiers (A-01 / #913)."
+params = "wallpaper.GetMonitorsParams"
+result = "wallpaper.GetMonitorsResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 913
+
+[[method]]
+name = "wallpaper.set"
+capability = "wallpaper"
+summary = "Set desktop wallpaper per monitor or spanned across displays with style options (A-01 / #913)."
+params = "wallpaper.SetWallpaperParams"
+result = "wallpaper.SetWallpaperResult"
+errors = ["wallpaper.failed"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 913
+
+[[method]]
+name = "wallpaper.slideshow_config"
+capability = "wallpaper"
+summary = "Read or update background slideshow configuration (interval, style, monitor queues) (A-01 / #913)."
+params = "wallpaper.SlideshowConfigParams"
+result = "wallpaper.SlideshowConfigResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 913
+
+[[method]]
+name = "wallpaper.slideshow_toggle"
+capability = "wallpaper"
+summary = "Start or stop the background slideshow daemon (A-01 / #913)."
+params = "wallpaper.SlideshowToggleParams"
+result = "wallpaper.SlideshowToggleResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 913
+
 [[channel]]
 name = "jobs"
 payload = "jobs.JobEventPayload"

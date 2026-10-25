@@ -1,4 +1,4 @@
-// GENERATED — contract hash 48148467512ee584ac757ff420b1212bf259e6bc06655926b2980419a7ded0cc. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 239dc4acbba4111ef20878825587c4d6be98066d75cb0526995ffceaafec9cdb. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -861,4 +861,76 @@ pub type PingParams = std::collections::HashMap<String, serde_json::Value>;
 pub struct PingResult {
     /// must be true (enforced by the framing layer, #875)
     pub ok: bool,
+}
+
+pub type GetMonitorsParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct GetMonitorsResult {
+    pub monitors: Vec<MonitorInfo>,
+    pub desktop_environment: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MonitorInfo {
+    pub id: String,
+    pub name: String,
+    pub width: i64,
+    pub height: i64,
+    pub x: i64,
+    pub y: i64,
+    pub is_primary: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SetWallpaperParams {
+    pub path_map: std::collections::HashMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub monitors: Option<Vec<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background_color: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SetWallpaperResult {
+    pub success: bool,
+    pub message: String,
+    pub applied_monitors: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SlideshowConfigParams {
+    pub update: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub interval_seconds: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub monitor_queues: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_paths: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SlideshowConfigResult {
+    pub interval_seconds: i64,
+    pub style: String,
+    pub monitor_queues: std::collections::HashMap<String, Vec<String>>,
+    pub current_paths: std::collections::HashMap<String, String>,
+    pub config_path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SlideshowToggleParams {
+    pub running: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SlideshowToggleResult {
+    pub running: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pid: Option<serde_json::Value>,
+    pub message: String,
 }

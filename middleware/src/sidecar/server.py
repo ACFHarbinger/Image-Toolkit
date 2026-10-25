@@ -69,6 +69,12 @@ from middleware.src.sidecar.handlers.settings import (
     handle_settings_set_many,
 )
 from middleware.src.sidecar.handlers.similarity import handle_compare
+from middleware.src.sidecar.handlers.wallpaper import (
+    handle_get_monitors,
+    handle_set_wallpaper,
+    handle_slideshow_config,
+    handle_slideshow_toggle,
+)
 from middleware.src.sidecar.jobs import JobRegistry
 
 # Distinct from a handler result: cloud and settings routes may return None.
@@ -89,6 +95,7 @@ class SidecarServer:
         badge_source: BadgeSource | None = None,
         jobs_source: JobsSource | None = None,
         scan_service: Any | None = None,
+        wallpaper_service: Any | None = None,
         library_store: Any | None = None,
         library_admin_store: Any | None = None,
     ) -> None:
@@ -100,6 +107,7 @@ class SidecarServer:
         self.badge_source = badge_source
         self.jobs_source = jobs_source
         self.scan_service = scan_service
+        self.wallpaper_service = wallpaper_service
         self.library_store = library_store
         self.library_admin_store = library_admin_store
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
@@ -165,14 +173,9 @@ class SidecarServer:
             return self._handshake(params)
         if method == "system.ping":
             return build_ping_result(table=self.table)
-        if method == "jobs.submit":
-            return self.jobs.submit(params)
-        if method == "jobs.status":
-            return self.jobs.status(params)
-        if method == "jobs.list":
-            return self.jobs.list(params)
-        if method == "jobs.cancel":
-            return self.jobs.cancel(params)
+        jobs = self._dispatch_jobs(method, params)
+        if jobs is not _UNHANDLED:
+            return jobs
         if method == "convert.convert":
             return handle_convert(params)
         if method == "convert.convert_batch":
@@ -195,7 +198,21 @@ class SidecarServer:
         system_pages = self._dispatch_system_pages(method, params)
         if system_pages is not _UNHANDLED:
             return system_pages
+        wallpaper = self._dispatch_wallpaper(method, params)
+        if wallpaper is not _UNHANDLED:
+            return wallpaper
         raise BridgeAppError("bridge.method_not_found", details={"method": method})
+
+    def _dispatch_jobs(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "jobs.submit":
+            return self.jobs.submit(params)
+        if method == "jobs.status":
+            return self.jobs.status(params)
+        if method == "jobs.list":
+            return self.jobs.list(params)
+        if method == "jobs.cancel":
+            return self.jobs.cancel(params)
+        return _UNHANDLED
 
     def _dispatch_cloud(self, method: str, params: dict[str, Any]) -> Any:
         if method == "cloud_jobs.summary":
@@ -274,6 +291,17 @@ class SidecarServer:
             return handle_compare(params)
         if method == "extractor.probe":
             return handle_probe(params)
+        return _UNHANDLED
+
+    def _dispatch_wallpaper(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "wallpaper.get_monitors":
+            return handle_get_monitors(self.wallpaper_service, params)
+        if method == "wallpaper.set":
+            return handle_set_wallpaper(self.wallpaper_service, params)
+        if method == "wallpaper.slideshow_config":
+            return handle_slideshow_config(self.wallpaper_service, params)
+        if method == "wallpaper.slideshow_toggle":
+            return handle_slideshow_toggle(self.wallpaper_service, params)
         return _UNHANDLED
 
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:

@@ -1,3 +1,12 @@
+import type {
+  GetMonitorsResult,
+  SetWallpaperParams,
+  SetWallpaperResult,
+  SlideshowConfigParams,
+  SlideshowConfigResult,
+  SlideshowToggleParams,
+  SlideshowToggleResult,
+} from "../../../contracts/generated/ts";
 import type { ScanDirectoryParams, ScanDirectoryResult, SaveMetadataParams, SaveMetadataResult, SuggestTagsParams, SuggestTagsResult } from "../../../contracts/generated/ts";
 import type { BrowseParams, BrowseResult, CatalogResult, MutateParams, MutateResult } from "../../../contracts/generated/ts";
 import type {
@@ -278,6 +287,26 @@ export class HostClient {
   async scanSuggestTags(params: SuggestTagsParams): Promise<SuggestTagsResult> {
     await this.connect();
     return this.send<SuggestTagsResult>("scan.suggest_tags", params as unknown as Record<string, unknown>);
+  }
+
+  async wallpaperGetMonitors(): Promise<GetMonitorsResult> {
+    await this.connect();
+    return this.send<GetMonitorsResult>("wallpaper.get_monitors", {});
+  }
+
+  async wallpaperSet(params: SetWallpaperParams): Promise<SetWallpaperResult> {
+    await this.connect();
+    return this.send<SetWallpaperResult>("wallpaper.set", params as unknown as Record<string, unknown>);
+  }
+
+  async wallpaperSlideshowConfig(params: SlideshowConfigParams): Promise<SlideshowConfigResult> {
+    await this.connect();
+    return this.send<SlideshowConfigResult>("wallpaper.slideshow_config", params as unknown as Record<string, unknown>);
+  }
+
+  async wallpaperSlideshowToggle(params: SlideshowToggleParams): Promise<SlideshowToggleResult> {
+    await this.connect();
+    return this.send<SlideshowToggleResult>("wallpaper.slideshow_toggle", params as unknown as Record<string, unknown>);
   }
 
   onEvent(listener: Parameters<NonNullable<BridgeTransport["onEvent"]>>[0]): () => void {
