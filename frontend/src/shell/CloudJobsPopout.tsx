@@ -26,7 +26,7 @@ export function CloudJobsPopout(): React.ReactElement {
   const badge = useCloudBadge(client);
 
   return (
-    <main data-testid="cloud-jobs-popout" className="flex min-h-screen flex-col bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+    <div data-testid="cloud-jobs-popout" className="flex min-h-screen flex-col bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
       {/* Popout Header Navigation */}
       <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center gap-3">
@@ -64,17 +64,17 @@ export function CloudJobsPopout(): React.ReactElement {
         </nav>
       </header>
 
-      {/* Main Tab Content */}
+      {/* Main Tab Content. CloudJobsWindow owns the <main> element. */}
       <div className="flex-1 p-6">
         {activeTab === "builder" && (
           <RequestBuilder client={client} />
         )}
         {activeTab === "jobs" && (
           <div data-testid="cloud-jobs-queue-view">
-            <CloudJobsWindow badge={badge} />
+            <CloudJobsWindow badge={badge} client={client} />
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }

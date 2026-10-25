@@ -1,4 +1,4 @@
-# GENERATED — contract hash 1b786b00c07f6a36997bbfb2c4f7587b3fc5c9afdaf805a1a251a13d3b617e85. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 6351f82fd45a8c5d6143cf73e3570df6c3d8d70c885f1e2ccfcf5d09f3540f21. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -23,6 +23,13 @@ class CloudSubmitResult:
 
 
 @dataclass(frozen=True)
+class DaemonStatus:
+    lease_owner: str
+    wal_depth: int
+    last_poll_ts: float
+
+
+@dataclass(frozen=True)
 class EstimateBreakdown:
     compute: float
     startup: float
@@ -31,6 +38,80 @@ class EstimateBreakdown:
     egress: float
     retries: float
     total: float
+
+
+@dataclass(frozen=True)
+class JobDetailParams:
+    job_id: str
+
+
+@dataclass(frozen=True)
+class JobDetailResult:
+    job_id: str
+    kind: str
+    title: str
+    state: str
+    provider: str
+    created_at: float
+    events: list[JobEventItem]
+    outputs: list[str]
+    logs: list[str]
+    metrics: JobMetrics
+    spend: JobSpend
+    daemon_status: DaemonStatus
+    started_at: (float | None) | None = None
+    ended_at: (float | None) | None = None
+
+
+@dataclass(frozen=True)
+class JobEventItem:
+    id: int
+    ts: float
+    type: str
+    data: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class JobMetrics:
+    gpu_util_pct: float
+    vram_used_mb: float
+    peak_vcpu: float
+
+
+@dataclass(frozen=True)
+class JobSpend:
+    cost_so_far_usd: float
+    reserved_usd: float
+    max_spend_usd: float
+
+
+@dataclass(frozen=True)
+class JobSummaryItem:
+    job_id: str
+    kind: str
+    title: str
+    state: str
+    provider: str
+    created_at: float
+    cost_usd: float
+    shards_total: int
+    shards_done: int
+    started_at: (float | None) | None = None
+    ended_at: (float | None) | None = None
+
+
+@dataclass(frozen=True)
+class ListJobsParams:
+    state: str | None = None
+    provider: str | None = None
+    kind: str | None = None
+    search: str | None = None
+    limit: int | None = None
+
+
+@dataclass(frozen=True)
+class ListJobsResult:
+    jobs: list[JobSummaryItem]
 
 
 @dataclass(frozen=True)
