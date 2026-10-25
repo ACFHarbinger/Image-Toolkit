@@ -239,3 +239,33 @@ test.each(["success", "failure"])("ignores a stale list %s after search changes"
   expect(screen.getByTestId("job-row-job-102")).toBeInTheDocument();
   expect(screen.queryByTestId("job-row-job-101")).not.toBeInTheDocument();
 });
+
+
+test("polls list and selected detail until the window is unmounted", async () => {
+  vi.useFakeTimers();
+  const client = {
+    cloudJobsList: vi.fn().mockResolvedValueOnce({ jobs: MOCK_JOBS })
+      .mockResolvedValue({ jobs: [...MOCK_JOBS, { ...MOCK_JOBS[0], job_id: "job-new" }] }),
+    cloudJobsDetail: vi.fn().mockResolvedValueOnce(MOCK_DETAIL)
+      .mockResolvedValue({ ...MOCK_DETAIL, title: "Refreshed running job", state: "done" }),
+  };
+  const view = render(<CloudJobsWindow badge="—" client={client as never} />);
+  try {
+    await act(async () => {});
+    fireEvent.click(screen.getByTestId("job-row-job-101"));
+    await act(async () => {});
+    expect(client.cloudJobsDetail).toHaveBeenCalledTimes(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(client.cloudJobsList).toHaveBeenCalledTimes(2);
+    expect(client.cloudJobsDetail).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("job-row-job-new")).toBeInTheDocument();
+    expect(screen.getByTestId("job-detail-card")).toHaveTextContent("Refreshed running job");
+    view.unmount();
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(client.cloudJobsList).toHaveBeenCalledTimes(2);
+    expect(client.cloudJobsDetail).toHaveBeenCalledTimes(2);
+  } finally {
+    view.unmount();
+    vi.useRealTimers();
+  }
+});

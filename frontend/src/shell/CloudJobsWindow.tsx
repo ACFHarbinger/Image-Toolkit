@@ -31,55 +31,61 @@ export function CloudJobsWindow({ badge, client }: CloudJobsWindowProps): React.
       setLoadingJobs(false);
       return;
     }
+    let timer: ReturnType<typeof setTimeout>;
+    const refresh = async () => {
+      try {
+        const result = await client.cloudJobsList({
+          state: filterState || undefined,
+          provider: filterProvider || undefined,
+          search: searchQuery || undefined,
+        });
+        if (current()) setJobs([...result.jobs]);
+      } catch {
+        if (current()) setJobs([]);
+      } finally {
+        if (current()) {
+          setLoadingJobs(false);
+          timer = setTimeout(() => void refresh(), 2000);
+        }
+      }
+    };
     setLoadingJobs(true);
-    void client.cloudJobsList({
-      state: filterState || undefined,
-      provider: filterProvider || undefined,
-      search: searchQuery || undefined,
-    }).then((result) => {
-      if (current()) setJobs([...result.jobs]);
-    }).catch(() => {
-      if (current()) setJobs([]);
-    }).finally(() => {
-      if (current()) setLoadingJobs(false);
-    });
-    return () => { listGeneration.current += 1; };
+    void refresh();
+    return () => {
+      listGeneration.current += 1;
+      clearTimeout(timer);
+    };
   }, [client, filterState, filterProvider, searchQuery]);
 
   const detailGeneration = useRef(0);
 
-  const refreshDetail = async (id: string) => {
-    if (!client) return;
-    const generation = ++detailGeneration.current;
-    setLoadingDetail(true);
-    try {
-      const res = await client.cloudJobsDetail({ job_id: id });
-      if (detailGeneration.current !== generation) {
-        return;
-      }
-      setDetail(res);
-    } catch {
-      if (detailGeneration.current !== generation) {
-        return;
-      }
-      setDetail(null);
-    } finally {
-      if (detailGeneration.current === generation) {
-        setLoadingDetail(false);
-      }
-    }
-  };
-
   useEffect(() => {
-    if (!selectedJobId) {
-      detailGeneration.current += 1;
+    const generation = ++detailGeneration.current;
+    const current = () => detailGeneration.current === generation;
+    if (!client || !selectedJobId) {
       setDetail(null);
       setLoadingDetail(false);
       return;
     }
-    void refreshDetail(selectedJobId);
+    let timer: ReturnType<typeof setTimeout>;
+    const refresh = async () => {
+      try {
+        const result = await client.cloudJobsDetail({ job_id: selectedJobId });
+        if (current()) setDetail(result);
+      } catch {
+        if (current()) setDetail(null);
+      } finally {
+        if (current()) {
+          setLoadingDetail(false);
+          timer = setTimeout(() => void refresh(), 2000);
+        }
+      }
+    };
+    setLoadingDetail(true);
+    void refresh();
     return () => {
       detailGeneration.current += 1;
+      clearTimeout(timer);
     };
   }, [client, selectedJobId]);
 

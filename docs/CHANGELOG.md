@@ -37,6 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- The Cloud Jobs window refreshes its list and selected detail while open, schedules each refresh after the prior request finishes, and stops polling on unmount (#989).
 - Cloud Jobs discards stale list responses and failures after filters, search, or client changes (#989).
 - Cloud Jobs disables cancellation with an explanation until its authenticated cloud command is connected, avoiding the unrelated in-memory job cancellation route (#989).
 - ComfyUI's external-browser fallback uses a native opener restricted to credential-free loopback HTTP(S) URLs and reports launch failures (#993).
