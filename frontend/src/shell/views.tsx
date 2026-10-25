@@ -1,11 +1,12 @@
 import { ComponentType, ReactNode } from "react";
 import { ConvertPilot } from "../views/ConvertPilot";
+import { DataBrowser } from "../views/library/DataBrowser";
+import { LibraryManagement } from "../views/library/LibraryManagement";
 import MergeTab from "../tabs/core/MergeTab";
 import DeleteTab from "../tabs/core/DeleteTab";
 import WallpaperTab from "../tabs/core/WallpaperTab";
 import { ImageExtractorTab } from "../tabs/core/ImageExtractorTab";
 import SearchTab from "../tabs/database/SearchTab";
-import DatabaseTab from "../tabs/database/DatabaseTab";
 import ScanMetadataTab from "../tabs/database/ScanMetadataTab";
 import DriveSyncTab from "../tabs/web/DriveSyncTab";
 import ImageCrawlerTab from "../tabs/web/ImageCrawlerTab";
@@ -37,7 +38,8 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "system.extractor": ImageExtractorTab,
   "system.wallpaper": WallpaperTab,
   "library.search": SearchTab,
-  "library.management": DatabaseTab,
+  "library.management": LibraryManagement,
+  "library.data-browser": DataBrowser,
   "library.scan": ScanMetadataTab,
   "web.crawler": ImageCrawlerTab,
   "web.requests": WebRequestsTab,
@@ -67,6 +69,10 @@ export function CatalogView({
     );
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
-  const convertProps = entry.id === "system.convert" ? { hostClient } : {};
-  return <View showModal={showModal} {...extra} {...convertProps} />;
+  const hostClientProps = ["system.convert", "library.management", "library.data-browser"].includes(
+    entry.id,
+  )
+    ? { client: hostClient, hostClient }
+    : {};
+  return <View showModal={showModal} {...extra} {...hostClientProps} />;
 }

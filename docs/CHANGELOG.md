@@ -77,6 +77,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Library management and data browser (#899, #900): `library_admin.catalog`, `library_admin.mutate`, and `library_admin.browse`. The sidecar uses an injected store and does not open `library.db`. Browse filters are column equality.
+
 - **Cloud Jobs Submit Surfaces & Confirmation Sheet** (Gate D4, #850, PR #992):
   - **Shared specification:** `frontend/src/views/cloudjobs/jobSpec.ts` defines typed `JobSpec` structures and origin-tab converters (`jobSpecFromConvert`, `jobSpecFromExtract`, `jobSpecFromComfy`), ensuring origin tabs and Request Builder construct identical workloads.
   - **Live risk feedback:** `risk.ts` implements client-side risk rules evaluation mirroring the backend engine, dynamically applying Tailwind recolouring classes and warning badges for sensitive provider policies, unresumable spot instances, and execution mode constraints.

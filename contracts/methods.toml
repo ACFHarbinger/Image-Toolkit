@@ -267,6 +267,42 @@ emits = []
 stability = "experimental"
 owner = 851
 
+[[method]]
+name = "library_admin.catalog"
+capability = "library_admin"
+summary = "Groups, subgroups, and tags for Library Management (#899). available=false until the store arrives."
+params = "library_admin.EmptyParams"
+result = "library_admin.CatalogResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 899
+
+[[method]]
+name = "library_admin.mutate"
+capability = "library_admin"
+summary = "Create, remove, or merge groups, subgroups, and tags (#899). Does not open library.db."
+params = "library_admin.MutateParams"
+result = "library_admin.MutateResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 899
+
+[[method]]
+name = "library_admin.browse"
+capability = "library_admin"
+summary = "One page of one allowlisted table (#900). A filter is column equality, not a WHERE clause."
+params = "library_admin.BrowseParams"
+result = "library_admin.BrowseResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 900
+
 [[channel]]
 name = "jobs"
 payload = "jobs.JobEventPayload"

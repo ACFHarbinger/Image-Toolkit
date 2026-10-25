@@ -1,4 +1,4 @@
-// GENERATED — contract hash db2448a4bdeabe1e4ed117d1df96cf7502ed74c7c1b95d27c342ebd8754977e3. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash eb57d1d3ee001de50bb35743f515830d8370c51552d7d005103b952116fb1b96. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -387,6 +387,83 @@ pub struct SubmitParams {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct SubmitResult {
     pub job_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct BrowseParams {
+    pub table: String,
+    pub limit: i64,
+    pub offset: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub column: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub equals: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct BrowseResult {
+    pub available: bool,
+    pub columns: Vec<String>,
+    pub rows: Vec<BrowseRow>,
+    pub row_count: i64,
+    pub error: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct BrowseRow {
+    pub cells: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CatalogResult {
+    pub available: bool,
+    pub groups: Vec<GroupRecord>,
+    pub tags: Vec<TagRecord>,
+}
+
+pub type EmptyParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct GroupRecord {
+    pub name: String,
+    pub subgroups: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum MutateAction {
+    CreateGroup,
+    CreateSubgroup,
+    CreateTag,
+    RemoveGroup,
+    RemoveSubgroup,
+    RemoveTag,
+    MergeTags,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MutateParams {
+    pub action: MutateAction,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destination: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MutateResult {
+    pub available: bool,
+    pub applied: i64,
+    pub error: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct TagRecord {
+    pub name: String,
+    pub category: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

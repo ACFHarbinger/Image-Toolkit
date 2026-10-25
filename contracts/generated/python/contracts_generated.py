@@ -1,4 +1,4 @@
-# GENERATED — contract hash db2448a4bdeabe1e4ed117d1df96cf7502ed74c7c1b95d27c342ebd8754977e3. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash eb57d1d3ee001de50bb35743f515830d8370c51552d7d005103b952116fb1b96. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -353,6 +353,74 @@ class SubmitResult:
 
 
 @dataclass(frozen=True)
+class BrowseParams:
+    table: str
+    limit: int
+    offset: int
+    column: str | None = None
+    equals: str | None = None
+
+
+@dataclass(frozen=True)
+class BrowseResult:
+    available: bool
+    columns: list[str]
+    rows: list[BrowseRow]
+    row_count: int
+    error: str
+
+
+@dataclass(frozen=True)
+class BrowseRow:
+    cells: list[str]
+
+
+@dataclass(frozen=True)
+class CatalogResult:
+    available: bool
+    groups: list[GroupRecord]
+    tags: list[TagRecord]
+
+
+@dataclass(frozen=True)
+class GroupRecord:
+    name: str
+    subgroups: list[str]
+
+
+class MutateAction(str, enum.Enum):
+    CREATE_GROUP = "create_group"
+    CREATE_SUBGROUP = "create_subgroup"
+    CREATE_TAG = "create_tag"
+    REMOVE_GROUP = "remove_group"
+    REMOVE_SUBGROUP = "remove_subgroup"
+    REMOVE_TAG = "remove_tag"
+    MERGE_TAGS = "merge_tags"
+
+
+@dataclass(frozen=True)
+class MutateParams:
+    action: MutateAction
+    name: str
+    parent: str | None = None
+    category: str | None = None
+    destination: str | None = None
+
+
+@dataclass(frozen=True)
+class MutateResult:
+    available: bool
+    applied: int
+    error: str
+
+
+@dataclass(frozen=True)
+class TagRecord:
+    name: str
+    category: str
+
+
+@dataclass(frozen=True)
 class BridgeRequest:
     jsonrpc: Literal["2.0"]
     id: str | int | None
@@ -483,6 +551,9 @@ SpendParams = dict[str, Any]
 
 
 SummaryParams = dict[str, Any]
+
+
+EmptyParams = dict[str, Any]
 
 
 BridgeResponse = ResultResponse | ErrorResponse

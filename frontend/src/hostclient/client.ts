@@ -32,6 +32,11 @@ import type {
   SetManyResult,
   SetParams,
   SetResult,
+  BrowseParams,
+  BrowseResult,
+  CatalogResult,
+  MutateParams,
+  MutateResult,
   SubmitParams,
   SubmitResult,
 } from "../../../contracts/generated/ts";
@@ -179,6 +184,27 @@ export class HostClient {
   async setSettings(params: SetManyParams): Promise<SetManyResult> {
     await this.connect();
     return this.send<SetManyResult>("settings.set_many", params as unknown as Record<string, unknown>);
+  }
+
+  async libraryAdminCatalog(): Promise<CatalogResult> {
+    await this.connect();
+    return this.send<CatalogResult>("library_admin.catalog", {});
+  }
+
+  async libraryAdminMutate(params: MutateParams): Promise<MutateResult> {
+    await this.connect();
+    return this.send<MutateResult>(
+      "library_admin.mutate",
+      params as unknown as Record<string, unknown>,
+    );
+  }
+
+  async libraryAdminBrowse(params: BrowseParams): Promise<BrowseResult> {
+    await this.connect();
+    return this.send<BrowseResult>(
+      "library_admin.browse",
+      params as unknown as Record<string, unknown>,
+    );
   }
 
   onEvent(listener: Parameters<NonNullable<BridgeTransport["onEvent"]>>[0]): () => void {
