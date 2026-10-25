@@ -28,6 +28,7 @@ from middleware.src.bridge import (
     write_frame,
 )
 from middleware.src.services.cloud_jobs.projection import CloudProjection
+from middleware.src.services.stitch.status import stitch_status
 from middleware.src.sidecar.handlers.cloud_jobs import (
     BadgeSource,
     JobsSource,
@@ -274,6 +275,8 @@ class SidecarServer:
             return handle_compare(params)
         if method == "extractor.probe":
             return handle_probe(params)
+        if method == "stitch.status":
+            return stitch_status(params["route"])
         return _UNHANDLED
 
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:

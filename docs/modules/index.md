@@ -27,4 +27,5 @@ CI runs `python middleware/validation/check_docs_freshness.py`, which verifies t
 | Merge (`#903`) | `middleware/src/services/merge/` | `contracts/schemas/capability/merge.json` | [Merge (`merge.md`)](merge.md) |
 | Similarity (`#904`) | `middleware/src/services/similarity/` | `contracts/schemas/capability/similarity.json` | [Similarity (`similarity.md`)](similarity.md) |
 | Extractor (`#905`) | `middleware/src/services/extractor/` | `contracts/schemas/capability/extractor.json` | [Extractor (`extractor.md`)](extractor.md) |
+| Image Stitching (`#914`) | `middleware/src/services/stitch/` | `contracts/schemas/capability/stitch.json` | [Image Stitching (`stitch.md`)](stitch.md) |
 | Module Template | `middleware/src/services/<feature>/` | `contracts/CONTRACTS.sha256` | [Module Template (`_template.md`)](_template.md) |

@@ -19,6 +19,7 @@ import type {
   CompareResult,
   ProbeParams,
   ProbeResult,
+  StitchStatusResult,
   FrameParams,
   FrameResult,
   GetManyParams,
@@ -188,6 +189,11 @@ export class HostClient {
   async extractorProbe(params: ProbeParams): Promise<ProbeResult> {
     await this.connect();
     return this.send<ProbeResult>("extractor.probe", params as unknown as Record<string, unknown>);
+  }
+
+  async stitchStatus(route: string): Promise<StitchStatusResult> {
+    await this.connect();
+    return this.send<StitchStatusResult>("stitch.status", { route });
   }
 
   async cloudOfferPrefill(params: PrefillParams): Promise<PrefillResult> {

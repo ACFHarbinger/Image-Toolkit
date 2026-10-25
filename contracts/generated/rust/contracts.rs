@@ -1,4 +1,4 @@
-// GENERATED — contract hash 48148467512ee584ac757ff420b1212bf259e6bc06655926b2980419a7ded0cc. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 433f54d28ecf99f37f575931181333803a334374a1f830f64435073dd4be706b. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -817,6 +817,20 @@ pub struct CompareParams {
 pub struct CompareResult {
     pub items: Vec<CompareItem>,
     pub pairs: Vec<ComparePair>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct StitchStatusParams {
+    pub route: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct StitchStatusResult {
+    pub route: String,
+    /// must be false (enforced by the framing layer, #875)
+    pub started: bool,
+    /// must be "stitch pipeline is not started" (enforced by the framing layer, #875)
+    pub reason: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

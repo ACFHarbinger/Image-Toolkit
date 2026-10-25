@@ -452,6 +452,18 @@ emits = []
 stability = "experimental"
 owner = 905
 
+[[method]]
+name = "stitch.status"
+capability = "stitch"
+summary = "Report one Image Stitching catalog route (#914). Does not start the stitch pipeline."
+params = "stitch.StitchStatusParams"
+result = "stitch.StitchStatusResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 914
+
 [[channel]]
 name = "jobs"
 payload = "jobs.JobEventPayload"

@@ -1,4 +1,4 @@
-# GENERATED — contract hash 48148467512ee584ac757ff420b1212bf259e6bc06655926b2980419a7ded0cc. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 433f54d28ecf99f37f575931181333803a334374a1f830f64435073dd4be706b. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -726,6 +726,18 @@ class CompareParams:
 class CompareResult:
     items: list[CompareItem]
     pairs: list[ComparePair]
+
+
+@dataclass(frozen=True)
+class StitchStatusParams:
+    route: str
+
+
+@dataclass(frozen=True)
+class StitchStatusResult:
+    route: str
+    started: Literal[False]
+    reason: Literal["stitch pipeline is not started"]
 
 
 @dataclass(frozen=True)

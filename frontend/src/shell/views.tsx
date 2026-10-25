@@ -6,6 +6,7 @@ import { Listings } from "../views/library/Listings";
 import { MergeView } from "../views/system/MergeView";
 import { SimilarityView } from "../views/system/SimilarityView";
 import { ExtractorView } from "../views/system/ExtractorView";
+import { StitchWorkspace } from "../views/stitch/StitchWorkspace";
 import WallpaperTab from "../tabs/core/WallpaperTab";
 import { ImageSearch } from "../views/library/ImageSearch";
 import { ScanMetadataView } from "../views/library/ScanMetadataView";
@@ -32,6 +33,21 @@ export interface ViewProps {
   hostClient: HostClient;
 }
 
+const STITCH_ROUTE_IDS = [
+  "stitch.stitch",
+  "stitch.graph",
+  "stitch.adjust",
+  "stitch.canvas",
+  "stitch.statistics",
+  "stitch.sequence-builder",
+  "stitch.hybrid",
+  "stitch.animation-clusters",
+] as const;
+
+const STITCH_VIEWS: Record<string, ComponentType<any>> = Object.fromEntries(
+  STITCH_ROUTE_IDS.map((id) => [id, StitchWorkspace]),
+);
+
 export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "system.convert": ConvertPilot,
   "library.listings": Listings,
@@ -53,6 +69,7 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "ml.inference": MetaCLIPInferenceTab,
   "editor.hybrid": HieEditorTab,
   "developer.benchmarks": BenchmarkDashboard,
+  ...STITCH_VIEWS,
 };
 
 export function CatalogView({
@@ -71,7 +88,22 @@ export function CatalogView({
     );
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
+  const stitchRoute = (STITCH_ROUTE_IDS as readonly string[]).includes(entry.id);
   const hostClientProps =
-    ["system.convert", "system.merge", "system.similarity", "system.extractor", "library.scan", "library.search", "library.listings", "library.management", "library.data-browser"].includes(entry.id) ? { hostClient, client: hostClient } : {};
-  return <View showModal={showModal} {...extra} {...hostClientProps} />;
+    stitchRoute ||
+    [
+      "system.convert",
+      "system.merge",
+      "system.similarity",
+      "system.extractor",
+      "library.scan",
+      "library.search",
+      "library.listings",
+      "library.management",
+      "library.data-browser",
+    ].includes(entry.id)
+      ? { hostClient, client: hostClient }
+      : {};
+  const routeProps = stitchRoute ? { route: entry.id } : {};
+  return <View showModal={showModal} {...extra} {...hostClientProps} {...routeProps} />;
 }

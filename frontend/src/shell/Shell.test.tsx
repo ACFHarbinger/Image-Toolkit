@@ -112,7 +112,8 @@ test("a workspace paints its ribbon, and the inspector reads the catalog entry",
     "stitch.canvas",
   );
   fireEvent.click(screen.getByRole("button", { name: "Canvas" }));
-  expect(screen.getByTestId("unported-view")).toHaveTextContent("stitch.canvas");
+  expect(screen.getByTestId("stitch-workspace")).toHaveTextContent("stitch.canvas");
+  expect(screen.queryByTestId("unported-view")).not.toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "Toggle inspector" }));
   expect(screen.getByTestId("inspector-body")).toHaveTextContent("stitch.canvas");

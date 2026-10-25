@@ -38,9 +38,9 @@ the status lifecycle and deletion gate are documented in
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
-| system.extractor | Extractor | unclaimed | [#905](https://github.com/ACFHarbinger/Image-Toolkit/issues/905) | pyside-only | system.extractor | — | 0 |
-| system.merge | Merge | unclaimed | [#903](https://github.com/ACFHarbinger/Image-Toolkit/issues/903) | pyside-only | system.merge | — | 0 |
-| system.similarity | Similarity | unclaimed | [#904](https://github.com/ACFHarbinger/Image-Toolkit/issues/904) | pyside-only | system.similarity | — | 0 |
+| system.extractor | Extractor | Grok | [#905](https://github.com/ACFHarbinger/Image-Toolkit/issues/905) | pyside-only | system.extractor | — | 0 |
+| system.merge | Merge | Grok | [#903](https://github.com/ACFHarbinger/Image-Toolkit/issues/903) | pyside-only | system.merge | — | 0 |
+| system.similarity | Similarity | Grok | [#904](https://github.com/ACFHarbinger/Image-Toolkit/issues/904) | pyside-only | system.similarity | — | 0 |
 
 ## wave-5
 
@@ -73,7 +73,7 @@ the status lifecycle and deletion gate are documented in
 | manga.animation | Animation | unclaimed | [#916](https://github.com/ACFHarbinger/Image-Toolkit/issues/916) | pyside-only | manga.animation | — | 0 |
 | manga.colorization | Colorization | unclaimed | [#916](https://github.com/ACFHarbinger/Image-Toolkit/issues/916) | pyside-only | manga.colorization | — | 0 |
 | manga.puppeteering | Puppeteering | unclaimed | [#916](https://github.com/ACFHarbinger/Image-Toolkit/issues/916) | pyside-only | manga.puppeteering | — | 0 |
-| stitch | Image Stitching | unclaimed | [#914](https://github.com/ACFHarbinger/Image-Toolkit/issues/914) | pyside-only | stitch.stitch<br>stitch.graph<br>stitch.adjust<br>stitch.canvas<br>stitch.statistics<br>stitch.sequence-builder<br>stitch.hybrid<br>stitch.animation-clusters | — | 0 |
+| stitch | Image Stitching | Grok | [#914](https://github.com/ACFHarbinger/Image-Toolkit/issues/914) | pyside-only | stitch.stitch<br>stitch.graph<br>stitch.adjust<br>stitch.canvas<br>stitch.statistics<br>stitch.sequence-builder<br>stitch.hybrid<br>stitch.animation-clusters | — | 0 |
 
 ## wave-9
 
