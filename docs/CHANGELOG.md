@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Submodule Frontends Consolidated into `frontend/`** (Tauri migration W0-03 Phase D, #867).
+  - Consolidated absorbed submodule frontend codebases (HIE, ASP, CSG) natively into `frontend/src/views/{editor,stitch,manga}/`.
+  - Removed local file dependency `"hie-frontend": "file:../submodules/HIE/frontend"` from `frontend/package.json`.
+  - Consolidated HIE editor view into `frontend/src/views/editor/HieEditorView.tsx` with shared host interface `host.ts` (re-exported by `frontend/src/tabs/editor/HieEditorTab.tsx`).
+  - Added ASP Image Stitching workspace component in `frontend/src/views/stitch/StitchWorkspaceView.tsx` supporting the 8 stitching routes on the shared canvas host.
+  - Added CSG Manga workspace views in `frontend/src/views/manga/` (`MangaWorkspaceView.tsx`, `MangaColorizationView.tsx`, `MangaAnimationView.tsx`, `MangaPuppeteeringView.tsx`).
+  - Updated `migration/features.toml` `tauri` entries for `stitch`, `editor.hybrid`, `manga.colorization`, `manga.animation`, and `manga.puppeteering`.
+
 - Merge, similarity, and extractor probes (#903, #904, #905): `merge.concatenate` joins caller images horizontally or vertically, `similarity.compare` reports average-hash pairs, and `extractor.probe` reads one video with ffprobe. None of them open `library.db`. The placement canvas, file deletion, and frame extraction stay on PySide6.
 - **Library: Scan and Tag service and webview** (Tauri migration Wave 3, L-04 #898).
   - **Contracts & Capability:** added `scan` capability (`scan.directory`, `scan.save_metadata`, `scan.suggest_tags`) with schema `contracts/schemas/capability/scan.json` and method routing in `contracts/methods.toml`.

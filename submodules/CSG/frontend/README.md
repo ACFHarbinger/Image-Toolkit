@@ -1,5 +1,9 @@
 # frontend/
 
+> [!NOTE]
+> **Consolidation Note (W0-03 Phase D #867):**
+> Following submodule absorption and Tauri migration, CSG's frontend architecture is consolidated natively into the main application under `frontend/src/views/manga/` (`MangaWorkspaceView.tsx`), unblocking Wave 8 issue #916 (E-03 Manga).
+
 **Scaffold — not yet implemented.** A Tauri-based cross-platform desktop UI
 for Manga Colorization & Animation, as an alternative to the PySide6 desktop
 UI in `../gui/`. Intended to talk to the same `../logic/src/` solvers (Levin

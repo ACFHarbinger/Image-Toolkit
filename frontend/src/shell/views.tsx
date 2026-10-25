@@ -18,7 +18,7 @@ import { UnifiedGenerateTab } from "../tabs/models/UnifiedGenerateTab";
 import { MetaCLIPInferenceTab } from "../tabs/models/MetaCLIPInferenceTab";
 import { R3GANEvaluateTab } from "../tabs/models/R3GANEvaluateTab";
 import { BenchmarkDashboard } from "../tabs/apollo/BenchmarkDashboard";
-import { HieEditorTab } from "../tabs/editor/HieEditorTab";
+import { HieEditorView } from "../views/editor/HieEditorView";
 import { CatalogEntry } from "./catalog";
 import type { HostClient } from "../hostclient";
 
@@ -51,7 +51,7 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "ml.generation": UnifiedGenerateTab,
   "ml.evaluation": R3GANEvaluateTab,
   "ml.inference": MetaCLIPInferenceTab,
-  "editor.hybrid": HieEditorTab,
+  "editor.hybrid": HieEditorView,
   "developer.benchmarks": BenchmarkDashboard,
 };
 

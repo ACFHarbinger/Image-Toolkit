@@ -439,7 +439,7 @@ routes = [
 ]
 route_map = {}
 pyside = ["gui/src/modules/stitch_workspace.py", "submodules/ASP/gui/src"]
-tauri = []
+tauri = ["frontend/src/views/stitch/StitchWorkspaceView.tsx"]
 service = ""
 contract = ""
 docs = ""
@@ -461,7 +461,7 @@ pyside = [
     "submodules/HIE/gui/src/tabs",
     "submodules/HIE/gui/src/viewport.py",
 ]
-tauri = ["frontend/src/tabs/editor"]
+tauri = ["frontend/src/views/editor/HieEditorView.tsx", "frontend/src/tabs/editor"]
 service = ""
 contract = ""
 docs = ""
@@ -482,7 +482,7 @@ pyside = [
     "submodules/CSG/gui/src/tabs/colorization_tab.py",
     "submodules/CSG/gui/src/tabs/reference_coloring_tab.py",
 ]
-tauri = []
+tauri = ["frontend/src/views/manga/MangaColorizationView.tsx"]
 service = ""
 contract = ""
 docs = ""
@@ -500,7 +500,7 @@ status = "pyside-only"
 routes = ["manga.animation"]
 route_map = {}
 pyside = ["submodules/CSG/gui/src/tabs/animation_tab.py"]
-tauri = []
+tauri = ["frontend/src/views/manga/MangaAnimationView.tsx"]
 service = ""
 contract = ""
 docs = ""
@@ -518,7 +518,7 @@ status = "pyside-only"
 routes = ["manga.puppeteering"]
 route_map = {}
 pyside = ["submodules/CSG/gui/src/tabs/puppeteering_tab.py"]
-tauri = []
+tauri = ["frontend/src/views/manga/MangaPuppeteeringView.tsx"]
 service = ""
 contract = ""
 docs = ""
