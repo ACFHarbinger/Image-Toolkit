@@ -93,11 +93,11 @@ class TestPgvectorImageDatabase:
         ]
         assert len(insert_image_tags_calls) == 1
 
-    def test_search_images_query_construction(self, mock_db):
+    def test_search_files_query_construction(self, mock_db):
         db, _, mock_cursor = mock_db
         mock_cursor.fetchall.return_value = []
 
-        db.search_images(
+        db.search_files(
             group_name="GroupA",
             subgroup_name="SubB",
             tags=["tag1"],

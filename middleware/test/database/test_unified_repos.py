@@ -488,35 +488,35 @@ def populated(db, tmp_path):
     return db
 
 
-def test_search_images_filters(populated):
+def test_search_files_filters(populated):
     search = SearchRepo(populated)
-    assert len(search.search_images()) == 3
-    assert {r["filename"] for r in search.search_images(group_name="trips")} == {
+    assert len(search.search_files()) == 3
+    assert {r["filename"] for r in search.search_files(group_name="trips")} == {
         "a.png", "b.jpg"
     }
-    assert [r["filename"] for r in search.search_images(subgroup_name="beach")] == ["a.png"]
-    assert {r["filename"] for r in search.search_images(tags=["sunset"])} == {
+    assert [r["filename"] for r in search.search_files(subgroup_name="beach")] == ["a.png"]
+    assert {r["filename"] for r in search.search_files(tags=["sunset"])} == {
         "a.png", "c.png"
     }
-    assert {r["filename"] for r in search.search_images(input_formats=["png"])} == {
+    assert {r["filename"] for r in search.search_files(input_formats=["png"])} == {
         "a.png", "c.png"
     }
-    assert [r["filename"] for r in search.search_images(filename_pattern="b")] == ["b.jpg"]
-    result = search.search_images(tags=["sunset"], input_formats=["png"], group_name="Art")
+    assert [r["filename"] for r in search.search_files(filename_pattern="b")] == ["b.jpg"]
+    result = search.search_files(tags=["sunset"], input_formats=["png"], group_name="Art")
     assert [r["filename"] for r in result] == ["c.png"]
     assert result[0]["tags"] == ["night", "sunset"]
 
     # Test multi-group and multi-subgroup search support
-    assert {r["filename"] for r in search.search_images(group_names=["Trips", "Art"])} == {
+    assert {r["filename"] for r in search.search_files(group_names=["Trips", "Art"])} == {
         "a.png", "b.jpg", "c.png"
     }
-    assert {r["filename"] for r in search.search_images(group_names=["Art"])} == {
+    assert {r["filename"] for r in search.search_files(group_names=["Art"])} == {
         "c.png"
     }
-    assert {r["filename"] for r in search.search_images(subgroup_names=["Beach", "City"])} == {
+    assert {r["filename"] for r in search.search_files(subgroup_names=["Beach", "City"])} == {
         "a.png", "b.jpg"
     }
-    assert {r["filename"] for r in search.search_images(group_names=["Trips"], subgroup_names=["Beach"])} == {
+    assert {r["filename"] for r in search.search_files(group_names=["Trips"], subgroup_names=["Beach"])} == {
         "a.png"
     }
 
@@ -782,7 +782,7 @@ def test_filter_entities_sort_keys(db):
 def test_semantic_image_search_with_prefilter(populated):
     np = pytest.importorskip("numpy")
     search = SearchRepo(populated)
-    ids = {r["filename"]: r["id"] for r in search.search_images()}
+    ids = {r["filename"]: r["id"] for r in search.search_files()}
     vecs = {
         "a.png": [1.0, 0.0],
         "b.jpg": [0.9, 0.1],

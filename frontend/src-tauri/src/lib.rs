@@ -40,7 +40,7 @@ pub fn run() {
             video_commands::extract_video_frames,
             video_commands::get_video_metadata,
             // Database commands
-            database_commands::search_images,
+            database_commands::search_files,
             database_commands::get_all_tags,
             database_commands::get_all_groups,
             database_commands::get_subgroups_for_group,

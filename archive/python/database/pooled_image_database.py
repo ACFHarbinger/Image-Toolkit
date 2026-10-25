@@ -33,7 +33,7 @@ Usage
 ::
 
     db = PooledPgvectorDatabase()          # same kwargs as PgvectorImageDatabase
-    results = db.search_images(tags=["1girl"])
+    results = db.search_files(tags=["1girl"])
     db.close()                             # closes the pool (call once at shutdown)
 """
 
@@ -481,7 +481,7 @@ class PooledPgvectorDatabase:
 
     # ── Search ─────────────────────────────────────────────────────────────────
 
-    def search_images(
+    def search_files(
         self,
         group_name: Optional[str] = None,
         subgroup_name: Optional[str] = None,

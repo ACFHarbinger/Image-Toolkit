@@ -378,7 +378,7 @@ class PgvectorImageDatabase:
                     tag_id = self._get_or_create_tag(tag_name)
                     cur.execute(_images["insert_image_tag"], (image_id, tag_id))
 
-    def search_images(  # noqa: C901
+    def search_files(  # noqa: C901
         self,
         group_name: Optional[str] = None,
         subgroup_name: Optional[str] = None,
@@ -444,7 +444,7 @@ class PgvectorImageDatabase:
                     # ef_search=80 trades a small amount of recall for speed at scale.
                     _pre.execute("SET LOCAL hnsw.ef_search = 80;")
             with self.conn.cursor(
-                cursor_factory=psycopg2.extras.DictCursor, name="search_images_cur"
+                cursor_factory=psycopg2.extras.DictCursor, name="search_files_cur"
             ) as cur:
                 cur.execute(query, params)
                 while True:

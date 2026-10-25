@@ -1,6 +1,6 @@
 """Search queries — DB.3 / DB.5 / DB.7.
 
-Structured image search (PgvectorImageDatabase.search_images parity), FTS5
+Structured image search (PgvectorImageDatabase.search_files parity), FTS5
 text search with LIKE fallback, the advanced-listings-search SQL builder,
 the default listings gallery filter/sort (``filter_media``/``filter_entities``
 — search box + type/status/role combos + sort combo, all in one query), and
@@ -114,7 +114,7 @@ class SearchRepo:
         where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
         return where, params
 
-    def search_images(
+    def search_files(
         self,
         group_name: Optional[str] = None,
         subgroup_name: Optional[str] = None,

@@ -57,12 +57,12 @@ class UnifiedImageDatabase:
     def get_image_tags(self, image_id: int) -> List[str]:
         return self._images.get_image_tags(image_id)
 
-    def search_images(self, **query_params) -> List[Dict[str, Any]]:
+    def search_files(self, **query_params) -> List[Dict[str, Any]]:
         # Legacy callers pass query_vector=None; the unified path has no
         # dead pgvector column — semantic search arrives via SearchRepo
         # (DB.7), not through this parameter.
         query_params.pop("query_vector", None)
-        return self._search.search_images(**query_params)
+        return self._search.search_files(**query_params)
 
     def update_phash(self, image_id: int, phash_int: int) -> None:
         self._images.update_phash(image_id, phash_int)

@@ -1,15 +1,15 @@
 use crate::db::{Db, DatabaseStats, ImageRecord, SearchQuery};
 use tauri::State;
 
-/// Search for images in the database
+/// Search for files in the database
 #[tauri::command]
-pub async fn search_images(
+pub async fn search_files(
     db: State<'_, Db>,
     query: SearchQuery,
 ) -> Result<Vec<ImageRecord>, String> {
-    db.search_images(query)
+    db.search_files(query)
         .await
-        .map_err(|e| format!("Failed to search images: {}", e))
+        .map_err(|e| format!("Failed to search files: {}", e))
 }
 
 /// Get all tags from the database

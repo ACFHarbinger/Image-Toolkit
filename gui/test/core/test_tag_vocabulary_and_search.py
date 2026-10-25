@@ -81,7 +81,7 @@ class TestSearchImagesWithTag:
         with patch(
             "gui.src.tabs.database.database_tab._crud.QMessageBox.warning"
         ) as mock_warn:
-            tab.search_images_with_selected_tag()
+            tab.search_files_with_selected_tag()
             mock_warn.assert_called_once()
 
     def test_no_event_hub_warns(self, q_app):
@@ -94,7 +94,7 @@ class TestSearchImagesWithTag:
         with patch(
             "gui.src.tabs.database.database_tab._crud.QMessageBox.warning"
         ) as mock_warn:
-            tab.search_images_with_selected_tag()
+            tab.search_files_with_selected_tag()
             mock_warn.assert_called_once()
 
     def test_dispatches_filter_then_navigation_intents(self, q_app):
@@ -112,7 +112,7 @@ class TestSearchImagesWithTag:
         with patch(
             "gui.src.tabs.database.database_tab._crud.QMessageBox.information"
         ):
-            tab.search_images_with_selected_tag()
+            tab.search_files_with_selected_tag()
 
         assert [(type(event), event.module_id) for event in received] == [
             (FilterByTagIntent, "library.search"),

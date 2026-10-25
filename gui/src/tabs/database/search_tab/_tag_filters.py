@@ -140,7 +140,7 @@ class SearchTagFiltersController(TabBoundController):
 
     def search_by_tag(self, tag_name: str) -> None:
         """DB.8c: jump here already filtered to a single tag (e.g. from
-        Management's tag table "Search Images with this Tag" action).
+        Management's tag table "Search Files with this Tag" action).
         Checks every tag-type filter first so the target tag is
         guaranteed to be in the (type-filtered) tags list regardless of
         whatever type filter state was active before."""

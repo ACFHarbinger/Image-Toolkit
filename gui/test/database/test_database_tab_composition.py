@@ -119,7 +119,7 @@ class TestDatabaseTabComposition:
         hub.subscribe(NavigateIntent, events.append)
 
         with patch("gui.src.tabs.database.database_tab._crud.QMessageBox.information"):
-            tab.search_images_with_selected_tag()
+            tab.search_files_with_selected_tag()
 
         assert len(events) == 2
         assert isinstance(events[0], FilterByTagIntent)

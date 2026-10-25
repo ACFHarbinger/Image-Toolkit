@@ -104,7 +104,7 @@ pub struct DatabaseStats {
 
 impl Db {
     /// Search for images based on various filters
-    pub async fn search_images(&self, query: SearchQuery) -> Result<Vec<ImageRecord>> {
+    pub async fn search_files(&self, query: SearchQuery) -> Result<Vec<ImageRecord>> {
         let limit = query.limit.unwrap_or(100).min(1000); // Cap at 1000
 
         let mut sql = String::from("SELECT DISTINCT i.* FROM images i");

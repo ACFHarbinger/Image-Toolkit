@@ -976,9 +976,9 @@ Click the ⚙️ Settings button to:
 
 ### Application Features
 
-- **Add Images:** Use the "Scan" tab to import images into the database
-- **Search Images:** Use the "Search" tab with filters (tags, groups, formats)
-- **Convert Images:** Use the "Convert" tab for batch format conversion
+- **Add Files:** Use the "Scan" tab to import files into the database
+- **Search Files:** Use the "Search" tab with filters (tags, groups, formats)
+- **Convert Files:** Use the "Convert" tab for batch format conversion
 - **Set Wallpaper:** Use the "Wallpaper" tab for desktop wallpaper management
 
 ---

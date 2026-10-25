@@ -193,7 +193,7 @@ class TestSearchWorker:
     def test_run(self, q_app):
         # SearchWorker takes a db object, it doesn't import FSETool itself
         mock_db = MagicMock()
-        mock_db.search_images.return_value = ["res1", "res2"]
+        mock_db.search_files.return_value = ["res1", "res2"]
 
         worker = SearchWorker(mock_db, {"query": "test"})
 
@@ -202,7 +202,7 @@ class TestSearchWorker:
 
         worker.run()
 
-        mock_db.search_images.assert_called_with(query="test")
+        mock_db.search_files.assert_called_with(query="test")
         assert finished_signals[0] == ["res1", "res2"]
 
 

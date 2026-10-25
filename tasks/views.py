@@ -130,7 +130,7 @@ class DuplicateScanView(APIView):
 
 @extend_schema(
     tags=["Core"],
-    summary="Search images by filename or tags",
+    summary="Search files by filename or tags",
     parameters=[SearchSerializer],
     responses={
         200: OpenApiResponse(
@@ -154,7 +154,7 @@ class SearchView(APIView):
         if serializer.is_valid():
             # Instantiate your DB wrapper here
             # db = ImageDatabase()
-            # results = db.search_images(**serializer.validated_data)
+            # results = db.search_files(**serializer.validated_data)
             results = []  # Mock
             return Response({"results": results})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -208,8 +208,8 @@ class DatabaseTab(QWidget):
     def merge_selected_tag(self) -> None:
         return self.crud_controller.merge_selected_tag()
 
-    def search_images_with_selected_tag(self) -> None:
-        return self.crud_controller.search_images_with_selected_tag()
+    def search_files_with_selected_tag(self) -> None:
+        return self.crud_controller.search_files_with_selected_tag()
 
     def search_listings_with_selected_tag(self) -> None:
         return self.crud_controller.search_listings_with_selected_tag()

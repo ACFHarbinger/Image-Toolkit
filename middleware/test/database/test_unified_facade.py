@@ -31,10 +31,10 @@ def populated(db, tmp_path):
     return db, tmp_path
 
 
-def test_search_images_legacy_call_shape(populated):
+def test_search_files_legacy_call_shape(populated):
     db, tmp_path = populated
     # exact query_params dict built by SearchTab.perform_search
-    results = db.search_images(
+    results = db.search_files(
         group_name="Trips",
         subgroup_name=None,
         filename_pattern=None,
@@ -46,7 +46,7 @@ def test_search_images_legacy_call_shape(populated):
     assert {"file_path", "filename", "tags", "group_name"} <= set(results[0])
 
     # legacy signature also carried query_vector — must be tolerated
-    results = db.search_images(query_vector=None, tags=["sunset"], limit=10)
+    results = db.search_files(query_vector=None, tags=["sunset"], limit=10)
     assert [r["filename"] for r in results] == ["a.png"]
 
 
@@ -170,7 +170,7 @@ def test_semantic_search_facade_surface(populated):
     shapes those callers use."""
     np = pytest.importorskip("numpy")
     db, tmp_path = populated
-    ids = {r["file_path"]: r["id"] for r in db.search_images(limit=10000)}
+    ids = {r["file_path"]: r["id"] for r in db.search_files(limit=10000)}
 
     assert db.count_unembedded_images("openclip") == 2
     pending = db.list_unembedded_images("openclip")

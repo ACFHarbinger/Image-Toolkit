@@ -19,7 +19,7 @@ struct SearchScreen: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Search Images")
+                Text("Search Files")
                     .font(AppTheme.Typography.headlineSmall)
                 
                 HStack(alignment: .bottom) {

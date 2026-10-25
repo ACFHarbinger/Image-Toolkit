@@ -10,7 +10,7 @@ class SearchWorker(BaseQRunnableWorker):
         self.query_params = query_params
 
     def _execute(self) -> None:
-        matching_files = self.db.search_images(**self.query_params)
+        matching_files = self.db.search_files(**self.query_params)
         if self._cancelled:
             self.signals.cancelled.emit()
             return None

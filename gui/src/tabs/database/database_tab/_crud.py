@@ -276,7 +276,7 @@ class DatabaseCrudController:
         except Exception as e:
             QMessageBox.critical(tab, "Error", f"Failed to merge tags:\n{str(e)}")
 
-    def search_images_with_selected_tag(self) -> None:
+    def search_files_with_selected_tag(self) -> None:
         tab = self.tab
         current_row = tab.tags_table.currentRow()
         if current_row < 0:

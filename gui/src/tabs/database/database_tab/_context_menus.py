@@ -66,7 +66,7 @@ class DatabaseContextMenuController:
         menu = QMenu(tab)
         edit_action = menu.addAction("Edit Cell")
         merge_action = menu.addAction("🔀 Merge Into…")
-        search_action = menu.addAction("🔍 Search Images with this Tag")
+        search_action = menu.addAction("🔍 Search Files with this Tag")
         search_listings_action = menu.addAction("🔍 Search Listings with this Tag")
         remove_action = menu.addAction("Remove Tag")
         action = menu.exec(tab.tags_table.mapToGlobal(pos))
@@ -75,7 +75,7 @@ class DatabaseContextMenuController:
         elif action == merge_action:
             tab.merge_selected_tag()
         elif action == search_action:
-            tab.search_images_with_selected_tag()
+            tab.search_files_with_selected_tag()
         elif action == search_listings_action:
             tab.search_listings_with_selected_tag()
         elif action == remove_action:

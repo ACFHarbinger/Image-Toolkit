@@ -120,7 +120,7 @@ class DatabaseRefreshController:
             tab._registry_rows = []
             return
         try:
-            images = tab.db.search_images()
+            images = tab.db.search_files()
             tab._registry_rows = [
                 (
                     img.get("file_path", ""),

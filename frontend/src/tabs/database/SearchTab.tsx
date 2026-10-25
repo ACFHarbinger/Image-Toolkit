@@ -115,7 +115,7 @@ const SearchTab = forwardRef<SearchTabHandle, SearchTabProps>(
 
       try {
         // Call Tauri backend to search database
-        const results = await invoke<any[]>("search_images", {
+        const results = await invoke<any[]>("search_files", {
           query: {
             group_name: group || null,
             subgroup_name: subgroup || null,

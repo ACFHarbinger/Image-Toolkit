@@ -185,7 +185,7 @@ def dispatch_database(args: dict) -> None:
             from middleware.src.database.unified.facade import UnifiedImageDatabase
 
             db = UnifiedImageDatabase(session.get_session())
-            results = db.search_images(filename_pattern=query, limit=limit)
+            results = db.search_files(filename_pattern=query, limit=limit)
             if not results:
                 print("No results found.")
                 return
