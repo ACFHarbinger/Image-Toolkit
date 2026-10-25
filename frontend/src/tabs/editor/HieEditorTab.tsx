@@ -10,8 +10,24 @@ import {
   Play,
   Sliders,
 } from "lucide-react";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import type { HostClient } from "../../hostclient";
 import { getHieHost } from "./host";
+
+function selectedPath(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (typeof item === "string" && item.trim()) {
+        return item.trim();
+      }
+    }
+  }
+  return null;
+}
 
 export interface HieEditorTabProps {
   showModal: (
@@ -77,12 +93,26 @@ export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal, hostClien
 
   const handleOpenMedia = async () => {
     try {
-      showModal("Select image or video sequence for Hybrid Image Editor...", "info", 2000);
       let openedId: string | undefined;
       let frameCount = 1;
       if (hostClient?.hieOpenDocument) {
+        const picked = await open({
+          multiple: false,
+          title: "Open media",
+          filters: [
+            {
+              name: "Images and video",
+              extensions: ["png", "jpg", "jpeg", "webp", "gif", "bmp", "mp4", "webm", "mov"],
+            },
+          ],
+        });
+        const source = selectedPath(picked);
+        if (!source) {
+          return;
+        }
+        showModal("Select image or video sequence for Hybrid Image Editor...", "info", 2000);
         const result = await hostClient.hieOpenDocument({
-          source: "/sample-editor.png",
+          source,
           document_id: documentId ?? undefined,
         });
         if (!result.success) {
@@ -91,6 +121,7 @@ export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal, hostClien
         openedId = result.document_id;
         frameCount = result.frame_count || 1;
       } else {
+        showModal("Select image or video sequence for Hybrid Image Editor...", "info", 2000);
         const result = await host.openMedia();
         openedId =
           result && typeof result === "object" && "documentId" in result
@@ -117,9 +148,18 @@ export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal, hostClien
   const handleExport = async () => {
     try {
       if (hostClient?.hieExportDocument) {
+        const picked = await save({
+          title: "Export document",
+          defaultPath: "hie-export.png",
+          filters: [{ name: "PNG", extensions: ["png"] }],
+        });
+        const outputPath = selectedPath(picked);
+        if (!outputPath) {
+          return;
+        }
         const result = await hostClient.hieExportDocument({
           document_id: documentId ?? "doc-session",
-          output_path: "/tmp/hie-export.png",
+          output_path: outputPath,
           format: "png",
           quality: 95,
         });
@@ -169,7 +209,7 @@ export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal, hostClien
       if (hostClient?.hieExecuteEdit) {
         const result = await hostClient.hieExecuteEdit({
           document_id: documentId ?? "doc-session",
-          operation: `${active.policyName}_accept`,
+          operation: "accept",
         });
         if (!result.success) {
           throw new Error(result.error ?? "Accept proposal failed");

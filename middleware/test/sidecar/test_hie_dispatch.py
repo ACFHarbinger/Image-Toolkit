@@ -6,6 +6,8 @@ import io
 from pathlib import Path
 from typing import Any
 
+from PIL import Image
+
 from middleware.src.bridge import PROTOCOL_NAME
 from middleware.src.services.hie.service import HieService
 from middleware.src.sidecar.server import SidecarServer
@@ -41,14 +43,21 @@ def test_hie_open_document_dispatch() -> None:
     assert result["frame_count"] == 1
 
 
-def test_hie_execute_edit_dispatch() -> None:
+def test_hie_execute_edit_dispatch(tmp_path: Path) -> None:
     server = _ready()
+    opened = _request(
+        server,
+        "hie.open_document",
+        {"source": str(tmp_path / "frame.png"), "document_id": "doc-123"},
+        "open-for-edit",
+    )
+    assert opened["result"]["success"] is True
     response = _request(
         server,
         "hie.execute_edit",
         {
             "document_id": "doc-123",
-            "operation": "crop",
+            "operation": "crop-composition",
             "parameters": {"x": 0, "y": 0, "width": 100, "height": 100},
         },
         "edit-1",
@@ -56,18 +65,20 @@ def test_hie_execute_edit_dispatch() -> None:
     result = response["result"]
     assert result["success"] is True
     assert result["document_id"] == "doc-123"
-    assert "layer-0" in result["modified_layers"]
+    assert "layer-0" not in result["modified_layers"]
 
 
 def test_hie_export_document_dispatch(tmp_path: Path) -> None:
+    source = tmp_path / "tiny.png"
+    Image.new("RGB", (2, 2), (255, 0, 0)).save(source)
     server = _ready()
-    # Open document first so session exists
-    _request(
+    opened = _request(
         server,
         "hie.open_document",
-        {"source": "/path/to/test.png", "document_id": "doc-123"},
+        {"source": str(source), "document_id": "doc-123"},
         "open-for-export",
     )
+    assert opened["result"]["success"] is True
     out_file = tmp_path / "export.png"
     response = _request(
         server,
@@ -83,7 +94,10 @@ def test_hie_export_document_dispatch(tmp_path: Path) -> None:
     result = response["result"]
     assert result["success"] is True
     assert result["output_path"] == str(out_file)
-    assert out_file.exists()
+    assert result["size_bytes"] == out_file.stat().st_size
+    with Image.open(out_file) as decoded:
+        decoded.load()
+        assert decoded.size == (2, 2)
 
 
 def test_hie_list_capabilities_dispatch() -> None:

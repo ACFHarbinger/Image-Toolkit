@@ -71,7 +71,19 @@ export function CatalogView({
     );
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
-  const hostClientProps =
-    ["system.convert", "system.merge", "system.similarity", "system.extractor", "library.scan", "library.search", "library.listings", "library.management", "library.data-browser"].includes(entry.id) ? { hostClient, client: hostClient } : {};
+  const hostClientProps = [
+    "system.convert",
+    "system.merge",
+    "system.similarity",
+    "system.extractor",
+    "library.scan",
+    "library.search",
+    "library.listings",
+    "library.management",
+    "library.data-browser",
+    "editor.hybrid",
+  ].includes(entry.id)
+    ? { hostClient, client: hostClient }
+    : {};
   return <View showModal={showModal} {...extra} {...hostClientProps} />;
 }
