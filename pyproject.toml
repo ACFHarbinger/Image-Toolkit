@@ -326,6 +326,7 @@ modules = [
     "middleware.src.services.convert",
     "middleware.src.services.cloud_jobs",
     "middleware.src.services.cloud_offer",
+    "middleware.src.services.desk",
     "middleware.src.services.extractor",
     "middleware.src.services.library_admin",
     "middleware.src.services.library_preview",

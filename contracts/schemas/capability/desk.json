@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/desk.json",
+  "title": "DeskCapability",
+  "description": "Caller log tail and file metadata (#919). Does not follow a log, open ~/.image-toolkit, or open library.db.",
+  "type": "object",
+  "$defs": {
+    "LogsReadParams": {
+      "title": "LogsReadParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "limit"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 200 }
+      }
+    },
+    "LogsReadResult": {
+      "title": "LogsReadResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["found", "path", "lines", "error_count", "reason"],
+      "properties": {
+        "found": { "type": "boolean" },
+        "path": { "type": "string" },
+        "lines": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "error_count": { "type": "integer", "minimum": 0 },
+        "reason": { "type": "string" }
+      }
+    },
+    "MetadataDescribeParams": {
+      "title": "MetadataDescribeParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "MetadataDescribeResult": {
+      "title": "MetadataDescribeResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["found", "path", "name", "size", "suffix", "reason"],
+      "properties": {
+        "found": { "type": "boolean" },
+        "path": { "type": "string" },
+        "name": { "type": "string" },
+        "size": { "type": "integer", "minimum": 0 },
+        "suffix": { "type": "string" },
+        "reason": { "type": "string" }
+      }
+    }
+  }
+}

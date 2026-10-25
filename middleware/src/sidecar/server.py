@@ -40,6 +40,7 @@ from middleware.src.sidecar.handlers.cloud_jobs import (
 )
 from middleware.src.sidecar.handlers.cloud_offer import handle_prefill
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
+from middleware.src.sidecar.handlers.desk import handle_logs_read, handle_metadata_describe
 from middleware.src.sidecar.handlers.extractor import handle_probe
 from middleware.src.sidecar.handlers.library import (
     handle_list_groups,
@@ -274,6 +275,10 @@ class SidecarServer:
             return handle_compare(params)
         if method == "extractor.probe":
             return handle_probe(params)
+        if method == "logs.read":
+            return handle_logs_read(params)
+        if method == "metadata.describe":
+            return handle_metadata_describe(params)
         return _UNHANDLED
 
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:

@@ -567,7 +567,7 @@ os_checklist = []
 id = "window.logging"
 kind = "window"
 title = "Logging and metadata windows"
-owner = "unclaimed"
+owner = "Grok"
 wave = "wave-9"
 issue = 919
 status = "pyside-only"
@@ -578,10 +578,13 @@ pyside = [
     "gui/src/windows/metadata",
     "gui/src/modules/pilots",
 ]
-tauri = []
-service = ""
-contract = ""
-docs = ""
+tauri = [
+    "frontend/src/views/windows/LogDeskView.tsx",
+    "frontend/src/views/windows/MetadataDeskView.tsx",
+]
+service = "middleware/src/services/desk/logs.py"
+contract = "desk"
+docs = "docs/modules/desk.md"
 scenarios = []
 os_checklist = []
 

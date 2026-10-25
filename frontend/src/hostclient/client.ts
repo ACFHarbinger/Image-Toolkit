@@ -19,6 +19,10 @@ import type {
   CompareResult,
   ProbeParams,
   ProbeResult,
+  LogsReadParams,
+  LogsReadResult,
+  MetadataDescribeParams,
+  MetadataDescribeResult,
   FrameParams,
   FrameResult,
   GetManyParams,
@@ -188,6 +192,16 @@ export class HostClient {
   async extractorProbe(params: ProbeParams): Promise<ProbeResult> {
     await this.connect();
     return this.send<ProbeResult>("extractor.probe", params as unknown as Record<string, unknown>);
+  }
+
+  async logsRead(params: LogsReadParams): Promise<LogsReadResult> {
+    await this.connect();
+    return this.send<LogsReadResult>("logs.read", params as unknown as Record<string, unknown>);
+  }
+
+  async metadataDescribe(params: MetadataDescribeParams): Promise<MetadataDescribeResult> {
+    await this.connect();
+    return this.send<MetadataDescribeResult>("metadata.describe", params as unknown as Record<string, unknown>);
   }
 
   async cloudOfferPrefill(params: PrefillParams): Promise<PrefillResult> {

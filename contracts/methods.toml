@@ -452,6 +452,30 @@ emits = []
 stability = "experimental"
 owner = 905
 
+[[method]]
+name = "logs.read"
+capability = "desk"
+summary = "Last lines of a caller log file (#919). Does not follow the file or open ~/.image-toolkit."
+params = "desk.LogsReadParams"
+result = "desk.LogsReadResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 919
+
+[[method]]
+name = "metadata.describe"
+capability = "desk"
+summary = "Name, size, and suffix of one caller file (#919). Does not open library.db."
+params = "desk.MetadataDescribeParams"
+result = "desk.MetadataDescribeResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 919
+
 [[channel]]
 name = "jobs"
 payload = "jobs.JobEventPayload"
