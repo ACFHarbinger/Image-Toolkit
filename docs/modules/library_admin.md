@@ -6,7 +6,7 @@
 | **Service Package** | `middleware/src/services/library_admin/` |
 | **Frontend View** | `frontend/src/views/library/LibraryManagement.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/library_admin.json` |
-| **Contract SHA-256** | `421671a26b8a0d64a0ad1b0b24bef827913d074b78c3405c1b5153bc04cda039` |
+| **Contract SHA-256** | `87a6c1c4bbcd8620c700a853e4d981ff2d5063a5d5a08cc26fb125331358888d` |
 
 ## Overview
 

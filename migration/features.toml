@@ -12,9 +12,9 @@
 # illegal there, so the cloud.jobs pop-out is cloud-jobs.
 
 [shell]
-windows = ["main", "tray", "slideshow", "cloud.jobs"]
-native_labels = ["cloud-jobs"]
-capabilities = ["default", "cloud-jobs"]
+windows = ["main", "tray", "slideshow", "cloud.jobs", "library.preview"]
+native_labels = ["cloud-jobs", "library-preview"]
+capabilities = ["default", "cloud-jobs", "library-preview"]
 
 # ── Wave 1: Convert pilot ────────────────────────────────────────────
 
@@ -72,7 +72,7 @@ os_checklist = []
 id = "library.preview"
 kind = "window"
 title = "Image preview, compare and drag-preview viewers"
-owner = "unclaimed"
+owner = "Grok"
 wave = "wave-3"
 issue = 895
 status = "pyside-only"
@@ -83,10 +83,10 @@ pyside = [
     "gui/src/windows/image_compare_window.py",
     "gui/src/windows/drag_preview_window.py",
 ]
-tauri = []
-service = ""
-contract = ""
-docs = ""
+tauri = ["frontend/src/views/library/LibraryPreviewWindow.tsx"]
+service = "middleware/src/services/library_preview/preview.py"
+contract = "library_preview"
+docs = "docs/modules/library_preview.md"
 scenarios = []
 os_checklist = [
     { item = "Drag-preview in and out of the webview (spike S-05)", platform = "linux", checked = false },
@@ -98,18 +98,18 @@ os_checklist = [
 id = "library.listings"
 kind = "page"
 title = "Listings"
-owner = "unclaimed"
+owner = "Mistral"
 wave = "wave-3"
 issue = 896
-status = "pyside-only"
+status = "both"
 routes = ["library.listings"]
 route_map = {}
 pyside = ["gui/src/tabs/database/listings_tab.py", "gui/src/tabs/database/listings_subtab"]
-tauri = []
-service = ""
-contract = ""
-docs = ""
-scenarios = []
+tauri = ["frontend/src/views/library/Listings.tsx"]
+service = "middleware/src/services/library/listings.py"
+contract = "library"
+docs = "docs/modules/library.md"
+scenarios = ["migration/scenarios/library.listings.json"]
 os_checklist = []
 
 [[feature]]

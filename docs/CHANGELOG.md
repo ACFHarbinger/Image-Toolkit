@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- Library listings ride the bridge (Tauri L-02, #896): a `library` capability (`library.list_images` / `library.list_tags` / `library.list_groups`) over a Qt-free `middleware/src/services/library/` projection service, a HostClient-driven `library.listings` catalog view (groups/subgroups sidebar, tag and filename filters, paginated rows), and a parity differential against the legacy `search_files` row shape. The store reader arrives with the daemon lease; until it does, results stay `available: false` and no `library.db` is opened (Gate B closed). The record surface mirrors the Rust `db.rs` `search_files`/`get_all_tags`/`get_all_groups` paths that L-07 (#901) retires.
+- Library preview pop-out (#895): `library_preview.describe`, `library_preview.frame`, and `library_preview.difference`, plus the preview, compare, and drag-preview view. The viewers read caller paths only and do not open `library.db`.
+
 ### Changed
 
 - Coordination handover: Codex manages delegation, issue gates and landing; Grok handles review/final edits. Updated the Tauri and Cloud Jobs owner tables and documented dependency-aware queues.
@@ -37,6 +42,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Library admin contract types use distinct names so listings and management bindings can coexist.
+- Library preview checks header dimensions before decoding frames or comparison inputs, preserves PNG/GIF transparency, and includes alpha changes in visible difference maps (#895).
 - Cloud Jobs preserves populated shard payloads by locking their count, and retains the request draft when switching workspace tabs (#992).
 - Cloud Jobs generates a fresh request ID after acceptance while retaining the existing ID for failed-submission retries and preserving form parameters (#992).
 - Cloud Jobs confirmation uses backend preflight findings and required acknowledgment IDs, rejects blocked or unacknowledged submissions, and ignores stale preview responses (#992).
@@ -78,6 +85,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Added
 
 - Library management and data browser (#899, #900): `library_admin.catalog`, `library_admin.mutate`, and `library_admin.browse`. The sidecar uses an injected store and does not open `library.db`. Browse filters are column equality.
+- Shared canvas host, production version (Tauri Y-00, #902): the S-02 spike's deferred texture pipeline is closed — visible tiles now load through an LRU-bounded, in-flight-deduped `TileTextureCache` and upload as NPOT-safe GL textures into the renderer (per-tile uniform binding for `u_tileTexture`/`u_opacity`/`u_blendMode`/`u_splitWipeNdcX`/`u_layerIndex`, a 1×1 placeholder until a tile lands, GL texture freed on eviction). The host exposes `data-textured-tile-count` / cache stats to its consumer (Merge, #903), re-renders when loads complete, and keeps the fake 50k×30k document as its fixture. The on-demand C++ tile slicer stays with the consumers.
 
 - **Cloud Jobs Submit Surfaces & Confirmation Sheet** (Gate D4, #850, PR #992):
   - **Shared specification:** `frontend/src/views/cloudjobs/jobSpec.ts` defines typed `JobSpec` structures and origin-tab converters (`jobSpecFromConvert`, `jobSpecFromExtract`, `jobSpecFromComfy`), ensuring origin tabs and Request Builder construct identical workloads.

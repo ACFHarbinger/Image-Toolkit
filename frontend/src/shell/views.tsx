@@ -1,7 +1,8 @@
+import { LibraryManagement } from "../views/library/LibraryManagement";
+import { DataBrowser } from "../views/library/DataBrowser";
 import { ComponentType, ReactNode } from "react";
 import { ConvertPilot } from "../views/ConvertPilot";
-import { DataBrowser } from "../views/library/DataBrowser";
-import { LibraryManagement } from "../views/library/LibraryManagement";
+import { Listings } from "../views/library/Listings";
 import MergeTab from "../tabs/core/MergeTab";
 import DeleteTab from "../tabs/core/DeleteTab";
 import WallpaperTab from "../tabs/core/WallpaperTab";
@@ -33,6 +34,7 @@ export interface ViewProps {
 
 export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "system.convert": ConvertPilot,
+  "library.listings": Listings,
   "system.merge": MergeTab,
   "system.similarity": DeleteTab,
   "system.extractor": ImageExtractorTab,
@@ -69,10 +71,7 @@ export function CatalogView({
     );
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
-  const hostClientProps = ["system.convert", "library.management", "library.data-browser"].includes(
-    entry.id,
-  )
-    ? { client: hostClient, hostClient }
-    : {};
+  const hostClientProps =
+    ["system.convert", "library.listings", "library.management", "library.data-browser"].includes(entry.id) ? { hostClient, client: hostClient } : {};
   return <View showModal={showModal} {...extra} {...hostClientProps} />;
 }

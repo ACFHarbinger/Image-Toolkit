@@ -23,4 +23,5 @@ CI runs `python middleware/validation/check_docs_freshness.py`, which verifies t
 | Cloud offer (`#852`) | `middleware/src/services/cloud_offer/` | `contracts/schemas/capability/cloud_offer.json` | [Cloud offer (`cloud_offer.md`)](cloud_offer.md) |
 | Settings (`#851`) | `middleware/src/settings/` | `contracts/schemas/capability/settings.json` | [Cloud Jobs settings (`settings.md`)](settings.md) |
 | Library admin (`#899`, `#900`) | `middleware/src/services/library_admin/` | `contracts/schemas/capability/library_admin.json` | [Library admin (`library_admin.md`)](library_admin.md) |
+| Library preview (`#895`) | `middleware/src/services/library_preview/` | `contracts/schemas/capability/library_preview.json` | [Library preview (`library_preview.md`)](library_preview.md) |
 | Module Template | `middleware/src/services/<feature>/` | `contracts/CONTRACTS.sha256` | [Module Template (`_template.md`)](_template.md) |

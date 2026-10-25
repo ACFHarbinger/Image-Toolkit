@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/library_preview.json",
+  "title": "LibraryPreviewCapability",
+  "description": "Preview, compare, and drag-preview inspection (#895). Reads only the paths the caller names. Does not open library.db.",
+  "type": "object",
+  "$defs": {
+    "DescribeParams": {
+      "title": "DescribeParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["paths"],
+      "properties": {
+        "paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "DescribeItem": {
+      "title": "DescribeItem",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "exists", "width", "height", "animated", "error"],
+      "properties": {
+        "path": { "type": "string" },
+        "exists": { "type": "boolean" },
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 },
+        "animated": { "type": "boolean" },
+        "error": { "type": "string" }
+      }
+    },
+    "DescribeResult": {
+      "title": "DescribeResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["items"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/DescribeItem" }
+        }
+      }
+    },
+    "DifferenceParams": {
+      "title": "DifferenceParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["left", "right", "boost"],
+      "properties": {
+        "left": { "type": "string", "minLength": 1 },
+        "right": { "type": "string", "minLength": 1 },
+        "boost": { "type": "integer", "enum": [1, 2, 4, 8] }
+      }
+    },
+    "FrameParams": {
+      "title": "FrameParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "FrameResult": {
+      "title": "FrameResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "width", "height", "png_base64", "error"],
+      "properties": {
+        "path": { "type": "string" },
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 },
+        "png_base64": { "type": "string" },
+        "error": { "type": "string" }
+      }
+    },
+    "DifferenceResult": {
+      "title": "DifferenceResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available", "width", "height", "mean_abs", "reason", "png_base64"],
+      "properties": {
+        "available": { "type": "boolean" },
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 },
+        "mean_abs": { "type": "number", "minimum": 0 },
+        "reason": { "type": "string" },
+        "png_base64": { "type": "string" }
+      }
+    }
+  }
+}

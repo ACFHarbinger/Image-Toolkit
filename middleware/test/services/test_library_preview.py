@@ -1,0 +1,197 @@
+"""Library preview inspection (#895). Paths only; no library.db."""
+
+from __future__ import annotations
+
+import base64
+import io
+
+from middleware.src.bridge import PROTOCOL_NAME
+from middleware.src.services.library_preview.preview import describe_paths, difference_map, frame_png
+from middleware.src.sidecar.server import SidecarServer
+from PIL import Image
+
+
+def _png(path, color: tuple[int, int, int], size: tuple[int, int] = (2, 1)) -> None:
+    Image.new("RGB", size, color).save(path)
+
+
+def test_missing_path_is_not_a_file(tmp_path) -> None:
+    missing = tmp_path / "gone.png"
+    item = describe_paths([str(missing)])["items"][0]
+    assert item["exists"] is False
+    assert item["error"] == "not a file"
+    assert item["width"] == 0
+
+
+def test_describe_reports_size_and_animation(tmp_path) -> None:
+    still = tmp_path / "still.png"
+    _png(still, (10, 20, 30), (3, 2))
+    item = describe_paths([str(still)])["items"][0]
+    assert item["exists"] is True
+    assert item["width"] == 3
+    assert item["height"] == 2
+    assert item["animated"] is False
+    assert item["error"] == ""
+
+
+def test_identical_images_have_a_zero_mean(tmp_path) -> None:
+    left = tmp_path / "left.png"
+    right = tmp_path / "right.png"
+    _png(left, (8, 8, 8))
+    _png(right, (8, 8, 8))
+    result = difference_map(str(left), str(right), 1)
+    assert result["available"] is True
+    assert result["mean_abs"] == 0
+    assert result["width"] == 2
+    png = base64.b64decode(result["png_base64"])
+    assert png.startswith(b"\x89PNG")
+
+
+def test_changed_pixel_is_a_positive_mean_and_boost_stays_in_the_png(tmp_path) -> None:
+    left = tmp_path / "left.png"
+    right = tmp_path / "right.png"
+    _png(left, (0, 0, 0))
+    _png(right, (10, 0, 0))
+    plain = difference_map(str(left), str(right), 1)
+    boosted = difference_map(str(left), str(right), 8)
+    assert plain["mean_abs"] == 10 / 3
+    assert boosted["mean_abs"] == plain["mean_abs"]
+    plain_image = Image.open(io.BytesIO(base64.b64decode(plain["png_base64"])))
+    boosted_image = Image.open(io.BytesIO(base64.b64decode(boosted["png_base64"])))
+    assert plain_image.getpixel((0, 0)) == (10, 0, 0)
+    assert boosted_image.getpixel((0, 0)) == (80, 0, 0)
+
+
+def test_frame_caps_the_longest_edge(tmp_path) -> None:
+    wide = tmp_path / "wide.png"
+    _png(wide, (4, 5, 6), (600, 10))
+    result = frame_png(str(wide))
+    assert result["error"] == ""
+    assert result["width"] == 512
+    assert result["height"] < 512
+    assert base64.b64decode(result["png_base64"]).startswith(b"\x89PNG")
+
+
+def test_sidecar_describe_does_not_require_a_database(tmp_path) -> None:
+    still = tmp_path / "still.png"
+    _png(still, (1, 2, 3))
+    server = SidecarServer(stdout=io.StringIO())
+    server.handle_frame(
+        {
+            "jsonrpc": "2.0",
+            "id": "handshake",
+            "method": "system.handshake",
+            "params": {"protocol": PROTOCOL_NAME, "client": {"name": "pytest", "version": "1.0.0"}},
+        }
+    )
+    response = server.handle_frame(
+        {
+            "jsonrpc": "2.0",
+            "id": "describe",
+            "method": "library_preview.describe",
+            "params": {"paths": [str(still)]},
+        }
+    )
+    assert response["result"]["items"][0]["width"] == 2
+
+
+def _png_header(path, width: int, height: int) -> None:
+    """A PNG whose IHDR claims a huge frame and whose pixels were never written."""
+    import struct
+    import zlib
+
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        crc = zlib.crc32(tag + data) & 0xFFFFFFFF
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", crc)
+
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IEND", b""))
+
+
+def test_oversized_header_is_refused_before_decode(tmp_path) -> None:
+    left = tmp_path / "left.png"
+    right = tmp_path / "right.png"
+    _png(left, (1, 2, 3), (2, 2))
+    _png_header(right, 8000, 8000)
+    result = difference_map(str(left), str(right), 1)
+    assert result["available"] is False
+    assert result["reason"] == "image is too large"
+    assert result["png_base64"] == ""
+
+
+def test_size_mismatch_does_not_resize(tmp_path) -> None:
+    left = tmp_path / "left.png"
+    right = tmp_path / "right.png"
+    _png(left, (0, 0, 0), (2, 1))
+    _png(right, (0, 0, 0), (2, 2))
+    result = difference_map(str(left), str(right), 1)
+    assert result["available"] is False
+    assert result["reason"] == "size mismatch"
+    assert result["png_base64"] == ""
+
+
+def test_frame_rejects_oversized_header_before_pixel_decode(tmp_path, monkeypatch):
+    from middleware.src.services.library_preview import preview
+
+    path = tmp_path / "oversized.png"
+    _png_header(path, 8000, 8000)
+
+    def refuse_decode(*args, **kwargs):
+        raise AssertionError("pixel decoding must not occur")
+
+    monkeypatch.setattr(Image.Image, "convert", refuse_decode)
+    result = preview.frame_png(str(path))
+    assert result["error"] == "image is too large"
+    assert result["png_base64"] == ""
+
+
+def test_difference_checks_both_headers_before_decoding(tmp_path, monkeypatch):
+    left, right = tmp_path / "left.png", tmp_path / "right.png"
+    _png(left, (255, 0, 0))
+    _png_header(right, 8000, 8000)
+
+    def refuse_decode(*args, **kwargs):
+        raise AssertionError("pixel decoding must not occur")
+
+    monkeypatch.setattr(Image.Image, "convert", refuse_decode)
+    assert difference_map(str(left), str(right), 1)["reason"] == "image is too large"
+
+
+def test_png_preview_keeps_transparency(tmp_path):
+    path = tmp_path / "transparent.png"
+    with Image.new("RGBA", (1, 1), (255, 0, 0, 0)) as image:
+        image.save(path)
+    result = frame_png(str(path))
+    with Image.open(io.BytesIO(base64.b64decode(result["png_base64"]))) as preview:
+        assert preview.mode == "RGBA"
+        assert preview.getpixel((0, 0))[3] == 0
+
+
+def test_gif_preview_keeps_palette_transparency(tmp_path):
+    path = tmp_path / "transparent.gif"
+    with Image.new("P", (1, 1), 0) as image:
+        image.putpalette([255, 0, 0] + [0, 0, 0] * 255)
+        image.save(path, transparency=0)
+    result = frame_png(str(path))
+    with Image.open(io.BytesIO(base64.b64decode(result["png_base64"]))) as preview:
+        assert preview.getpixel((0, 0))[3] == 0
+
+
+def test_difference_detects_alpha_only_changes(tmp_path):
+    left, right = tmp_path / "left.png", tmp_path / "right.png"
+    for path, alpha in [(left, 0), (right, 255)]:
+        with Image.new("RGBA", (1, 1), (255, 0, 0, alpha)) as image:
+            image.save(path)
+    result = difference_map(str(left), str(right), 1)
+    assert result["mean_abs"] > 0
+    with Image.open(io.BytesIO(base64.b64decode(result["png_base64"]))) as diff:
+        assert diff.mode == "RGB"
+        assert diff.getpixel((0, 0)) != (0, 0, 0)
+
+
+def test_difference_ignores_rgb_hidden_by_full_transparency(tmp_path):
+    left, right = tmp_path / "left.png", tmp_path / "right.png"
+    for path, color in [(left, (255, 0, 0, 0)), (right, (0, 0, 255, 0))]:
+        with Image.new("RGBA", (1, 1), color) as image:
+            image.save(path)
+    assert difference_map(str(left), str(right), 1)["mean_abs"] == 0

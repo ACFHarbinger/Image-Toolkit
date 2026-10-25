@@ -5,14 +5,14 @@
   "description": "Library management and the data browser (L-05 #899, L-06 #900). The store arrives with the daemon lease. With none attached every result stays available=false and library.db is not opened.",
   "type": "object",
   "$defs": {
-    "EmptyParams": {
-      "title": "EmptyParams",
+    "AdminEmptyParams": {
+      "title": "AdminEmptyParams",
       "type": "object",
       "additionalProperties": false,
       "properties": {}
     },
-    "GroupRecord": {
-      "title": "GroupRecord",
+    "AdminGroupRecord": {
+      "title": "AdminGroupRecord",
       "type": "object",
       "additionalProperties": false,
       "required": ["name", "subgroups"],
@@ -43,7 +43,7 @@
         "available": { "type": "boolean" },
         "groups": {
           "type": "array",
-          "items": { "$ref": "#/$defs/GroupRecord" }
+          "items": { "$ref": "#/$defs/AdminGroupRecord" }
         },
         "tags": {
           "type": "array",

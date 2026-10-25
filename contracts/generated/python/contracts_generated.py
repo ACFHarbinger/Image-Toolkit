@@ -1,4 +1,4 @@
-# GENERATED — contract hash eb57d1d3ee001de50bb35743f515830d8370c51552d7d005103b952116fb1b96. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash d631902fe126f39d94dc625e1c8688455abc25cc6d7b3c704ab441fd31d985ea. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -353,6 +353,65 @@ class SubmitResult:
 
 
 @dataclass(frozen=True)
+class GroupRecord:
+    name: str
+    subgroups: list[str]
+
+
+@dataclass(frozen=True)
+class ImageRecord:
+    id: int
+    file_path: str
+    filename: str
+    file_size: (int | None) | None = None
+    width: (int | None) | None = None
+    height: (int | None) | None = None
+    phash: (int | None) | None = None
+    group_name: (str | None) | None = None
+    subgroup_name: (str | None) | None = None
+    date_added: (str | None) | None = None
+    date_modified: (str | None) | None = None
+    tags: (list[str]) | None = None
+    distance: (float | None) | None = None
+
+
+@dataclass(frozen=True)
+class ListGroupsResult:
+    available: bool
+    groups: list[GroupRecord]
+
+
+@dataclass(frozen=True)
+class ListImagesParams:
+    group_name: str | None = None
+    subgroup_name: str | None = None
+    tags: (list[str]) | None = None
+    filename_pattern: str | None = None
+    input_formats: (list[str]) | None = None
+    group_names: (list[str]) | None = None
+    subgroup_names: (list[str]) | None = None
+    limit: int | None = None
+
+
+@dataclass(frozen=True)
+class ListImagesResult:
+    available: bool
+    images: list[ImageRecord]
+
+
+@dataclass(frozen=True)
+class ListTagsResult:
+    available: bool
+    tags: list[str]
+
+
+@dataclass(frozen=True)
+class AdminGroupRecord:
+    name: str
+    subgroups: list[str]
+
+
+@dataclass(frozen=True)
 class BrowseParams:
     table: str
     limit: int
@@ -378,14 +437,8 @@ class BrowseRow:
 @dataclass(frozen=True)
 class CatalogResult:
     available: bool
-    groups: list[GroupRecord]
+    groups: list[AdminGroupRecord]
     tags: list[TagRecord]
-
-
-@dataclass(frozen=True)
-class GroupRecord:
-    name: str
-    subgroups: list[str]
 
 
 class MutateAction(str, enum.Enum):
@@ -418,6 +471,57 @@ class MutateResult:
 class TagRecord:
     name: str
     category: str
+
+
+@dataclass(frozen=True)
+class DescribeItem:
+    path: str
+    exists: bool
+    width: int
+    height: int
+    animated: bool
+    error: str
+
+
+@dataclass(frozen=True)
+class DescribeParams:
+    paths: list[str]
+
+
+@dataclass(frozen=True)
+class DescribeResult:
+    items: list[DescribeItem]
+
+
+@dataclass(frozen=True)
+class DifferenceParams:
+    left: str
+    right: str
+    boost: str
+
+
+@dataclass(frozen=True)
+class DifferenceResult:
+    available: bool
+    width: int
+    height: int
+    mean_abs: float
+    reason: str
+    png_base64: str
+
+
+@dataclass(frozen=True)
+class FrameParams:
+    path: str
+
+
+@dataclass(frozen=True)
+class FrameResult:
+    path: str
+    width: int
+    height: int
+    png_base64: str
+    error: str
 
 
 @dataclass(frozen=True)
@@ -554,6 +658,9 @@ SummaryParams = dict[str, Any]
 
 
 EmptyParams = dict[str, Any]
+
+
+AdminEmptyParams = dict[str, Any]
 
 
 BridgeResponse = ResultResponse | ErrorResponse

@@ -327,4 +327,5 @@ modules = [
     "middleware.src.services.cloud_jobs",
     "middleware.src.services.cloud_offer",
     "middleware.src.services.library_admin",
+    "middleware.src.services.library_preview",
 ]
