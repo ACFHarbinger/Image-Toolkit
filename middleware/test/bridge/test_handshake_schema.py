@@ -60,6 +60,9 @@ def test_handshake_request_result_roundtrip() -> None:
         "cloud_jobs",
         "library_preview",
         "cloud_offer",
+        "merge",
+        "similarity",
+        "extractor",
     }
     # the built result validates against the contract schemas
     assert TABLE.validate_result("system.handshake", result) == []

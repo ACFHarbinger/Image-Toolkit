@@ -7,7 +7,6 @@ mod database_commands;
 mod db;
 mod gui_gate;
 mod tray;
-mod video_commands;
 mod wallpaper_commands;
 mod window_registry;
 
@@ -28,17 +27,12 @@ pub fn run() {
             core_commands::scan_files,
             core_commands::delete_files,
             core_commands::delete_directory,
-            core_commands::merge_images,
             // Authentication commands
             auth_commands::authenticate_user,
             auth_commands::create_user_account,
             auth_commands::load_user_settings,
             auth_commands::save_user_settings,
             auth_commands::update_master_password,
-            // Video processing commands
-            video_commands::extract_video_clip,
-            video_commands::extract_video_frames,
-            video_commands::get_video_metadata,
             // Database commands
             database_commands::search_files,
             database_commands::get_all_tags,

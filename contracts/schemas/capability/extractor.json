@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/extractor.json",
+  "title": "ExtractorCapability",
+  "description": "Probe one caller video path (#905). Does not open library.db and does not extract frames.",
+  "type": "object",
+  "$defs": {
+    "ProbeParams": {
+      "title": "ProbeParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "ProbeResult": {
+      "title": "ProbeResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available", "path", "width", "height", "duration_seconds", "codec", "error"],
+      "properties": {
+        "available": { "type": "boolean" },
+        "path": { "type": "string" },
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 },
+        "duration_seconds": { "type": "number", "minimum": 0 },
+        "codec": { "type": "string" },
+        "error": { "type": "string" }
+      }
+    }
+  }
+}

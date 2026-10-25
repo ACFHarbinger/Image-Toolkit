@@ -18,16 +18,19 @@
               "max": "1.0.0"
             },
             "capabilities": [
+              "system",
+              "jobs",
+              "convert",
               "cloud_jobs",
               "cloud_offer",
-              "convert",
-              "jobs",
+              "settings",
+              "library_preview",
               "library",
               "library_admin",
-              "library_preview",
               "scan",
-              "settings",
-              "system"
+              "merge",
+              "similarity",
+              "extractor"
             ]
           }
         }

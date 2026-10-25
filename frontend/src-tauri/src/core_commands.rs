@@ -62,13 +62,3 @@ pub fn delete_directory(path: String) -> Result<bool, String> {
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-pub async fn merge_images(
-    _image_paths: Vec<String>,
-    _output_path: String,
-    _config: serde_json::Value,
-) -> Result<bool, String> {
-    // TODO: Implement image merging once base library is refactored
-    log::warn!("Image merging not yet implemented in Tauri backend");
-    Err("Image merging not yet implemented".to_string())
-}

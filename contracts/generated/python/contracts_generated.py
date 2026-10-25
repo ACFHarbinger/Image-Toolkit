@@ -1,4 +1,4 @@
-# GENERATED — contract hash 0ddf43995ce7387ccdcb17b3e1810f19002528a099b4e8c2a036122b876a07fb. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 48148467512ee584ac757ff420b1212bf259e6bc06655926b2980419a7ded0cc. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -275,6 +275,22 @@ class BridgeEvent:
 
 
 @dataclass(frozen=True)
+class ProbeParams:
+    path: str
+
+
+@dataclass(frozen=True)
+class ProbeResult:
+    available: bool
+    path: str
+    width: int
+    height: int
+    duration_seconds: float
+    codec: str
+    error: str
+
+
+@dataclass(frozen=True)
 class CancelParams:
     job_id: str
 
@@ -525,6 +541,25 @@ class FrameResult:
 
 
 @dataclass(frozen=True)
+class ConcatenateParams:
+    paths: list[str]
+    output_path: str
+    direction: str
+    spacing: int
+    align: str
+
+
+@dataclass(frozen=True)
+class ConcatenateResult:
+    written: bool
+    output_path: str
+    width: int
+    height: int
+    preview_png_base64: str
+    error: str
+
+
+@dataclass(frozen=True)
 class BridgeRequest:
     jsonrpc: Literal["2.0"]
     id: str | int | None
@@ -663,6 +698,34 @@ class SetResult:
     key: str
     value: None | bool | float | str | list[Any] | dict[str, Any]
     scope: Scope
+
+
+@dataclass(frozen=True)
+class CompareItem:
+    path: str
+    width: int
+    height: int
+    ahash: str
+    error: str
+
+
+@dataclass(frozen=True)
+class ComparePair:
+    left: str
+    right: str
+    distance: int
+
+
+@dataclass(frozen=True)
+class CompareParams:
+    paths: list[str]
+    threshold: int
+
+
+@dataclass(frozen=True)
+class CompareResult:
+    items: list[CompareItem]
+    pairs: list[ComparePair]
 
 
 @dataclass(frozen=True)

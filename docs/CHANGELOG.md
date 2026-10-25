@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Merge, similarity, and extractor probes (#903, #904, #905): `merge.concatenate` joins caller images horizontally or vertically, `similarity.compare` reports average-hash pairs, and `extractor.probe` reads one video with ffprobe. None of them open `library.db`. The placement canvas, file deletion, and frame extraction stay on PySide6.
 - **Library: Scan and Tag service and webview** (Tauri migration Wave 3, L-04 #898).
   - **Contracts & Capability:** added `scan` capability (`scan.directory`, `scan.save_metadata`, `scan.suggest_tags`) with schema `contracts/schemas/capability/scan.json` and method routing in `contracts/methods.toml`.
   - **Service Layer:** `middleware/src/services/scan/` implementing `ScanServiceProtocol` (`ScanService`, `ScanDirectoryHandler`, `SaveMetadataHandler`, `SuggestTagsHandler`) with offline/safe handling when database is unattached.
@@ -51,6 +52,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Video probing rejects malformed probe documents and normalizes nonfinite duration values before returning bridge results (#905).
+- Merge output uses an exclusively created temporary file and atomically replaces the destination, preserving inputs and unrelated files or symlinks at the old `.partial` name (#903).
 - Library admin contract types use distinct names so listings and management bindings can coexist.
 - Library preview checks header dimensions before decoding frames or comparison inputs, preserves PNG/GIF transparency, and includes alpha changes in visible difference maps (#895).
 - Cloud Jobs preserves populated shard payloads by locking their count, and retains the request draft when switching workspace tabs (#992).
