@@ -52,14 +52,14 @@ def test_partial_document_merges_with_defaults(tmp_path: Path) -> None:
 
 def test_save_round_trips_the_whole_document(tmp_path: Path) -> None:
     service = _service(tmp_path)
-    stored = cloud_jobs.save_cloud_settings(service, {"monthly_cap_usd": 250.0, "notify_webhook_url": "https://hooks.example/j"})
+    stored = cloud_jobs.save_cloud_settings(
+        service, {"monthly_cap_usd": 250.0, "notify_webhook_url": "https://hooks.example/j"}
+    )
     assert stored["monthly_cap_usd"] == 250.0
     assert stored["notify_webhook_url"] == "https://hooks.example/j"
     assert cloud_jobs.load_cloud_settings(service).monthly_cap_usd == 250.0
     # The stored document is complete, so a fresh service reads it back.
-    again = SettingsService(
-        stores={SettingScope.ACCOUNT: JsonFileStore(tmp_path / "account.json")}
-    )
+    again = SettingsService(stores={SettingScope.ACCOUNT: JsonFileStore(tmp_path / "account.json")})
     assert cloud_jobs.load_cloud_settings(again).notify_webhook_url == "https://hooks.example/j"
 
 
@@ -75,3 +75,23 @@ def test_corrupt_stored_document_reads_as_defaults(tmp_path: Path) -> None:
     service = _service(tmp_path)
     service.set(cloud_jobs.CLOUD_JOBS_SETTINGS_KEY, {"packing_mode": "no-longer-a-mode"})
     assert cloud_jobs.load_cloud_settings(service).packing_mode == "one_to_one"
+
+
+@pytest.mark.parametrize("value", ["", "12", None, True, float("nan"), float("inf")])
+def test_invalid_numeric_value_does_not_replace_saved_document(tmp_path, value):
+    service = _service(tmp_path)
+    original = cloud_jobs.save_cloud_settings(service, {"monthly_cap_usd": 150.0})
+    with pytest.raises(ValueError, match="monthly_cap_usd"):
+        cloud_jobs.save_cloud_settings(service, {"monthly_cap_usd": value})
+    assert service.get(cloud_jobs.CLOUD_JOBS_SETTINGS_KEY) == original
+
+
+def test_fractional_integer_setting_is_rejected(tmp_path):
+    with pytest.raises(ValueError, match="max_concurrent_jobs"):
+        cloud_jobs.save_cloud_settings(_service(tmp_path), {"max_concurrent_jobs": 1.5})
+
+
+def test_corrupt_numeric_document_reads_as_defaults(tmp_path):
+    service = _service(tmp_path)
+    service.set(cloud_jobs.CLOUD_JOBS_SETTINGS_KEY, {"monthly_cap_usd": ""})
+    assert cloud_jobs.load_cloud_settings(service).monthly_cap_usd == 100.0

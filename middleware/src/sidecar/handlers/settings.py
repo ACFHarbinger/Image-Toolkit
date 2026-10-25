@@ -18,6 +18,7 @@ from middleware.src.cloud.settings import CloudSettings
 from middleware.src.settings.cloud_jobs import (
     CLOUD_JOBS_SETTINGS_KEY,
     cloud_settings_document,
+    load_cloud_settings,
     save_cloud_settings,
 )
 from middleware.src.settings.service import SettingsService
@@ -42,7 +43,7 @@ def _invalid_value(key: str, reason: str) -> BridgeAppError:
 
 def _get(service: SettingsService, key: str) -> dict[str, Any]:
     if key == CLOUD_JOBS_SETTINGS_KEY:
-        value: Any = cloud_settings_document(service.get(key, None))
+        value: Any = load_cloud_settings(service).to_dict()
     else:
         value = service.get(key)
     return {"key": key, "value": value, "scope": service.scope_of(key).value}

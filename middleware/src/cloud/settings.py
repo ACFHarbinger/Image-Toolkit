@@ -7,6 +7,7 @@ threshold here changes both the warning and the cap.
 
 from __future__ import annotations
 
+import math
 from dataclasses import asdict, dataclass, field, fields
 from typing import Any, Dict, Mapping, Optional, Tuple
 
@@ -64,6 +65,26 @@ class CloudSettings:
     notify_email: str = ""
 
     def validate(self) -> None:
+        defaults = type(self)()
+        for definition in fields(self):
+            name = definition.name
+            value, default = getattr(self, name), getattr(defaults, name)
+            if isinstance(default, bool):
+                valid = isinstance(value, bool)
+            elif isinstance(default, int):
+                valid = type(value) is int
+            elif isinstance(default, float):
+                valid = type(value) in (int, float) and math.isfinite(value)
+            elif isinstance(default, str):
+                valid = isinstance(value, str)
+            elif name == "default_regions":
+                valid = isinstance(value, Mapping) and all(
+                    isinstance(k, str) and isinstance(v, str) for k, v in value.items()
+                )
+            else:
+                valid = isinstance(value, (tuple, list)) and all(isinstance(v, str) for v in value)
+            if not valid:
+                raise ValueError(f"invalid type or nonfinite value for {name}")
         if self.packing_mode not in PACKING_MODES:
             raise ValueError(f"packing_mode must be one of {PACKING_MODES}")
         if self.max_attempts < 1:
@@ -85,6 +106,8 @@ class CloudSettings:
         known = {f.name for f in fields(cls)}
         kwargs = {k: v for k, v in data.items() if k in known}
         if "sensitive_allowlist" in kwargs:
+            if not isinstance(kwargs["sensitive_allowlist"], (tuple, list)):
+                raise ValueError("sensitive_allowlist must be a list of strings")
             kwargs["sensitive_allowlist"] = tuple(kwargs["sensitive_allowlist"])
         settings = cls(**kwargs)
         settings.validate()
