@@ -89,6 +89,38 @@ def test_suggest_tags_heuristics(tmp_path: Path):
     assert "hero" in tags_p2
 
 
+def test_save_metadata_counts_only_completed_writes(tmp_path: Path, monkeypatch):
+    written: list[str] = []
+
+    class _Repo:
+        def __init__(self, session) -> None:
+            assert session == "session"
+
+        def add_image(self, file_path, group_name=None, subgroup_name=None, tags=None, **_kwargs):
+            if file_path.endswith("bad.png"):
+                raise RuntimeError("write failed")
+            written.append(file_path)
+            assert tags == ["art"]
+            assert group_name == "people"
+            return 7
+
+    monkeypatch.setattr("middleware.src.database.unified.image_repo.ImageRepo", _Repo)
+    service = ScanService(db_session="session")
+    result = service.save_metadata(
+        SaveMetadataCommand(
+            items=(
+                MetadataItemCommand(path=str(tmp_path / "ok.png"), tags=("art",), group_name="people"),
+                MetadataItemCommand(path=str(tmp_path / "bad.png"), tags=("art",), group_name="people"),
+            )
+        )
+    )
+    assert written == [str(tmp_path / "ok.png")]
+    assert result.database_available is True
+    assert result.saved_count == 1
+    assert result.success is False
+    assert any("bad.png" in error for error in result.errors)
+
+
 def test_save_metadata_without_db_session(tmp_path: Path):
     service = ScanService()
     cmd = SaveMetadataCommand(

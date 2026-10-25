@@ -183,16 +183,19 @@ class SaveMetadataHandler(Handler[SaveMetadataCommand, SaveMetadataResult]):
             repo = ImageRepo(self._db_session)
             for item in command.items:
                 try:
-                    if hasattr(repo, "upsert_image_metadata"):
-                        repo.upsert_image_metadata(
-                            item.path,
-                            tags=list(item.tags),
-                            group_name=item.group_name,
-                            subgroup_name=item.subgroup_name,
-                        )
-                    saved += 1
+                    image_id = repo.add_image(
+                        item.path,
+                        group_name=item.group_name,
+                        subgroup_name=item.subgroup_name,
+                        tags=list(item.tags),
+                    )
                 except Exception as exc:
                     errors.append(f"Failed to save {item.path}: {exc}")
+                    continue
+                if image_id is None:
+                    errors.append(f"Failed to save {item.path}: write did not complete")
+                    continue
+                saved += 1
         except Exception as exc:
             errors.append(f"Persistence failed: {exc}")
 
