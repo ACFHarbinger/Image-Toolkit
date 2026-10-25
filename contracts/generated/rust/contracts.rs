@@ -1,14 +1,38 @@
-// GENERATED — contract hash 08faec06515d9a8705e5ee5589a1933a46e3091792150fb9145b7bdb772a2acb. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 6351f82fd45a8c5d6143cf73e3570df6c3d8d70c885f1e2ccfcf5d09f3540f21. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CloudSubmitParams {
+    pub spec: JobSpecDocument,
+    pub acknowledged: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CloudSubmitResult {
+    pub accepted: bool,
+    pub job_id: String,
+    pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct DaemonStatus {
     pub lease_owner: String,
     pub wal_depth: i64,
     pub last_poll_ts: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct EstimateBreakdown {
+    pub compute: f64,
+    pub startup: f64,
+    pub ipv4: f64,
+    pub storage: f64,
+    pub egress: f64,
+    pub retries: f64,
+    pub total: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -52,6 +76,8 @@ pub struct JobMetrics {
     pub peak_vcpu: f64,
 }
 
+pub type JobSpecDocument = std::collections::HashMap<String, serde_json::Value>;
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct JobSpend {
     pub cost_so_far_usd: f64,
@@ -93,6 +119,41 @@ pub struct ListJobsParams {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ListJobsResult {
     pub jobs: Vec<JobSummaryItem>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PreviewIssue {
+    pub stage: String,
+    pub severity: String,
+    pub message: String,
+    pub ack_id: serde_json::Value,
+    pub targets: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PreviewParams {
+    pub spec: JobSpecDocument,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PreviewResult {
+    pub available: bool,
+    pub reason: String,
+    pub job_id: String,
+    pub kind: String,
+    pub provider: String,
+    pub region: String,
+    pub mode: String,
+    pub storage: String,
+    pub data_class: String,
+    pub shards: i64,
+    pub staging_bytes: i64,
+    pub estimate_known: bool,
+    pub estimate: EstimateBreakdown,
+    pub price_age_days: serde_json::Value,
+    pub issues: Vec<PreviewIssue>,
+    pub needs_ack: Vec<String>,
+    pub capability_override: bool,
 }
 
 pub type SummaryParams = std::collections::HashMap<String, serde_json::Value>;

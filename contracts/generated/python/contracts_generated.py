@@ -1,4 +1,4 @@
-# GENERATED — contract hash 08faec06515d9a8705e5ee5589a1933a46e3091792150fb9145b7bdb772a2acb. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 6351f82fd45a8c5d6143cf73e3570df6c3d8d70c885f1e2ccfcf5d09f3540f21. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -10,10 +10,34 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 @dataclass(frozen=True)
+class CloudSubmitParams:
+    spec: JobSpecDocument
+    acknowledged: list[str]
+
+
+@dataclass(frozen=True)
+class CloudSubmitResult:
+    accepted: bool
+    job_id: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class DaemonStatus:
     lease_owner: str
     wal_depth: int
     last_poll_ts: float
+
+
+@dataclass(frozen=True)
+class EstimateBreakdown:
+    compute: float
+    startup: float
+    ipv4: float
+    storage: float
+    egress: float
+    retries: float
+    total: float
 
 
 @dataclass(frozen=True)
@@ -88,6 +112,41 @@ class ListJobsParams:
 @dataclass(frozen=True)
 class ListJobsResult:
     jobs: list[JobSummaryItem]
+
+
+@dataclass(frozen=True)
+class PreviewIssue:
+    stage: str
+    severity: str
+    message: str
+    ack_id: str | None
+    targets: list[str]
+
+
+@dataclass(frozen=True)
+class PreviewParams:
+    spec: JobSpecDocument
+
+
+@dataclass(frozen=True)
+class PreviewResult:
+    available: bool
+    reason: str
+    job_id: str
+    kind: str
+    provider: str
+    region: str
+    mode: str
+    storage: str
+    data_class: str
+    shards: int
+    staging_bytes: int
+    estimate_known: bool
+    estimate: EstimateBreakdown
+    price_age_days: int | None
+    issues: list[PreviewIssue]
+    needs_ack: list[str]
+    capability_override: bool
 
 
 @dataclass(frozen=True)
@@ -296,6 +355,9 @@ class HandshakeResult:
 @dataclass(frozen=True)
 class PingResult:
     ok: Literal[True]
+
+
+JobSpecDocument = dict[str, Any]
 
 
 SummaryParams = dict[str, Any]
