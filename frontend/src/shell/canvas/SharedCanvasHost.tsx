@@ -16,6 +16,7 @@ import {
   zoomAroundScreenPoint,
 } from "./pyramid";
 import { RenderFrameStats, SharedCanvasRenderer } from "./webglRenderer";
+import { TileTextureCache, TileTextureLoader } from "./tileTextureCache";
 
 export interface SharedCanvasHostProps {
   document: FakeCanvasDocument;
@@ -28,6 +29,10 @@ export interface SharedCanvasHostProps {
   splitWipeRatio?: number;
   overscanTiles?: number;
   workerPort?: WorkerMessagePortLike;
+  /** Source factory for tile textures; defaults to an HTMLImageElement decode. */
+  textureLoader?: TileTextureLoader;
+  /** LRU budget of decoded tile sources (default 256). */
+  textureCacheBudget?: number;
   onViewportChange?: (viewport: ViewportTransform) => void;
   onSeamVertexMove?: (vertexIndex: number, nextDocPoint: CanvasPoint) => void;
 }
@@ -52,6 +57,8 @@ export function SharedCanvasHost({
   splitWipeRatio = 0.5,
   overscanTiles = 0,
   workerPort,
+  textureLoader,
+  textureCacheBudget,
   onViewportChange,
   onSeamVertexMove,
 }: SharedCanvasHostProps) {
@@ -77,6 +84,21 @@ export function SharedCanvasHost({
       viewportHeight,
     }));
   }, [initialPanX, initialPanY, initialZoom, viewportWidth, viewportHeight]);
+
+  // Production texture pipeline (Y-00 / #902): visible tiles upload into the
+  // renderer's GL texture set through an LRU-bounded cache; eviction frees
+  // the GL texture with the JS entry. textureVersion bumps re-render a frame
+  // once loads complete so tiles pop in without waiting for the next pan.
+  const textureCacheRef = useRef<TileTextureCache | null>(null);
+  const [textureVersion, setTextureVersion] = useState(0);
+  if (textureCacheRef.current === null) {
+    textureCacheRef.current = new TileTextureCache({
+      maxEntries: textureCacheBudget,
+      loader: textureLoader,
+      onEvict: (url) => rendererRef.current?.evictTileTexture(url),
+    });
+  }
+  const textureCache = textureCacheRef.current;
 
   const [seamPolygon, setSeamPolygon] = useState<CanvasPoint[]>(() => document.seamPolygon);
   useEffect(() => {
@@ -106,6 +128,7 @@ export function SharedCanvasHost({
   const [frameStats, setFrameStats] = useState<RenderFrameStats>({
     backend: "headless",
     drawnTileCount: initialCull.tiles.length,
+    texturedTileCount: 0,
     seamVertexCount: document.seamPolygon.length,
     roiVertexCount: document.roiBox ? 5 : 0,
     blendMode,
@@ -135,6 +158,25 @@ export function SharedCanvasHost({
   useEffect(() => {
     workerClientRef.current?.requestCull(document, viewport, overscanTiles);
   }, [document, viewport, overscanTiles]);
+
+  useEffect(() => {
+    for (const url of textureCache.pendingFor(cullState.tiles)) {
+      void textureCache.load(url).then((source) => {
+        if (!source) {
+          return; // failed load: the placeholder stays for this tile
+        }
+        // A later load can evict this URL before the callback runs. Uploading
+        // then would create a GL texture with no cache entry left to free it.
+        if (textureCache.get(url) !== source) {
+          return;
+        }
+        rendererRef.current?.uploadTileTexture(url, source);
+        setTextureVersion((version) => version + 1);
+      });
+    }
+  }, [cullState, textureCache]);
+
+  useEffect(() => () => textureCache.clear(), [textureCache]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -168,7 +210,7 @@ export function SharedCanvasHost({
       roiBox: document.roiBox,
     });
     setFrameStats(stats);
-  }, [cullState, viewport, document.layers, document.roiBox, blendMode, splitWipeRatio, seamPolygon]);
+  }, [cullState, viewport, document.layers, document.roiBox, blendMode, splitWipeRatio, seamPolygon, textureVersion]);
 
   const applyViewport = (next: ViewportTransform) => {
     setViewport(next);
@@ -245,6 +287,9 @@ export function SharedCanvasHost({
       data-rejected-tiles={cullState.rejectedCount}
       data-total-level-tiles={cullState.totalPyramidTilesAtLevel}
       data-renderer-backend={frameStats.backend}
+      data-textured-tile-count={frameStats.texturedTileCount}
+      data-texture-cache-entries={textureCache.stats().entries}
+      data-texture-cache-evictions={textureCache.stats().evictions}
       data-blend-mode={frameStats.blendMode}
       data-split-wipe={frameStats.splitWipeRatio}
       data-zoom={viewport.zoom}

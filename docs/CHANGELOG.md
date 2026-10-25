@@ -82,6 +82,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Shared canvas host, production version (Tauri Y-00, #902): the S-02 spike's deferred texture pipeline is closed — visible tiles now load through an LRU-bounded, in-flight-deduped `TileTextureCache` and upload as NPOT-safe GL textures into the renderer (per-tile uniform binding for `u_tileTexture`/`u_opacity`/`u_blendMode`/`u_splitWipeNdcX`/`u_layerIndex`, a 1×1 placeholder until a tile lands, GL texture freed on eviction). The host exposes `data-textured-tile-count` / cache stats to its consumer (Merge, #903), re-renders when loads complete, and keeps the fake 50k×30k document as its fixture. The on-demand C++ tile slicer stays with the consumers.
+
 - **Cloud Jobs Submit Surfaces & Confirmation Sheet** (Gate D4, #850, PR #992):
   - **Shared specification:** `frontend/src/views/cloudjobs/jobSpec.ts` defines typed `JobSpec` structures and origin-tab converters (`jobSpecFromConvert`, `jobSpecFromExtract`, `jobSpecFromComfy`), ensuring origin tabs and Request Builder construct identical workloads.
   - **Live risk feedback:** `risk.ts` implements client-side risk rules evaluation mirroring the backend engine, dynamically applying Tailwind recolouring classes and warning badges for sensitive provider policies, unresumable spot instances, and execution mode constraints.
