@@ -1,3 +1,5 @@
+import { LogDeskView } from "../views/windows/LogDeskView";
+import { MetadataDeskView } from "../views/windows/MetadataDeskView";
 import { LibraryManagement } from "../views/library/LibraryManagement";
 import { DataBrowser } from "../views/library/DataBrowser";
 import { ComponentType, ReactNode } from "react";
@@ -53,6 +55,8 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "ml.inference": MetaCLIPInferenceTab,
   "editor.hybrid": HieEditorTab,
   "developer.benchmarks": BenchmarkDashboard,
+  "developer.logs": LogDeskView,
+  "developer.metadata": MetadataDeskView,
 };
 
 export function CatalogView({
@@ -72,6 +76,6 @@ export function CatalogView({
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
   const hostClientProps =
-    ["system.convert", "system.merge", "system.similarity", "system.extractor", "library.scan", "library.search", "library.listings", "library.management", "library.data-browser"].includes(entry.id) ? { hostClient, client: hostClient } : {};
+    ["developer.logs", "developer.metadata", "system.convert", "system.merge", "system.similarity", "system.extractor", "library.scan", "library.search", "library.listings", "library.management", "library.data-browser"].includes(entry.id) ? { hostClient, client: hostClient } : {};
   return <View showModal={showModal} {...extra} {...hostClientProps} />;
 }

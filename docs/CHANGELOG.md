@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Expose Logs and File Metadata in the Developer / Diagnostics navigation with the shell HostClient (#919).
+
 ### Added
 
 - Logging and metadata windows (#919): `logs.read` returns the last lines of a caller file and does not follow it. `metadata.describe` reports name and size and does not open `library.db`.

@@ -12,6 +12,8 @@
 
 `logs.read` returns the last lines of one caller log and does not follow the file. `metadata.describe` reports the basename, size, and suffix of one caller file. Neither call opens `library.db`, writes the path, or decodes image pixels. The PySide6 logging and metadata windows stay in place.
 
+Open **Developer / Diagnostics → Logs** or **File Metadata** from the shell rail. Both pages use the shell’s transport-backed HostClient.
+
 ## Public Surface
 
 - **Python (`middleware/src/services/desk/logs.py`):** `read_log`.
