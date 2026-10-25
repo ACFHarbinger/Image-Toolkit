@@ -57,6 +57,7 @@ from middleware.src.sidecar.handlers.library_preview import (
     handle_frame,
 )
 from middleware.src.sidecar.handlers.merge import handle_concatenate
+from middleware.src.sidecar.handlers.prefs import handle_prefs_describe
 from middleware.src.sidecar.handlers.scan import (
     handle_save_metadata,
     handle_scan_directory,
@@ -231,6 +232,8 @@ class SidecarServer:
             return handle_settings_get_many(params)
         if method == "settings.set_many":
             return handle_settings_set_many(params)
+        if method == "prefs.describe":
+            return handle_prefs_describe(params)
         return _UNHANDLED
 
     def _dispatch_library(self, method: str, params: dict[str, Any]) -> Any:

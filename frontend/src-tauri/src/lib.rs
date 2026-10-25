@@ -30,9 +30,6 @@ pub fn run() {
             // Authentication commands
             auth_commands::authenticate_user,
             auth_commands::create_user_account,
-            auth_commands::load_user_settings,
-            auth_commands::save_user_settings,
-            auth_commands::update_master_password,
             // Database commands
             database_commands::search_files,
             database_commands::get_all_tags,

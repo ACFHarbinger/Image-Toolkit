@@ -19,6 +19,7 @@ import type {
   CompareResult,
   ProbeParams,
   ProbeResult,
+  PrefsDescribeResult,
   FrameParams,
   FrameResult,
   GetManyParams,
@@ -227,6 +228,12 @@ export class HostClient {
   async setSettings(params: SetManyParams): Promise<SetManyResult> {
     await this.connect();
     return this.send<SetManyResult>("settings.set_many", params as unknown as Record<string, unknown>);
+  }
+
+  /** Settings window sections. Does not open the vault or change a password. */
+  async prefsDescribe(account: string): Promise<PrefsDescribeResult> {
+    await this.connect();
+    return this.send<PrefsDescribeResult>("prefs.describe", { account });
   }
 
   async listLibraryImages(params: ListImagesParams = {}): Promise<ListImagesResult> {

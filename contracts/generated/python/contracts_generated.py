@@ -1,4 +1,4 @@
-# GENERATED — contract hash 48148467512ee584ac757ff420b1212bf259e6bc06655926b2980419a7ded0cc. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 6ccbd3c8689db93cd2433f03ff38f9704d5ff9ff0c055064c5e69501e7aeb5f1. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -557,6 +557,18 @@ class ConcatenateResult:
     height: int
     preview_png_base64: str
     error: str
+
+
+@dataclass(frozen=True)
+class PrefsDescribeParams:
+    account: str
+
+
+@dataclass(frozen=True)
+class PrefsDescribeResult:
+    sections: list[str]
+    credentials_changed: Literal[False]
+    reason: Literal["credentials stay on the C++ vault session"]
 
 
 @dataclass(frozen=True)
