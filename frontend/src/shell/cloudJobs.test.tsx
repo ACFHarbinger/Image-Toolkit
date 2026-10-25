@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { CloudComputeSurface } from "./CloudComputeSurface";
 import { CloudJobsControl } from "./CloudJobsControl";
@@ -217,4 +217,25 @@ test("cloud jobs never call the unrelated in-memory cancellation route", async (
   expect(screen.getByTestId("cloud-cancel-unavailable")).toHaveTextContent("unavailable");
   fireEvent.click(button);
   expect(client.cancelJob).not.toHaveBeenCalled();
+});
+
+
+test.each(["success", "failure"])("ignores a stale list %s after search changes", async (outcome) => {
+  let resolveOld!: (result: { jobs: JobSummaryItem[] }) => void;
+  let rejectOld!: (error: Error) => void;
+  const old = new Promise<{ jobs: JobSummaryItem[] }>((resolve, reject) => {
+    resolveOld = resolve; rejectOld = reject;
+  });
+  const client = {
+    cloudJobsList: vi.fn().mockReturnValueOnce(old).mockResolvedValue({ jobs: [MOCK_JOBS[1]] }),
+  };
+  render(<CloudJobsWindow badge="—" client={client as never} />);
+  fireEvent.change(screen.getByTestId("jobs-search-input"), { target: { value: "new filter" } });
+  await screen.findByTestId("job-row-job-102");
+  await act(async () => {
+    if (outcome === "success") resolveOld({ jobs: [MOCK_JOBS[0]] });
+    else rejectOld(new Error("stale failure"));
+  });
+  expect(screen.getByTestId("job-row-job-102")).toBeInTheDocument();
+  expect(screen.queryByTestId("job-row-job-101")).not.toBeInTheDocument();
 });

@@ -37,6 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Cloud Jobs discards stale list responses and failures after filters, search, or client changes (#989).
 - Cloud Jobs disables cancellation with an explanation until its authenticated cloud command is connected, avoiding the unrelated in-memory job cancellation route (#989).
 - ComfyUI's external-browser fallback uses a native opener restricted to credential-free loopback HTTP(S) URLs and reports launch failures (#993).
 - Release publication requires a provisioned WebDriver smoke: build the release shell, install the driver and display dependencies, and fail instead of skipping missing prerequisites (#987).

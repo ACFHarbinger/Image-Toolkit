@@ -21,22 +21,30 @@ export function CloudJobsWindow({ badge, client }: CloudJobsWindowProps): React.
   const [filterProvider, setFilterProvider] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const refreshJobs = async () => {
-    if (!client) return;
-    setLoadingJobs(true);
-    try {
-      const res = await client.cloudJobsList({
-        state: filterState || undefined,
-        provider: filterProvider || undefined,
-        search: searchQuery || undefined,
-      });
-      setJobs([...res.jobs]);
-    } catch {
+  const listGeneration = useRef(0);
+
+  useEffect(() => {
+    const generation = ++listGeneration.current;
+    const current = () => listGeneration.current === generation;
+    if (!client) {
       setJobs([]);
-    } finally {
       setLoadingJobs(false);
+      return;
     }
-  };
+    setLoadingJobs(true);
+    void client.cloudJobsList({
+      state: filterState || undefined,
+      provider: filterProvider || undefined,
+      search: searchQuery || undefined,
+    }).then((result) => {
+      if (current()) setJobs([...result.jobs]);
+    }).catch(() => {
+      if (current()) setJobs([]);
+    }).finally(() => {
+      if (current()) setLoadingJobs(false);
+    });
+    return () => { listGeneration.current += 1; };
+  }, [client, filterState, filterProvider, searchQuery]);
 
   const detailGeneration = useRef(0);
 
@@ -61,10 +69,6 @@ export function CloudJobsWindow({ badge, client }: CloudJobsWindowProps): React.
       }
     }
   };
-
-  useEffect(() => {
-    void refreshJobs();
-  }, [client, filterState, filterProvider, searchQuery]);
 
   useEffect(() => {
     if (!selectedJobId) {
