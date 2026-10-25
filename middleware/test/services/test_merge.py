@@ -68,3 +68,55 @@ def test_output_must_not_be_an_input(tmp_path) -> None:
     result = concatenate([str(left), str(right)], str(left), "horizontal", 0, "start")
     assert result["written"] is False
     assert result["error"] == "output matches an input"
+
+
+def test_predictable_partial_can_be_an_input_without_being_deleted(tmp_path):
+    left, right, output = tmp_path / "out.png.partial", tmp_path / "right.png", tmp_path / "out.png"
+    with Image.new("RGB", (2, 2), (255, 0, 0)) as image:
+        image.save(left, format="PNG")
+    _png(right, (0, 0, 255))
+    original = left.read_bytes()
+    result = concatenate([str(left), str(right)], str(output), "horizontal", 0, "start")
+    assert result["written"] is True
+    assert left.read_bytes() == original
+    with Image.open(output) as image:
+        assert image.getpixel((0, 0)) == (255, 0, 0)
+    assert not list(tmp_path.glob(".out.png.*.partial"))
+
+
+def test_predictable_partial_symlink_and_its_target_are_untouched(tmp_path):
+    left, right, output = tmp_path / "left.png", tmp_path / "right.png", tmp_path / "out.png"
+    _png(left, (255, 0, 0))
+    _png(right, (0, 0, 255))
+    victim = tmp_path / "unrelated.txt"
+    victim.write_bytes(b"must survive")
+    partial = tmp_path / "out.png.partial"
+    partial.symlink_to(victim)
+    result = concatenate([str(left), str(right)], str(output), "vertical", 0, "start")
+    assert result["written"] is True
+    assert partial.is_symlink()
+    assert victim.read_bytes() == b"must survive"
+
+
+def test_failed_encoding_preserves_output_and_cleans_only_owned_temp(tmp_path, monkeypatch):
+    left, right, output = tmp_path / "left.png", tmp_path / "right.png", tmp_path / "out.png"
+    _png(left, (255, 0, 0))
+    _png(right, (0, 0, 255))
+    output.write_bytes(b"previous output")
+    unrelated = tmp_path / "out.png.partial"
+    unrelated.write_bytes(b"unrelated partial")
+    before = set(tmp_path.iterdir())
+    save = Image.Image.save
+
+    def fail_output(self, fp, *args, **kwargs):
+        if isinstance(getattr(fp, "name", None), str):
+            fp.write(b"incomplete output")
+            raise OSError("encoder failed")
+        return save(self, fp, *args, **kwargs)
+
+    monkeypatch.setattr(Image.Image, "save", fail_output)
+    result = concatenate([str(left), str(right)], str(output), "horizontal", 0, "start")
+    assert result["written"] is False
+    assert output.read_bytes() == b"previous output"
+    assert unrelated.read_bytes() == b"unrelated partial"
+    assert set(tmp_path.iterdir()) == before

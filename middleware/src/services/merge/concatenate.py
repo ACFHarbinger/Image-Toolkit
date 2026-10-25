@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import io
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -134,13 +135,22 @@ def _preview_png(canvas: Image.Image) -> str:
 
 def _save(canvas: Image.Image, output_path: str) -> None:
     destination = Path(output_path)
-    partial = destination.with_name(f"{destination.name}.partial")
+    partial: Path | None = None
     try:
-        canvas.save(partial, format=_FORMATS[destination.suffix.lower()])
+        # Save through the exclusively created descriptor, never a predictable path.
+        with tempfile.NamedTemporaryFile(
+            mode="w+b",
+            dir=destination.parent,
+            prefix=f".{destination.name}.",
+            suffix=".partial",
+            delete=False,
+        ) as stream:
+            partial = Path(stream.name)
+            canvas.save(stream, format=_FORMATS[destination.suffix.lower()])
         partial.replace(destination)
     finally:
-        if partial.exists():
-            partial.unlink()
+        if partial is not None:
+            partial.unlink(missing_ok=True)
 
 
 def _compose(
