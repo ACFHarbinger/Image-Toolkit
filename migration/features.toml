@@ -116,18 +116,18 @@ os_checklist = []
 id = "library.search"
 kind = "page"
 title = "Image Search"
-owner = "unclaimed"
+owner = "Mistral"
 wave = "wave-3"
 issue = 897
-status = "pyside-only"
+status = "both"
 routes = ["library.search"]
 route_map = { search = "library.search" }
 pyside = ["gui/src/tabs/database/search_tab"]
-tauri = ["frontend/src/tabs/database/SearchTab.tsx"]
-service = ""
-contract = ""
-docs = ""
-scenarios = []
+tauri = ["frontend/src/views/library/ImageSearch.tsx"]
+service = "middleware/src/services/library/listings.py"
+contract = "library"
+docs = "docs/modules/library.md"
+scenarios = ["migration/scenarios/library.search.json"]
 os_checklist = []
 
 [[feature]]

@@ -8,7 +8,7 @@ the status lifecycle and deletion gate are documented in
 
 ## Summary
 
-- 29 feature rows: pyside-only × 27, both × 2, parity-passed × 0, pyside-deleted × 0
+- 29 feature rows: pyside-only × 26, both × 3, parity-passed × 0, pyside-deleted × 0
 
 ## wave-0
 
@@ -32,7 +32,7 @@ the status lifecycle and deletion gate are documented in
 | library.management | Management | Grok | [#899](https://github.com/ACFHarbinger/Image-Toolkit/issues/899) | pyside-only | library.management | — | 0 |
 | library.preview | Image preview, compare and drag-preview viewers | Grok | [#895](https://github.com/ACFHarbinger/Image-Toolkit/issues/895) | pyside-only | — | 0/3 | 0 |
 | library.scan | Scan and Tag | unclaimed | [#898](https://github.com/ACFHarbinger/Image-Toolkit/issues/898) | pyside-only | library.scan | — | 0 |
-| library.search | Image Search | unclaimed | [#897](https://github.com/ACFHarbinger/Image-Toolkit/issues/897) | pyside-only | library.search | — | 0 |
+| library.search | Image Search | Mistral | [#897](https://github.com/ACFHarbinger/Image-Toolkit/issues/897) | both | library.search | — | 1 |
 
 ## wave-4
 

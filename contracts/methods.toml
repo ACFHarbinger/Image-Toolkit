@@ -340,6 +340,8 @@ stability = "experimental"
 owner = 896
 
 
+
+
 [[method]]
 name = "library_admin.catalog"
 capability = "library_admin"
@@ -375,6 +377,7 @@ cancelable = false
 emits = []
 stability = "experimental"
 owner = 900
+
 
 
 [[channel]]

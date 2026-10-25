@@ -7,7 +7,7 @@ import MergeTab from "../tabs/core/MergeTab";
 import DeleteTab from "../tabs/core/DeleteTab";
 import WallpaperTab from "../tabs/core/WallpaperTab";
 import { ImageExtractorTab } from "../tabs/core/ImageExtractorTab";
-import SearchTab from "../tabs/database/SearchTab";
+import { ImageSearch } from "../views/library/ImageSearch";
 import ScanMetadataTab from "../tabs/database/ScanMetadataTab";
 import DriveSyncTab from "../tabs/web/DriveSyncTab";
 import ImageCrawlerTab from "../tabs/web/ImageCrawlerTab";
@@ -39,7 +39,7 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "system.similarity": DeleteTab,
   "system.extractor": ImageExtractorTab,
   "system.wallpaper": WallpaperTab,
-  "library.search": SearchTab,
+  "library.search": ImageSearch,
   "library.management": LibraryManagement,
   "library.data-browser": DataBrowser,
   "library.scan": ScanMetadataTab,
@@ -72,6 +72,6 @@ export function CatalogView({
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
   const hostClientProps =
-    ["system.convert", "library.listings", "library.management", "library.data-browser"].includes(entry.id) ? { hostClient, client: hostClient } : {};
+    ["system.convert", "library.search", "library.listings", "library.management", "library.data-browser"].includes(entry.id) ? { hostClient, client: hostClient } : {};
   return <View showModal={showModal} {...extra} {...hostClientProps} />;
 }
