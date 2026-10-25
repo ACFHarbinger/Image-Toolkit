@@ -4,7 +4,6 @@ import json
 import subprocess
 
 import pytest
-
 from middleware.src.services.extractor.probe import probe_video
 
 
