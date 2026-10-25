@@ -20,7 +20,13 @@ import type {
   ListJobsParams,
   ListJobsResult,
   ResourcesResult,
+  SaveMetadataParams,
+  SaveMetadataResult,
+  ScanDirectoryParams,
+  ScanDirectoryResult,
   SpendResult,
+  SuggestTagsParams,
+  SuggestTagsResult,
   SummaryResult,
   TerminateResult,
   HandshakeResult,
@@ -179,6 +185,21 @@ export class HostClient {
   async setSettings(params: SetManyParams): Promise<SetManyResult> {
     await this.connect();
     return this.send<SetManyResult>("settings.set_many", params as unknown as Record<string, unknown>);
+  }
+
+  async scanDirectory(params: ScanDirectoryParams): Promise<ScanDirectoryResult> {
+    await this.connect();
+    return this.send<ScanDirectoryResult>("scan.directory", params as unknown as Record<string, unknown>);
+  }
+
+  async scanSaveMetadata(params: SaveMetadataParams): Promise<SaveMetadataResult> {
+    await this.connect();
+    return this.send<SaveMetadataResult>("scan.save_metadata", params as unknown as Record<string, unknown>);
+  }
+
+  async scanSuggestTags(params: SuggestTagsParams): Promise<SuggestTagsResult> {
+    await this.connect();
+    return this.send<SuggestTagsResult>("scan.suggest_tags", params as unknown as Record<string, unknown>);
   }
 
   onEvent(listener: Parameters<NonNullable<BridgeTransport["onEvent"]>>[0]): () => void {

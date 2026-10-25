@@ -134,17 +134,17 @@ os_checklist = []
 id = "library.scan"
 kind = "page"
 title = "Scan and Tag"
-owner = "unclaimed"
+owner = "Gemini"
 wave = "wave-3"
 issue = 898
 status = "pyside-only"
 routes = ["library.scan"]
 route_map = { scan = "library.scan" }
 pyside = ["gui/src/tabs/database/scan_metadata_tab"]
-tauri = ["frontend/src/tabs/database/ScanMetadataTab.tsx"]
-service = ""
-contract = ""
-docs = ""
+tauri = ["frontend/src/views/library/ScanMetadataView.tsx"]
+service = "middleware/src/services/scan/service.py"
+contract = "scan"
+docs = "docs/modules/scan.md"
 scenarios = []
 os_checklist = []
 

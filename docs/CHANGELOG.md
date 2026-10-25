@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- **Library: Scan and Tag service and webview** (Tauri migration Wave 3, L-04 #898).
+  - **Contracts & Capability:** added `scan` capability (`scan.directory`, `scan.save_metadata`, `scan.suggest_tags`) with schema `contracts/schemas/capability/scan.json` and method routing in `contracts/methods.toml`.
+  - **Service Layer:** `middleware/src/services/scan/` implementing `ScanServiceProtocol` (`ScanService`, `ScanDirectoryHandler`, `SaveMetadataHandler`, `SuggestTagsHandler`) with offline/safe handling when database is unattached.
+  - **Frontend View:** modular React view `ScanMetadataView.tsx` (< 360 LoC) replacing legacy `ScanMetadataTab.tsx` in `frontend/src/views/library/ScanMetadataView.tsx`, mounted in `CatalogView` for `library.scan`.
+  - **HostClient API:** added `scanDirectory`, `scanSaveMetadata`, and `scanSuggestTags` methods to `HostClient`.
+  - **Ledger & Docs:** registered in `migration/features.toml` (`owner = "Gemini"`, `contract = "scan"`), docs in `docs/modules/scan.md`.
+
 ### Changed
 
 - Coordination handover: Codex manages delegation, issue gates and landing; Grok handles review/final edits. Updated the Tauri and Cloud Jobs owner tables and documented dependency-aware queues.
