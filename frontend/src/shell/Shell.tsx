@@ -9,6 +9,11 @@ import { Rail } from "./Rail";
 import { Ribbon } from "./Ribbon";
 import { StatusBar, DbStatus } from "./StatusBar";
 import { CatalogView } from "./views";
+import { CloudComputeSurface } from "./CloudComputeSurface";
+import { CloudJobsControl } from "./CloudJobsControl";
+import { CloudJobsWindow } from "./CloudJobsWindow";
+import { popOut } from "./windows";
+import { useCloudBadge } from "./useCloudBadge";
 import {
   ACTIVE_ALIAS_GATES,
   categoriesInOrder,
@@ -41,11 +46,15 @@ export function Shell({ showModal }: ShellProps) {
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
   const [hostClient, setHostClient] = useState<HostClient | null>(null);
+  const [computeOpen, setComputeOpen] = useState(false);
+  const [jobsFallback, setJobsFallback] = useState(false);
+  const cloudBadge = useCloudBadge(hostClient);
 
   useEffect(() => {
     // Each effect setup owns its client, including StrictMode's setup/cleanup replay.
     const client = new HostClient(new RustTransport(), {
       clientName: "tauri-shell",
+      // Protocol compatibility, not the app semver. COMPATIBILITY_MAX is 1.0.0.
       clientVersion: "1.0.0",
     });
     setHostClient(client);
@@ -83,6 +92,8 @@ export function Shell({ showModal }: ShellProps) {
     }
     setActiveId(next.id);
     setCategory(next.category);
+    setJobsFallback(false);
+    setComputeOpen(false);
   };
 
   const workspaceId = workspaceIdFor(active);
@@ -94,12 +105,27 @@ export function Shell({ showModal }: ShellProps) {
     showModal(`Attempting to add ${files.length} images to the database...`, "info");
   };
 
+  const openJobs = () => {
+    setComputeOpen(false);
+    void popOut("cloud.jobs").catch(() => {
+      setJobsFallback(true);
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 font-sans dark:bg-gray-900 sm:p-8">
       <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-6xl flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800">
         <header className="flex items-center justify-between bg-violet-700 p-4 text-white">
           <h1 className="text-2xl font-extrabold tracking-tight">Image Database and Toolkit</h1>
           <div className="flex items-center gap-2">
+            <CloudJobsControl
+              badge={cloudBadge}
+              onOpenJobs={openJobs}
+              onOpenCompute={() => {
+                setJobsFallback(false);
+                setComputeOpen(true);
+              }}
+            />
             <button type="button" onClick={openSettings} className="rounded-lg p-2 hover:bg-violet-600" title="Settings">
               <Settings size={20} />
             </button>
@@ -133,13 +159,20 @@ export function Shell({ showModal }: ShellProps) {
                   : "min-h-0 flex-1 overflow-y-auto"
               }
             >
-              {active && hostClient && (
-                <CatalogView
-                  entry={active}
-                  showModal={showModal}
-                  onAddImagesToDb={onAddImagesToDb}
-                  hostClient={hostClient}
-                />
+              {jobsFallback ? (
+                <CloudJobsWindow badge={cloudBadge} />
+              ) : computeOpen ? (
+                <CloudComputeSurface onClose={() => setComputeOpen(false)} />
+              ) : (
+                active &&
+                hostClient && (
+                  <CatalogView
+                    entry={active}
+                    showModal={showModal}
+                    onAddImagesToDb={onAddImagesToDb}
+                    hostClient={hostClient}
+                  />
+                )
               )}
             </main>
           </div>

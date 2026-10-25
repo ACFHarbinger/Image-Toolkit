@@ -27,6 +27,13 @@ from middleware.src.bridge import (
     iter_frames,
     write_frame,
 )
+from middleware.src.sidecar.handlers.cloud_jobs import (
+    BadgeSource,
+    JobsSource,
+    handle_detail,
+    handle_list,
+    handle_summary,
+)
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
 from middleware.src.sidecar.jobs import JobRegistry
 
@@ -41,11 +48,15 @@ class SidecarServer:
         stdin: TextIO | None = None,
         stdout: TextIO | None = None,
         stderr: TextIO | None = None,
+        badge_source: BadgeSource | None = None,
+        jobs_source: JobsSource | None = None,
     ) -> None:
         self.table = table or catalog()
         self.stdin = stdin or sys.stdin
         self.stdout = stdout or sys.stdout
         self.stderr = stderr or sys.stderr
+        self.badge_source = badge_source
+        self.jobs_source = jobs_source
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self._handshaken = False
         self._write_mu = threading.Lock()
@@ -116,6 +127,12 @@ class SidecarServer:
             return self.jobs.list(params)
         if method == "jobs.cancel":
             return self.jobs.cancel(params)
+        if method == "cloud_jobs.summary":
+            return handle_summary(self.badge_source)
+        if method == "cloud_jobs.list":
+            return handle_list(self.jobs_source, params)
+        if method == "cloud_jobs.detail":
+            return handle_detail(self.jobs_source, params)
         if method == "convert.convert":
             return handle_convert(params)
         if method == "convert.convert_batch":

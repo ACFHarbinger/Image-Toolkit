@@ -118,3 +118,14 @@ test("a workspace paints its ribbon, and the inspector reads the catalog entry",
   expect(screen.getByTestId("inspector-body")).toHaveTextContent("stitch.canvas");
   expect(screen.getByTestId("active-window-role")).toHaveTextContent("main");
 });
+
+test("the header cloud control opens the jobs window and the compute surface", async () => {
+  renderLoggedIn();
+  expect(await screen.findByTestId("cloud-jobs-badge")).toHaveTextContent("—");
+  fireEvent.click(screen.getByRole("button", { name: "Cloud Jobs" }));
+  expect(invoke).toHaveBeenCalledWith("window_popout", { role: "cloud.jobs" });
+  fireEvent.click(screen.getByRole("button", { name: "Cloud Jobs" }), { shiftKey: true });
+  expect(screen.getByTestId("cloud-compute-surface")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Back" }));
+  expect(await screen.findByTestId("convert-pilot")).toBeInTheDocument();
+});

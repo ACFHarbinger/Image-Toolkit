@@ -530,13 +530,22 @@ def _rs_decl(title: str, sub: dict[str, Any], ctx: SchemaFile, by_stem: dict[str
         mapped = rs_type(prop, ctx, by_stem)
         if "const" in prop:
             lines.append(f"    /// must be {json.dumps(prop['const'])} (enforced by the framing layer, #875)")
+        field = f"r#{name}" if name in _RUST_KEYWORDS else name
+        if field != name:
+            lines.append(f'    #[serde(rename = "{name}")]')
         if name not in required:
             lines.append('    #[serde(default, skip_serializing_if = "Option::is_none")]')
-            lines.append(f"    pub {name}: Option<{mapped}>,")
+            lines.append(f"    pub {field}: Option<{mapped}>,")
         else:
-            lines.append(f"    pub {name}: {mapped},")
+            lines.append(f"    pub {field}: {mapped},")
     lines.append("}")
     return "\n".join(lines)
+
+
+_RUST_KEYWORDS = frozenset(
+    "as break const continue else enum extern false fn for if impl in let loop match mod move "
+    "mut pub ref return static struct trait true type unsafe use where while async await dyn".split()
+)
 
 
 def emit_rust(emittable: dict[Ref, Any], by_stem: dict[str, SchemaFile]) -> str:

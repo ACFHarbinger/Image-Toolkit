@@ -100,6 +100,42 @@ stability = "experimental"
 owner = 894
 
 [[method]]
+name = "cloud_jobs.summary"
+capability = "cloud_jobs"
+summary = "Header badge for the cloud.jobs shell: running job count and reserved spend (#847)."
+params = "cloud_jobs.SummaryParams"
+result = "cloud_jobs.SummaryResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 847
+
+[[method]]
+name = "cloud_jobs.list"
+capability = "cloud_jobs"
+summary = "List cloud jobs with state/provider/kind filters and shard progress (#848)."
+params = "cloud_jobs.ListJobsParams"
+result = "cloud_jobs.ListJobsResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 848
+
+[[method]]
+name = "cloud_jobs.detail"
+capability = "cloud_jobs"
+summary = "Read detailed job view: timeline, metrics, spend, outputs, logs, and daemon status (#848)."
+params = "cloud_jobs.JobDetailParams"
+result = "cloud_jobs.JobDetailResult"
+errors = ["jobs.not_found"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 848
+
+[[method]]
 name = "convert.convert_batch"
 capability = "convert"
 summary = "Queue a cancellable batch conversion (pilot #894). Poll jobs.status for counts; quality stays 95."
