@@ -9,7 +9,8 @@ import { ExtractorView } from "../views/system/ExtractorView";
 import WallpaperTab from "../tabs/core/WallpaperTab";
 import { ImageSearch } from "../views/library/ImageSearch";
 import { ScanMetadataView } from "../views/library/ScanMetadataView";
-import DriveSyncTab from "../tabs/web/DriveSyncTab";
+import { DriveSyncView } from "../views/web/DriveSyncView";
+import { MediaLoaderView } from "../views/web/MediaLoaderView";
 import ImageCrawlerTab from "../tabs/web/ImageCrawlerTab";
 import ReverseSearchTab from "../tabs/web/ReverseSearchTab";
 import WebRequestsTab from "../tabs/web/WebRequestsTab";
@@ -32,6 +33,20 @@ export interface ViewProps {
   hostClient: HostClient;
 }
 
+const HOST_CLIENT_VIEWS = new Set([
+  "system.convert",
+  "system.merge",
+  "system.similarity",
+  "system.extractor",
+  "library.scan",
+  "library.search",
+  "library.listings",
+  "library.management",
+  "library.data-browser",
+  "web.drive-sync",
+  "web.media-loader",
+]);
+
 export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "system.convert": ConvertPilot,
   "library.listings": Listings,
@@ -45,7 +60,8 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "library.scan": ScanMetadataView,
   "web.crawler": ImageCrawlerTab,
   "web.requests": WebRequestsTab,
-  "web.drive-sync": DriveSyncTab,
+  "web.drive-sync": DriveSyncView,
+  "web.media-loader": MediaLoaderView,
   "web.reverse-search": ReverseSearchTab,
   "ml.training": UnifiedTrainTab,
   "ml.generation": UnifiedGenerateTab,
@@ -71,7 +87,6 @@ export function CatalogView({
     );
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
-  const hostClientProps =
-    ["system.convert", "system.merge", "system.similarity", "system.extractor", "library.scan", "library.search", "library.listings", "library.management", "library.data-browser"].includes(entry.id) ? { hostClient, client: hostClient } : {};
+  const hostClientProps = HOST_CLIENT_VIEWS.has(entry.id) ? { hostClient, client: hostClient } : {};
   return <View showModal={showModal} {...extra} {...hostClientProps} />;
 }

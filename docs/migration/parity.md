@@ -38,18 +38,18 @@ the status lifecycle and deletion gate are documented in
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
-| system.extractor | Extractor | unclaimed | [#905](https://github.com/ACFHarbinger/Image-Toolkit/issues/905) | pyside-only | system.extractor | — | 0 |
-| system.merge | Merge | unclaimed | [#903](https://github.com/ACFHarbinger/Image-Toolkit/issues/903) | pyside-only | system.merge | — | 0 |
-| system.similarity | Similarity | unclaimed | [#904](https://github.com/ACFHarbinger/Image-Toolkit/issues/904) | pyside-only | system.similarity | — | 0 |
+| system.extractor | Extractor | Grok | [#905](https://github.com/ACFHarbinger/Image-Toolkit/issues/905) | pyside-only | system.extractor | — | 0 |
+| system.merge | Merge | Grok | [#903](https://github.com/ACFHarbinger/Image-Toolkit/issues/903) | pyside-only | system.merge | — | 0 |
+| system.similarity | Similarity | Grok | [#904](https://github.com/ACFHarbinger/Image-Toolkit/issues/904) | pyside-only | system.similarity | — | 0 |
 
 ## wave-5
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
 | web.crawler | Crawler | unclaimed | [#906](https://github.com/ACFHarbinger/Image-Toolkit/issues/906) | pyside-only | web.crawler | — | 0 |
-| web.drive-sync | Cloud Synchronization | unclaimed | [#908](https://github.com/ACFHarbinger/Image-Toolkit/issues/908) | pyside-only | web.drive-sync | — | 0 |
+| web.drive-sync | Cloud Synchronization | Grok | [#908](https://github.com/ACFHarbinger/Image-Toolkit/issues/908) | pyside-only | web.drive-sync | — | 0 |
 | web.entity-recon | Entity Reconnaissance | unclaimed | [#911](https://github.com/ACFHarbinger/Image-Toolkit/issues/911) | pyside-only | web.entity-recon | — | 0 |
-| web.media-loader | Media Loader | unclaimed | [#909](https://github.com/ACFHarbinger/Image-Toolkit/issues/909) | pyside-only | web.media-loader | — | 0 |
+| web.media-loader | Media Loader | Grok | [#909](https://github.com/ACFHarbinger/Image-Toolkit/issues/909) | pyside-only | web.media-loader | — | 0 |
 | web.requests | Requests | unclaimed | [#907](https://github.com/ACFHarbinger/Image-Toolkit/issues/907) | pyside-only | web.requests | — | 0 |
 | web.reverse-search | Reverse Search | unclaimed | [#910](https://github.com/ACFHarbinger/Image-Toolkit/issues/910) | pyside-only | web.reverse-search | — | 0 |
 

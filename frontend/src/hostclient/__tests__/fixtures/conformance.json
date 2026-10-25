@@ -30,7 +30,9 @@
               "scan",
               "merge",
               "similarity",
-              "extractor"
+              "extractor",
+              "drive_sync",
+              "media_loader"
             ]
           }
         }

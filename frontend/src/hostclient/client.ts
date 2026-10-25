@@ -19,6 +19,10 @@ import type {
   CompareResult,
   ProbeParams,
   ProbeResult,
+  DriveSyncPlanParams,
+  DriveSyncPlanResult,
+  MediaPlanParams,
+  MediaPlanResult,
   FrameParams,
   FrameResult,
   GetManyParams,
@@ -188,6 +192,16 @@ export class HostClient {
   async extractorProbe(params: ProbeParams): Promise<ProbeResult> {
     await this.connect();
     return this.send<ProbeResult>("extractor.probe", params as unknown as Record<string, unknown>);
+  }
+
+  async driveSyncPlan(params: DriveSyncPlanParams): Promise<DriveSyncPlanResult> {
+    await this.connect();
+    return this.send<DriveSyncPlanResult>("drive_sync.plan", params as unknown as Record<string, unknown>);
+  }
+
+  async mediaLoaderPlan(params: MediaPlanParams): Promise<MediaPlanResult> {
+    await this.connect();
+    return this.send<MediaPlanResult>("media_loader.plan", params as unknown as Record<string, unknown>);
   }
 
   async cloudOfferPrefill(params: PrefillParams): Promise<PrefillResult> {

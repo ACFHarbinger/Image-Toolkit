@@ -452,6 +452,30 @@ emits = []
 stability = "experimental"
 owner = 905
 
+[[method]]
+name = "drive_sync.plan"
+capability = "drive_sync"
+summary = "Record a provider and caller paths (#908). submitted stays false; nothing is uploaded."
+params = "drive_sync.DriveSyncPlanParams"
+result = "drive_sync.DriveSyncPlanResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 908
+
+[[method]]
+name = "media_loader.plan"
+capability = "media_loader"
+summary = "Check one http(s) URL and a destination directory (#909). downloaded stays false."
+params = "media_loader.MediaPlanParams"
+result = "media_loader.MediaPlanResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 909
+
 [[channel]]
 name = "jobs"
 payload = "jobs.JobEventPayload"

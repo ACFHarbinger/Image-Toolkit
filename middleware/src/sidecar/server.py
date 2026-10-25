@@ -40,6 +40,7 @@ from middleware.src.sidecar.handlers.cloud_jobs import (
 )
 from middleware.src.sidecar.handlers.cloud_offer import handle_prefill
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
+from middleware.src.sidecar.handlers.drive_sync import handle_drive_plan
 from middleware.src.sidecar.handlers.extractor import handle_probe
 from middleware.src.sidecar.handlers.library import (
     handle_list_groups,
@@ -56,6 +57,7 @@ from middleware.src.sidecar.handlers.library_preview import (
     handle_difference,
     handle_frame,
 )
+from middleware.src.sidecar.handlers.media_loader import handle_media_plan
 from middleware.src.sidecar.handlers.merge import handle_concatenate
 from middleware.src.sidecar.handlers.scan import (
     handle_save_metadata,
@@ -192,9 +194,9 @@ class SidecarServer:
         scan = self._dispatch_scan(method, params)
         if scan is not _UNHANDLED:
             return scan
-        system_pages = self._dispatch_system_pages(method, params)
-        if system_pages is not _UNHANDLED:
-            return system_pages
+        tail = self._dispatch_tail(method, params)
+        if tail is not _UNHANDLED:
+            return tail
         raise BridgeAppError("bridge.method_not_found", details={"method": method})
 
     def _dispatch_cloud(self, method: str, params: dict[str, Any]) -> Any:
@@ -267,6 +269,12 @@ class SidecarServer:
             return handle_suggest_tags(self.scan_service, params)
         return _UNHANDLED
 
+    def _dispatch_tail(self, method: str, params: dict[str, Any]) -> Any:
+        system_pages = self._dispatch_system_pages(method, params)
+        if system_pages is not _UNHANDLED:
+            return system_pages
+        return self._dispatch_web(method, params)
+
     def _dispatch_system_pages(self, method: str, params: dict[str, Any]) -> Any:
         if method == "merge.concatenate":
             return handle_concatenate(params)
@@ -274,6 +282,13 @@ class SidecarServer:
             return handle_compare(params)
         if method == "extractor.probe":
             return handle_probe(params)
+        return _UNHANDLED
+
+    def _dispatch_web(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "drive_sync.plan":
+            return handle_drive_plan(params)
+        if method == "media_loader.plan":
+            return handle_media_plan(params)
         return _UNHANDLED
 
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:
