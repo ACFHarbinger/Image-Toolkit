@@ -40,6 +40,21 @@ from middleware.src.sidecar.handlers.cloud_jobs import (
 )
 from middleware.src.sidecar.handlers.cloud_offer import handle_prefill
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
+from middleware.src.sidecar.handlers.library import (
+    handle_list_groups,
+    handle_list_images,
+    handle_list_tags,
+)
+from middleware.src.sidecar.handlers.library_preview import (
+    handle_describe,
+    handle_difference,
+    handle_frame,
+)
+from middleware.src.sidecar.handlers.library_admin import (
+    handle_browse,
+    handle_catalog,
+    handle_mutate,
+)
 from middleware.src.sidecar.handlers.scan import (
     handle_save_metadata,
     handle_scan_directory,
@@ -71,6 +86,8 @@ class SidecarServer:
         badge_source: BadgeSource | None = None,
         jobs_source: JobsSource | None = None,
         scan_service: Any | None = None,
+        library_store: Any | None = None,
+        library_admin_store: Any | None = None,
     ) -> None:
         self.table = table or catalog()
         self.stdin = stdin or sys.stdin
@@ -80,6 +97,8 @@ class SidecarServer:
         self.badge_source = badge_source
         self.jobs_source = jobs_source
         self.scan_service = scan_service
+        self.library_store = library_store
+        self.library_admin_store = library_admin_store
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self.cloud_service = None
         self._handshaken = False
@@ -161,6 +180,12 @@ class SidecarServer:
         settings = self._dispatch_settings(method, params)
         if settings is not _UNHANDLED:
             return settings
+        library = self._dispatch_library(method, params)
+        if library is not _UNHANDLED:
+            return library
+        admin = self._dispatch_admin(method, params)
+        if admin is not _UNHANDLED:
+            return admin
         scan = self._dispatch_scan(method, params)
         if scan is not _UNHANDLED:
             return scan
@@ -200,6 +225,31 @@ class SidecarServer:
             return handle_settings_get_many(params)
         if method == "settings.set_many":
             return handle_settings_set_many(params)
+        return _UNHANDLED
+
+    def _dispatch_library(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "library.list_images":
+            return handle_list_images(self.library_store, params)
+        if method == "library.list_tags":
+            return handle_list_tags(self.library_store)
+        if method == "library.list_groups":
+            return handle_list_groups(self.library_store)
+        if method == "library_preview.describe":
+            return handle_describe(params)
+        if method == "library_preview.frame":
+            return handle_frame(params)
+        if method == "library_preview.difference":
+            return handle_difference(params)
+        return _UNHANDLED
+
+    def _dispatch_admin(self, method: str, params: dict[str, Any]) -> Any:
+        store = self.library_admin_store
+        if method == "library_admin.catalog":
+            return handle_catalog(store)
+        if method == "library_admin.mutate":
+            return handle_mutate(store, params)
+        if method == "library_admin.browse":
+            return handle_browse(store, params)
         return _UNHANDLED
 
     def _dispatch_scan(self, method: str, params: dict[str, Any]) -> Any:

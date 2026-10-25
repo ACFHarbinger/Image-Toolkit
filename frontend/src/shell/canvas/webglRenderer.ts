@@ -4,6 +4,7 @@
  */
 
 import { ResolvedTile } from "./cullWorker";
+import type { TileTextureSource } from "./tileTextureCache";
 import {
   CanvasBlendMode,
   CanvasPoint,
@@ -43,6 +44,7 @@ export interface RenderFrameStats {
   roiVertexCount: number;
   blendMode: CanvasBlendMode;
   splitWipeRatio: number;
+  texturedTileCount: number;
 }
 
 export const TILE_VERTEX_SHADER_GLSL = `#version 300 es
@@ -200,11 +202,16 @@ export class SharedCanvasRenderer {
   private lastStats: RenderFrameStats = {
     backend: "headless",
     drawnTileCount: 0,
+    texturedTileCount: 0,
     seamVertexCount: 0,
     roiVertexCount: 0,
     blendMode: "normal",
     splitWipeRatio: 0.5,
   };
+  private readonly tileTextures = new Map<string, WebGLTexture>();
+  /** URL set regardless of backend so stats reflect the JS texture pipeline. */
+  private readonly uploadedUrls = new Set<string>();
+  private placeholderTexture: WebGLTexture | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -257,9 +264,55 @@ export class SharedCanvasRenderer {
     gl.linkProgram(prog);
     this.program = prog;
     this.quadBuffer = gl.createBuffer();
+    this.placeholderTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.placeholderTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([31, 41, 55, 255]));
+  }
+
+  /** Upload one decoded tile source as a GL texture (NPOT-safe). */
+  uploadTileTexture(url: string, source: TileTextureSource): boolean {
+    this.uploadedUrls.add(url);
+    const gl = this.gl;
+    if (!gl) {
+      return true; // headless: the JS pipeline recorded the upload
+    }
+    const texture = gl.createTexture();
+    if (!texture) {
+      return false;
+    }
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source as TexImageSource);
+    const existing = this.tileTextures.get(url);
+    if (existing) {
+      gl.deleteTexture(existing);
+    }
+    this.tileTextures.set(url, texture);
+    return true;
+  }
+
+  /** Free one tile's GL texture (the JS cache entry already left). */
+  evictTileTexture(url: string): void {
+    const gl = this.gl;
+    const texture = this.tileTextures.get(url);
+    if (gl && texture) {
+      gl.deleteTexture(texture);
+    }
+    this.tileTextures.delete(url);
+    this.uploadedUrls.delete(url);
+  }
+
+  /** True when a tile's texture is uploaded (placeholder not needed). */
+  hasTileTexture(url: string): boolean {
+    return this.uploadedUrls.has(url);
   }
 
   renderFrame(command: RenderFrameCommand): RenderFrameStats {
+    const clampedWipe = Math.min(1, Math.max(0, command.splitWipeRatio));
     const quadBatch = buildTileQuadBatch(command.tiles, command.viewport);
     const overlayBatch = buildOverlayBatch(
       command.seamPolygon,
@@ -284,15 +337,46 @@ export class SharedCanvasRenderer {
       gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 16, 0);
       gl.enableVertexAttribArray(1);
       gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8);
-      if (quadBatch.quadCount > 0) {
-        gl.drawArrays(gl.TRIANGLES, 0, quadBatch.quadCount * 6);
+
+      // Per-tile draw so each quad binds its own texture; visible tiles
+      // are frustum-culled to a handful, so per-tile uniforms stay cheap.
+      const uTileTexture = gl.getUniformLocation(this.program, "u_tileTexture");
+      const uOpacity = gl.getUniformLocation(this.program, "u_opacity");
+      const uBlendMode = gl.getUniformLocation(this.program, "u_blendMode");
+      const uSplitWipe = gl.getUniformLocation(this.program, "u_splitWipeNdcX");
+      const uLayerIndex = gl.getUniformLocation(this.program, "u_layerIndex");
+      const blendModeValue =
+        command.blendMode === "difference" ? 1 : command.blendMode === "split-wipe" ? 2 : 0;
+      const layerOrder = Object.keys(command.layerOpacities);
+      const splitWipeNdcX = clampedWipe * 2 - 1;
+      // Straight alpha from the fragment shader: src alpha, one-minus-src.
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      let texturedTileCount = 0;
+      for (let i = 0; i < command.tiles.length; i += 1) {
+        const tile = command.tiles[i];
+        const texture = this.tileTextures.get(tile.assetUrl) ?? this.placeholderTexture;
+        if (texture) {
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, texture);
+          gl.uniform1i(uTileTexture, 0);
+        }
+        if (this.uploadedUrls.has(tile.assetUrl)) {
+          texturedTileCount += 1;
+        }
+        gl.uniform1f(uOpacity, command.layerOpacities[tile.layerId] ?? 1);
+        gl.uniform1i(uBlendMode, blendModeValue);
+        gl.uniform1f(uSplitWipe, splitWipeNdcX);
+        gl.uniform1i(uLayerIndex, Math.max(0, layerOrder.indexOf(tile.layerId)));
+        gl.drawArrays(gl.TRIANGLES, i * 6, 6);
       }
+      gl.disable(gl.BLEND);
     }
 
-    const clampedWipe = Math.min(1, Math.max(0, command.splitWipeRatio));
     this.lastStats = {
       backend: this.backend,
       drawnTileCount: quadBatch.quadCount,
+      texturedTileCount: this.texturedDrawCount(command),
       seamVertexCount: overlayBatch.seamVertices.length / 2,
       roiVertexCount: overlayBatch.roiVertices.length / 2,
       blendMode: command.blendMode,
@@ -315,6 +399,25 @@ export class SharedCanvasRenderer {
         this.gl.deleteProgram(this.program);
         this.program = null;
       }
+      for (const texture of this.tileTextures.values()) {
+        this.gl.deleteTexture(texture);
+      }
+      this.tileTextures.clear();
+      this.uploadedUrls.clear();
+      if (this.placeholderTexture) {
+        this.gl.deleteTexture(this.placeholderTexture);
+        this.placeholderTexture = null;
+      }
     }
+  }
+
+  private texturedDrawCount(command: RenderFrameCommand): number {
+    let texturedTileCount = 0;
+    for (const tile of command.tiles) {
+      if (this.uploadedUrls.has(tile.assetUrl)) {
+        texturedTileCount += 1;
+      }
+    }
+    return texturedTileCount;
   }
 }

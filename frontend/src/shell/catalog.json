@@ -881,6 +881,11 @@
       "id": "cloud.jobs",
       "role": "popout",
       "panel_of": "main"
+    },
+    {
+      "id": "library.preview",
+      "role": "popout",
+      "panel_of": "main"
     }
   ]
 }

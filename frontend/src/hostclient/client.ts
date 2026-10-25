@@ -1,3 +1,5 @@
+import type { ScanDirectoryParams, ScanDirectoryResult, SaveMetadataParams, SaveMetadataResult, SuggestTagsParams, SuggestTagsResult } from "../../../contracts/generated/ts";
+import type { BrowseParams, BrowseResult, CatalogResult, MutateParams, MutateResult } from "../../../contracts/generated/ts";
 import type {
   BridgeResponse,
   CancelResult,
@@ -7,8 +9,18 @@ import type {
   CloudSubmitResult,
   ConvertParams,
   ConvertResult,
+  DescribeParams,
+  DescribeResult,
+  DifferenceParams,
+  DifferenceResult,
+  FrameParams,
+  FrameResult,
   GetManyParams,
   GetManyResult,
+  ListImagesParams,
+  ListImagesResult,
+  ListGroupsResult,
+  ListTagsResult,
   GetParams,
   GetResult,
   PrefillParams,
@@ -20,13 +32,7 @@ import type {
   ListJobsParams,
   ListJobsResult,
   ResourcesResult,
-  SaveMetadataParams,
-  SaveMetadataResult,
-  ScanDirectoryParams,
-  ScanDirectoryResult,
   SpendResult,
-  SuggestTagsParams,
-  SuggestTagsResult,
   SummaryResult,
   TerminateResult,
   HandshakeResult,
@@ -148,6 +154,21 @@ export class HostClient {
     return this.send<TerminateResult>("cloud_jobs.terminate", { resource_id: resourceId });
   }
 
+  async libraryPreviewDescribe(params: DescribeParams): Promise<DescribeResult> {
+    await this.connect();
+    return this.send<DescribeResult>("library_preview.describe", params as unknown as Record<string, unknown>);
+  }
+
+  async libraryPreviewFrame(params: FrameParams): Promise<FrameResult> {
+    await this.connect();
+    return this.send<FrameResult>("library_preview.frame", params as unknown as Record<string, unknown>);
+  }
+
+  async libraryPreviewDifference(params: DifferenceParams): Promise<DifferenceResult> {
+    await this.connect();
+    return this.send<DifferenceResult>("library_preview.difference", params as unknown as Record<string, unknown>);
+  }
+
   async cloudOfferPrefill(params: PrefillParams): Promise<PrefillResult> {
     await this.connect();
     return this.send<PrefillResult>("cloud_offer.prefill", params as unknown as Record<string, unknown>);
@@ -185,6 +206,42 @@ export class HostClient {
   async setSettings(params: SetManyParams): Promise<SetManyResult> {
     await this.connect();
     return this.send<SetManyResult>("settings.set_many", params as unknown as Record<string, unknown>);
+  }
+
+  async listLibraryImages(params: ListImagesParams = {}): Promise<ListImagesResult> {
+    await this.connect();
+    return this.send<ListImagesResult>("library.list_images", params as unknown as Record<string, unknown>);
+  }
+
+  async listLibraryTags(): Promise<ListTagsResult> {
+    await this.connect();
+    return this.send<ListTagsResult>("library.list_tags", {});
+  }
+
+  async listLibraryGroups(): Promise<ListGroupsResult> {
+    await this.connect();
+    return this.send<ListGroupsResult>("library.list_groups", {});
+  }
+
+  async libraryAdminCatalog(): Promise<CatalogResult> {
+    await this.connect();
+    return this.send<CatalogResult>("library_admin.catalog", {});
+  }
+
+  async libraryAdminMutate(params: MutateParams): Promise<MutateResult> {
+    await this.connect();
+    return this.send<MutateResult>(
+      "library_admin.mutate",
+      params as unknown as Record<string, unknown>,
+    );
+  }
+
+  async libraryAdminBrowse(params: BrowseParams): Promise<BrowseResult> {
+    await this.connect();
+    return this.send<BrowseResult>(
+      "library_admin.browse",
+      params as unknown as Record<string, unknown>,
+    );
   }
 
   async scanDirectory(params: ScanDirectoryParams): Promise<ScanDirectoryResult> {

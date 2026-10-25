@@ -1,4 +1,4 @@
-// GENERATED — contract hash 1b61179c45bf104ff11ace0dc1d0236da1e1e7b9c540fb808333f24757910a89. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 0ddf43995ce7387ccdcb17b3e1810f19002528a099b4e8c2a036122b876a07fb. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -387,6 +387,207 @@ pub struct SubmitParams {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct SubmitResult {
     pub job_id: String,
+}
+
+pub type EmptyParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct GroupRecord {
+    pub name: String,
+    pub subgroups: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ImageRecord {
+    pub id: i64,
+    pub file_path: String,
+    pub filename: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_size: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phash: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_name: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subgroup_name: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub date_added: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub date_modified: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub distance: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ListGroupsResult {
+    pub available: bool,
+    pub groups: Vec<GroupRecord>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ListImagesParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subgroup_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filename_pattern: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_formats: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_names: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subgroup_names: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ListImagesResult {
+    pub available: bool,
+    pub images: Vec<ImageRecord>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ListTagsResult {
+    pub available: bool,
+    pub tags: Vec<String>,
+}
+
+pub type AdminEmptyParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct AdminGroupRecord {
+    pub name: String,
+    pub subgroups: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct BrowseParams {
+    pub table: String,
+    pub limit: i64,
+    pub offset: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub column: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub equals: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct BrowseResult {
+    pub available: bool,
+    pub columns: Vec<String>,
+    pub rows: Vec<BrowseRow>,
+    pub row_count: i64,
+    pub error: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct BrowseRow {
+    pub cells: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CatalogResult {
+    pub available: bool,
+    pub groups: Vec<AdminGroupRecord>,
+    pub tags: Vec<TagRecord>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum MutateAction {
+    CreateGroup,
+    CreateSubgroup,
+    CreateTag,
+    RemoveGroup,
+    RemoveSubgroup,
+    RemoveTag,
+    MergeTags,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MutateParams {
+    pub action: MutateAction,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destination: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MutateResult {
+    pub available: bool,
+    pub applied: i64,
+    pub error: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct TagRecord {
+    pub name: String,
+    pub category: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DescribeItem {
+    pub path: String,
+    pub exists: bool,
+    pub width: i64,
+    pub height: i64,
+    pub animated: bool,
+    pub error: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DescribeParams {
+    pub paths: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DescribeResult {
+    pub items: Vec<DescribeItem>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DifferenceParams {
+    pub left: String,
+    pub right: String,
+    pub boost: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DifferenceResult {
+    pub available: bool,
+    pub width: i64,
+    pub height: i64,
+    pub mean_abs: f64,
+    pub reason: String,
+    pub png_base64: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct FrameParams {
+    pub path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct FrameResult {
+    pub path: String,
+    pub width: i64,
+    pub height: i64,
+    pub png_base64: String,
+    pub error: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

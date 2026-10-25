@@ -50,3 +50,10 @@ export type {
 } from "./webglRenderer";
 export { SharedCanvasHost } from "./SharedCanvasHost";
 export type { SharedCanvasHostProps } from "./SharedCanvasHost";
+export { createImageLoader, TileTextureCache } from "./tileTextureCache";
+export type {
+  TileTextureCacheOptions,
+  TileTextureLoader,
+  TileTextureSource,
+  TileTextureStats,
+} from "./tileTextureCache";

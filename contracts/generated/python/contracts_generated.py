@@ -1,4 +1,4 @@
-# GENERATED — contract hash 1b61179c45bf104ff11ace0dc1d0236da1e1e7b9c540fb808333f24757910a89. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 0ddf43995ce7387ccdcb17b3e1810f19002528a099b4e8c2a036122b876a07fb. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -353,6 +353,178 @@ class SubmitResult:
 
 
 @dataclass(frozen=True)
+class GroupRecord:
+    name: str
+    subgroups: list[str]
+
+
+@dataclass(frozen=True)
+class ImageRecord:
+    id: int
+    file_path: str
+    filename: str
+    file_size: (int | None) | None = None
+    width: (int | None) | None = None
+    height: (int | None) | None = None
+    phash: (int | None) | None = None
+    group_name: (str | None) | None = None
+    subgroup_name: (str | None) | None = None
+    date_added: (str | None) | None = None
+    date_modified: (str | None) | None = None
+    tags: (list[str]) | None = None
+    distance: (float | None) | None = None
+
+
+@dataclass(frozen=True)
+class ListGroupsResult:
+    available: bool
+    groups: list[GroupRecord]
+
+
+@dataclass(frozen=True)
+class ListImagesParams:
+    group_name: str | None = None
+    subgroup_name: str | None = None
+    tags: (list[str]) | None = None
+    filename_pattern: str | None = None
+    input_formats: (list[str]) | None = None
+    group_names: (list[str]) | None = None
+    subgroup_names: (list[str]) | None = None
+    limit: int | None = None
+
+
+@dataclass(frozen=True)
+class ListImagesResult:
+    available: bool
+    images: list[ImageRecord]
+
+
+@dataclass(frozen=True)
+class ListTagsResult:
+    available: bool
+    tags: list[str]
+
+
+@dataclass(frozen=True)
+class AdminGroupRecord:
+    name: str
+    subgroups: list[str]
+
+
+@dataclass(frozen=True)
+class BrowseParams:
+    table: str
+    limit: int
+    offset: int
+    column: str | None = None
+    equals: str | None = None
+
+
+@dataclass(frozen=True)
+class BrowseResult:
+    available: bool
+    columns: list[str]
+    rows: list[BrowseRow]
+    row_count: int
+    error: str
+
+
+@dataclass(frozen=True)
+class BrowseRow:
+    cells: list[str]
+
+
+@dataclass(frozen=True)
+class CatalogResult:
+    available: bool
+    groups: list[AdminGroupRecord]
+    tags: list[TagRecord]
+
+
+class MutateAction(str, enum.Enum):
+    CREATE_GROUP = "create_group"
+    CREATE_SUBGROUP = "create_subgroup"
+    CREATE_TAG = "create_tag"
+    REMOVE_GROUP = "remove_group"
+    REMOVE_SUBGROUP = "remove_subgroup"
+    REMOVE_TAG = "remove_tag"
+    MERGE_TAGS = "merge_tags"
+
+
+@dataclass(frozen=True)
+class MutateParams:
+    action: MutateAction
+    name: str
+    parent: str | None = None
+    category: str | None = None
+    destination: str | None = None
+
+
+@dataclass(frozen=True)
+class MutateResult:
+    available: bool
+    applied: int
+    error: str
+
+
+@dataclass(frozen=True)
+class TagRecord:
+    name: str
+    category: str
+
+
+@dataclass(frozen=True)
+class DescribeItem:
+    path: str
+    exists: bool
+    width: int
+    height: int
+    animated: bool
+    error: str
+
+
+@dataclass(frozen=True)
+class DescribeParams:
+    paths: list[str]
+
+
+@dataclass(frozen=True)
+class DescribeResult:
+    items: list[DescribeItem]
+
+
+@dataclass(frozen=True)
+class DifferenceParams:
+    left: str
+    right: str
+    boost: str
+
+
+@dataclass(frozen=True)
+class DifferenceResult:
+    available: bool
+    width: int
+    height: int
+    mean_abs: float
+    reason: str
+    png_base64: str
+
+
+@dataclass(frozen=True)
+class FrameParams:
+    path: str
+
+
+@dataclass(frozen=True)
+class FrameResult:
+    path: str
+    width: int
+    height: int
+    png_base64: str
+    error: str
+
+
+@dataclass(frozen=True)
 class BridgeRequest:
     jsonrpc: Literal["2.0"]
     id: str | int | None
@@ -544,6 +716,12 @@ SpendParams = dict[str, Any]
 
 
 SummaryParams = dict[str, Any]
+
+
+EmptyParams = dict[str, Any]
+
+
+AdminEmptyParams = dict[str, Any]
 
 
 BridgeResponse = ResultResponse | ErrorResponse

@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/library_admin.json",
+  "title": "LibraryAdminCapability",
+  "description": "Library management and the data browser (L-05 #899, L-06 #900). The store arrives with the daemon lease. With none attached every result stays available=false and library.db is not opened.",
+  "type": "object",
+  "$defs": {
+    "AdminEmptyParams": {
+      "title": "AdminEmptyParams",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "AdminGroupRecord": {
+      "title": "AdminGroupRecord",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "subgroups"],
+      "properties": {
+        "name": { "type": "string" },
+        "subgroups": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "TagRecord": {
+      "title": "TagRecord",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "category"],
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string" }
+      }
+    },
+    "CatalogResult": {
+      "title": "CatalogResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available", "groups", "tags"],
+      "properties": {
+        "available": { "type": "boolean" },
+        "groups": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/AdminGroupRecord" }
+        },
+        "tags": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/TagRecord" }
+        }
+      }
+    },
+    "MutateAction": {
+      "title": "MutateAction",
+      "type": "string",
+      "enum": [
+        "create_group",
+        "create_subgroup",
+        "create_tag",
+        "remove_group",
+        "remove_subgroup",
+        "remove_tag",
+        "merge_tags"
+      ]
+    },
+    "MutateParams": {
+      "title": "MutateParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "name"],
+      "properties": {
+        "action": { "$ref": "#/$defs/MutateAction" },
+        "name": { "type": "string", "minLength": 1 },
+        "parent": { "type": "string" },
+        "category": { "type": "string" },
+        "destination": { "type": "string" }
+      }
+    },
+    "MutateResult": {
+      "title": "MutateResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available", "applied", "error"],
+      "properties": {
+        "available": { "type": "boolean" },
+        "applied": { "type": "integer", "minimum": 0 },
+        "error": { "type": "string" }
+      }
+    },
+    "BrowseParams": {
+      "title": "BrowseParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["table", "limit", "offset"],
+      "properties": {
+        "table": { "type": "string", "minLength": 1 },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 200 },
+        "offset": { "type": "integer", "minimum": 0 },
+        "column": { "type": "string" },
+        "equals": { "type": "string" }
+      }
+    },
+    "BrowseRow": {
+      "title": "BrowseRow",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cells"],
+      "properties": {
+        "cells": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "BrowseResult": {
+      "title": "BrowseResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available", "columns", "rows", "row_count", "error"],
+      "properties": {
+        "available": { "type": "boolean" },
+        "columns": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "rows": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/BrowseRow" }
+        },
+        "row_count": { "type": "integer", "minimum": 0 },
+        "error": { "type": "string" }
+      }
+    }
+  }
+}

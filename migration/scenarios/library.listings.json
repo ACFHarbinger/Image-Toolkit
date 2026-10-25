@@ -1,0 +1,7 @@
+{
+  "id": "library.listings.search-files-shape",
+  "feature": "library.listings",
+  "kind": "differential",
+  "entry": "migration/scenarios/library_listings.py",
+  "ignore": []
+}

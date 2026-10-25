@@ -268,6 +268,119 @@ stability = "experimental"
 owner = 851
 
 [[method]]
+name = "library_preview.describe"
+capability = "library_preview"
+summary = "Measure the images a preview window is about to show (#895). Does not open library.db."
+params = "library_preview.DescribeParams"
+result = "library_preview.DescribeResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 895
+
+[[method]]
+name = "library_preview.frame"
+capability = "library_preview"
+summary = "One PNG frame, longest edge at most 512, for the preview pop-out (#895)."
+params = "library_preview.FrameParams"
+result = "library_preview.FrameResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 895
+
+[[method]]
+name = "library_preview.difference"
+capability = "library_preview"
+summary = "Absolute RGB difference of two same-size images (#895). The map is a boosted PNG; mean_abs is unboosted."
+params = "library_preview.DifferenceParams"
+result = "library_preview.DifferenceResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 895
+
+[[method]]
+name = "library.list_images"
+capability = "library"
+summary = "Filtered image rows for Listings and Image Search (L-02 #896, L-03 #897); available=false until the store reader arrives with the daemon lease."
+params = "library.ListImagesParams"
+result = "library.ListImagesResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 896
+
+[[method]]
+name = "library.list_tags"
+capability = "library"
+summary = "Every tag for the filter UIs; available=false until the store reader arrives (L-02 #896)."
+params = "library.EmptyParams"
+result = "library.ListTagsResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 896
+
+[[method]]
+name = "library.list_groups"
+capability = "library"
+summary = "Groups with their subgroups for the Listings tree; available=false until the store reader arrives (L-02 #896)."
+params = "library.EmptyParams"
+result = "library.ListGroupsResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 896
+
+
+
+
+[[method]]
+name = "library_admin.catalog"
+capability = "library_admin"
+summary = "Groups, subgroups, and tags for Library Management (#899). available=false until the store arrives."
+params = "library_admin.AdminEmptyParams"
+result = "library_admin.CatalogResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 899
+
+[[method]]
+name = "library_admin.mutate"
+capability = "library_admin"
+summary = "Create, remove, or merge groups, subgroups, and tags (#899). Does not open library.db."
+params = "library_admin.MutateParams"
+result = "library_admin.MutateResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 899
+
+[[method]]
+name = "library_admin.browse"
+capability = "library_admin"
+summary = "One page of one allowlisted table (#900). A filter is column equality, not a WHERE clause."
+params = "library_admin.BrowseParams"
+result = "library_admin.BrowseResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 900
+
+
+
+[[method]]
 name = "scan.directory"
 capability = "scan"
 summary = "Scan a filesystem directory for image assets and metadata (L-04 / #898)."
@@ -302,6 +415,7 @@ cancelable = false
 emits = []
 stability = "experimental"
 owner = 898
+
 
 
 [[channel]]

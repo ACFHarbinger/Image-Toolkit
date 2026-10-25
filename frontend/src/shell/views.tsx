@@ -1,12 +1,14 @@
+import { LibraryManagement } from "../views/library/LibraryManagement";
+import { DataBrowser } from "../views/library/DataBrowser";
 import { ComponentType, ReactNode } from "react";
 import { ConvertPilot } from "../views/ConvertPilot";
-import { ScanMetadataView } from "../views/library/ScanMetadataView";
+import { Listings } from "../views/library/Listings";
 import MergeTab from "../tabs/core/MergeTab";
 import DeleteTab from "../tabs/core/DeleteTab";
 import WallpaperTab from "../tabs/core/WallpaperTab";
 import { ImageExtractorTab } from "../tabs/core/ImageExtractorTab";
-import SearchTab from "../tabs/database/SearchTab";
-import DatabaseTab from "../tabs/database/DatabaseTab";
+import { ImageSearch } from "../views/library/ImageSearch";
+import { ScanMetadataView } from "../views/library/ScanMetadataView";
 import DriveSyncTab from "../tabs/web/DriveSyncTab";
 import ImageCrawlerTab from "../tabs/web/ImageCrawlerTab";
 import ReverseSearchTab from "../tabs/web/ReverseSearchTab";
@@ -32,12 +34,14 @@ export interface ViewProps {
 
 export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "system.convert": ConvertPilot,
+  "library.listings": Listings,
   "system.merge": MergeTab,
   "system.similarity": DeleteTab,
   "system.extractor": ImageExtractorTab,
   "system.wallpaper": WallpaperTab,
-  "library.search": SearchTab,
-  "library.management": DatabaseTab,
+  "library.search": ImageSearch,
+  "library.management": LibraryManagement,
+  "library.data-browser": DataBrowser,
   "library.scan": ScanMetadataView,
   "web.crawler": ImageCrawlerTab,
   "web.requests": WebRequestsTab,
@@ -66,7 +70,8 @@ export function CatalogView({
       </div>
     );
   }
-  const extra = entry.id === "library.scan" ? { onAddImagesToDb, hostClient } : {};
-  const convertProps = entry.id === "system.convert" ? { hostClient } : {};
-  return <View showModal={showModal} {...extra} {...convertProps} />;
+  const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
+  const hostClientProps =
+    ["system.convert", "library.scan", "library.search", "library.listings", "library.management", "library.data-browser"].includes(entry.id) ? { hostClient, client: hostClient } : {};
+  return <View showModal={showModal} {...extra} {...hostClientProps} />;
 }
