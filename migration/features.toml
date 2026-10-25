@@ -440,9 +440,9 @@ routes = [
 route_map = {}
 pyside = ["gui/src/modules/stitch_workspace.py", "submodules/ASP/gui/src"]
 tauri = []
-service = ""
+service = "middleware/src/services/asp/service.py"
 contract = ""
-docs = ""
+docs = "docs/modules/asp.md"
 scenarios = []
 os_checklist = []
 
@@ -462,9 +462,9 @@ pyside = [
     "submodules/HIE/gui/src/viewport.py",
 ]
 tauri = ["frontend/src/tabs/editor"]
-service = ""
+service = "middleware/src/services/hie/service.py"
 contract = ""
-docs = ""
+docs = "docs/modules/hie.md"
 scenarios = []
 os_checklist = []
 
@@ -483,9 +483,9 @@ pyside = [
     "submodules/CSG/gui/src/tabs/reference_coloring_tab.py",
 ]
 tauri = []
-service = ""
+service = "middleware/src/services/csg/service.py"
 contract = ""
-docs = ""
+docs = "docs/modules/csg.md"
 scenarios = []
 os_checklist = []
 
@@ -501,9 +501,9 @@ routes = ["manga.animation"]
 route_map = {}
 pyside = ["submodules/CSG/gui/src/tabs/animation_tab.py"]
 tauri = []
-service = ""
+service = "middleware/src/services/csg/service.py"
 contract = ""
-docs = ""
+docs = "docs/modules/csg.md"
 scenarios = []
 os_checklist = []
 
@@ -519,9 +519,9 @@ routes = ["manga.puppeteering"]
 route_map = {}
 pyside = ["submodules/CSG/gui/src/tabs/puppeteering_tab.py"]
 tauri = []
-service = ""
+service = "middleware/src/services/csg/service.py"
 contract = ""
-docs = ""
+docs = "docs/modules/csg.md"
 scenarios = []
 os_checklist = []
 

@@ -331,4 +331,8 @@ modules = [
     "middleware.src.services.library_preview",
     "middleware.src.services.merge",
     "middleware.src.services.similarity",
+    "middleware.src.services.asp",
+    "middleware.src.services.hie",
+    "middleware.src.services.csg",
+    "middleware.src.services.cre",
 ]

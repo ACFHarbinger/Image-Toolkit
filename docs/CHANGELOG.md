@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Canonical Python Service Homes for Absorbed Submodules (ASP, HIE, CSG, CRE)** (Tauri migration W0-03 Phase C, #867):
+  - **Service Packages:** Created canonical pure-Python services under `middleware/src/services/` implementing standard Command/Protocol architecture:
+    - `middleware/src/services/asp/`: `StitchService` conforming to `StitchServiceProtocol`, wrapping `submodules/ASP/backend/src/` (`AnimeStitchPipeline`, alignment, photometric correction, compositing); unblocks Wave 8 #914 (E-01).
+    - `middleware/src/services/hie/`: `HieService` conforming to `HieServiceProtocol`, wrapping `submodules/HIE/middleware/src/` (`Document`, `IpcService`, restoration pipeline); unblocks Wave 8 #915 (E-02).
+    - `middleware/src/services/csg/`: `CsgService` conforming to `CsgServiceProtocol`, wrapping `submodules/CSG/logic/src/` (scribble/reference colorization, ARAP mesh puppeteering, temporal propagation); unblocks Wave 8 #916 (E-03).
+    - `middleware/src/services/cre/`: `CreService` conforming to `CreServiceProtocol`, wrapping `submodules/CRE/src/` (`RecommendationPipeline`, `SQLiteStore`, hybrid retrieval).
+  - **Ledger & Docs:** Wired `service` and `docs` entries for rows `stitch`, `editor.hybrid`, `manga.colorization`, `manga.animation`, and `manga.puppeteering` in `migration/features.toml`. Added module documentation in `docs/modules/{asp,hie,csg,cre}.md`.
+  - **Testing & Verification:** Added 35 unit tests in `middleware/test/services/test_{asp,hie,csg,cre}_service.py`, enforced architectural independence contracts in `pyproject.toml` with `lint-imports`, passed `check_docs_freshness.py` and `check_migration_ledger.py`.
 - Merge, similarity, and extractor probes (#903, #904, #905): `merge.concatenate` joins caller images horizontally or vertically, `similarity.compare` reports average-hash pairs, and `extractor.probe` reads one video with ffprobe. None of them open `library.db`. The placement canvas, file deletion, and frame extraction stay on PySide6.
 - **Library: Scan and Tag service and webview** (Tauri migration Wave 3, L-04 #898).
   - **Contracts & Capability:** added `scan` capability (`scan.directory`, `scan.save_metadata`, `scan.suggest_tags`) with schema `contracts/schemas/capability/scan.json` and method routing in `contracts/methods.toml`.
