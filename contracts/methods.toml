@@ -452,7 +452,32 @@ emits = []
 stability = "experimental"
 owner = 905
 
+[[method]]
+name = "entity_recon.describe"
+capability = "entity_recon"
+summary = "The recon config snapshot and engine-attached state (B-06 / #911). The default scope is fully offline."
+params = "entity_recon.EntityReconEmptyParams"
+result = "entity_recon.EntityReconDescribeResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 911
+
+[[method]]
+name = "entity_recon.resolve"
+capability = "entity_recon"
+summary = "Resolve one cutout's identity with provenance (B-06 / #911). Web discovery runs only at the user's explicit request; tests stay offline."
+params = "entity_recon.EntityReconResolveParams"
+result = "entity_recon.EntityReconResolveResult"
+errors = ["entity_recon.failed"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 911
+
 [[channel]]
+
 name = "jobs"
 payload = "jobs.JobEventPayload"
 snapshot = "jobs.JobListSnapshot"

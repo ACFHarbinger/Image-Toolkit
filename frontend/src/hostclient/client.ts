@@ -7,6 +7,9 @@ import type {
   ConvertBatchResult,
   CloudSubmitParams,
   CloudSubmitResult,
+  EntityReconDescribeResult,
+  EntityReconResolveParams,
+  EntityReconResolveResult,
   ConvertParams,
   ConvertResult,
   DescribeParams,
@@ -118,6 +121,16 @@ export class HostClient {
   async listJobs(params: ListParams = {}): Promise<ListResult> {
     await this.connect();
     return this.send<ListResult>("jobs.list", params as unknown as Record<string, unknown>);
+  }
+
+  async entityReconDescribe(): Promise<EntityReconDescribeResult> {
+    await this.connect();
+    return this.send<EntityReconDescribeResult>("entity_recon.describe", {});
+  }
+
+  async entityReconResolve(params: EntityReconResolveParams): Promise<EntityReconResolveResult> {
+    await this.connect();
+    return this.send<EntityReconResolveResult>("entity_recon.resolve", params as unknown as Record<string, unknown>);
   }
 
   async cloudJobsSummary(): Promise<SummaryResult> {

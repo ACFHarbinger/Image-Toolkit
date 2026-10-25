@@ -1,4 +1,4 @@
-# GENERATED — contract hash 48148467512ee584ac757ff420b1212bf259e6bc06655926b2980419a7ded0cc. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 06d78f58ef216bfc151693c8ebd6bb263e26e834d2411a707e2e8bf116219881. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -254,6 +254,78 @@ class ConvertResult:
     size_bytes: int | None = None
     elapsed_seconds: float | None = None
     error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class EntityReconDescribeResult:
+    available: bool
+    config: ReconConfigSnapshot
+
+
+@dataclass(frozen=True)
+class EntityReconResolveParams:
+    image_path: str
+    search_scope: str | None = None
+    local_match_threshold: float | None = None
+    top_k: int | None = None
+
+
+@dataclass(frozen=True)
+class EntityReconResolveResult:
+    available: bool
+    found: bool
+    name: str
+    confidence: float
+    method: str
+    origin: str
+    local_matches: list[LocalMatchItem]
+    web_domains: list[WebDomainItem]
+    report: ProvenanceReportItem
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class LocalMatchItem:
+    label: str
+    path: str
+    score: float
+
+
+@dataclass(frozen=True)
+class ProvenanceEntryItem:
+    kind: str
+    label: str
+    source: str
+    score: float
+    method: str
+    domain: str | None = None
+
+
+@dataclass(frozen=True)
+class ProvenanceReportItem:
+    query_hash: str
+    predicted_name: str
+    confidence: float
+    method: str
+    created_at: str
+    entries: list[ProvenanceEntryItem]
+
+
+@dataclass(frozen=True)
+class ReconConfigSnapshot:
+    search_scope: str
+    privacy_mode: bool
+    local_match_threshold: float
+    top_k: int
+    embed_mode: str
+    reverse_engines: list[str]
+
+
+@dataclass(frozen=True)
+class WebDomainItem:
+    domain: str
+    count: int
+    urls: list[str]
 
 
 @dataclass(frozen=True)
@@ -779,6 +851,9 @@ SpendParams = dict[str, Any]
 
 
 SummaryParams = dict[str, Any]
+
+
+EntityReconEmptyParams = dict[str, Any]
 
 
 EmptyParams = dict[str, Any]

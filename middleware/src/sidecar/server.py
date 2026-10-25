@@ -40,6 +40,10 @@ from middleware.src.sidecar.handlers.cloud_jobs import (
 )
 from middleware.src.sidecar.handlers.cloud_offer import handle_prefill
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
+from middleware.src.sidecar.handlers.entity_recon import (
+    handle_entity_recon_describe,
+    handle_entity_recon_resolve,
+)
 from middleware.src.sidecar.handlers.extractor import handle_probe
 from middleware.src.sidecar.handlers.library import (
     handle_list_groups,
@@ -91,6 +95,7 @@ class SidecarServer:
         scan_service: Any | None = None,
         library_store: Any | None = None,
         library_admin_store: Any | None = None,
+        recon_engine: Any | None = None,
     ) -> None:
         self.table = table or catalog()
         self.stdin = stdin or sys.stdin
@@ -102,6 +107,7 @@ class SidecarServer:
         self.scan_service = scan_service
         self.library_store = library_store
         self.library_admin_store = library_admin_store
+        self.recon_engine = recon_engine
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self.cloud_service = None
         self._handshaken = False
@@ -195,7 +201,17 @@ class SidecarServer:
         system_pages = self._dispatch_system_pages(method, params)
         if system_pages is not _UNHANDLED:
             return system_pages
+        recon = self._dispatch_entity_recon(method, params)
+        if recon is not _UNHANDLED:
+            return recon
         raise BridgeAppError("bridge.method_not_found", details={"method": method})
+
+    def _dispatch_entity_recon(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "entity_recon.describe":
+            return handle_entity_recon_describe(self.recon_engine)
+        if method == "entity_recon.resolve":
+            return handle_entity_recon_resolve(self.recon_engine, params)
+        return _UNHANDLED
 
     def _dispatch_cloud(self, method: str, params: dict[str, Any]) -> Any:
         if method == "cloud_jobs.summary":

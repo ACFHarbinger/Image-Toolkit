@@ -1,0 +1,287 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/entity_recon.json",
+  "title": "EntityReconCapability",
+  "description": "Entity reconnaissance and provenance over the recon engine (B-06 / #911). The engine (dataset index + optional web dispatcher) is injected; with none attached every result stays available=false. Web discovery only runs at the user's explicit request (scope web/both); the default scope is fully offline.",
+  "type": "object",
+  "$defs": {
+    "EntityReconEmptyParams": {
+      "title": "EntityReconEmptyParams",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "ReconConfigSnapshot": {
+      "title": "ReconConfigSnapshot",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "search_scope",
+        "privacy_mode",
+        "local_match_threshold",
+        "top_k",
+        "embed_mode",
+        "reverse_engines"
+      ],
+      "properties": {
+        "search_scope": {
+          "type": "string",
+          "enum": [
+            "local",
+            "web",
+            "both"
+          ]
+        },
+        "privacy_mode": {
+          "type": "boolean"
+        },
+        "local_match_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "top_k": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "embed_mode": {
+          "type": "string",
+          "enum": [
+            "face",
+            "clip"
+          ]
+        },
+        "reverse_engines": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "LocalMatchItem": {
+      "title": "LocalMatchItem",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "path",
+        "score"
+      ],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "score": {
+          "type": "number"
+        }
+      }
+    },
+    "WebDomainItem": {
+      "title": "WebDomainItem",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "count",
+        "urls"
+      ],
+      "properties": {
+        "domain": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "urls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ProvenanceEntryItem": {
+      "title": "ProvenanceEntryItem",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "label",
+        "source",
+        "score",
+        "method"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "score": {
+          "type": "number"
+        },
+        "method": {
+          "type": "string"
+        }
+      }
+    },
+    "ProvenanceReportItem": {
+      "title": "ProvenanceReportItem",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "query_hash",
+        "predicted_name",
+        "confidence",
+        "method",
+        "created_at",
+        "entries"
+      ],
+      "properties": {
+        "query_hash": {
+          "type": "string"
+        },
+        "predicted_name": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number"
+        },
+        "method": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProvenanceEntryItem"
+          }
+        }
+      }
+    },
+    "EntityReconDescribeResult": {
+      "title": "EntityReconDescribeResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available",
+        "config"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "config": {
+          "$ref": "#/$defs/ReconConfigSnapshot"
+        }
+      }
+    },
+    "EntityReconResolveParams": {
+      "title": "EntityReconResolveParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "image_path"
+      ],
+      "properties": {
+        "image_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "search_scope": {
+          "type": "string",
+          "enum": [
+            "local",
+            "web",
+            "both"
+          ]
+        },
+        "local_match_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "top_k": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "EntityReconResolveResult": {
+      "title": "EntityReconResolveResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available",
+        "found",
+        "name",
+        "confidence",
+        "method",
+        "origin",
+        "local_matches",
+        "web_domains",
+        "report"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "found": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number"
+        },
+        "method": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string",
+          "enum": [
+            "local",
+            "web",
+            "none"
+          ]
+        },
+        "local_matches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LocalMatchItem"
+          }
+        },
+        "web_domains": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WebDomainItem"
+          }
+        },
+        "report": {
+          "$ref": "#/$defs/ProvenanceReportItem"
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

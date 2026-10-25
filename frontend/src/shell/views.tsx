@@ -11,6 +11,7 @@ import { ImageSearch } from "../views/library/ImageSearch";
 import { ScanMetadataView } from "../views/library/ScanMetadataView";
 import DriveSyncTab from "../tabs/web/DriveSyncTab";
 import ImageCrawlerTab from "../tabs/web/ImageCrawlerTab";
+import { EntityReconView } from "../views/web/EntityRecon";
 import ReverseSearchTab from "../tabs/web/ReverseSearchTab";
 import WebRequestsTab from "../tabs/web/WebRequestsTab";
 import { UnifiedTrainTab } from "../tabs/models/UnifiedTrainTab";
@@ -47,6 +48,7 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "web.requests": WebRequestsTab,
   "web.drive-sync": DriveSyncTab,
   "web.reverse-search": ReverseSearchTab,
+  "web.entity-recon": EntityReconView,
   "ml.training": UnifiedTrainTab,
   "ml.generation": UnifiedGenerateTab,
   "ml.evaluation": R3GANEvaluateTab,

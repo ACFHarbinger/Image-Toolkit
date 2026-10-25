@@ -341,18 +341,18 @@ os_checklist = []
 id = "web.entity-recon"
 kind = "page"
 title = "Entity Reconnaissance"
-owner = "unclaimed"
+owner = "Mistral"
 wave = "wave-5"
 issue = 911
-status = "pyside-only"
+status = "both"
 routes = ["web.entity-recon"]
 route_map = {}
 pyside = ["gui/src/tabs/web/entity_recon_tab"]
-tauri = []
-service = ""
-contract = ""
-docs = ""
-scenarios = []
+tauri = ["frontend/src/views/web/EntityRecon.tsx"]
+service = "middleware/src/services/web/entity_recon.py"
+contract = "entity_recon"
+docs = "docs/modules/entity_recon.md"
+scenarios = ["migration/scenarios/web.entity-recon.json"]
 os_checklist = []
 
 # ── Wave 6: Deep Learning workspace ──────────────────────────────────

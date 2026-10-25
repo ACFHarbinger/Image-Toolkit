@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Entity reconnaissance rides the bridge (Tauri B-06, #911): an `entity_recon` capability (`entity_recon.describe` / `entity_recon.resolve`) over a Qt-free projection of the recon engine — one cutout resolves to an identity with its full provenance report (local ArcFace/CLIP matches first; reverse-image web discovery only at the user's explicit scope, default fully offline). The engine is injected on the sidecar; with none attached results stay `available: false`. The `web.entity-recon` catalog page gets its first webview (config panel, cutout resolve, local matches, web domains, provenance list, JSON export). Unreadable images and engine failures answer failed resolves; cv2 stays out of the sidecar's import graph (the heavy-import guard holds).
+
 - Merge, similarity, and extractor probes (#903, #904, #905): `merge.concatenate` joins caller images horizontally or vertically, `similarity.compare` reports average-hash pairs, and `extractor.probe` reads one video with ffprobe. None of them open `library.db`. The placement canvas, file deletion, and frame extraction stay on PySide6.
 - **Library: Scan and Tag service and webview** (Tauri migration Wave 3, L-04 #898).
   - **Contracts & Capability:** added `scan` capability (`scan.directory`, `scan.save_metadata`, `scan.suggest_tags`) with schema `contracts/schemas/capability/scan.json` and method routing in `contracts/methods.toml`.

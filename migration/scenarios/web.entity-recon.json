@@ -1,0 +1,7 @@
+{
+  "id": "web.entity-recon.resolution-shape",
+  "feature": "web.entity-recon",
+  "kind": "differential",
+  "entry": "migration/scenarios/entity_recon_resolution.py",
+  "ignore": []
+}
