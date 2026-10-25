@@ -30,7 +30,8 @@
               "scan",
               "merge",
               "similarity",
-              "extractor"
+              "extractor",
+              "reverse_search"
             ]
           }
         }

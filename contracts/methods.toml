@@ -452,7 +452,32 @@ emits = []
 stability = "experimental"
 owner = 905
 
+[[method]]
+name = "reverse_search.engines"
+capability = "reverse_search"
+summary = "The supported reverse-image-search engine catalog (B-05 / #910)."
+params = "reverse_search.ReverseSearchEmptyParams"
+result = "reverse_search.EnginesResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 910
+
+[[method]]
+name = "reverse_search.search"
+capability = "reverse_search"
+summary = "Run one reverse image search on the selected engine (B-05 / #910). Engines make live network or browser calls; the bridge carries the command."
+params = "reverse_search.SearchParams"
+result = "reverse_search.SearchResult"
+errors = ["reverse_search.failed"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 910
+
 [[channel]]
+
 name = "jobs"
 payload = "jobs.JobEventPayload"
 snapshot = "jobs.JobListSnapshot"

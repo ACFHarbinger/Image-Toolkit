@@ -323,18 +323,18 @@ os_checklist = []
 id = "web.reverse-search"
 kind = "page"
 title = "Reverse Search"
-owner = "unclaimed"
+owner = "Mistral"
 wave = "wave-5"
 issue = 910
-status = "pyside-only"
+status = "both"
 routes = ["web.reverse-search"]
 route_map = { revsearch = "web.reverse-search" }
 pyside = ["gui/src/tabs/web/reverse_search_tab.py"]
-tauri = ["frontend/src/tabs/web/ReverseSearchTab.tsx"]
-service = ""
-contract = ""
-docs = ""
-scenarios = []
+tauri = ["frontend/src/views/web/ReverseSearch.tsx"]
+service = "middleware/src/services/web/reverse_search.py"
+contract = "reverse_search"
+docs = "docs/modules/reverse_search.md"
+scenarios = ["migration/scenarios/web.reverse-search.json"]
 os_checklist = []
 
 [[feature]]
