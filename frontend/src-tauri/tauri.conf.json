@@ -28,6 +28,16 @@
         "resizable": true,
         "visible": false,
         "skipTaskbar": true
+      },
+      {
+        "label": "library-preview",
+        "title": "Image Preview",
+        "url": "/?window=library.preview",
+        "width": 960,
+        "height": 720,
+        "resizable": true,
+        "visible": false,
+        "skipTaskbar": true
       }
     ],
     "security": {

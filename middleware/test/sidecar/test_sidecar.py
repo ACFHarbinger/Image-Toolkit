@@ -36,6 +36,7 @@ def test_handshake_accept(sidecar: SidecarClient) -> None:
         "convert",
         "jobs",
         "library",
+        "library_preview",
         "settings",
         "system",
     ]

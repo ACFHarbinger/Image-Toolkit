@@ -1,4 +1,4 @@
-// GENERATED — contract hash 866790a842dad1e8e0cd5ce44c24e77c53142f7ea0cb3e3db9476deb9b92c43a. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash a67643ffb41071baea0e8160afd7f08c87fb4299648b038178f8628e52c9ebc3. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -460,6 +460,57 @@ pub struct ListImagesResult {
 pub struct ListTagsResult {
     pub available: bool,
     pub tags: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DescribeItem {
+    pub path: String,
+    pub exists: bool,
+    pub width: i64,
+    pub height: i64,
+    pub animated: bool,
+    pub error: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DescribeParams {
+    pub paths: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DescribeResult {
+    pub items: Vec<DescribeItem>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DifferenceParams {
+    pub left: String,
+    pub right: String,
+    pub boost: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DifferenceResult {
+    pub available: bool,
+    pub width: i64,
+    pub height: i64,
+    pub mean_abs: f64,
+    pub reason: String,
+    pub png_base64: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct FrameParams {
+    pub path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct FrameResult {
+    pub path: String,
+    pub width: i64,
+    pub height: i64,
+    pub png_base64: String,
+    pub error: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

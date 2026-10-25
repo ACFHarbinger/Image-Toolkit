@@ -268,6 +268,42 @@ stability = "experimental"
 owner = 851
 
 [[method]]
+name = "library_preview.describe"
+capability = "library_preview"
+summary = "Measure the images a preview window is about to show (#895). Does not open library.db."
+params = "library_preview.DescribeParams"
+result = "library_preview.DescribeResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 895
+
+[[method]]
+name = "library_preview.frame"
+capability = "library_preview"
+summary = "One PNG frame, longest edge at most 512, for the preview pop-out (#895)."
+params = "library_preview.FrameParams"
+result = "library_preview.FrameResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 895
+
+[[method]]
+name = "library_preview.difference"
+capability = "library_preview"
+summary = "Absolute RGB difference of two same-size images (#895). The map is a boosted PNG; mean_abs is unboosted."
+params = "library_preview.DifferenceParams"
+result = "library_preview.DifferenceResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 895
+
+[[method]]
 name = "library.list_images"
 capability = "library"
 summary = "Filtered image rows for Listings and Image Search (L-02 #896, L-03 #897); available=false until the store reader arrives with the daemon lease."
@@ -303,8 +339,10 @@ emits = []
 stability = "experimental"
 owner = 896
 
-[[channel]]
 
+
+
+[[channel]]
 name = "jobs"
 payload = "jobs.JobEventPayload"
 snapshot = "jobs.JobListSnapshot"

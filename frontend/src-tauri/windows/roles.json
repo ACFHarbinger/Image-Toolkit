@@ -15,6 +15,14 @@
       "hide_on_close": true
     },
     {
+      "id": "library.preview",
+      "label": "library-preview",
+      "role": "popout",
+      "kind": "webview",
+      "panel_of": "main",
+      "hide_on_close": true
+    },
+    {
       "id": "tray",
       "role": "tray",
       "kind": "tray",

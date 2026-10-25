@@ -1,7 +1,10 @@
 {
   "description": "Adapter-agnostic bridge conformance scenarios (W0-12, #876). Shared by the Python sidecar suite (middleware/test/sidecar/test_conformance.py, runs the LIVE sidecar subprocess) and the TS suite (frontend/src/hostclient/__tests__/conformance.test.ts, runs SidecarTransport over a loopback responder). Semantics: `attach` is the startup handshake (`client` overrides the default; `expect.result`/`expect.error` is a recursive subset match, `\"*\"` = any present value). Each step sends `method`+`params`; `capture` stores `result.<field>` under a name later substituted into `${name}` placeholders in both `params` and `expect`.",
   "protocol": "image-toolkit-bridge",
-  "client": { "name": "conformance", "version": "1.0.0" },
+  "client": {
+    "name": "conformance",
+    "version": "1.0.0"
+  },
   "scenarios": [
     {
       "name": "handshake_accept",
@@ -10,8 +13,20 @@
           "result": {
             "protocol": "image-toolkit-bridge",
             "version": "1.0.0",
-            "compatibility": { "min": "1.0.0", "max": "1.0.0" },
-            "capabilities": ["system", "jobs", "convert", "cloud_jobs", "cloud_offer", "settings", "library"]
+            "compatibility": {
+              "min": "1.0.0",
+              "max": "1.0.0"
+            },
+            "capabilities": [
+              "cloud_jobs",
+              "cloud_offer",
+              "convert",
+              "jobs",
+              "library",
+              "library_preview",
+              "settings",
+              "system"
+            ]
           }
         }
       },
@@ -20,13 +35,20 @@
     {
       "name": "handshake_version_mismatch",
       "attach": {
-        "client": { "name": "conformance", "version": "0.0.1" },
+        "client": {
+          "name": "conformance",
+          "version": "0.0.1"
+        },
         "expect": {
           "error": {
             "code": "bridge.version_mismatch",
             "retryable": false,
             "message_key": "*",
-            "details": { "client": "0.0.1", "min": "1.0.0", "max": "1.0.0" }
+            "details": {
+              "client": "0.0.1",
+              "min": "1.0.0",
+              "max": "1.0.0"
+            }
           }
         }
       },
@@ -38,19 +60,40 @@
         {
           "method": "system.ping",
           "params": {},
-          "expect": { "result": { "ok": true } }
+          "expect": {
+            "result": {
+              "ok": true
+            }
+          }
         },
         {
           "method": "jobs.submit",
-          "params": { "kind": "conformance.echo", "spec": { "payload": "hello" } },
-          "expect": { "result": { "job_id": "*" } },
-          "capture": { "job_id": "result.job_id" }
+          "params": {
+            "kind": "conformance.echo",
+            "spec": {
+              "payload": "hello"
+            }
+          },
+          "expect": {
+            "result": {
+              "job_id": "*"
+            }
+          },
+          "capture": {
+            "job_id": "result.job_id"
+          }
         },
         {
           "method": "jobs.status",
-          "params": { "job_id": "${job_id}" },
+          "params": {
+            "job_id": "${job_id}"
+          },
           "expect": {
-            "result": { "job_id": "${job_id}", "kind": "conformance.echo", "state": "queued" }
+            "result": {
+              "job_id": "${job_id}",
+              "kind": "conformance.echo",
+              "state": "queued"
+            }
           }
         }
       ]
@@ -60,13 +103,17 @@
       "steps": [
         {
           "method": "jobs.status",
-          "params": { "job_id": "no-such-job" },
+          "params": {
+            "job_id": "no-such-job"
+          },
           "expect": {
             "error": {
               "code": "jobs.not_found",
               "retryable": false,
               "message_key": "*",
-              "details": { "job_id": "no-such-job" }
+              "details": {
+                "job_id": "no-such-job"
+              }
             }
           }
         }
@@ -79,7 +126,11 @@
           "method": "nosuch.method",
           "params": {},
           "expect": {
-            "error": { "code": "bridge.method_not_found", "retryable": false, "message_key": "*" }
+            "error": {
+              "code": "bridge.method_not_found",
+              "retryable": false,
+              "message_key": "*"
+            }
           }
         }
       ]
@@ -89,30 +140,64 @@
       "steps": [
         {
           "method": "jobs.submit",
-          "params": { "kind": "conformance.cancel", "spec": {} },
-          "expect": { "result": { "job_id": "*" } },
-          "capture": { "job_id": "result.job_id" }
+          "params": {
+            "kind": "conformance.cancel",
+            "spec": {}
+          },
+          "expect": {
+            "result": {
+              "job_id": "*"
+            }
+          },
+          "capture": {
+            "job_id": "result.job_id"
+          }
         },
         {
           "method": "jobs.cancel",
-          "params": { "job_id": "${job_id}" },
-          "expect": { "result": { "ok": true } }
+          "params": {
+            "job_id": "${job_id}"
+          },
+          "expect": {
+            "result": {
+              "ok": true
+            }
+          }
         },
         {
           "method": "jobs.cancel",
-          "params": { "job_id": "${job_id}" },
-          "expect": { "result": { "ok": true } }
+          "params": {
+            "job_id": "${job_id}"
+          },
+          "expect": {
+            "result": {
+              "ok": true
+            }
+          }
         },
         {
           "method": "jobs.status",
-          "params": { "job_id": "${job_id}" },
-          "expect": { "result": { "job_id": "${job_id}", "state": "cancelled" } }
+          "params": {
+            "job_id": "${job_id}"
+          },
+          "expect": {
+            "result": {
+              "job_id": "${job_id}",
+              "state": "cancelled"
+            }
+          }
         },
         {
           "method": "jobs.cancel",
-          "params": { "job_id": "no-such-job" },
+          "params": {
+            "job_id": "no-such-job"
+          },
           "expect": {
-            "error": { "code": "jobs.not_found", "retryable": false, "message_key": "*" }
+            "error": {
+              "code": "jobs.not_found",
+              "retryable": false,
+              "message_key": "*"
+            }
           }
         }
       ]

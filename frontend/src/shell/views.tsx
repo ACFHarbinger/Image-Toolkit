@@ -1,11 +1,11 @@
 import { ComponentType, ReactNode } from "react";
 import { ConvertPilot } from "../views/ConvertPilot";
 import { Listings } from "../views/library/Listings";
-import { ImageSearch } from "../views/library/ImageSearch";
 import MergeTab from "../tabs/core/MergeTab";
 import DeleteTab from "../tabs/core/DeleteTab";
 import WallpaperTab from "../tabs/core/WallpaperTab";
 import { ImageExtractorTab } from "../tabs/core/ImageExtractorTab";
+import { ImageSearch } from "../views/library/ImageSearch";
 import DatabaseTab from "../tabs/database/DatabaseTab";
 import ScanMetadataTab from "../tabs/database/ScanMetadataTab";
 import DriveSyncTab from "../tabs/web/DriveSyncTab";
@@ -70,8 +70,6 @@ export function CatalogView({
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
   const hostClientProps =
-    ["system.convert", "library.listings", "library.search"].includes(entry.id)
-      ? { hostClient }
-      : {};
+    entry.id === "system.convert" || entry.id === "library.listings" || entry.id === "library.search" ? { hostClient } : {};
   return <View showModal={showModal} {...extra} {...hostClientProps} />;
 }

@@ -5,6 +5,7 @@
 | **Capability ID** | `library` |
 | **Service Package** | `middleware/src/services/library/listings.py` |
 | **Frontend View** | `frontend/src/views/library/Listings.tsx` / `frontend/src/views/library/ImageSearch.tsx` |
+| **Frontend View** | `frontend/src/views/library/Listings.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/library.json` |
 | **Contract SHA-256** | `6deca491f5fefa9b57f32170f98dbe84dcfa19d33ee05548f97d6689cae3dac6` |
 
@@ -14,6 +15,7 @@ Library listings and image search over the unified store (L-02 #896, L-03
 #897). The `library.listings` and `library.search` catalog pages are
 HostClient-driven views; the retired Rust-invoke `SearchTab` was the last
 webview consumer of the `db.rs` duplicates. The capability mirrors the Rust `db.rs` surfaces
+#897). The capability mirrors the Rust `db.rs` surfaces
 (`search_files`/`get_all_tags`/`get_all_groups`) that L-07 (#901) retires
 once the Library pages route through `HostClient`. The module does not
 open `library.db`: the sealed store reader arrives with the daemon lease

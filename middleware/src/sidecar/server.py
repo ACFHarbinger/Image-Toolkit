@@ -45,6 +45,11 @@ from middleware.src.sidecar.handlers.library import (
     handle_list_images,
     handle_list_tags,
 )
+from middleware.src.sidecar.handlers.library_preview import (
+    handle_describe,
+    handle_difference,
+    handle_frame,
+)
 from middleware.src.sidecar.handlers.settings import (
     handle_settings_get,
     handle_settings_get_many,
@@ -209,6 +214,12 @@ class SidecarServer:
             return handle_list_tags(self.library_store)
         if method == "library.list_groups":
             return handle_list_groups(self.library_store)
+        if method == "library_preview.describe":
+            return handle_describe(params)
+        if method == "library_preview.frame":
+            return handle_frame(params)
+        if method == "library_preview.difference":
+            return handle_difference(params)
         return _UNHANDLED
 
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:

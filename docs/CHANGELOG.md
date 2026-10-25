@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Image Search rides the bridge (Tauri L-03, #897): the `library.search` catalog page is a HostClient-driven view (filename, group, tag and format filters over `library.list_images`) replacing the legacy Rust-invoke `SearchTab` — the last webview consumer of the `db.rs` `search_files` duplicate, which L-07 (#901) can now retire on the Rust side. Parity differential over the legacy pattern/format search shape; ledger row `both`.
 
 - Library listings ride the bridge (Tauri L-02, #896): a `library` capability (`library.list_images` / `library.list_tags` / `library.list_groups`) over a Qt-free `middleware/src/services/library/` projection service, a HostClient-driven `library.listings` catalog view (groups/subgroups sidebar, tag and filename filters, paginated rows), and a parity differential against the legacy `search_files` row shape. The store reader arrives with the daemon lease; until it does, results stay `available: false` and no `library.db` is opened (Gate B closed). The record surface mirrors the Rust `db.rs` `search_files`/`get_all_tags`/`get_all_groups` paths that L-07 (#901) retires.
+- Library listings ride the bridge (Tauri L-02, #896): a `library` capability (`library.list_images` / `library.list_tags` / `library.list_groups`) over a Qt-free `middleware/src/services/library/` projection service, a HostClient-driven `library.listings` catalog view (groups/subgroups sidebar, tag and filename filters, paginated rows), and a parity differential against the legacy `search_files` row shape. The store reader arrives with the daemon lease; until it does, results stay `available: false` and no `library.db` is opened (Gate B closed). The record surface mirrors the Rust `db.rs` `search_files`/`get_all_tags`/`get_all_groups` paths that L-07 (#901) retires.
+- Library preview pop-out (#895): `library_preview.describe`, `library_preview.frame`, and `library_preview.difference`, plus the preview, compare, and drag-preview view. The viewers read caller paths only and do not open `library.db`.
 
 ### Changed
 
@@ -43,6 +45,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Library preview checks header dimensions before decoding frames or comparison inputs, preserves PNG/GIF transparency, and includes alpha changes in visible difference maps (#895).
 - Cloud Jobs preserves populated shard payloads by locking their count, and retains the request draft when switching workspace tabs (#992).
 - Cloud Jobs generates a fresh request ID after acceptance while retaining the existing ID for failed-submission retries and preserving form parameters (#992).
 - Cloud Jobs confirmation uses backend preflight findings and required acknowledgment IDs, rejects blocked or unacknowledged submissions, and ignores stale preview responses (#992).
@@ -82,6 +85,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Startup freeze/crash on session recovery: `ExtractorTab._load_existing_output_images()` eagerly loaded every file in a tab's extraction-output directory with no size guard — found in the wild against a 101-file/108GB directory (uncompressed extracted frames), which froze the host machine decoding several ~1GB files concurrently. `MAX_PREVIEW_ITEMS` (the existing guard elsewhere in this tab) is a file-*count* cap and did not help, since the problem was total bytes, not file count. Added a 500MB combined-size budget on this specific eager-auto-load call site; over budget, the load is skipped (logged) rather than attempted.
 
 ### Added
+
+- Shared canvas host, production version (Tauri Y-00, #902): the S-02 spike's deferred texture pipeline is closed — visible tiles now load through an LRU-bounded, in-flight-deduped `TileTextureCache` and upload as NPOT-safe GL textures into the renderer (per-tile uniform binding for `u_tileTexture`/`u_opacity`/`u_blendMode`/`u_splitWipeNdcX`/`u_layerIndex`, a 1×1 placeholder until a tile lands, GL texture freed on eviction). The host exposes `data-textured-tile-count` / cache stats to its consumer (Merge, #903), re-renders when loads complete, and keeps the fake 50k×30k document as its fixture. The on-demand C++ tile slicer stays with the consumers.
 
 - **Cloud Jobs Submit Surfaces & Confirmation Sheet** (Gate D4, #850, PR #992):
   - **Shared specification:** `frontend/src/views/cloudjobs/jobSpec.ts` defines typed `JobSpec` structures and origin-tab converters (`jobSpecFromConvert`, `jobSpecFromExtract`, `jobSpecFromComfy`), ensuring origin tabs and Request Builder construct identical workloads.
