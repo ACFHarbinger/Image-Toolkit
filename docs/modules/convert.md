@@ -6,7 +6,7 @@
 | **Service Package** | `middleware/src/services/convert/api.py` |
 | **Frontend View** | `frontend/src/tabs/core/ConvertTab.tsx` (migrating to `frontend/src/features/convert/`) |
 | **Contract Schema** | `contracts/schemas/capability/system.json` |
-| **Contract SHA-256** | `5ee6901e620e3af9d87e0eee57f0d95746330e819b471c895b4f48e17a0201a0` |
+| **Contract SHA-256** | `f7decebc58560f91af1448b80d01a55b0df7965df43a1c409469b3ecbb344e67` |
 
 ## Overview
 
@@ -22,7 +22,7 @@ Provides single-file and batch image format conversion (`png`, `jpg`, `webp`, `b
 
 ## Contract & Routing
 
-- **JSON Schema:** `contracts/schemas/capability/system.json` (total spine hash `db2448a4bdeabe1e4ed117d1df96cf7502ed74c7c1b95d27c342ebd8754977e3` in `contracts/CONTRACTS.sha256`).
+- **JSON Schema:** `contracts/schemas/capability/system.json` (total spine hash `8d642deabccbb8401ee088016267db1b62784b7eec1a586b20d6336549b79c39` in `contracts/CONTRACTS.sha256`).
 - **Boundary Enforcement:**
   - `import-linter` contracts in `pyproject.toml` (`middleware.src.services must not import GUI`, `middleware.src.services must not import PySide`, `middleware.src.services features must be independent`).
   - `eslint-plugin-boundaries` in `frontend/eslint.config.mjs`.

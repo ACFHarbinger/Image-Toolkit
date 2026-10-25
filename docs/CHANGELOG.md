@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Added
 
 - Library listings ride the bridge (Tauri L-02, #896): a `library` capability (`library.list_images` / `library.list_tags` / `library.list_groups`) over a Qt-free `middleware/src/services/library/` projection service, a HostClient-driven `library.listings` catalog view (groups/subgroups sidebar, tag and filename filters, paginated rows), and a parity differential against the legacy `search_files` row shape. The store reader arrives with the daemon lease; until it does, results stay `available: false` and no `library.db` is opened (Gate B closed). The record surface mirrors the Rust `db.rs` `search_files`/`get_all_tags`/`get_all_groups` paths that L-07 (#901) retires.
+- Library preview pop-out (#895): `library_preview.describe`, `library_preview.frame`, and `library_preview.difference`, plus the preview, compare, and drag-preview view. The viewers read caller paths only and do not open `library.db`.
 
 ### Changed
 
@@ -41,6 +42,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Library preview checks header dimensions before decoding frames or comparison inputs, preserves PNG/GIF transparency, and includes alpha changes in visible difference maps (#895).
 - Cloud Jobs preserves populated shard payloads by locking their count, and retains the request draft when switching workspace tabs (#992).
 - Cloud Jobs generates a fresh request ID after acceptance while retaining the existing ID for failed-submission retries and preserving form parameters (#992).
 - Cloud Jobs confirmation uses backend preflight findings and required acknowledgment IDs, rejects blocked or unacknowledged submissions, and ignores stale preview responses (#992).

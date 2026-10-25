@@ -6,7 +6,7 @@
 | **Service Package** | `middleware/src/services/cloud_offer/` |
 | **Frontend View** | `frontend/src/shell/RunInCloudOffer.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/cloud_offer.json` |
-| **Contract SHA-256** | `71da1dd95450b74a3572feacfd2cb589f48169558af7d0da0cb272f3125493c7` |
+| **Contract SHA-256** | `f7decebc58560f91af1448b80d01a55b0df7965df43a1c409469b3ecbb344e67` |
 
 ## Overview
 

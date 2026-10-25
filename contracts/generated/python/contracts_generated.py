@@ -1,4 +1,4 @@
-# GENERATED — contract hash 866790a842dad1e8e0cd5ce44c24e77c53142f7ea0cb3e3db9476deb9b92c43a. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash f7decebc58560f91af1448b80d01a55b0df7965df43a1c409469b3ecbb344e67. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -403,6 +403,57 @@ class ListImagesResult:
 class ListTagsResult:
     available: bool
     tags: list[str]
+
+
+@dataclass(frozen=True)
+class DescribeItem:
+    path: str
+    exists: bool
+    width: int
+    height: int
+    animated: bool
+    error: str
+
+
+@dataclass(frozen=True)
+class DescribeParams:
+    paths: list[str]
+
+
+@dataclass(frozen=True)
+class DescribeResult:
+    items: list[DescribeItem]
+
+
+@dataclass(frozen=True)
+class DifferenceParams:
+    left: str
+    right: str
+    boost: str
+
+
+@dataclass(frozen=True)
+class DifferenceResult:
+    available: bool
+    width: int
+    height: int
+    mean_abs: float
+    reason: str
+    png_base64: str
+
+
+@dataclass(frozen=True)
+class FrameParams:
+    path: str
+
+
+@dataclass(frozen=True)
+class FrameResult:
+    path: str
+    width: int
+    height: int
+    png_base64: str
+    error: str
 
 
 @dataclass(frozen=True)
