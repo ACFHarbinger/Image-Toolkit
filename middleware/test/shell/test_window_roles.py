@@ -17,14 +17,14 @@ from middleware.validation.check_tauri_security import check
 
 def test_hide_on_close_is_the_labeled_webview_set() -> None:
     labels = hide_on_close_labels()
-    assert labels == ["main", "cloud-jobs"]
+    assert labels == ["main", "cloud-jobs", "library-preview"]
     kinds = {entry["id"]: entry["kind"] for entry in windows()}
     assert kinds["tray"] == "tray"
     assert kinds["slideshow"] == "native"
 
 
 def test_cloud_jobs_is_a_main_popout_with_its_own_capability() -> None:
-    assert popout_ids() == ["cloud.jobs"]
+    assert popout_ids() == ["cloud.jobs", "library.preview"]
     jobs = next(entry for entry in windows() if entry["id"] == "cloud.jobs")
     assert jobs["role"] == "popout"
     assert jobs["panel_of"] == "main"

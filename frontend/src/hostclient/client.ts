@@ -7,6 +7,12 @@ import type {
   CloudSubmitResult,
   ConvertParams,
   ConvertResult,
+  DescribeParams,
+  DescribeResult,
+  DifferenceParams,
+  DifferenceResult,
+  FrameParams,
+  FrameResult,
   GetManyParams,
   GetManyResult,
   GetParams,
@@ -140,6 +146,21 @@ export class HostClient {
   async cloudJobsTerminate(resourceId: string): Promise<TerminateResult> {
     await this.connect();
     return this.send<TerminateResult>("cloud_jobs.terminate", { resource_id: resourceId });
+  }
+
+  async libraryPreviewDescribe(params: DescribeParams): Promise<DescribeResult> {
+    await this.connect();
+    return this.send<DescribeResult>("library_preview.describe", params as unknown as Record<string, unknown>);
+  }
+
+  async libraryPreviewFrame(params: FrameParams): Promise<FrameResult> {
+    await this.connect();
+    return this.send<FrameResult>("library_preview.frame", params as unknown as Record<string, unknown>);
+  }
+
+  async libraryPreviewDifference(params: DifferenceParams): Promise<DifferenceResult> {
+    await this.connect();
+    return this.send<DifferenceResult>("library_preview.difference", params as unknown as Record<string, unknown>);
   }
 
   async cloudOfferPrefill(params: PrefillParams): Promise<PrefillResult> {

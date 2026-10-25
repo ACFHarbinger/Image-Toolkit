@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- Library preview pop-out (#895): `library_preview.describe`, `library_preview.frame`, and `library_preview.difference`, plus the preview, compare, and drag-preview view. The viewers read caller paths only and do not open `library.db`.
+
 ### Changed
 
 - Coordination handover: Codex manages delegation, issue gates and landing; Grok handles review/final edits. Updated the Tauri and Cloud Jobs owner tables and documented dependency-aware queues.

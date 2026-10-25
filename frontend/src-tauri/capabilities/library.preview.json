@@ -1,0 +1,11 @@
+{
+  "$schema": "../schemas/desktop-schema.json",
+  "identifier": "library-preview",
+  "description": "labeled library.preview pop-out: core only; originals stay out of the asset scope",
+  "windows": [
+    "library-preview"
+  ],
+  "permissions": [
+    "core:default"
+  ]
+}

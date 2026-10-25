@@ -1,4 +1,4 @@
-// GENERATED — contract hash db2448a4bdeabe1e4ed117d1df96cf7502ed74c7c1b95d27c342ebd8754977e3. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 8d642deabccbb8401ee088016267db1b62784b7eec1a586b20d6336549b79c39. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -387,6 +387,57 @@ pub struct SubmitParams {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct SubmitResult {
     pub job_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DescribeItem {
+    pub path: String,
+    pub exists: bool,
+    pub width: i64,
+    pub height: i64,
+    pub animated: bool,
+    pub error: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DescribeParams {
+    pub paths: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DescribeResult {
+    pub items: Vec<DescribeItem>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DifferenceParams {
+    pub left: String,
+    pub right: String,
+    pub boost: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DifferenceResult {
+    pub available: bool,
+    pub width: i64,
+    pub height: i64,
+    pub mean_abs: f64,
+    pub reason: String,
+    pub png_base64: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct FrameParams {
+    pub path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct FrameResult {
+    pub path: String,
+    pub width: i64,
+    pub height: i64,
+    pub png_base64: String,
+    pub error: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
