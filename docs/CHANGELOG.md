@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Cloud Compute setup window rides the bridge (Tauri T-04, #920): a `cloud_setup` capability (`cloud_setup.providers`) carrying the Qt providers pane's four-provider descriptor catalog (gcd, cloudflare, oracle, aws; badge colors as theme-token names), and the setup surface becomes the real window — Providers (descriptor cards), Credentials (per-provider non-secret region/endpoint config persisted through the settings capability under the ACCOUNT-scoped `cloud_setup/profiles` key; real credentials live in the vault and never transit the bridge — attaching rides the vault unlock #918/#879), Request Builder (D4's, mounted), and Dashboards (D3's Resources/Spend views, mounted). Parity differential loads the live Qt descriptors and matches the catalog exactly; ledger row `both`.
+
 - Merge, similarity, and extractor probes (#903, #904, #905): `merge.concatenate` joins caller images horizontally or vertically, `similarity.compare` reports average-hash pairs, and `extractor.probe` reads one video with ffprobe. None of them open `library.db`. The placement canvas, file deletion, and frame extraction stay on PySide6.
 - **Library: Scan and Tag service and webview** (Tauri migration Wave 3, L-04 #898).
   - **Contracts & Capability:** added `scan` capability (`scan.directory`, `scan.save_metadata`, `scan.suggest_tags`) with schema `contracts/schemas/capability/scan.json` and method routing in `contracts/methods.toml`.

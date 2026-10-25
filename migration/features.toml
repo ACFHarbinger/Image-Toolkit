@@ -589,18 +589,18 @@ os_checklist = []
 id = "window.cloud-compute"
 kind = "window"
 title = "Cloud Compute setup window"
-owner = "unclaimed"
+owner = "Mistral"
 wave = "wave-9"
 issue = 920
-status = "pyside-only"
+status = "both"
 routes = []
 route_map = {}
 pyside = ["gui/src/windows/cloud"]
-tauri = []
-service = ""
-contract = ""
-docs = ""
-scenarios = []
+tauri = ["frontend/src/shell/CloudComputeSurface.tsx"]
+service = "middleware/src/services/cloud_setup/providers.py"
+contract = "cloud_setup"
+docs = "docs/modules/cloud_setup.md"
+scenarios = ["migration/scenarios/window.cloud-compute.json"]
 os_checklist = []
 
 # ── Wave 0: frontend-only surfaces ───────────────────────────────────

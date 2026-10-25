@@ -39,6 +39,20 @@ CLOUD_JOBS_SETTINGS_DEFINITION = SettingDefinition(
 
 register_definitions([CLOUD_JOBS_SETTINGS_DEFINITION])
 
+#: T-04 / #920: per-provider non-secret setup config (region/endpoint
+#: preferences). Real credentials live in the vault and never transit the
+#: bridge; attaching them rides the vault unlock (#918 / #879).
+CLOUD_SETUP_PROFILES_KEY = "cloud_setup/profiles"
+CLOUD_SETUP_PROFILES_DEFINITION = SettingDefinition(
+    key=CLOUD_SETUP_PROFILES_KEY,
+    scope=SettingScope.ACCOUNT,
+    default=None,
+    value_type=dict,
+    description="Cloud Compute per-provider non-secret setup config (T-04 / #920)",
+)
+
+register_definitions([CLOUD_SETUP_PROFILES_DEFINITION])
+
 
 def cloud_settings_document(stored: Mapping[str, Any] | None) -> dict[str, Any]:
     """The full settings document: defaults overlaid with stored fields."""
@@ -75,6 +89,8 @@ def save_cloud_settings(service: SettingsService, data: Mapping[str, Any]) -> di
 __all__ = [
     "CLOUD_JOBS_SETTINGS_DEFINITION",
     "CLOUD_JOBS_SETTINGS_KEY",
+    "CLOUD_SETUP_PROFILES_DEFINITION",
+    "CLOUD_SETUP_PROFILES_KEY",
     "cloud_settings_document",
     "load_cloud_settings",
     "save_cloud_settings",

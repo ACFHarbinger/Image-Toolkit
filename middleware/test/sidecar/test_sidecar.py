@@ -33,9 +33,10 @@ def test_handshake_accept(sidecar: SidecarClient) -> None:
     assert sorted(result["capabilities"]) == [
         "cloud_jobs",
         "cloud_offer",
+        "cloud_setup",
         "convert",
-        "jobs",
         "extractor",
+        "jobs",
         "library",
         "library_admin",
         "library_preview",
