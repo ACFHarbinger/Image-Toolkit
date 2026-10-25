@@ -1,3 +1,5 @@
+import { LibraryManagement } from "../views/library/LibraryManagement";
+import { DataBrowser } from "../views/library/DataBrowser";
 import { ComponentType, ReactNode } from "react";
 import { ConvertPilot } from "../views/ConvertPilot";
 import { Listings } from "../views/library/Listings";
@@ -6,7 +8,6 @@ import DeleteTab from "../tabs/core/DeleteTab";
 import WallpaperTab from "../tabs/core/WallpaperTab";
 import { ImageExtractorTab } from "../tabs/core/ImageExtractorTab";
 import { ImageSearch } from "../views/library/ImageSearch";
-import DatabaseTab from "../tabs/database/DatabaseTab";
 import ScanMetadataTab from "../tabs/database/ScanMetadataTab";
 import DriveSyncTab from "../tabs/web/DriveSyncTab";
 import ImageCrawlerTab from "../tabs/web/ImageCrawlerTab";
@@ -39,7 +40,8 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "system.extractor": ImageExtractorTab,
   "system.wallpaper": WallpaperTab,
   "library.search": ImageSearch,
-  "library.management": DatabaseTab,
+  "library.management": LibraryManagement,
+  "library.data-browser": DataBrowser,
   "library.scan": ScanMetadataTab,
   "web.crawler": ImageCrawlerTab,
   "web.requests": WebRequestsTab,
@@ -70,6 +72,6 @@ export function CatalogView({
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
   const hostClientProps =
-    entry.id === "system.convert" || entry.id === "library.listings" || entry.id === "library.search" ? { hostClient } : {};
+    ["system.convert", "library.search", "library.listings", "library.management", "library.data-browser"].includes(entry.id) ? { hostClient, client: hostClient } : {};
   return <View showModal={showModal} {...extra} {...hostClientProps} />;
 }

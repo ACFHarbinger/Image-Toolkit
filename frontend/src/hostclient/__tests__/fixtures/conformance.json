@@ -23,6 +23,7 @@
               "convert",
               "jobs",
               "library",
+              "library_admin",
               "library_preview",
               "settings",
               "system"

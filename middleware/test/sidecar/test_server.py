@@ -35,7 +35,17 @@ def test_handshake_result_and_ping_validate() -> None:
     result = handshake["result"]
     assert result["protocol"] == PROTOCOL_NAME
     assert result["compatibility"] == {"min": "1.0.0", "max": "1.0.0"}
-    assert set(result["capabilities"]) == {'cloud_offer', 'jobs', 'settings', 'system', 'library', 'cloud_jobs', 'library_preview', 'convert'}
+    assert set(result["capabilities"]) == {
+        "system",
+        "library_preview",
+        "cloud_jobs",
+        "jobs",
+        "library",
+        "cloud_offer",
+        "settings",
+        "library_admin",
+        "convert",
+    }
     assert _request(server, "system.ping", {}, "ping")["result"] == {"ok": True}
 
 

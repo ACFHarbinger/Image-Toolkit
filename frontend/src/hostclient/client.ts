@@ -1,3 +1,4 @@
+import type { BrowseParams, BrowseResult, CatalogResult, MutateParams, MutateResult } from "../../../contracts/generated/ts";
 import type {
   BridgeResponse,
   CancelResult,
@@ -219,6 +220,27 @@ export class HostClient {
   async listLibraryGroups(): Promise<ListGroupsResult> {
     await this.connect();
     return this.send<ListGroupsResult>("library.list_groups", {});
+  }
+
+  async libraryAdminCatalog(): Promise<CatalogResult> {
+    await this.connect();
+    return this.send<CatalogResult>("library_admin.catalog", {});
+  }
+
+  async libraryAdminMutate(params: MutateParams): Promise<MutateResult> {
+    await this.connect();
+    return this.send<MutateResult>(
+      "library_admin.mutate",
+      params as unknown as Record<string, unknown>,
+    );
+  }
+
+  async libraryAdminBrowse(params: BrowseParams): Promise<BrowseResult> {
+    await this.connect();
+    return this.send<BrowseResult>(
+      "library_admin.browse",
+      params as unknown as Record<string, unknown>,
+    );
   }
 
   onEvent(listener: Parameters<NonNullable<BridgeTransport["onEvent"]>>[0]): () => void {

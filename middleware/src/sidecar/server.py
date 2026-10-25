@@ -50,6 +50,11 @@ from middleware.src.sidecar.handlers.library_preview import (
     handle_difference,
     handle_frame,
 )
+from middleware.src.sidecar.handlers.library_admin import (
+    handle_browse,
+    handle_catalog,
+    handle_mutate,
+)
 from middleware.src.sidecar.handlers.settings import (
     handle_settings_get,
     handle_settings_get_many,
@@ -76,6 +81,7 @@ class SidecarServer:
         badge_source: BadgeSource | None = None,
         jobs_source: JobsSource | None = None,
         library_store: Any | None = None,
+        library_admin_store: Any | None = None,
     ) -> None:
         self.table = table or catalog()
         self.stdin = stdin or sys.stdin
@@ -85,6 +91,7 @@ class SidecarServer:
         self.badge_source = badge_source
         self.jobs_source = jobs_source
         self.library_store = library_store
+        self.library_admin_store = library_admin_store
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self.cloud_service = None
         self._handshaken = False
@@ -169,6 +176,9 @@ class SidecarServer:
         library = self._dispatch_library(method, params)
         if library is not _UNHANDLED:
             return library
+        admin = self._dispatch_admin(method, params)
+        if admin is not _UNHANDLED:
+            return admin
         raise BridgeAppError("bridge.method_not_found", details={"method": method})
 
     def _dispatch_cloud(self, method: str, params: dict[str, Any]) -> Any:
@@ -220,6 +230,16 @@ class SidecarServer:
             return handle_frame(params)
         if method == "library_preview.difference":
             return handle_difference(params)
+        return _UNHANDLED
+
+    def _dispatch_admin(self, method: str, params: dict[str, Any]) -> Any:
+        store = self.library_admin_store
+        if method == "library_admin.catalog":
+            return handle_catalog(store)
+        if method == "library_admin.mutate":
+            return handle_mutate(store, params)
+        if method == "library_admin.browse":
+            return handle_browse(store, params)
         return _UNHANDLED
 
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:

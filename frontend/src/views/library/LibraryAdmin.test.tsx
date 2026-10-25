@@ -1,0 +1,66 @@
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, expect, test } from "vitest";
+import type { BrowseParams, BrowseResult, CatalogResult, MutateParams, MutateResult } from "../../../../contracts/generated/ts";
+import { DataBrowser } from "./DataBrowser";
+import { LibraryManagement } from "./LibraryManagement";
+
+beforeEach(() => {
+  cleanup();
+});
+
+function catalog(available: boolean): CatalogResult {
+  return {
+    available,
+    groups: available ? [{ name: "people", subgroups: ["faces"] }] : [],
+    tags: available ? [{ name: "smile", category: "mood" }] : [],
+  };
+}
+
+test("management shows the unattached store and applies a create", async () => {
+  const calls: MutateParams[] = [];
+  let available = false;
+  const client = {
+    libraryAdminCatalog: async () => catalog(available),
+    libraryAdminMutate: async (params: MutateParams): Promise<MutateResult> => {
+      calls.push(params);
+      available = true;
+      return { available: true, applied: 1, error: "" };
+    },
+  };
+  render(<LibraryManagement client={client} />);
+  expect(await screen.findByTestId("library-management-unavailable")).toBeTruthy();
+  fireEvent.change(screen.getByTestId("library-management-name"), { target: { value: "places" } });
+  fireEvent.click(screen.getByTestId("library-management-apply"));
+  expect((await screen.findByTestId("library-management-notice")).textContent).toBe("Applied 1");
+  expect(screen.getByText("people: faces")).toBeTruthy();
+  expect(calls[0]).toMatchObject({ action: "create_group", name: "places" });
+  expect(screen.queryByTestId("library-management-unavailable")).toBeNull();
+});
+
+test("the data browser pages by column equality", async () => {
+  const calls: BrowseParams[] = [];
+  const client = {
+    libraryAdminBrowse: async (params: BrowseParams): Promise<BrowseResult> => {
+      calls.push(params);
+      if (!params.table) {
+        return { available: false, columns: [], rows: [], row_count: 0, error: "" };
+      }
+      return {
+        available: true,
+        columns: ["filename"],
+        rows: [{ cells: [params.offset === 0 ? "a.png" : "b.png"] }],
+        row_count: 2,
+        error: "",
+      };
+    },
+  };
+  render(<DataBrowser client={client} />);
+  fireEvent.change(screen.getByTestId("library-browser-column"), { target: { value: "filename" } });
+  fireEvent.change(screen.getByTestId("library-browser-equals"), { target: { value: "a.png" } });
+  fireEvent.click(screen.getByTestId("library-browser-load"));
+  expect(await screen.findByText("a.png")).toBeTruthy();
+  expect(calls[0]).toMatchObject({ table: "images", column: "filename", equals: "a.png", offset: 0 });
+  fireEvent.click(screen.getByTestId("library-browser-next"));
+  expect(await screen.findByText("b.png")).toBeTruthy();
+  expect(calls[1].offset).toBe(50);
+});
