@@ -38,9 +38,9 @@ the status lifecycle and deletion gate are documented in
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
-| system.extractor | Extractor | unclaimed | [#905](https://github.com/ACFHarbinger/Image-Toolkit/issues/905) | pyside-only | system.extractor | — | 0 |
-| system.merge | Merge | unclaimed | [#903](https://github.com/ACFHarbinger/Image-Toolkit/issues/903) | pyside-only | system.merge | — | 0 |
-| system.similarity | Similarity | unclaimed | [#904](https://github.com/ACFHarbinger/Image-Toolkit/issues/904) | pyside-only | system.similarity | — | 0 |
+| system.extractor | Extractor | Grok | [#905](https://github.com/ACFHarbinger/Image-Toolkit/issues/905) | pyside-only | system.extractor | — | 0 |
+| system.merge | Merge | Grok | [#903](https://github.com/ACFHarbinger/Image-Toolkit/issues/903) | pyside-only | system.merge | — | 0 |
+| system.similarity | Similarity | Grok | [#904](https://github.com/ACFHarbinger/Image-Toolkit/issues/904) | pyside-only | system.similarity | — | 0 |
 
 ## wave-5
 
@@ -79,7 +79,7 @@ the status lifecycle and deletion gate are documented in
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
-| window.auth | Authentication / vault unlock | unclaimed | [#918](https://github.com/ACFHarbinger/Image-Toolkit/issues/918) | pyside-only | — | — | 0 |
+| window.auth | Authentication / vault unlock | Grok | [#918](https://github.com/ACFHarbinger/Image-Toolkit/issues/918) | pyside-only | — | — | 0 |
 | window.cloud-compute | Cloud Compute setup window | unclaimed | [#920](https://github.com/ACFHarbinger/Image-Toolkit/issues/920) | pyside-only | — | — | 0 |
 | window.logging | Logging and metadata windows | unclaimed | [#919](https://github.com/ACFHarbinger/Image-Toolkit/issues/919) | pyside-only | — | — | 0 |
 | window.settings | Settings window | unclaimed | [#917](https://github.com/ACFHarbinger/Image-Toolkit/issues/917) | pyside-only | — | — | 0 |
