@@ -239,6 +239,13 @@ class HieService(HieServiceProtocol):
             if not isinstance(document, dict):
                 return _export_failure(command, t0, "export payload has no document")
 
+            if _document_has_unrendered_edits(document):
+                return _export_failure(
+                    command,
+                    t0,
+                    "document edits are not rendered for export",
+                )
+
             source = _document_source(document)
             if source is None:
                 return _export_failure(command, t0, "export document has no source image")
@@ -355,6 +362,29 @@ def _nonempty_str(value: Any) -> str | None:
         if stripped:
             return stripped
     return None
+
+
+def _document_has_unrendered_edits(document: dict[str, Any]) -> bool:
+    """Accepted proposals and layer modifiers are audit records, not pixels.
+
+    Encoding the original source after those records exist would report
+    success while dropping the edit. Export stays on the source only when
+    the document has no such records.
+    """
+    metadata = document.get("metadata")
+    if isinstance(metadata, dict):
+        accepted = metadata.get("accepted_proposals")
+        if isinstance(accepted, list) and accepted:
+            return True
+    layers = document.get("layers")
+    if isinstance(layers, list):
+        for layer in layers:
+            if not isinstance(layer, dict):
+                continue
+            modifiers = layer.get("modifiers")
+            if isinstance(modifiers, list) and modifiers:
+                return True
+    return False
 
 
 def _document_source(document: dict[str, Any]) -> str | None:

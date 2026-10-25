@@ -205,6 +205,23 @@ def test_hie_export_execution(tmp_path: Path) -> None:
         assert decoded.size == (4, 3)
 
 
+def test_hie_export_refuses_accepted_edits(tmp_path: Path) -> None:
+    source = _png(tmp_path / "src.png")
+    out = tmp_path / "exported.png"
+    out.write_bytes(b"old-bytes")
+    service = HieService()
+    assert _open(service, str(source)).success is True
+    preview = service.execute_edit(HieEditCommand(document_id="doc-1", operation="crop-composition"))
+    assert preview.success is True
+    accepted = service.execute_edit(HieEditCommand(document_id="doc-1", operation="accept"))
+    assert accepted.success is True
+
+    result = service.export_document(HieExportDocumentCommand(document_id="doc-1", output_path=str(out)))
+    assert result.success is False
+    assert result.error == "document edits are not rendered for export"
+    assert out.read_bytes() == b"old-bytes"
+
+
 def test_hie_export_keeps_destination_when_source_is_not_an_image(tmp_path: Path) -> None:
     source = tmp_path / "notes.png"
     source.write_bytes(b"not-an-image")
