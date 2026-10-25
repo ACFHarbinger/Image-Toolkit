@@ -204,6 +204,17 @@ test("WebGL2 renderer compiles shaders and draws tile quads when WebGL2 context 
     drawArrays,
     deleteBuffer: vi.fn(),
     deleteProgram: vi.fn(),
+    // Tile texture pipeline (Y-00 / #902)
+    createTexture: vi.fn(() => ({})),
+    bindTexture: vi.fn(),
+    texImage2D: vi.fn(),
+    texParameteri: vi.fn(),
+    pixelStorei: vi.fn(),
+    deleteTexture: vi.fn(),
+    activeTexture: vi.fn(),
+    getUniformLocation: vi.fn(() => ({})),
+    uniform1i: vi.fn(),
+    uniform1f: vi.fn(),
   };
   vi.spyOn(canvas, "getContext").mockImplementation(
     ((contextId: string) => (contextId === "webgl2" ? mockGl : null)) as unknown as typeof canvas.getContext,
@@ -222,7 +233,11 @@ test("WebGL2 renderer compiles shaders and draws tile quads when WebGL2 context 
   });
   expect(stats.backend).toBe("webgl2");
   expect(stats.drawnTileCount).toBe(culled.tiles.length);
-  expect(drawArrays).toHaveBeenCalledWith(mockGl.TRIANGLES, 0, culled.tiles.length * 6);
+  // Per-tile draws since Y-00: each visible tile binds its own texture.
+  expect(drawArrays).toHaveBeenCalledTimes(culled.tiles.length);
+  for (let i = 0; i < culled.tiles.length; i += 1) {
+    expect(drawArrays).toHaveBeenNthCalledWith(i + 1, mockGl.TRIANGLES, i * 6, 6);
+  }
   renderer.dispose();
 });
 
