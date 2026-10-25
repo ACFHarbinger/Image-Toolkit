@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import subprocess
 
+import pytest
+
 from middleware.src.services.extractor.probe import probe_video
 
 
@@ -46,3 +48,25 @@ def test_probe_reads_the_first_video_stream(tmp_path, monkeypatch) -> None:
     assert result["duration_seconds"] == 1.5
     assert result["codec"] == "h264"
     assert result["error"] == ""
+
+
+@pytest.mark.parametrize("duration", ["inf", "nan", "1e999"])
+def test_probe_never_returns_nonfinite_duration(tmp_path, monkeypatch, duration):
+    path = tmp_path / "clip.mp4"
+    path.write_bytes(b"placeholder")
+    payload = {"streams": [{"codec_type": "video", "duration": duration, "width": 320, "height": 240}]}
+    monkeypatch.setattr(
+        subprocess, "run", lambda *args, **kwargs: subprocess.CompletedProcess([], 0, json.dumps(payload).encode())
+    )
+    result = probe_video(str(path))
+    assert result["duration_seconds"] == 0.0
+    json.dumps(result, allow_nan=False)
+
+
+def test_probe_rejects_a_nonobject_document(tmp_path, monkeypatch):
+    path = tmp_path / "clip.mp4"
+    path.write_bytes(b"placeholder")
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: subprocess.CompletedProcess([], 0, b"[]"))
+    result = probe_video(str(path))
+    assert result["available"] is False
+    assert result["error"] == "ffprobe failed"

@@ -7,6 +7,7 @@ library.db and does not extract frames.
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,8 @@ def probe_video(path: str) -> dict[str, Any]:
         payload = json.loads(completed.stdout.decode("utf-8"))
     except (UnicodeError, json.JSONDecodeError):
         return {**blank, "error": "ffprobe failed"}
+    if not isinstance(payload, dict):
+        return {**blank, "error": "ffprobe failed"}
     stream = _video_stream(payload)
     if stream is None:
         return {**blank, "error": "no video stream"}
@@ -80,14 +83,14 @@ def _duration(payload: dict[str, Any], stream: dict[str, Any]) -> float:
         raw = format_block.get("duration")
     try:
         value = float(raw)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return 0.0
-    return value if value >= 0 else 0.0
+    return value if math.isfinite(value) and value >= 0 else 0.0
 
 
 def _nonnegative_int(value: Any) -> int:
     try:
         number = int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return 0
     return number if number > 0 else 0
