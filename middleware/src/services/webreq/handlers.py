@@ -26,7 +26,10 @@ from middleware.src.services.webreq.commands import (
 )
 
 _PREVIEW_BYTES = 65536
-_NATIVE_METHODS = frozenset({"GET", "POST"})
+# httplib hardcodes both timeouts at 15s and parses a POST param as
+# comma-separated key:value pairs. The Python executor sends that param as
+# the raw body and honors timeout_seconds.
+_NATIVE_TIMEOUT_SECONDS = 15
 _STATUS_RE = re.compile(r"Request complete\. Status: (\d+)")
 _ERROR_RE = re.compile(r"Request failed: (.*)")
 _UNSUPPORTED_RE = re.compile(r"Unsupported request type: (.*)")
@@ -39,9 +42,11 @@ def _preview_text(raw: bytes) -> str:
     return raw[:_PREVIEW_BYTES].decode("utf-8", errors="replace")
 
 
-def _native_sequence_supported(requests: list[RequestItem]) -> bool:
-    """The C++ executor sends only header-less GET and POST."""
-    return all(item.type in _NATIVE_METHODS and not item.headers for item in requests)
+def _native_sequence_supported(requests: list[RequestItem], timeout: int) -> bool:
+    """Native sequences are header-less GETs at the executor's fixed 15s timeout."""
+    if timeout != _NATIVE_TIMEOUT_SECONDS:
+        return False
+    return all(item.type == "GET" and not item.headers for item in requests)
 
 
 def _log_slices(logs: list[str], count: int) -> list[list[str]]:
@@ -227,9 +232,9 @@ class SequenceHandler(Handler[SequenceCommand, SequenceResult]):
         logs: list[str] = []
         item_results: list[SequenceItemResult] = []
 
-        # Native httplib only executes header-less GET and POST. Other methods
-        # report "Unsupported request type" and still look like HTTP 200 here.
-        if self._logic_cls == "fallback" or not _native_sequence_supported(requests):
+        # POST bodies and any timeout other than 15s stay on the Python executor.
+        # The native parser would rewrite the body, and it ignores this timeout.
+        if self._logic_cls == "fallback" or not _native_sequence_supported(requests, timeout):
             return self._fallback_sequence_execution(base_url, requests, actions, timeout)
 
         # Attempt execution through WebRequestsLogic if available

@@ -251,6 +251,43 @@ def test_fallback_save_writes_complete_raw_bytes(tmp_path: Path):
     assert len(result.logs) > 0
 
 
+def test_post_body_and_custom_timeout_skip_the_native_parser():
+    seen: list[dict[str, object]] = []
+
+    def fake_urlopen(req, timeout=0):
+        seen.append({"method": req.get_method(), "data": req.data, "timeout": timeout})
+        return _ok_response(b"ok")
+
+    service = WebRequestsService(logic_cls=_RejectNative)
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        service.sequence(
+            SequenceCommand(
+                base_url="https://api.example.com/items",
+                requests=[RequestItem(type="POST", param='{"a":1}')],
+                timeout_seconds=30,
+            )
+        )
+        service.sequence(
+            SequenceCommand(
+                base_url="https://api.example.com/items",
+                requests=[RequestItem(type="POST", param="a:1,b:2")],
+            )
+        )
+        service.sequence(
+            SequenceCommand(
+                base_url="https://api.example.com/slow",
+                requests=[RequestItem(type="GET", param="/slow")],
+                timeout_seconds=5,
+            )
+        )
+
+    assert seen[0] == {"method": "POST", "data": b'{"a":1}', "timeout": 30}
+    assert seen[1] == {"method": "POST", "data": b"a:1,b:2", "timeout": 15}
+    assert seen[2]["method"] == "GET"
+    assert seen[2]["timeout"] == 5
+    assert seen[2]["data"] is None
+
+
 def test_execute_preview_does_not_replace_raw_body():
     raw = b"\xff" * 70_000
     service = WebRequestsService()
