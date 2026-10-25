@@ -115,6 +115,32 @@ def test_resolve_applies_scope_overrides_privacy_derived() -> None:
     assert engine.config.top_k == 3
 
 
+def test_resolve_copies_top_k_onto_the_indexer() -> None:
+    engine = _FakeEngine()
+    original = engine.config
+
+    class _Indexer:
+        def __init__(self) -> None:
+            self.config = original
+            self.seen_top_k: int | None = None
+
+        def query(self, _embedding: object) -> list[object]:
+            self.seen_top_k = self.config.top_k
+            return []
+
+    engine.indexer = _Indexer()
+
+    def resolve(_cutout_rgb, _cutout_png):
+        engine.indexer.query(None)
+        return engine.resolution
+
+    engine.resolve = resolve  # type: ignore[method-assign]
+    resolve_result(engine, "rgb", b"png", {"image_path": "/x.png", "top_k": 3})
+    assert engine.config.top_k == 3
+    assert engine.indexer.config is engine.config
+    assert engine.indexer.seen_top_k == 3
+
+
 def test_resolve_without_engine_is_unavailable() -> None:
     result = resolve_result(None, None, b"", {"image_path": "/x.png"})
     assert result["available"] is False

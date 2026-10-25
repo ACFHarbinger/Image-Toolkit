@@ -53,7 +53,13 @@ def server(monkeypatch, tmp_path: Path) -> SidecarServer:
                 "method": "ArcFace -> Local DB",
                 "created_at": "2026-10-25T00:00:00+00:00",
                 "entries": [
-                    {"kind": "local", "label": "rin tohsaka", "source": "/dataset/rin/001.png", "score": 0.91, "method": "ArcFace -> Local DB"}
+                    {
+                        "kind": "local",
+                        "label": "rin tohsaka",
+                        "source": "/dataset/rin/001.png",
+                        "score": 0.91,
+                        "method": "ArcFace -> Local DB",
+                    }
                 ],
             },
             "error": None,
@@ -76,6 +82,29 @@ def test_describe_dispatch(server: SidecarServer) -> None:
     result = response["result"]
     assert result["available"] is True
     assert result["config"]["search_scope"] == "local"
+
+
+def test_resolve_handler_passes_rgb_and_encodes_bgr(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import cv2
+
+    bgr = numpy.zeros((2, 2, 3), dtype="uint8")
+    bgr[..., 0] = 10
+    bgr[..., 1] = 20
+    bgr[..., 2] = 30
+    path = tmp_path / "color.png"
+    cv2.imwrite(str(path), bgr)
+    seen: dict[str, Any] = {}
+
+    def fake_resolve_result(engine, cutout_rgb, cutout_png, params):
+        seen["rgb"] = cutout_rgb
+        seen["png"] = cutout_png
+        return {"available": True, "error": None}
+
+    monkeypatch.setattr(entity_handlers, "resolve_result", fake_resolve_result)
+    entity_handlers.handle_entity_recon_resolve(object(), {"image_path": str(path)})
+    assert seen["rgb"][0, 0].tolist() == [30, 20, 10]
+    decoded = cv2.imdecode(numpy.frombuffer(seen["png"], dtype=numpy.uint8), cv2.IMREAD_COLOR)
+    assert decoded[0, 0].tolist() == [10, 20, 30]
 
 
 def test_resolve_dispatch_reads_the_image_and_normalizes(server: SidecarServer, tmp_path: Path) -> None:

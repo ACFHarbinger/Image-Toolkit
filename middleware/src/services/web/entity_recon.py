@@ -47,12 +47,16 @@ def resolve_result(
 
     config = _effective_config(engine.config, params)
     engine.config = config
+    # DatasetIndexer.query reads its own config.top_k. The replacement
+    # config has to land there too, or the search keeps the original limit.
+    _sync_indexer_config(engine, config)
     try:
         resolution = engine.resolve(cutout_rgb, cutout_png)
     except Exception as exc:  # an indexer/embedding failure is a failed resolve
         return _failed(f"{type(exc).__name__}: {exc}")
     finally:
         engine.config = config
+        _sync_indexer_config(engine, config)
 
     report = resolution.report.to_dict() if resolution.report is not None else {}
     return {
@@ -119,6 +123,12 @@ def _effective_config(config: Any, params: Mapping[str, Any]) -> Any:
     if not overrides:
         return config
     return replace(config, **overrides)
+
+
+def _sync_indexer_config(engine: Any, config: Any) -> None:
+    indexer = getattr(engine, "indexer", None)
+    if indexer is not None and hasattr(indexer, "config"):
+        indexer.config = config
 
 
 def _config_snapshot(config: Any) -> dict[str, Any]:

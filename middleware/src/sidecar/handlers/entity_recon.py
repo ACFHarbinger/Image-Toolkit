@@ -29,10 +29,14 @@ def handle_entity_recon_resolve(engine: Any | None, params: dict[str, Any]) -> d
         import cv2
         import numpy
 
-        cutout_rgb = cv2.imread(str(params["image_path"]))
-        frame = cutout_rgb if cutout_rgb is not None else numpy.zeros((1, 1, 3), dtype="uint8")
+        # imread is BGR. The PNG cutout stays BGR so imencode writes the
+        # same pixels. Resolution matches DatasetIndexer.build, which
+        # converts to RGB before embedding.
+        bgr = cv2.imread(str(params["image_path"]))
+        frame = bgr if bgr is not None else numpy.zeros((1, 1, 3), dtype="uint8")
         ok, buffer = cv2.imencode(".png", frame)
         cutout_png = buffer.tobytes() if ok else b""
+        cutout_rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB) if bgr is not None else None
     return resolve_result(engine, cutout_rgb, cutout_png, params)
 
 
