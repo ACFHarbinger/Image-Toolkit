@@ -358,3 +358,34 @@ it("keeps authoritative blocking findings blocked", async () => {
   await screen.findByText("Account cap exceeded");
   expect(screen.getByTestId("confirm-submit-button")).toBeDisabled();
 });
+
+
+it("retains the job ID on refusal and renews it only after acceptance", async () => {
+  const cloudJobsSubmit = vi.fn()
+    .mockResolvedValueOnce({ accepted: false, job_id: "", reason: "Retry later" })
+    .mockResolvedValueOnce({ accepted: true, job_id: "first-accepted", reason: "" })
+    .mockResolvedValueOnce({ accepted: true, job_id: "second-accepted", reason: "" });
+  const onJobSubmitted = vi.fn();
+  const client = {
+    cloudJobsPreview: vi.fn().mockResolvedValue({ available: true, estimate_known: false,
+      estimate: null, issues: [], needs_ack: [] }), cloudJobsSubmit,
+  } as unknown as HostClient;
+  render(<RequestBuilder client={client} onJobSubmitted={onJobSubmitted} />);
+  fireEvent.change(screen.getByTestId("input-job-title"), { target: { value: "Keep these parameters" } });
+  fireEvent.click(screen.getByTestId("review-plan-button"));
+  await waitFor(() => expect(screen.getByTestId("confirm-submit-button")).toBeEnabled());
+  fireEvent.click(screen.getByTestId("confirm-submit-button"));
+  await screen.findByText(/Retry later/);
+  const firstId = cloudJobsSubmit.mock.calls[0][0].spec.job_id;
+  fireEvent.click(screen.getByTestId("confirm-submit-button"));
+  await screen.findByTestId("submit-success-banner");
+  expect(cloudJobsSubmit.mock.calls[1][0].spec.job_id).toBe(firstId);
+  expect(onJobSubmitted.mock.calls[0][1].job_id).toBe(firstId);
+  fireEvent.click(screen.getByTestId("review-plan-button"));
+  await waitFor(() => expect(screen.getByTestId("confirm-submit-button")).toBeEnabled());
+  fireEvent.click(screen.getByTestId("confirm-submit-button"));
+  await waitFor(() => expect(cloudJobsSubmit).toHaveBeenCalledTimes(3));
+  const nextSpec = cloudJobsSubmit.mock.calls[2][0].spec;
+  expect(nextSpec.job_id).not.toBe(firstId);
+  expect(nextSpec.title).toBe("Keep these parameters");
+});

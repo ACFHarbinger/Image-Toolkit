@@ -37,6 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Cloud Jobs generates a fresh request ID after acceptance while retaining the existing ID for failed-submission retries and preserving form parameters (#992).
 - Cloud Jobs confirmation uses backend preflight findings and required acknowledgment IDs, rejects blocked or unacknowledged submissions, and ignores stale preview responses (#992).
 - ComfyUI's external-browser fallback uses a native opener restricted to credential-free loopback HTTP(S) URLs and reports launch failures (#993).
 - Release publication requires a provisioned WebDriver smoke: build the release shell, install the driver and display dependencies, and fail instead of skipping missing prerequisites (#987).

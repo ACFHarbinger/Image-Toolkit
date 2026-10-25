@@ -7,6 +7,7 @@ import {
   DEFAULT_RESOURCES,
   ExecutionMode,
   formatBytes,
+  generateJobId,
   JobSpec,
   jobSpecFromComfy,
   jobSpecFromConvert,
@@ -138,6 +139,7 @@ export function RequestBuilder({ client, onJobSubmitted }: RequestBuilderProps):
         setSubmitError(result.reason || "Cloud submission is unavailable");
         return;
       }
+      setSpec((current) => ({ ...current, job_id: generateJobId() }));
       setLastSubmittedId(result.job_id);
       setIsSheetOpen(false);
       onJobSubmitted?.(result.job_id, spec);
