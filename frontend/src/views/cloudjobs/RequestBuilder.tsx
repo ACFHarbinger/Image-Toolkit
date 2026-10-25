@@ -22,13 +22,53 @@ import type { RiskDiagnosis } from "./risk";
 import { evaluateRisk, getRiskInputClass } from "./risk";
 import { TaskSection } from "./TaskSection";
 
+export interface ConvertOrigin {
+  inputPaths: string[];
+  outputFormat: string;
+  deleteOriginal?: boolean;
+}
+
+export interface ExtractOrigin {
+  mediaPath: string;
+  startMs: number;
+  endMs: number;
+  fps: number;
+  resolution: string;
+}
+
+export interface ComfyOrigin {
+  workflow: Record<string, unknown>;
+  prompts: string[];
+}
+
+/** Real tab selections. Absent entries leave that preset disabled. */
+export interface RequestOrigins {
+  convert?: ConvertOrigin | null;
+  extract?: ExtractOrigin | null;
+  comfy?: ComfyOrigin | null;
+}
+
 export interface RequestBuilderProps {
   client?: HostClient | null;
+  origins?: RequestOrigins | null;
   onJobSubmitted?: (jobId: string, spec: JobSpec) => void;
 }
 
-export function RequestBuilder({ client, onJobSubmitted }: RequestBuilderProps): React.ReactElement {
+function usableConvert(origin: ConvertOrigin | null | undefined): origin is ConvertOrigin {
+  return !!origin && origin.inputPaths.some((path) => path.trim().length > 0) && origin.outputFormat.trim().length > 0;
+}
+
+function usableExtract(origin: ExtractOrigin | null | undefined): origin is ExtractOrigin {
+  return !!origin && origin.mediaPath.trim().length > 0;
+}
+
+function usableComfy(origin: ComfyOrigin | null | undefined): origin is ComfyOrigin {
+  return !!origin && origin.prompts.some((prompt) => prompt.trim().length > 0);
+}
+
+export function RequestBuilder({ client, origins, onJobSubmitted }: RequestBuilderProps): React.ReactElement {
   const [spec, setSpec] = useState<JobSpec>(() => createDefaultJobSpec("extract"));
+  const [preset, setPreset] = useState("custom");
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastSubmittedId, setLastSubmittedId] = useState<string | null>(null);
@@ -52,48 +92,35 @@ export function RequestBuilder({ client, onJobSubmitted }: RequestBuilderProps):
     }));
   };
 
-  const handlePresetChange = (preset: string) => {
-    switch (preset) {
-      case "convert":
-        setSpec(
-          jobSpecFromConvert({
-            inputPaths: ["/data/raw/img_001.webp", "/data/raw/img_002.webp", "/data/raw/img_003.webp"],
-            outputFormat: "png",
-            provider: spec.placement.provider,
-            region: spec.placement.region,
-          }),
-        );
-        break;
-      case "extract":
-        setSpec(
-          jobSpecFromExtract({
-            mediaPath: "/data/videos/recording_sample.mp4",
-            startMs: 1000,
-            endMs: 15000,
-            fps: 30,
-            resolution: "1920x1080",
-            provider: spec.placement.provider,
-            region: spec.placement.region,
-          }),
-        );
-        break;
-      case "comfy":
-        setSpec(
-          jobSpecFromComfy({
-            workflow: { prompt_node: 3, sampler: "euler" },
-            prompts: [
-              "anime portrait, sharp line art, cinematic lighting",
-              "landscape fantasy mountain, vibrant colors",
-            ],
-            provider: spec.placement.provider,
-            region: spec.placement.region,
-          }),
-        );
-        break;
-      default:
-        setSpec(createDefaultJobSpec("extract"));
-        break;
+  const originReady = {
+    convert: usableConvert(origins?.convert),
+    extract: usableExtract(origins?.extract),
+    comfy: usableComfy(origins?.comfy),
+  };
+
+  const handlePresetChange = (next: string) => {
+    const provider = spec.placement.provider;
+    const region = spec.placement.region;
+    if (next === "convert") {
+      if (!usableConvert(origins?.convert)) return;
+      setPreset(next);
+      setSpec(jobSpecFromConvert({ ...origins.convert, provider, region }));
+      return;
     }
+    if (next === "extract") {
+      if (!usableExtract(origins?.extract)) return;
+      setPreset(next);
+      setSpec(jobSpecFromExtract({ ...origins.extract, provider, region }));
+      return;
+    }
+    if (next === "comfy") {
+      if (!usableComfy(origins?.comfy)) return;
+      setPreset(next);
+      setSpec(jobSpecFromComfy({ ...origins.comfy, provider, region }));
+      return;
+    }
+    setPreset("custom");
+    setSpec(createDefaultJobSpec("extract"));
   };
 
   const openSheet = () => {
@@ -216,6 +243,8 @@ export function RequestBuilder({ client, onJobSubmitted }: RequestBuilderProps):
         <TaskSection
           spec={spec}
           diagnosis={diagnosis}
+          preset={preset}
+          origins={originReady}
           onKindChange={handleKindChange}
           onPresetChange={handlePresetChange}
           onTitleChange={(title) => setSpec({ ...spec, title })}

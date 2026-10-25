@@ -230,15 +230,49 @@ describe("PlanCostSheet Component (#850)", () => {
 });
 
 describe("RequestBuilder Component (#850)", () => {
-  it("loads presets and updates JobSpec parameters", () => {
+  it("keeps origin presets disabled until a real selection is passed in", () => {
     render(<RequestBuilder />);
+    const selector = screen.getByTestId("preset-selector");
+    expect(within(selector).getByRole("option", { name: "Convert Tab Selection" })).toBeDisabled();
+    expect(within(selector).getByRole("option", { name: "Video Extractor Selection" })).toBeDisabled();
+    expect(within(selector).getByRole("option", { name: "ComfyUI Generation Batch" })).toBeDisabled();
+    expect(screen.getByTestId("preset-origin-note")).toHaveTextContent(/do not substitute sample files/i);
+
+    fireEvent.change(selector, { target: { value: "comfy" } });
+    expect(selector).toHaveValue("custom");
+    expect(screen.getByTestId("input-workload-kind")).toHaveValue("extract");
+    expect(screen.getByTestId("input-job-title")).toHaveValue("");
+  });
+
+  it("loads presets from the caller's origin selection", () => {
+    render(
+      <RequestBuilder
+        origins={{
+          convert: { inputPaths: ["/library/page.webp"], outputFormat: "png" },
+          extract: {
+            mediaPath: "/library/episode.mp4",
+            startMs: 0,
+            endMs: 2000,
+            fps: 12,
+            resolution: "1280x720",
+          },
+          comfy: { workflow: { sampler: "euler" }, prompts: ["city night"] },
+        }}
+      />,
+    );
     const selector = screen.getByTestId("preset-selector");
 
     fireEvent.change(selector, { target: { value: "comfy" } });
     expect(screen.getByTestId("input-workload-kind")).toHaveValue("comfy_batch");
+    expect(screen.getByTestId("input-job-title")).toHaveValue("ComfyUI Batch (1 prompts)");
 
     fireEvent.change(selector, { target: { value: "convert" } });
     expect(screen.getByTestId("input-workload-kind")).toHaveValue("extract");
+    expect(screen.getByTestId("input-job-title")).toHaveValue("Batch Convert to .png (1 items)");
+    expect(screen.getByTestId("input-shards-count")).toHaveValue(1);
+
+    fireEvent.change(selector, { target: { value: "extract" } });
+    expect(screen.getByTestId("input-job-title")).toHaveValue("Extract Frames: episode.mp4");
   });
 
   it("recolors inputs dynamically upon risk triggers", () => {

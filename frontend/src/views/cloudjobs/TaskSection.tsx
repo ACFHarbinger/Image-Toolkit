@@ -5,6 +5,8 @@ import { getRiskInputClass, RiskDiagnosis } from "./risk";
 export interface TaskSectionProps {
   spec: JobSpec;
   diagnosis: RiskDiagnosis;
+  preset: string;
+  origins: { convert: boolean; extract: boolean; comfy: boolean };
   onKindChange: (kind: WorkloadKind) => void;
   onPresetChange: (preset: string) => void;
   onTitleChange: (title: string) => void;
@@ -15,6 +17,8 @@ export interface TaskSectionProps {
 export function TaskSection({
   spec,
   diagnosis,
+  preset,
+  origins,
   onKindChange,
   onPresetChange,
   onTitleChange,
@@ -29,15 +33,38 @@ export function TaskSection({
         </h3>
         <select
           data-testid="preset-selector"
+          value={preset}
           onChange={(e) => onPresetChange(e.target.value)}
           className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
         >
           <option value="custom">Custom Configuration</option>
-          <option value="convert">Convert Tab Selection</option>
-          <option value="extract">Video Extractor Selection</option>
-          <option value="comfy">ComfyUI Generation Batch</option>
+          <option
+            value="convert"
+            disabled={!origins.convert}
+            title={origins.convert ? undefined : "Waiting for the Convert tab selection"}
+          >
+            Convert Tab Selection
+          </option>
+          <option
+            value="extract"
+            disabled={!origins.extract}
+            title={origins.extract ? undefined : "Waiting for the Video Extractor selection"}
+          >
+            Video Extractor Selection
+          </option>
+          <option
+            value="comfy"
+            disabled={!origins.comfy}
+            title={origins.comfy ? undefined : "Waiting for the ComfyUI batch"}
+          >
+            ComfyUI Generation Batch
+          </option>
         </select>
       </div>
+      <p data-testid="preset-origin-note" className="text-xs text-gray-500 dark:text-gray-400">
+        Origin presets use the selection passed in from that tab. They stay disabled until that
+        selection exists, and they do not substitute sample files.
+      </p>
 
       <div>
         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
