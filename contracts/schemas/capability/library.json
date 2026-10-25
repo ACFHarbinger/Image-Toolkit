@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/library.json",
+  "title": "LibraryCapability",
+  "description": "Library listings and image search over the unified store (L-02 #896, L-03 #897). The store reader arrives with the daemon lease; with none attached every result stays available=false and no library.db is opened.",
+  "type": "object",
+  "$defs": {
+    "ImageRecord": {
+      "title": "ImageRecord",
+      "description": "One image row; mirrors the db.rs ImageRecord surface this capability replaces (L-07 #901).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "file_path",
+        "filename"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "file_path": {
+          "type": "string"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "file_size": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "width": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "height": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "phash": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "group_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "subgroup_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "date_added": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "date_modified": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "distance": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "ListImagesParams": {
+      "title": "ListImagesParams",
+      "description": "The SearchRepo.search_files filter surface (multi-select lists OR together; single values are legacy parity).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "group_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subgroup_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "filename_pattern": {
+          "type": "string"
+        },
+        "input_formats": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "group_names": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "subgroup_names": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "ListImagesResult": {
+      "title": "ListImagesResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available",
+        "images"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "images": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ImageRecord"
+          }
+        }
+      }
+    },
+    "ListTagsResult": {
+      "title": "ListTagsResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available",
+        "tags"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "GroupRecord": {
+      "title": "GroupRecord",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "subgroups"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "subgroups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ListGroupsResult": {
+      "title": "ListGroupsResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available",
+        "groups"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GroupRecord"
+          }
+        }
+      }
+    },
+    "EmptyParams": {
+      "title": "EmptyParams",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    }
+  }
+}

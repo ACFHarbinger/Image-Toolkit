@@ -9,6 +9,10 @@ import type {
   ConvertResult,
   GetManyParams,
   GetManyResult,
+  ListImagesParams,
+  ListImagesResult,
+  ListGroupsResult,
+  ListTagsResult,
   GetParams,
   GetResult,
   PrefillParams,
@@ -179,6 +183,21 @@ export class HostClient {
   async setSettings(params: SetManyParams): Promise<SetManyResult> {
     await this.connect();
     return this.send<SetManyResult>("settings.set_many", params as unknown as Record<string, unknown>);
+  }
+
+  async listLibraryImages(params: ListImagesParams = {}): Promise<ListImagesResult> {
+    await this.connect();
+    return this.send<ListImagesResult>("library.list_images", params as unknown as Record<string, unknown>);
+  }
+
+  async listLibraryTags(): Promise<ListTagsResult> {
+    await this.connect();
+    return this.send<ListTagsResult>("library.list_tags", {});
+  }
+
+  async listLibraryGroups(): Promise<ListGroupsResult> {
+    await this.connect();
+    return this.send<ListGroupsResult>("library.list_groups", {});
   }
 
   onEvent(listener: Parameters<NonNullable<BridgeTransport["onEvent"]>>[0]): () => void {

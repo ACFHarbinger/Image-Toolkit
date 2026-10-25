@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- Library listings ride the bridge (Tauri L-02, #896): a `library` capability (`library.list_images` / `library.list_tags` / `library.list_groups`) over a Qt-free `middleware/src/services/library/` projection service, a HostClient-driven `library.listings` catalog view (groups/subgroups sidebar, tag and filename filters, paginated rows), and a parity differential against the legacy `search_files` row shape. The store reader arrives with the daemon lease; until it does, results stay `available: false` and no `library.db` is opened (Gate B closed). The record surface mirrors the Rust `db.rs` `search_files`/`get_all_tags`/`get_all_groups` paths that L-07 (#901) retires.
+
 ### Changed
 
 - Coordination handover: Codex manages delegation, issue gates and landing; Grok handles review/final edits. Updated the Tauri and Cloud Jobs owner tables and documented dependency-aware queues.

@@ -1,4 +1,4 @@
-# GENERATED — contract hash db2448a4bdeabe1e4ed117d1df96cf7502ed74c7c1b95d27c342ebd8754977e3. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 866790a842dad1e8e0cd5ce44c24e77c53142f7ea0cb3e3db9476deb9b92c43a. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -353,6 +353,59 @@ class SubmitResult:
 
 
 @dataclass(frozen=True)
+class GroupRecord:
+    name: str
+    subgroups: list[str]
+
+
+@dataclass(frozen=True)
+class ImageRecord:
+    id: int
+    file_path: str
+    filename: str
+    file_size: (int | None) | None = None
+    width: (int | None) | None = None
+    height: (int | None) | None = None
+    phash: (int | None) | None = None
+    group_name: (str | None) | None = None
+    subgroup_name: (str | None) | None = None
+    date_added: (str | None) | None = None
+    date_modified: (str | None) | None = None
+    tags: (list[str]) | None = None
+    distance: (float | None) | None = None
+
+
+@dataclass(frozen=True)
+class ListGroupsResult:
+    available: bool
+    groups: list[GroupRecord]
+
+
+@dataclass(frozen=True)
+class ListImagesParams:
+    group_name: str | None = None
+    subgroup_name: str | None = None
+    tags: (list[str]) | None = None
+    filename_pattern: str | None = None
+    input_formats: (list[str]) | None = None
+    group_names: (list[str]) | None = None
+    subgroup_names: (list[str]) | None = None
+    limit: int | None = None
+
+
+@dataclass(frozen=True)
+class ListImagesResult:
+    available: bool
+    images: list[ImageRecord]
+
+
+@dataclass(frozen=True)
+class ListTagsResult:
+    available: bool
+    tags: list[str]
+
+
+@dataclass(frozen=True)
 class BridgeRequest:
     jsonrpc: Literal["2.0"]
     id: str | int | None
@@ -483,6 +536,9 @@ SpendParams = dict[str, Any]
 
 
 SummaryParams = dict[str, Any]
+
+
+EmptyParams = dict[str, Any]
 
 
 BridgeResponse = ResultResponse | ErrorResponse
