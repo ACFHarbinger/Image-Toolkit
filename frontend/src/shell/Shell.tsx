@@ -160,7 +160,7 @@ export function Shell({ showModal }: ShellProps) {
               }
             >
               {jobsFallback ? (
-                <CloudJobsWindow badge={cloudBadge} />
+                <CloudJobsWindow badge={cloudBadge} hostClient={hostClient} />
               ) : computeOpen ? (
                 <CloudComputeSurface onClose={() => setComputeOpen(false)} />
               ) : (

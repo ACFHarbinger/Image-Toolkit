@@ -40,7 +40,16 @@ from middleware.src.sidecar.handlers.cloud_jobs import (
 )
 from middleware.src.sidecar.handlers.cloud_offer import handle_prefill
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
+from middleware.src.sidecar.handlers.settings import (
+    handle_settings_get,
+    handle_settings_get_many,
+    handle_settings_set,
+    handle_settings_set_many,
+)
 from middleware.src.sidecar.jobs import JobRegistry
+
+# Distinct from a handler result: cloud and settings routes may return None.
+_UNHANDLED = object()
 
 
 class SidecarServer:
@@ -135,6 +144,19 @@ class SidecarServer:
             return self.jobs.list(params)
         if method == "jobs.cancel":
             return self.jobs.cancel(params)
+        if method == "convert.convert":
+            return handle_convert(params)
+        if method == "convert.convert_batch":
+            return start_convert_batch(self.jobs, params)
+        cloud = self._dispatch_cloud(method, params)
+        if cloud is not _UNHANDLED:
+            return cloud
+        settings = self._dispatch_settings(method, params)
+        if settings is not _UNHANDLED:
+            return settings
+        raise BridgeAppError("bridge.method_not_found", details={"method": method})
+
+    def _dispatch_cloud(self, method: str, params: dict[str, Any]) -> Any:
         if method == "cloud_jobs.summary":
             return handle_summary(self.badge_source)
         if method == "cloud_jobs.list":
@@ -147,10 +169,6 @@ class SidecarServer:
             return handle_spend(self.cloud_projection)
         if method == "cloud_jobs.terminate":
             return handle_terminate(self.cloud_projection, params)
-        if method == "convert.convert":
-            return handle_convert(params)
-        if method == "convert.convert_batch":
-            return start_convert_batch(self.jobs, params)
         if method == "cloud_jobs.preview":
             from middleware.src.sidecar.handlers.cloud_submit import handle_preview
 
@@ -161,7 +179,18 @@ class SidecarServer:
             return handle_submit(self.cloud_service, params)
         if method == "cloud_offer.prefill":
             return handle_prefill(params)
-        raise BridgeAppError("bridge.method_not_found", details={"method": method})
+        return _UNHANDLED
+
+    def _dispatch_settings(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "settings.get":
+            return handle_settings_get(params)
+        if method == "settings.set":
+            return handle_settings_set(params)
+        if method == "settings.get_many":
+            return handle_settings_get_many(params)
+        if method == "settings.set_many":
+            return handle_settings_set_many(params)
+        return _UNHANDLED
 
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:
         protocol = params["protocol"]

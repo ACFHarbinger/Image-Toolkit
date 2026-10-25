@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { JobDetailResult, JobSummaryItem } from "../../../contracts/generated/ts";
 import type { HostClient } from "../hostclient";
+import { CloudJobsSettings } from "../views/cloudjobs/CloudJobsSettings";
 import { JobDetail } from "./JobDetail";
 import { JobsTable } from "./JobsTable";
 import {
@@ -22,13 +23,22 @@ const RESOURCE_POLL_MS = 15000;
 export interface CloudJobsWindowProps {
   readonly badge: string;
   readonly client?: HostClient | null;
+  readonly hostClient?: HostClient | null;
   readonly resources?: React.ReactNode;
   readonly spend?: React.ReactNode;
   readonly offer?: React.ReactNode;
 }
 
-/** Labeled cloud.jobs shell with the jobs table, detail, resources, spend, and the run-in-cloud offer. */
-export function CloudJobsWindow({ badge, client, resources, spend, offer }: CloudJobsWindowProps): React.ReactElement {
+/** Labeled cloud.jobs shell with the jobs table, detail, resources, spend, settings, and the run-in-cloud offer. */
+export function CloudJobsWindow({
+  badge,
+  client,
+  hostClient,
+  resources,
+  spend,
+  offer,
+}: CloudJobsWindowProps): React.ReactElement {
+  const activeClient = hostClient ?? client ?? null;
   const [jobs, setJobs] = useState<JobSummaryItem[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -44,7 +54,7 @@ export function CloudJobsWindow({ badge, client, resources, spend, offer }: Clou
   useEffect(() => {
     const generation = ++listGeneration.current;
     const current = () => listGeneration.current === generation;
-    if (!client) {
+    if (!activeClient) {
       setJobs([]);
       setLoadingJobs(false);
       return;
@@ -52,7 +62,7 @@ export function CloudJobsWindow({ badge, client, resources, spend, offer }: Clou
     let timer: ReturnType<typeof setTimeout>;
     const refresh = async () => {
       try {
-        const result = await client.cloudJobsList({
+        const result = await activeClient.cloudJobsList({
           state: filterState || undefined,
           provider: filterProvider || undefined,
           search: searchQuery || undefined,
@@ -73,14 +83,14 @@ export function CloudJobsWindow({ badge, client, resources, spend, offer }: Clou
       listGeneration.current += 1;
       clearTimeout(timer);
     };
-  }, [client, filterState, filterProvider, searchQuery]);
+  }, [activeClient, filterState, filterProvider, searchQuery]);
 
   const detailGeneration = useRef(0);
 
   useEffect(() => {
     const generation = ++detailGeneration.current;
     const current = () => detailGeneration.current === generation;
-    if (!client || !selectedJobId) {
+    if (!activeClient || !selectedJobId) {
       setDetail(null);
       setLoadingDetail(false);
       return;
@@ -88,7 +98,7 @@ export function CloudJobsWindow({ badge, client, resources, spend, offer }: Clou
     let timer: ReturnType<typeof setTimeout>;
     const refresh = async () => {
       try {
-        const result = await client.cloudJobsDetail({ job_id: selectedJobId });
+        const result = await activeClient.cloudJobsDetail({ job_id: selectedJobId });
         if (current()) setDetail(result);
       } catch {
         if (current()) setDetail(null);
@@ -105,24 +115,24 @@ export function CloudJobsWindow({ badge, client, resources, spend, offer }: Clou
       detailGeneration.current += 1;
       clearTimeout(timer);
     };
-  }, [client, selectedJobId]);
+  }, [activeClient, selectedJobId]);
 
   const [resourceView, setResourceView] = useState<CloudResources>(EMPTY_RESOURCES);
   const [spendView, setSpendView] = useState<CloudSpend>(EMPTY_SPEND);
   const [terminateNotice, setTerminateNotice] = useState("");
 
   useEffect(() => {
-    if (!client?.cloudJobsResources || !client.cloudJobsSpend) {
+    if (!activeClient?.cloudJobsResources || !activeClient.cloudJobsSpend) {
       return;
     }
     let stop = false;
     const load = () => {
-      void client.cloudJobsResources().then((result) => {
+      void activeClient.cloudJobsResources().then((result) => {
         if (!stop) setResourceView(result);
       }).catch(() => {
         if (!stop) setResourceView(EMPTY_RESOURCES);
       });
-      void client.cloudJobsSpend().then((result) => {
+      void activeClient.cloudJobsSpend().then((result) => {
         if (!stop) setSpendView(result);
       }).catch(() => {
         if (!stop) setSpendView(EMPTY_SPEND);
@@ -134,14 +144,14 @@ export function CloudJobsWindow({ badge, client, resources, spend, offer }: Clou
       stop = true;
       window.clearInterval(timer);
     };
-  }, [client]);
+  }, [activeClient]);
 
   const onTerminate = (resourceId: string) => {
-    if (!client?.cloudJobsTerminate) {
+    if (!activeClient?.cloudJobsTerminate) {
       setTerminateNotice("no daemon lease");
       return;
     }
-    void client.cloudJobsTerminate(resourceId).then((result) => {
+    void activeClient.cloudJobsTerminate(resourceId).then((result) => {
       setTerminateNotice(result.reason);
     }).catch(() => {
       setTerminateNotice("no daemon lease");
@@ -186,6 +196,14 @@ export function CloudJobsWindow({ badge, client, resources, spend, offer }: Clou
       )}
       {spend ?? <SpendView view={spendView} />}
       {offer}
+      <section data-testid="cloud-jobs-settings-section">
+        <h2>Settings</h2>
+        {activeClient ? (
+          <CloudJobsSettings hostClient={activeClient} />
+        ) : (
+          <p data-testid="cloud-jobs-settings-status">Connecting to the bridge…</p>
+        )}
+      </section>
     </main>
   );
 }

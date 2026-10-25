@@ -44,6 +44,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Cloud offer carries the full JobSpec document into editable prefill fields without saving or auto-submitting (#991).
 - Cloud Jobs discards stale list responses and failures after filters, search, or client changes (#989).
 - Cloud Jobs disables cancellation with an explanation until its authenticated cloud command is connected, avoiding the unrelated in-memory job cancellation route (#989).
+- Cloud Jobs region rows retain keyboard focus while editing; duplicate or incomplete provider mappings are rejected before Save (#984).
+- Cloud Jobs rejects incorrectly typed or nonfinite numeric settings before persistence and recovers invalid stored documents as defaults (#984).
+- Cloud Jobs preserves provider allowlist separators while typing and normalizes on blur or save (#984).
+- Cloud Jobs disables settings inputs during saving to protect concurrent edits from being overwritten (#984).
 - ComfyUI's external-browser fallback uses a native opener restricted to credential-free loopback HTTP(S) URLs and reports launch failures (#993).
 - Release publication requires a provisioned WebDriver smoke: build the release shell, install the driver and display dependencies, and fail instead of skipping missing prerequisites (#987).
 - GUI tests no longer leave `itk-train-dataset-*` staging dirs in `~/Downloads/Data/Tests`. `test_exclusions_force_staging_and_hide_excluded_files` staged with the default root and never cleaned up, leaving one dir per run (20 accumulated). The default staging root is now overridable via `IMAGE_TOOLKIT_STAGING_ROOT`, which an autouse fixture in `gui/test/conftest.py` points at each test's tmp dir. Files: `gui/src/tabs/models/delta/lora_dataset_staging.py`, `gui/test/conftest.py`.
