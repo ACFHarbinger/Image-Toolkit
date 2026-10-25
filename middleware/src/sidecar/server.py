@@ -40,6 +40,11 @@ from middleware.src.sidecar.handlers.cloud_jobs import (
 )
 from middleware.src.sidecar.handlers.cloud_offer import handle_prefill
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
+from middleware.src.sidecar.handlers.library import (
+    handle_list_groups,
+    handle_list_images,
+    handle_list_tags,
+)
 from middleware.src.sidecar.handlers.library_preview import (
     handle_describe,
     handle_difference,
@@ -70,6 +75,7 @@ class SidecarServer:
         cloud_projection: CloudProjection | None = None,
         badge_source: BadgeSource | None = None,
         jobs_source: JobsSource | None = None,
+        library_store: Any | None = None,
     ) -> None:
         self.table = table or catalog()
         self.stdin = stdin or sys.stdin
@@ -78,6 +84,7 @@ class SidecarServer:
         self.cloud_projection = cloud_projection
         self.badge_source = badge_source
         self.jobs_source = jobs_source
+        self.library_store = library_store
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self.cloud_service = None
         self._handshaken = False
@@ -201,6 +208,12 @@ class SidecarServer:
         return _UNHANDLED
 
     def _dispatch_library(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "library.list_images":
+            return handle_list_images(self.library_store, params)
+        if method == "library.list_tags":
+            return handle_list_tags(self.library_store)
+        if method == "library.list_groups":
+            return handle_list_groups(self.library_store)
         if method == "library_preview.describe":
             return handle_describe(params)
         if method == "library_preview.frame":

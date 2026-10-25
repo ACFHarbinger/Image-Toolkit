@@ -8,7 +8,7 @@ the status lifecycle and deletion gate are documented in
 
 ## Summary
 
-- 29 feature rows: pyside-only × 28, both × 1, parity-passed × 0, pyside-deleted × 0
+- 29 feature rows: pyside-only × 27, both × 2, parity-passed × 0, pyside-deleted × 0
 
 ## wave-0
 
@@ -28,7 +28,7 @@ the status lifecycle and deletion gate are documented in
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
 | library.data-browser | Data Browser | unclaimed | [#900](https://github.com/ACFHarbinger/Image-Toolkit/issues/900) | pyside-only | library.data-browser | — | 0 |
-| library.listings | Listings | unclaimed | [#896](https://github.com/ACFHarbinger/Image-Toolkit/issues/896) | pyside-only | library.listings | — | 0 |
+| library.listings | Listings | Mistral | [#896](https://github.com/ACFHarbinger/Image-Toolkit/issues/896) | both | library.listings | — | 1 |
 | library.management | Management | unclaimed | [#899](https://github.com/ACFHarbinger/Image-Toolkit/issues/899) | pyside-only | library.management | — | 0 |
 | library.preview | Image preview, compare and drag-preview viewers | Grok | [#895](https://github.com/ACFHarbinger/Image-Toolkit/issues/895) | pyside-only | — | 0/3 | 0 |
 | library.scan | Scan and Tag | unclaimed | [#898](https://github.com/ACFHarbinger/Image-Toolkit/issues/898) | pyside-only | library.scan | — | 0 |

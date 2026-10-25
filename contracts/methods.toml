@@ -303,6 +303,43 @@ emits = []
 stability = "experimental"
 owner = 895
 
+[[method]]
+name = "library.list_images"
+capability = "library"
+summary = "Filtered image rows for Listings and Image Search (L-02 #896, L-03 #897); available=false until the store reader arrives with the daemon lease."
+params = "library.ListImagesParams"
+result = "library.ListImagesResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 896
+
+[[method]]
+name = "library.list_tags"
+capability = "library"
+summary = "Every tag for the filter UIs; available=false until the store reader arrives (L-02 #896)."
+params = "library.EmptyParams"
+result = "library.ListTagsResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 896
+
+[[method]]
+name = "library.list_groups"
+capability = "library"
+summary = "Groups with their subgroups for the Listings tree; available=false until the store reader arrives (L-02 #896)."
+params = "library.EmptyParams"
+result = "library.ListGroupsResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 896
+
+
 [[channel]]
 name = "jobs"
 payload = "jobs.JobEventPayload"

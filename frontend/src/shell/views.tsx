@@ -1,5 +1,6 @@
 import { ComponentType, ReactNode } from "react";
 import { ConvertPilot } from "../views/ConvertPilot";
+import { Listings } from "../views/library/Listings";
 import MergeTab from "../tabs/core/MergeTab";
 import DeleteTab from "../tabs/core/DeleteTab";
 import WallpaperTab from "../tabs/core/WallpaperTab";
@@ -32,6 +33,7 @@ export interface ViewProps {
 
 export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "system.convert": ConvertPilot,
+  "library.listings": Listings,
   "system.merge": MergeTab,
   "system.similarity": DeleteTab,
   "system.extractor": ImageExtractorTab,
@@ -67,6 +69,7 @@ export function CatalogView({
     );
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
-  const convertProps = entry.id === "system.convert" ? { hostClient } : {};
-  return <View showModal={showModal} {...extra} {...convertProps} />;
+  const hostClientProps =
+    entry.id === "system.convert" || entry.id === "library.listings" ? { hostClient } : {};
+  return <View showModal={showModal} {...extra} {...hostClientProps} />;
 }

@@ -1,4 +1,4 @@
-// GENERATED — contract hash 8d642deabccbb8401ee088016267db1b62784b7eec1a586b20d6336549b79c39. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash f7decebc58560f91af1448b80d01a55b0df7965df43a1c409469b3ecbb344e67. Do not edit; edit the schema and regenerate.
 import type { BridgeError } from "./error";
 
 export interface CancelParams {

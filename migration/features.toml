@@ -98,18 +98,18 @@ os_checklist = [
 id = "library.listings"
 kind = "page"
 title = "Listings"
-owner = "unclaimed"
+owner = "Mistral"
 wave = "wave-3"
 issue = 896
-status = "pyside-only"
+status = "both"
 routes = ["library.listings"]
 route_map = {}
 pyside = ["gui/src/tabs/database/listings_tab.py", "gui/src/tabs/database/listings_subtab"]
-tauri = []
-service = ""
-contract = ""
-docs = ""
-scenarios = []
+tauri = ["frontend/src/views/library/Listings.tsx"]
+service = "middleware/src/services/library/listings.py"
+contract = "library"
+docs = "docs/modules/library.md"
+scenarios = ["migration/scenarios/library.listings.json"]
 os_checklist = []
 
 [[feature]]
