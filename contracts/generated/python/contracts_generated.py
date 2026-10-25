@@ -1,4 +1,4 @@
-# GENERATED — contract hash 7886a9fb066af0b1778fca0b4bf80c544815754858676745c46d3f584b33e46c. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 36dcc44c132f5c8c9190f6760f223968be8ca33bdba8f1a7fe546e31a155ba50. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -8,6 +8,87 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from typing import Any, Literal
+
+@dataclass(frozen=True)
+class DaemonStatus:
+    lease_owner: str
+    wal_depth: int
+    last_poll_ts: float
+
+
+@dataclass(frozen=True)
+class JobDetailParams:
+    job_id: str
+
+
+@dataclass(frozen=True)
+class JobDetailResult:
+    job_id: str
+    kind: str
+    title: str
+    state: str
+    provider: str
+    created_at: float
+    events: list[JobEventItem]
+    outputs: list[str]
+    logs: list[str]
+    metrics: JobMetrics
+    spend: JobSpend
+    daemon_status: DaemonStatus
+    started_at: (float | None) | None = None
+    ended_at: (float | None) | None = None
+
+
+@dataclass(frozen=True)
+class JobEventItem:
+    id: int
+    ts: float
+    type: str
+    data: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class JobMetrics:
+    gpu_util_pct: float
+    vram_used_mb: float
+    peak_vcpu: float
+
+
+@dataclass(frozen=True)
+class JobSpend:
+    cost_so_far_usd: float
+    reserved_usd: float
+    max_spend_usd: float
+
+
+@dataclass(frozen=True)
+class JobSummaryItem:
+    job_id: str
+    kind: str
+    title: str
+    state: str
+    provider: str
+    created_at: float
+    cost_usd: float
+    shards_total: int
+    shards_done: int
+    started_at: (float | None) | None = None
+    ended_at: (float | None) | None = None
+
+
+@dataclass(frozen=True)
+class ListJobsParams:
+    state: str | None = None
+    provider: str | None = None
+    kind: str | None = None
+    search: str | None = None
+    limit: int | None = None
+
+
+@dataclass(frozen=True)
+class ListJobsResult:
+    jobs: list[JobSummaryItem]
+
 
 @dataclass(frozen=True)
 class ResourceRow:

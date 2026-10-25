@@ -30,6 +30,9 @@ from middleware.src.bridge import (
 from middleware.src.services.cloud_jobs.projection import CloudProjection
 from middleware.src.sidecar.handlers.cloud_jobs import (
     BadgeSource,
+    JobsSource,
+    handle_detail,
+    handle_list,
     handle_resources,
     handle_spend,
     handle_summary,
@@ -51,6 +54,7 @@ class SidecarServer:
         stderr: TextIO | None = None,
         cloud_projection: CloudProjection | None = None,
         badge_source: BadgeSource | None = None,
+        jobs_source: JobsSource | None = None,
     ) -> None:
         self.table = table or catalog()
         self.stdin = stdin or sys.stdin
@@ -58,6 +62,7 @@ class SidecarServer:
         self.stderr = stderr or sys.stderr
         self.cloud_projection = cloud_projection
         self.badge_source = badge_source
+        self.jobs_source = jobs_source
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self._handshaken = False
         self._write_mu = threading.Lock()
@@ -130,6 +135,10 @@ class SidecarServer:
             return self.jobs.cancel(params)
         if method == "cloud_jobs.summary":
             return handle_summary(self.badge_source)
+        if method == "cloud_jobs.list":
+            return handle_list(self.jobs_source, params)
+        if method == "cloud_jobs.detail":
+            return handle_detail(self.jobs_source, params)
         if method == "cloud_jobs.resources":
             return handle_resources(self.cloud_projection)
         if method == "cloud_jobs.spend":
