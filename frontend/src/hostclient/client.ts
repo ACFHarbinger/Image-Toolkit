@@ -19,6 +19,8 @@ import type {
   CompareResult,
   ProbeParams,
   ProbeResult,
+  DlInspectParams,
+  DlInspectResult,
   FrameParams,
   FrameResult,
   GetManyParams,
@@ -188,6 +190,11 @@ export class HostClient {
   async extractorProbe(params: ProbeParams): Promise<ProbeResult> {
     await this.connect();
     return this.send<ProbeResult>("extractor.probe", params as unknown as Record<string, unknown>);
+  }
+
+  async dlInspect(params: DlInspectParams): Promise<DlInspectResult> {
+    await this.connect();
+    return this.send<DlInspectResult>("dl.inspect", params as unknown as Record<string, unknown>);
   }
 
   async cloudOfferPrefill(params: PrefillParams): Promise<PrefillResult> {

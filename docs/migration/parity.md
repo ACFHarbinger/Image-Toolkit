@@ -38,9 +38,9 @@ the status lifecycle and deletion gate are documented in
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
-| system.extractor | Extractor | unclaimed | [#905](https://github.com/ACFHarbinger/Image-Toolkit/issues/905) | pyside-only | system.extractor | — | 0 |
-| system.merge | Merge | unclaimed | [#903](https://github.com/ACFHarbinger/Image-Toolkit/issues/903) | pyside-only | system.merge | — | 0 |
-| system.similarity | Similarity | unclaimed | [#904](https://github.com/ACFHarbinger/Image-Toolkit/issues/904) | pyside-only | system.similarity | — | 0 |
+| system.extractor | Extractor | Grok | [#905](https://github.com/ACFHarbinger/Image-Toolkit/issues/905) | pyside-only | system.extractor | — | 0 |
+| system.merge | Merge | Grok | [#903](https://github.com/ACFHarbinger/Image-Toolkit/issues/903) | pyside-only | system.merge | — | 0 |
+| system.similarity | Similarity | Grok | [#904](https://github.com/ACFHarbinger/Image-Toolkit/issues/904) | pyside-only | system.similarity | — | 0 |
 
 ## wave-5
 
@@ -57,7 +57,7 @@ the status lifecycle and deletion gate are documented in
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
-| dl | Deep Learning | unclaimed | [#912](https://github.com/ACFHarbinger/Image-Toolkit/issues/912) | pyside-only | dl.train<br>dl.generate<br>dl.review<br>dl.runs<br>ml.training<br>ml.generation<br>ml.evaluation<br>ml.inference<br>ml.comfyui | — | 0 |
+| dl | Deep Learning | Grok | [#912](https://github.com/ACFHarbinger/Image-Toolkit/issues/912) | pyside-only | dl.train<br>dl.generate<br>dl.review<br>dl.runs<br>ml.training<br>ml.generation<br>ml.evaluation<br>ml.inference<br>ml.comfyui | — | 0 |
 
 ## wave-7
 

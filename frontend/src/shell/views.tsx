@@ -6,6 +6,7 @@ import { Listings } from "../views/library/Listings";
 import { MergeView } from "../views/system/MergeView";
 import { SimilarityView } from "../views/system/SimilarityView";
 import { ExtractorView } from "../views/system/ExtractorView";
+import { DlWorkspace, type DlRoute } from "../views/dl/DlWorkspace";
 import WallpaperTab from "../tabs/core/WallpaperTab";
 import { ImageSearch } from "../views/library/ImageSearch";
 import { ScanMetadataView } from "../views/library/ScanMetadataView";
@@ -13,10 +14,6 @@ import DriveSyncTab from "../tabs/web/DriveSyncTab";
 import ImageCrawlerTab from "../tabs/web/ImageCrawlerTab";
 import ReverseSearchTab from "../tabs/web/ReverseSearchTab";
 import WebRequestsTab from "../tabs/web/WebRequestsTab";
-import { UnifiedTrainTab } from "../tabs/models/UnifiedTrainTab";
-import { UnifiedGenerateTab } from "../tabs/models/UnifiedGenerateTab";
-import { MetaCLIPInferenceTab } from "../tabs/models/MetaCLIPInferenceTab";
-import { R3GANEvaluateTab } from "../tabs/models/R3GANEvaluateTab";
 import { BenchmarkDashboard } from "../tabs/apollo/BenchmarkDashboard";
 import { HieEditorTab } from "../tabs/editor/HieEditorTab";
 import { CatalogEntry } from "./catalog";
@@ -31,6 +28,30 @@ export interface ViewProps {
   onAddImagesToDb?: (files: File[]) => void;
   hostClient: HostClient;
 }
+
+const DL_ROUTE: Record<string, DlRoute> = {
+  "dl.train": "train",
+  "dl.generate": "generate",
+  "dl.review": "review",
+  "dl.runs": "runs",
+  "ml.training": "train",
+  "ml.generation": "generate",
+  "ml.evaluation": "review",
+  "ml.inference": "review",
+};
+
+const HOST_CLIENT_IDS = new Set([
+  "system.convert",
+  "system.merge",
+  "system.similarity",
+  "system.extractor",
+  "library.scan",
+  "library.search",
+  "library.listings",
+  "library.management",
+  "library.data-browser",
+  ...Object.keys(DL_ROUTE),
+]);
 
 export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "system.convert": ConvertPilot,
@@ -47,10 +68,14 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "web.requests": WebRequestsTab,
   "web.drive-sync": DriveSyncTab,
   "web.reverse-search": ReverseSearchTab,
-  "ml.training": UnifiedTrainTab,
-  "ml.generation": UnifiedGenerateTab,
-  "ml.evaluation": R3GANEvaluateTab,
-  "ml.inference": MetaCLIPInferenceTab,
+  "dl.train": DlWorkspace,
+  "dl.generate": DlWorkspace,
+  "dl.review": DlWorkspace,
+  "dl.runs": DlWorkspace,
+  "ml.training": DlWorkspace,
+  "ml.generation": DlWorkspace,
+  "ml.evaluation": DlWorkspace,
+  "ml.inference": DlWorkspace,
   "editor.hybrid": HieEditorTab,
   "developer.benchmarks": BenchmarkDashboard,
 };
@@ -71,7 +96,7 @@ export function CatalogView({
     );
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
-  const hostClientProps =
-    ["system.convert", "system.merge", "system.similarity", "system.extractor", "library.scan", "library.search", "library.listings", "library.management", "library.data-browser"].includes(entry.id) ? { hostClient, client: hostClient } : {};
-  return <View showModal={showModal} {...extra} {...hostClientProps} />;
+  const route = DL_ROUTE[entry.id];
+  const hostClientProps = HOST_CLIENT_IDS.has(entry.id) ? { hostClient, client: hostClient } : {};
+  return <View showModal={showModal} {...extra} {...hostClientProps} {...(route ? { route } : {})} />;
 }
