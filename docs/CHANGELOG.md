@@ -37,6 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Cloud Jobs region rows retain keyboard focus while editing; duplicate or incomplete provider mappings are rejected before Save (#984).
 - Cloud Jobs rejects incorrectly typed or nonfinite numeric settings before persistence and recovers invalid stored documents as defaults (#984).
 - ComfyUI's external-browser fallback uses a native opener restricted to credential-free loopback HTTP(S) URLs and reports launch failures (#993).
 - Release publication requires a provisioned WebDriver smoke: build the release shell, install the driver and display dependencies, and fail instead of skipping missing prerequisites (#987).

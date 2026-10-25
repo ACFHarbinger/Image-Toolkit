@@ -66,7 +66,10 @@ def test_cloud_jobs_get_returns_the_full_document(server: SidecarServer) -> None
 def test_cloud_jobs_set_validates_and_persists(server: SidecarServer) -> None:
     document = cloud_jobs.cloud_settings_document(None) | {"monthly_cap_usd": 75.0}
     response = _request(
-        server, "settings.set", {"key": cloud_jobs.CLOUD_JOBS_SETTINGS_KEY, "value": document}, "set",
+        server,
+        "settings.set",
+        {"key": cloud_jobs.CLOUD_JOBS_SETTINGS_KEY, "value": document},
+        "set",
     )
     assert response["result"]["value"]["monthly_cap_usd"] == 75.0
     again = _request(server, "settings.get", {"key": cloud_jobs.CLOUD_JOBS_SETTINGS_KEY}, "get")
@@ -123,3 +126,17 @@ def test_unknown_settings_method_is_method_not_found(server: SidecarServer) -> N
     response = _request(server, "settings.clear", {}, "unknown")
     assert response["error"]["data"]["code"] == "bridge.method_not_found"
 
+
+@pytest.mark.parametrize("method", ["settings.set", "settings.set_many"])
+def test_empty_numeric_value_is_rejected_without_persisting(server, method):
+    key = cloud_jobs.CLOUD_JOBS_SETTINGS_KEY
+    params = (
+        {"key": key, "value": {"monthly_cap_usd": ""}}
+        if method == "settings.set"
+        else {"updates": {"theme": "light", key: {"monthly_cap_usd": ""}}}
+    )
+    response = _request(server, method, params, "invalid-number")
+    assert response["error"]["data"]["code"] == "settings.invalid_value"
+    values = _request(server, "settings.get_many", {"keys": ["theme", key]}, "read")["result"]["values"]
+    assert values[key]["monthly_cap_usd"] == 100.0
+    assert values["theme"] == "dark"

@@ -1,8 +1,11 @@
+import * as matchers from "@testing-library/jest-dom/matchers";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import type { GetResult, SetResult } from "../../../../contracts/generated/ts";
 import { CloudJobsSettings } from "./CloudJobsSettings";
 import { CLOUD_JOBS_SETTINGS_KEY, type CloudJobsSettingsDocument } from "./cloudSettings";
+
+expect.extend(matchers);
 
 afterEach(() => cleanup());
 
@@ -117,13 +120,13 @@ test("the regions editor edits, adds and removes provider rows", async () => {
   fireEvent.change(screen.getByLabelText("region for gcp"), { target: { value: "europe-west1" } });
   fireEvent.click(screen.getByRole("button", { name: "Add region" }));
   const providerInputs = screen.getAllByLabelText(/region provider/);
-  expect(providerInputs).toHaveLength(2); // "" sorts before "gcp"
+  expect(providerInputs).toHaveLength(2);
 
   // Name the new provider row and give it a region.
-  fireEvent.change(providerInputs[0], { target: { value: "aws" } });
+  fireEvent.change(providerInputs[1], { target: { value: "aws" } });
   fireEvent.change(screen.getByLabelText("region for aws"), { target: { value: "us-east-1" } });
 
-  fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]);
+  fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[1]);
   expect(screen.queryByLabelText("region for aws")).not.toBeInTheDocument();
   expect(screen.getByLabelText("region for gcp")).toBeInTheDocument();
 });
@@ -156,3 +159,36 @@ test.each([null, {}, { packing_mode: "one_to_one" }])(
     expect(client.setSetting).not.toHaveBeenCalled();
   },
 );
+
+
+test("provider editing keeps row identity and focus across keystrokes", async () => {
+  const client = stubClient();
+  render(<CloudJobsSettings hostClient={client as never} />);
+  await screen.findByTestId("cloud-jobs-settings");
+  fireEvent.click(screen.getByRole("button", { name: "Add region" }));
+  const input = screen.getAllByLabelText(/^region provider/)[1];
+  input.focus();
+  for (const value of ["a", "aw", "aws"]) {
+    fireEvent.change(input, { target: { value } });
+    expect(screen.getByLabelText(`region provider ${value}`)).toBe(input);
+    expect(document.activeElement).toBe(input);
+  }
+});
+
+test("duplicate provider drafts cannot overwrite another region or be saved", async () => {
+  const client = stubClient();
+  render(<CloudJobsSettings hostClient={client as never} />);
+  await screen.findByTestId("cloud-jobs-settings");
+  fireEvent.click(screen.getByRole("button", { name: "Add region" }));
+  fireEvent.change(screen.getAllByLabelText(/^region provider/)[1], { target: { value: "GCP" } });
+  expect(screen.getByRole("alert")).toHaveTextContent("unique");
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(client.setSetting).not.toHaveBeenCalled();
+  expect(screen.getByLabelText("region for gcp")).toHaveValue("us-central1");
+  fireEvent.change(screen.getByLabelText("region provider GCP"), { target: { value: "aws" } });
+  fireEvent.change(screen.getByLabelText("region for aws"), { target: { value: "us-east-1" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(client.setSetting).toHaveBeenCalledTimes(1));
+  expect((client.setSetting.mock.calls[0][0].value as CloudJobsSettingsDocument).default_regions)
+    .toEqual({ gcp: "us-central1", aws: "us-east-1" });
+});

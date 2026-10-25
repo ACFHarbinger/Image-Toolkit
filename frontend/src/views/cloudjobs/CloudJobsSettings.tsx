@@ -4,6 +4,7 @@
 // The risk rule editor rides the jobs capability when that surface opens.
 
 import React, { useState } from "react";
+import { RegionsEditor } from "./RegionsEditor";
 import type { HostClient } from "../../hostclient";
 import {
   CLOUD_JOBS_SECTIONS,
@@ -40,6 +41,8 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
   const [document, setDocument] = useState<CloudJobsSettingsDocument | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
   const [error, setError] = useState("");
+  const [regionsValid, setRegionsValid] = useState(true);
+  const [regionVersion, setRegionVersion] = useState(0);
 
   const load = React.useCallback(async () => {
     setPhase("loading");
@@ -49,6 +52,8 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
         throw new Error("the settings document is malformed");
       }
       setDocument(result.value);
+      setRegionsValid(true);
+      setRegionVersion((version) => version + 1);
       setError("");
       setPhase("ready");
     } catch (err) {
@@ -62,7 +67,7 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
   }, [load]);
 
   const save = async () => {
-    if (!document) {
+    if (!document || !regionsValid) {
       return;
     }
     setPhase("saving");
@@ -75,6 +80,8 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
         throw new Error("the settings document is malformed");
       }
       setDocument(result.value);
+      setRegionsValid(true);
+      setRegionVersion((version) => version + 1);
       setError("");
       setPhase("ready");
     } catch (err) {
@@ -107,7 +114,7 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
         <button
           type="button"
           onClick={() => void save()}
-          disabled={phase !== "ready"}
+          disabled={phase !== "ready" || !regionsValid}
           className="rounded border border-it-border px-3 py-1 text-it-text disabled:opacity-50"
         >
           {phase === "saving" ? "Saving…" : "Save"}
@@ -136,6 +143,8 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
             ))}
             {section.id === "placement" ? (
               <RegionsEditor
+                key={regionVersion}
+                onValidityChange={setRegionsValid}
                 regions={document.default_regions}
                 onChange={(regions) => setField("default_regions", regions)}
               />
@@ -229,64 +238,6 @@ function FieldRow({
           className="grow rounded border border-it-border bg-it-window-bg px-2 py-1 text-it-text"
         />
       )}
-    </div>
-  );
-}
-
-function RegionsEditor({
-  regions,
-  onChange,
-}: {
-  regions: Record<string, string>;
-  onChange: (regions: Record<string, string>) => void;
-}) {
-  const entries = Object.entries(regions).sort(([a], [b]) => a.localeCompare(b));
-  return (
-    <div className="flex flex-col gap-2" data-testid="default-regions-editor">
-      <span className="w-56 shrink-0 text-it-muted-text">Default regions</span>
-      {entries.map(([provider, region]) => (
-        <div key={provider} className="flex items-center gap-2 pl-56">
-          <input
-            type="text"
-            value={provider}
-            aria-label={`region provider ${provider}`}
-            onChange={(event) => {
-              const next = { ...regions };
-              delete next[provider];
-              next[event.target.value] = region;
-              onChange(next);
-            }}
-            className="w-40 rounded border border-it-border bg-it-window-bg px-2 py-1 text-it-text"
-          />
-          <input
-            type="text"
-            value={region}
-            aria-label={`region for ${provider}`}
-            onChange={(event) => onChange({ ...regions, [provider]: event.target.value })}
-            className="w-40 rounded border border-it-border bg-it-window-bg px-2 py-1 text-it-text"
-          />
-          <button
-            type="button"
-            onClick={() => {
-              const next = { ...regions };
-              delete next[provider];
-              onChange(next);
-            }}
-            className="rounded border border-it-border px-2 py-1 text-it-text"
-          >
-            Remove
-          </button>
-        </div>
-      ))}
-      <div className="pl-56">
-        <button
-          type="button"
-          onClick={() => onChange({ ...regions, "": "" })}
-          className="rounded border border-it-border px-2 py-1 text-it-text"
-        >
-          Add region
-        </button>
-      </div>
     </div>
   );
 }
