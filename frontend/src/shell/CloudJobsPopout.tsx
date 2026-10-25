@@ -45,6 +45,7 @@ export function CloudJobsPopout(): React.ReactElement {
   return (
     <CloudJobsWindow
       badge={badge}
+      client={client}
       offer={<RunInCloudOffer offer={offer} notice={notice} onPrefill={onPrefill} />}
     />
   );
