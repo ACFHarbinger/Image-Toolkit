@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Image Search rides the bridge (Tauri L-03, #897): the `library.search` catalog page is a HostClient-driven view (filename, group, tag and format filters over `library.list_images`) replacing the legacy Rust-invoke `SearchTab` — the last webview consumer of the `db.rs` `search_files` duplicate, which L-07 (#901) can now retire on the Rust side. Parity differential over the legacy pattern/format search shape; ledger row `both`.
+
 - Library listings ride the bridge (Tauri L-02, #896): a `library` capability (`library.list_images` / `library.list_tags` / `library.list_groups`) over a Qt-free `middleware/src/services/library/` projection service, a HostClient-driven `library.listings` catalog view (groups/subgroups sidebar, tag and filename filters, paginated rows), and a parity differential against the legacy `search_files` row shape. The store reader arrives with the daemon lease; until it does, results stay `available: false` and no `library.db` is opened (Gate B closed). The record surface mirrors the Rust `db.rs` `search_files`/`get_all_tags`/`get_all_groups` paths that L-07 (#901) retires.
 
 ### Changed

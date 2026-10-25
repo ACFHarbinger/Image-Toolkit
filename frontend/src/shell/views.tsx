@@ -1,11 +1,11 @@
 import { ComponentType, ReactNode } from "react";
 import { ConvertPilot } from "../views/ConvertPilot";
 import { Listings } from "../views/library/Listings";
+import { ImageSearch } from "../views/library/ImageSearch";
 import MergeTab from "../tabs/core/MergeTab";
 import DeleteTab from "../tabs/core/DeleteTab";
 import WallpaperTab from "../tabs/core/WallpaperTab";
 import { ImageExtractorTab } from "../tabs/core/ImageExtractorTab";
-import SearchTab from "../tabs/database/SearchTab";
 import DatabaseTab from "../tabs/database/DatabaseTab";
 import ScanMetadataTab from "../tabs/database/ScanMetadataTab";
 import DriveSyncTab from "../tabs/web/DriveSyncTab";
@@ -38,7 +38,7 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "system.similarity": DeleteTab,
   "system.extractor": ImageExtractorTab,
   "system.wallpaper": WallpaperTab,
-  "library.search": SearchTab,
+  "library.search": ImageSearch,
   "library.management": DatabaseTab,
   "library.scan": ScanMetadataTab,
   "web.crawler": ImageCrawlerTab,
@@ -70,6 +70,8 @@ export function CatalogView({
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
   const hostClientProps =
-    entry.id === "system.convert" || entry.id === "library.listings" ? { hostClient } : {};
+    ["system.convert", "library.listings", "library.search"].includes(entry.id)
+      ? { hostClient }
+      : {};
   return <View showModal={showModal} {...extra} {...hostClientProps} />;
 }

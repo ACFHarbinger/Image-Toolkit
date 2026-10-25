@@ -1,0 +1,7 @@
+{
+  "id": "library.search.pattern-filters-shape",
+  "feature": "library.search",
+  "kind": "differential",
+  "entry": "migration/scenarios/library_search.py",
+  "ignore": []
+}
