@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import io
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Any
 
@@ -67,20 +68,19 @@ def frame_png(path: str) -> dict[str, Any]:
     if not file.is_file():
         return blank
     try:
-        with Image.open(file) as image:
-            frame = image.convert("RGB")
+        with _open_rgba(path) as frame, io.BytesIO() as buffer:
             frame.thumbnail((_FRAME_EDGE, _FRAME_EDGE))
-            buffer = io.BytesIO()
             frame.save(buffer, format="PNG")
             width, height = frame.size
-            frame.close()
-    except (UnidentifiedImageError, OSError) as exc:
+            encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as exc:
         return {"path": path, "width": 0, "height": 0, "png_base64": "", "error": str(exc)}
+
     return {
         "path": path,
         "width": width,
         "height": height,
-        "png_base64": base64.b64encode(buffer.getvalue()).decode("ascii"),
+        "png_base64": encoded,
         "error": "",
     }
 
@@ -96,65 +96,55 @@ def _unavailable(reason: str) -> dict[str, Any]:
     }
 
 
-def _open_rgb(path: str) -> Image.Image:
-    """Decode RGB only after the header dimensions are within the pixel cap.
+def _check_dimensions(image: Image.Image) -> None:
+    width, height = image.size
+    if width < 1 or height < 1 or width * height > _MAX_PIXELS:
+        raise ValueError("image is too large")
 
-    ``Image.open`` reads the header. ``convert`` allocates the buffer, so a
-    file that is too large is closed before that conversion.
-    """
-    file = Path(path)
-    if not file.is_file():
-        raise FileNotFoundError(path)
-    image = Image.open(file)
-    try:
-        width, height = image.size
-        if width < 1 or height < 1 or width * height > _MAX_PIXELS:
-            raise ValueError("image is too large")
-        # convert() returns the same object when the mode is already RGB.
-        rgb = image.convert("RGB")
-        if rgb is image:
-            rgb = image.copy()
-        return rgb
-    finally:
-        image.close()
+
+def _open_rgba(path: str) -> Image.Image:
+    with Image.open(path) as image:
+        _check_dimensions(image)
+        return image.convert("RGBA")
+
+
+def _premultiplied_rgb(image: Image.Image) -> Image.Image:
+    with image.convert("RGB") as rgb, image.getchannel("A") as alpha, alpha.convert("RGB") as mask:
+        return ImageChops.multiply(rgb, mask)
 
 
 def difference_map(left: str, right: str, boost: int) -> dict[str, Any]:
-    left_image = None
-    right_image = None
     try:
-        try:
-            left_image = _open_rgb(left)
-            right_image = _open_rgb(right)
-        except FileNotFoundError as exc:
-            return _unavailable(f"not a file: {exc}")
-        except ValueError as exc:
-            return _unavailable(str(exc))
-        except (UnidentifiedImageError, OSError) as exc:
-            return _unavailable(str(exc))
-        if left_image.size != right_image.size:
-            return _unavailable("size mismatch")
-        width, height = left_image.size
-        diff = ImageChops.difference(left_image, right_image)
-    finally:
-        if left_image is not None:
-            left_image.close()
-        if right_image is not None:
-            right_image.close()
-    raw = diff.tobytes()
-    total = sum(raw)
-    count = len(raw)
-    mean = (total / count) if count else 0.0
-    if boost != 1:
-        diff = diff.point(lambda channel: min(255, channel * boost))
-    buffer = io.BytesIO()
-    diff.save(buffer, format="PNG")
-    diff.close()
-    return {
-        "available": True,
-        "width": width,
-        "height": height,
-        "mean_abs": mean,
-        "reason": "",
-        "png_base64": base64.b64encode(buffer.getvalue()).decode("ascii"),
-    }
+        with ExitStack() as stack:
+            inputs = [stack.enter_context(Image.open(path)) for path in (left, right)]
+            # Inspect both headers before allocating either decoded frame.
+            for image in inputs:
+                _check_dimensions(image)
+            if inputs[0].size != inputs[1].size:
+                return _unavailable("size mismatch")
+            frames = [stack.enter_context(image.convert("RGBA")) for image in inputs]
+            colors = [stack.enter_context(_premultiplied_rgb(image)) for image in frames]
+            color_diff = stack.enter_context(ImageChops.difference(*colors))
+            alphas = [stack.enter_context(image.getchannel("A")) for image in frames]
+            alpha_diff = stack.enter_context(ImageChops.difference(*alphas))
+            alpha_rgb = stack.enter_context(alpha_diff.convert("RGB"))
+            # Alpha-only changes must be visible; hidden RGB values must not be.
+            diff = stack.enter_context(ImageChops.lighter(color_diff, alpha_rgb))
+            raw = diff.tobytes()
+            mean = sum(raw) / len(raw) if raw else 0.0
+            if boost != 1:
+                diff = stack.enter_context(diff.point(lambda channel: min(255, channel * boost)))
+            with io.BytesIO() as buffer:
+                diff.save(buffer, format="PNG")
+                return {
+                    "available": True,
+                    "width": diff.width,
+                    "height": diff.height,
+                    "mean_abs": mean,
+                    "reason": "",
+                    "png_base64": base64.b64encode(buffer.getvalue()).decode("ascii"),
+                }
+    except FileNotFoundError as exc:
+        return _unavailable(f"not a file: {exc}")
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as exc:
+        return _unavailable(str(exc))

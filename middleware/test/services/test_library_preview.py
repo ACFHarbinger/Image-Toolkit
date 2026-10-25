@@ -128,3 +128,70 @@ def test_size_mismatch_does_not_resize(tmp_path) -> None:
     assert result["available"] is False
     assert result["reason"] == "size mismatch"
     assert result["png_base64"] == ""
+
+
+def test_frame_rejects_oversized_header_before_pixel_decode(tmp_path, monkeypatch):
+    from middleware.src.services.library_preview import preview
+
+    path = tmp_path / "oversized.png"
+    _png_header(path, 8000, 8000)
+
+    def refuse_decode(*args, **kwargs):
+        raise AssertionError("pixel decoding must not occur")
+
+    monkeypatch.setattr(Image.Image, "convert", refuse_decode)
+    result = preview.frame_png(str(path))
+    assert result["error"] == "image is too large"
+    assert result["png_base64"] == ""
+
+
+def test_difference_checks_both_headers_before_decoding(tmp_path, monkeypatch):
+    left, right = tmp_path / "left.png", tmp_path / "right.png"
+    _png(left, (255, 0, 0))
+    _png_header(right, 8000, 8000)
+
+    def refuse_decode(*args, **kwargs):
+        raise AssertionError("pixel decoding must not occur")
+
+    monkeypatch.setattr(Image.Image, "convert", refuse_decode)
+    assert difference_map(str(left), str(right), 1)["reason"] == "image is too large"
+
+
+def test_png_preview_keeps_transparency(tmp_path):
+    path = tmp_path / "transparent.png"
+    with Image.new("RGBA", (1, 1), (255, 0, 0, 0)) as image:
+        image.save(path)
+    result = frame_png(str(path))
+    with Image.open(io.BytesIO(base64.b64decode(result["png_base64"]))) as preview:
+        assert preview.mode == "RGBA"
+        assert preview.getpixel((0, 0))[3] == 0
+
+
+def test_gif_preview_keeps_palette_transparency(tmp_path):
+    path = tmp_path / "transparent.gif"
+    with Image.new("P", (1, 1), 0) as image:
+        image.putpalette([255, 0, 0] + [0, 0, 0] * 255)
+        image.save(path, transparency=0)
+    result = frame_png(str(path))
+    with Image.open(io.BytesIO(base64.b64decode(result["png_base64"]))) as preview:
+        assert preview.getpixel((0, 0))[3] == 0
+
+
+def test_difference_detects_alpha_only_changes(tmp_path):
+    left, right = tmp_path / "left.png", tmp_path / "right.png"
+    for path, alpha in [(left, 0), (right, 255)]:
+        with Image.new("RGBA", (1, 1), (255, 0, 0, alpha)) as image:
+            image.save(path)
+    result = difference_map(str(left), str(right), 1)
+    assert result["mean_abs"] > 0
+    with Image.open(io.BytesIO(base64.b64decode(result["png_base64"]))) as diff:
+        assert diff.mode == "RGB"
+        assert diff.getpixel((0, 0)) != (0, 0, 0)
+
+
+def test_difference_ignores_rgb_hidden_by_full_transparency(tmp_path):
+    left, right = tmp_path / "left.png", tmp_path / "right.png"
+    for path, color in [(left, (255, 0, 0, 0)), (right, (0, 0, 255, 0))]:
+        with Image.new("RGBA", (1, 1), color) as image:
+            image.save(path)
+    assert difference_map(str(left), str(right), 1)["mean_abs"] == 0

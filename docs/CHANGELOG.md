@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Library preview checks header dimensions before decoding frames or comparison inputs, preserves PNG/GIF transparency, and includes alpha changes in visible difference maps (#895).
 - Cloud Jobs preserves populated shard payloads by locking their count, and retains the request draft when switching workspace tabs (#992).
 - Cloud Jobs generates a fresh request ID after acceptance while retaining the existing ID for failed-submission retries and preserving form parameters (#992).
 - Cloud Jobs confirmation uses backend preflight findings and required acknowledgment IDs, rejects blocked or unacknowledged submissions, and ignores stale preview responses (#992).
