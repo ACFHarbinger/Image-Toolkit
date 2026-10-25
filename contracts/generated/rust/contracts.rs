@@ -1,4 +1,4 @@
-// GENERATED — contract hash 6351f82fd45a8c5d6143cf73e3570df6c3d8d70c885f1e2ccfcf5d09f3540f21. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 3233ab7fcaaa28c5e93c830b5852f2ef5d5181dba831967ce1073e10c44d75ec. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -156,6 +156,40 @@ pub struct PreviewResult {
     pub capability_override: bool,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ResourceRow {
+    pub provider: String,
+    pub kind: String,
+    pub resource_id: String,
+    pub region: String,
+    pub job_id: String,
+    pub orphan: bool,
+}
+
+pub type ResourcesParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ResourcesResult {
+    pub available: bool,
+    pub resources: Vec<ResourceRow>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SpendByProvider {
+    pub provider: String,
+    pub actual_usd: f64,
+}
+
+pub type SpendParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SpendResult {
+    pub available: bool,
+    pub month_actual_usd: f64,
+    pub reserved_usd: f64,
+    pub by_provider: Vec<SpendByProvider>,
+}
+
 pub type SummaryParams = std::collections::HashMap<String, serde_json::Value>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -163,6 +197,18 @@ pub struct SummaryResult {
     pub running: i64,
     pub reserved_usd: f64,
     pub available: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct TerminateParams {
+    pub resource_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct TerminateResult {
+    pub accepted: bool,
+    pub resource_id: String,
+    pub reason: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

@@ -1,4 +1,4 @@
-# GENERATED — contract hash 6351f82fd45a8c5d6143cf73e3570df6c3d8d70c885f1e2ccfcf5d09f3540f21. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 3233ab7fcaaa28c5e93c830b5852f2ef5d5181dba831967ce1073e10c44d75ec. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -150,10 +150,52 @@ class PreviewResult:
 
 
 @dataclass(frozen=True)
+class ResourceRow:
+    provider: str
+    kind: str
+    resource_id: str
+    region: str
+    job_id: str
+    orphan: bool
+
+
+@dataclass(frozen=True)
+class ResourcesResult:
+    available: bool
+    resources: list[ResourceRow]
+
+
+@dataclass(frozen=True)
+class SpendByProvider:
+    provider: str
+    actual_usd: float
+
+
+@dataclass(frozen=True)
+class SpendResult:
+    available: bool
+    month_actual_usd: float
+    reserved_usd: float
+    by_provider: list[SpendByProvider]
+
+
+@dataclass(frozen=True)
 class SummaryResult:
     running: int
     reserved_usd: float
     available: bool
+
+
+@dataclass(frozen=True)
+class TerminateParams:
+    resource_id: str
+
+
+@dataclass(frozen=True)
+class TerminateResult:
+    accepted: bool
+    resource_id: str
+    reason: str
 
 
 @dataclass(frozen=True)
@@ -358,6 +400,12 @@ class PingResult:
 
 
 JobSpecDocument = dict[str, Any]
+
+
+ResourcesParams = dict[str, Any]
+
+
+SpendParams = dict[str, Any]
 
 
 SummaryParams = dict[str, Any]

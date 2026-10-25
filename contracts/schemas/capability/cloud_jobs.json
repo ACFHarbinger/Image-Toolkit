@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "capability/cloud_jobs.json",
   "title": "CloudJobsCapability",
-  "description": "Cloud jobs orchestration: summary badge (#847), preflight preview / submit (#850), and jobs table / detail (#848).",
+  "description": "cloud.jobs window (#847), jobs table and detail (#848), resources, spend, and terminate (#849), and preflight preview / submit (#850). The sidecar projects injected rows. It does not open cloud_jobs.db. Terminate does not call a provider. Preview and submit do not invent a price when no service is attached.",
   "type": "object",
   "$defs": {
     "SummaryParams": {
@@ -15,11 +15,23 @@
       "title": "SummaryResult",
       "type": "object",
       "additionalProperties": false,
-      "required": ["running", "reserved_usd", "available"],
+      "required": [
+        "running",
+        "reserved_usd",
+        "available"
+      ],
       "properties": {
-        "running": { "type": "integer", "minimum": 0 },
-        "reserved_usd": { "type": "number", "minimum": 0 },
-        "available": { "type": "boolean" }
+        "running": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reserved_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "available": {
+          "type": "boolean"
+        }
       }
     },
     "JobSpecDocument": {
@@ -30,37 +42,85 @@
       "title": "EstimateBreakdown",
       "type": "object",
       "additionalProperties": false,
-      "required": ["compute", "startup", "ipv4", "storage", "egress", "retries", "total"],
+      "required": [
+        "compute",
+        "startup",
+        "ipv4",
+        "storage",
+        "egress",
+        "retries",
+        "total"
+      ],
       "properties": {
-        "compute": { "type": "number" },
-        "startup": { "type": "number" },
-        "ipv4": { "type": "number" },
-        "storage": { "type": "number" },
-        "egress": { "type": "number" },
-        "retries": { "type": "number" },
-        "total": { "type": "number" }
+        "compute": {
+          "type": "number"
+        },
+        "startup": {
+          "type": "number"
+        },
+        "ipv4": {
+          "type": "number"
+        },
+        "storage": {
+          "type": "number"
+        },
+        "egress": {
+          "type": "number"
+        },
+        "retries": {
+          "type": "number"
+        },
+        "total": {
+          "type": "number"
+        }
       }
     },
     "PreviewIssue": {
       "title": "PreviewIssue",
       "type": "object",
       "additionalProperties": false,
-      "required": ["stage", "severity", "message", "ack_id", "targets"],
+      "required": [
+        "stage",
+        "severity",
+        "message",
+        "ack_id",
+        "targets"
+      ],
       "properties": {
-        "stage": { "type": "string" },
-        "severity": { "type": "string" },
-        "message": { "type": "string" },
-        "ack_id": { "type": ["string", "null"] },
-        "targets": { "type": "array", "items": { "type": "string" } }
+        "stage": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "ack_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "PreviewParams": {
       "title": "PreviewParams",
       "type": "object",
       "additionalProperties": false,
-      "required": ["spec"],
+      "required": [
+        "spec"
+      ],
       "properties": {
-        "spec": { "$ref": "#/$defs/JobSpecDocument" }
+        "spec": {
+          "$ref": "#/$defs/JobSpecDocument"
+        }
       }
     },
     "PreviewResult": {
@@ -87,44 +147,109 @@
         "capability_override"
       ],
       "properties": {
-        "available": { "type": "boolean" },
-        "reason": { "type": "string" },
-        "job_id": { "type": "string" },
-        "kind": { "type": "string" },
-        "provider": { "type": "string" },
-        "region": { "type": "string" },
-        "mode": { "type": "string" },
-        "storage": { "type": "string" },
-        "data_class": { "type": "string" },
-        "shards": { "type": "integer", "minimum": 0 },
-        "staging_bytes": { "type": "integer", "minimum": 0 },
-        "estimate_known": { "type": "boolean" },
-        "estimate": { "$ref": "#/$defs/EstimateBreakdown" },
-        "price_age_days": { "type": ["integer", "null"] },
-        "issues": { "type": "array", "items": { "$ref": "#/$defs/PreviewIssue" } },
-        "needs_ack": { "type": "array", "items": { "type": "string" } },
-        "capability_override": { "type": "boolean" }
+        "available": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "job_id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "storage": {
+          "type": "string"
+        },
+        "data_class": {
+          "type": "string"
+        },
+        "shards": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "staging_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "estimate_known": {
+          "type": "boolean"
+        },
+        "estimate": {
+          "$ref": "#/$defs/EstimateBreakdown"
+        },
+        "price_age_days": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PreviewIssue"
+          }
+        },
+        "needs_ack": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "capability_override": {
+          "type": "boolean"
+        }
       }
     },
     "CloudSubmitParams": {
       "title": "CloudSubmitParams",
       "type": "object",
       "additionalProperties": false,
-      "required": ["spec", "acknowledged"],
+      "required": [
+        "spec",
+        "acknowledged"
+      ],
       "properties": {
-        "spec": { "$ref": "#/$defs/JobSpecDocument" },
-        "acknowledged": { "type": "array", "items": { "type": "string" } }
+        "spec": {
+          "$ref": "#/$defs/JobSpecDocument"
+        },
+        "acknowledged": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "CloudSubmitResult": {
       "title": "CloudSubmitResult",
       "type": "object",
       "additionalProperties": false,
-      "required": ["accepted", "job_id", "reason"],
+      "required": [
+        "accepted",
+        "job_id",
+        "reason"
+      ],
       "properties": {
-        "accepted": { "type": "boolean" },
-        "job_id": { "type": "string" },
-        "reason": { "type": "string" }
+        "accepted": {
+          "type": "boolean"
+        },
+        "job_id": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
       }
     },
     "ListJobsParams": {
@@ -132,41 +257,95 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "state": { "type": "string" },
-        "provider": { "type": "string" },
-        "kind": { "type": "string" },
-        "search": { "type": "string" },
-        "limit": { "type": "integer", "minimum": 1, "maximum": 500 }
+        "state": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "search": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        }
       }
     },
     "JobSummaryItem": {
       "title": "JobSummaryItem",
       "type": "object",
       "additionalProperties": false,
-      "required": ["job_id", "kind", "title", "state", "provider", "created_at", "cost_usd", "shards_total", "shards_done"],
+      "required": [
+        "job_id",
+        "kind",
+        "title",
+        "state",
+        "provider",
+        "created_at",
+        "cost_usd",
+        "shards_total",
+        "shards_done"
+      ],
       "properties": {
-        "job_id": { "type": "string" },
-        "kind": { "type": "string" },
-        "title": { "type": "string" },
-        "state": { "type": "string" },
-        "provider": { "type": "string" },
-        "created_at": { "type": "number" },
-        "started_at": { "type": ["number", "null"] },
-        "ended_at": { "type": ["number", "null"] },
-        "cost_usd": { "type": "number" },
-        "shards_total": { "type": "integer" },
-        "shards_done": { "type": "integer" }
+        "job_id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "number"
+        },
+        "started_at": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "ended_at": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "cost_usd": {
+          "type": "number"
+        },
+        "shards_total": {
+          "type": "integer"
+        },
+        "shards_done": {
+          "type": "integer"
+        }
       }
     },
     "ListJobsResult": {
       "title": "ListJobsResult",
       "type": "object",
       "additionalProperties": false,
-      "required": ["jobs"],
+      "required": [
+        "jobs"
+      ],
       "properties": {
         "jobs": {
           "type": "array",
-          "items": { "$ref": "#/$defs/JobSummaryItem" }
+          "items": {
+            "$ref": "#/$defs/JobSummaryItem"
+          }
         }
       }
     },
@@ -174,85 +353,329 @@
       "title": "JobDetailParams",
       "type": "object",
       "additionalProperties": false,
-      "required": ["job_id"],
+      "required": [
+        "job_id"
+      ],
       "properties": {
-        "job_id": { "type": "string", "minLength": 1 }
+        "job_id": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "JobEventItem": {
       "title": "JobEventItem",
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "ts", "type", "data"],
+      "required": [
+        "id",
+        "ts",
+        "type",
+        "data"
+      ],
       "properties": {
-        "id": { "type": "integer" },
-        "ts": { "type": "number" },
-        "type": { "type": "string" },
-        "data": { "type": "object" }
+        "id": {
+          "type": "integer"
+        },
+        "ts": {
+          "type": "number"
+        },
+        "type": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object"
+        }
       }
     },
     "JobMetrics": {
       "title": "JobMetrics",
       "type": "object",
       "additionalProperties": false,
-      "required": ["gpu_util_pct", "vram_used_mb", "peak_vcpu"],
+      "required": [
+        "gpu_util_pct",
+        "vram_used_mb",
+        "peak_vcpu"
+      ],
       "properties": {
-        "gpu_util_pct": { "type": "number" },
-        "vram_used_mb": { "type": "number" },
-        "peak_vcpu": { "type": "number" }
+        "gpu_util_pct": {
+          "type": "number"
+        },
+        "vram_used_mb": {
+          "type": "number"
+        },
+        "peak_vcpu": {
+          "type": "number"
+        }
       }
     },
     "JobSpend": {
       "title": "JobSpend",
       "type": "object",
       "additionalProperties": false,
-      "required": ["cost_so_far_usd", "reserved_usd", "max_spend_usd"],
+      "required": [
+        "cost_so_far_usd",
+        "reserved_usd",
+        "max_spend_usd"
+      ],
       "properties": {
-        "cost_so_far_usd": { "type": "number" },
-        "reserved_usd": { "type": "number" },
-        "max_spend_usd": { "type": "number" }
+        "cost_so_far_usd": {
+          "type": "number"
+        },
+        "reserved_usd": {
+          "type": "number"
+        },
+        "max_spend_usd": {
+          "type": "number"
+        }
       }
     },
     "DaemonStatus": {
       "title": "DaemonStatus",
       "type": "object",
       "additionalProperties": false,
-      "required": ["lease_owner", "wal_depth", "last_poll_ts"],
+      "required": [
+        "lease_owner",
+        "wal_depth",
+        "last_poll_ts"
+      ],
       "properties": {
-        "lease_owner": { "type": "string" },
-        "wal_depth": { "type": "integer" },
-        "last_poll_ts": { "type": "number" }
+        "lease_owner": {
+          "type": "string"
+        },
+        "wal_depth": {
+          "type": "integer"
+        },
+        "last_poll_ts": {
+          "type": "number"
+        }
       }
     },
     "JobDetailResult": {
       "title": "JobDetailResult",
       "type": "object",
       "additionalProperties": false,
-      "required": ["job_id", "kind", "title", "state", "provider", "created_at", "events", "outputs", "logs", "metrics", "spend", "daemon_status"],
+      "required": [
+        "job_id",
+        "kind",
+        "title",
+        "state",
+        "provider",
+        "created_at",
+        "events",
+        "outputs",
+        "logs",
+        "metrics",
+        "spend",
+        "daemon_status"
+      ],
       "properties": {
-        "job_id": { "type": "string" },
-        "kind": { "type": "string" },
-        "title": { "type": "string" },
-        "state": { "type": "string" },
-        "provider": { "type": "string" },
-        "created_at": { "type": "number" },
-        "started_at": { "type": ["number", "null"] },
-        "ended_at": { "type": ["number", "null"] },
+        "job_id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "number"
+        },
+        "started_at": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "ended_at": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
         "events": {
           "type": "array",
-          "items": { "$ref": "#/$defs/JobEventItem" }
+          "items": {
+            "$ref": "#/$defs/JobEventItem"
+          }
         },
         "outputs": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "logs": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
-        "metrics": { "$ref": "#/$defs/JobMetrics" },
-        "spend": { "$ref": "#/$defs/JobSpend" },
-        "daemon_status": { "$ref": "#/$defs/DaemonStatus" }      }
+        "metrics": {
+          "$ref": "#/$defs/JobMetrics"
+        },
+        "spend": {
+          "$ref": "#/$defs/JobSpend"
+        },
+        "daemon_status": {
+          "$ref": "#/$defs/DaemonStatus"
+        }
+      }
+    },
+    "ResourcesParams": {
+      "title": "ResourcesParams",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "ResourceRow": {
+      "title": "ResourceRow",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "kind",
+        "resource_id",
+        "region",
+        "job_id",
+        "orphan"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "resource_id": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "job_id": {
+          "type": "string"
+        },
+        "orphan": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ResourcesResult": {
+      "title": "ResourcesResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available",
+        "resources"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRow"
+          }
+        }
+      }
+    },
+    "SpendParams": {
+      "title": "SpendParams",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "SpendByProvider": {
+      "title": "SpendByProvider",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "actual_usd"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "actual_usd": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "SpendResult": {
+      "title": "SpendResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available",
+        "month_actual_usd",
+        "reserved_usd",
+        "by_provider"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "month_actual_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "reserved_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "by_provider": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpendByProvider"
+          }
+        }
+      }
+    },
+    "TerminateParams": {
+      "title": "TerminateParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resource_id"
+      ],
+      "properties": {
+        "resource_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "TerminateResult": {
+      "title": "TerminateResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accepted",
+        "resource_id",
+        "reason"
+      ],
+      "properties": {
+        "accepted": {
+          "type": "boolean"
+        },
+        "resource_id": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
     }
   }
 }

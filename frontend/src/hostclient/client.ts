@@ -9,11 +9,14 @@ import type {
   ConvertResult,
   PreviewParams,
   PreviewResult,
-  SummaryResult,
   JobDetailParams,
   JobDetailResult,
   ListJobsParams,
   ListJobsResult,
+  ResourcesResult,
+  SpendResult,
+  SummaryResult,
+  TerminateResult,
   HandshakeResult,
   JobStatus,
   ListParams,
@@ -112,6 +115,21 @@ export class HostClient {
   async cloudJobsDetail(params: JobDetailParams): Promise<JobDetailResult> {
     await this.connect();
     return this.send<JobDetailResult>("cloud_jobs.detail", params as unknown as Record<string, unknown>);
+  }
+
+  async cloudJobsResources(): Promise<ResourcesResult> {
+    await this.connect();
+    return this.send<ResourcesResult>("cloud_jobs.resources", {});
+  }
+
+  async cloudJobsSpend(): Promise<SpendResult> {
+    await this.connect();
+    return this.send<SpendResult>("cloud_jobs.spend", {});
+  }
+
+  async cloudJobsTerminate(resourceId: string): Promise<TerminateResult> {
+    await this.connect();
+    return this.send<TerminateResult>("cloud_jobs.terminate", { resource_id: resourceId });
   }
 
   async convert(params: ConvertParams): Promise<ConvertResult> {

@@ -1,4 +1,4 @@
-// GENERATED — contract hash 6351f82fd45a8c5d6143cf73e3570df6c3d8d70c885f1e2ccfcf5d09f3540f21. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 3233ab7fcaaa28c5e93c830b5852f2ef5d5181dba831967ce1073e10c44d75ec. Do not edit; edit the schema and regenerate.
 
 export interface CloudSubmitParams {
   readonly spec: JobSpecDocument;
@@ -111,9 +111,41 @@ export interface PreviewResult {
   readonly needs_ack: Array<string>;
   readonly capability_override: boolean;
 }
+export interface ResourceRow {
+  readonly provider: string;
+  readonly kind: string;
+  readonly resource_id: string;
+  readonly region: string;
+  readonly job_id: string;
+  readonly orphan: boolean;
+}
+export type ResourcesParams = Record<string, unknown>;
+export interface ResourcesResult {
+  readonly available: boolean;
+  readonly resources: Array<ResourceRow>;
+}
+export interface SpendByProvider {
+  readonly provider: string;
+  readonly actual_usd: number;
+}
+export type SpendParams = Record<string, unknown>;
+export interface SpendResult {
+  readonly available: boolean;
+  readonly month_actual_usd: number;
+  readonly reserved_usd: number;
+  readonly by_provider: Array<SpendByProvider>;
+}
 export type SummaryParams = Record<string, unknown>;
 export interface SummaryResult {
   readonly running: number;
   readonly reserved_usd: number;
   readonly available: boolean;
+}
+export interface TerminateParams {
+  readonly resource_id: string;
+}
+export interface TerminateResult {
+  readonly accepted: boolean;
+  readonly resource_id: string;
+  readonly reason: string;
 }

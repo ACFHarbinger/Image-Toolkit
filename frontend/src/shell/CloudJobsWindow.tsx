@@ -3,14 +3,31 @@ import type { JobDetailResult, JobSummaryItem } from "../../../contracts/generat
 import type { HostClient } from "../hostclient";
 import { JobDetail } from "./JobDetail";
 import { JobsTable } from "./JobsTable";
+import {
+  ResourcesView,
+  SpendView,
+  type CloudResources,
+  type CloudSpend,
+} from "./CloudJobsViews";
+
+const EMPTY_RESOURCES: CloudResources = { available: false, resources: [] };
+const EMPTY_SPEND: CloudSpend = {
+  available: false,
+  month_actual_usd: 0,
+  reserved_usd: 0,
+  by_provider: [],
+};
+const RESOURCE_POLL_MS = 15000;
 
 export interface CloudJobsWindowProps {
   readonly badge: string;
   readonly client?: HostClient | null;
+  readonly resources?: React.ReactNode;
+  readonly spend?: React.ReactNode;
 }
 
-/** Labeled cloud.jobs shell with Jobs table (D2) and Detail view (D2). */
-export function CloudJobsWindow({ badge, client }: CloudJobsWindowProps): React.ReactElement {
+/** Labeled cloud.jobs shell with the jobs table, detail, resources, and spend. */
+export function CloudJobsWindow({ badge, client, resources, spend }: CloudJobsWindowProps): React.ReactElement {
   const [jobs, setJobs] = useState<JobSummaryItem[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -89,6 +106,46 @@ export function CloudJobsWindow({ badge, client }: CloudJobsWindowProps): React.
     };
   }, [client, selectedJobId]);
 
+  const [resourceView, setResourceView] = useState<CloudResources>(EMPTY_RESOURCES);
+  const [spendView, setSpendView] = useState<CloudSpend>(EMPTY_SPEND);
+  const [terminateNotice, setTerminateNotice] = useState("");
+
+  useEffect(() => {
+    if (!client?.cloudJobsResources || !client.cloudJobsSpend) {
+      return;
+    }
+    let stop = false;
+    const load = () => {
+      void client.cloudJobsResources().then((result) => {
+        if (!stop) setResourceView(result);
+      }).catch(() => {
+        if (!stop) setResourceView(EMPTY_RESOURCES);
+      });
+      void client.cloudJobsSpend().then((result) => {
+        if (!stop) setSpendView(result);
+      }).catch(() => {
+        if (!stop) setSpendView(EMPTY_SPEND);
+      });
+    };
+    load();
+    const timer = window.setInterval(load, RESOURCE_POLL_MS);
+    return () => {
+      stop = true;
+      window.clearInterval(timer);
+    };
+  }, [client]);
+
+  const onTerminate = (resourceId: string) => {
+    if (!client?.cloudJobsTerminate) {
+      setTerminateNotice("no daemon lease");
+      return;
+    }
+    void client.cloudJobsTerminate(resourceId).then((result) => {
+      setTerminateNotice(result.reason);
+    }).catch(() => {
+      setTerminateNotice("no daemon lease");
+    });
+  };
 
   return (
     <main data-testid="cloud-jobs-window" className="flex min-h-screen flex-col gap-6 p-6">
@@ -123,14 +180,10 @@ export function CloudJobsWindow({ badge, client }: CloudJobsWindowProps): React.
           cancelUnavailableReason="Cloud cancellation is unavailable until the authenticated cloud command path is connected."
         />
       </section>
-
-      <section data-testid="cloud-jobs-resources" className="flex flex-col gap-2">
-        <h2 className="text-lg font-medium">Resources</h2>
-      </section>
-
-      <section data-testid="cloud-jobs-spend" className="flex flex-col gap-2">
-        <h2 className="text-lg font-medium">Spend</h2>
-      </section>
+      {resources ?? (
+        <ResourcesView view={resourceView} notice={terminateNotice} onTerminate={onTerminate} />
+      )}
+      {spend ?? <SpendView view={spendView} />}
     </main>
   );
 }
