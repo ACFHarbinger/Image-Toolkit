@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Hybrid Image Editor capability and webview integration** (Tauri migration Wave 8, E-02 #915):
+  - **Contracts & Capability:** added `hie` capability (`hie.open_document`, `hie.execute_edit`, `hie.export_document`, `hie.list_capabilities`) with schema `contracts/schemas/capability/hie.json` and method routing in `contracts/methods.toml`.
+  - **Service Layer:** canonical domain service in `middleware/src/services/hie/` (`commands.py`, `protocols.py`, `service.py`) delegating to HIE document session and render-graph operations with graceful offline fallback.
+  - **Sidecar Dispatch:** sidecar handler in `middleware/src/sidecar/handlers/hie.py` dispatched via `SidecarServer._dispatch_hie`.
+  - **Frontend Client & Tab:** added typed methods (`hieOpenDocument`, `hieExecuteEdit`, `hieExportDocument`, `hieListCapabilities`) to `HostClient`, updated `HieEditorTab.tsx` with HostClient integration, and component tests in `HieEditorTab.test.tsx`.
+  - **Ledger & Docs:** registered in `migration/features.toml` (`owner = "Gemini"`, `contract = "hie"`, `service = "middleware/src/services/hie/service.py"`), documentation in `docs/modules/hie.md`.
+
 - Merge, similarity, and extractor probes (#903, #904, #905): `merge.concatenate` joins caller images horizontally or vertically, `similarity.compare` reports average-hash pairs, and `extractor.probe` reads one video with ffprobe. None of them open `library.db`. The placement canvas, file deletion, and frame extraction stay on PySide6.
 - **Library: Scan and Tag service and webview** (Tauri migration Wave 3, L-04 #898).
   - **Contracts & Capability:** added `scan` capability (`scan.directory`, `scan.save_metadata`, `scan.suggest_tags`) with schema `contracts/schemas/capability/scan.json` and method routing in `contracts/methods.toml`.

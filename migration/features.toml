@@ -450,7 +450,7 @@ os_checklist = []
 id = "editor.hybrid"
 kind = "page"
 title = "Hybrid Editor"
-owner = "unclaimed"
+owner = "Gemini"
 wave = "wave-8"
 issue = 915
 status = "pyside-only"
@@ -462,9 +462,9 @@ pyside = [
     "submodules/HIE/gui/src/viewport.py",
 ]
 tauri = ["frontend/src/tabs/editor"]
-service = ""
-contract = ""
-docs = ""
+service = "middleware/src/services/hie/service.py"
+contract = "hie"
+docs = "docs/modules/hie.md"
 scenarios = []
 os_checklist = []
 

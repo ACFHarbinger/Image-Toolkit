@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Layers,
   Wand2,
@@ -10,14 +10,16 @@ import {
   Play,
   Sliders,
 } from "lucide-react";
+import type { HostClient } from "../../hostclient";
 import { getHieHost } from "./host";
 
 export interface HieEditorTabProps {
   showModal: (
     message: string,
-    type: "info" | "success" | "error",
+    type?: "info" | "success" | "error",
     duration?: number
   ) => void;
+  hostClient?: HostClient;
 }
 
 type AssistanceTool = "localized_tone" | "adjust_exposure" | "crop";
@@ -33,7 +35,7 @@ interface ToolOption {
 /**
  * Hybrid Image Editor tab for Image-Toolkit's React/Tauri frontend.
  */
-export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal }) => {
+export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal, hostClient }) => {
   const host = useMemo(() => getHieHost(), []);
   const [selectedTool, setSelectedTool] = useState<AssistanceTool>("localized_tone");
   const [proposalReady, setProposalReady] = useState(false);
@@ -42,6 +44,12 @@ export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal }) => {
   const [activeFrame, setActiveFrame] = useState(1);
   const [totalFrames, setTotalFrames] = useState(1);
   const [documentId, setDocumentId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (hostClient?.hieListCapabilities) {
+      void hostClient.hieListCapabilities().catch(() => {});
+    }
+  }, [hostClient]);
 
   const tools: ToolOption[] = [
     {
@@ -70,11 +78,25 @@ export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal }) => {
   const handleOpenMedia = async () => {
     try {
       showModal("Select image or video sequence for Hybrid Image Editor...", "info", 2000);
-      const result = await host.openMedia();
-      const openedId =
-        result && typeof result === "object" && "documentId" in result
-          ? result.documentId
-          : undefined;
+      let openedId: string | undefined;
+      let frameCount = 1;
+      if (hostClient?.hieOpenDocument) {
+        const result = await hostClient.hieOpenDocument({
+          source: "/sample-editor.png",
+          document_id: documentId ?? undefined,
+        });
+        if (!result.success) {
+          throw new Error(result.error ?? "Failed to open document");
+        }
+        openedId = result.document_id;
+        frameCount = result.frame_count || 1;
+      } else {
+        const result = await host.openMedia();
+        openedId =
+          result && typeof result === "object" && "documentId" in result
+            ? result.documentId
+            : undefined;
+      }
       if (openedId) {
         setDocumentId(openedId);
       } else {
@@ -82,8 +104,8 @@ export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal }) => {
         setDocumentId((prev) => prev ?? `local-${Date.now().toString(16)}`);
       }
       setActiveFrame(1);
-      setTotalFrames(1);
-      setStatusMessage("Media sequence loaded: 1 frame (still image paradigm)");
+      setTotalFrames(frameCount);
+      setStatusMessage(`Media sequence loaded: ${frameCount} frame (still image paradigm)`);
       setSaveState("MODIFIED");
       host.notify("Media sequence loaded");
     } catch (err: unknown) {
@@ -94,7 +116,19 @@ export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal }) => {
 
   const handleExport = async () => {
     try {
-      await host.exportDocument(documentId ?? undefined);
+      if (hostClient?.hieExportDocument) {
+        const result = await hostClient.hieExportDocument({
+          document_id: documentId ?? "doc-session",
+          output_path: "/tmp/hie-export.png",
+          format: "png",
+          quality: 95,
+        });
+        if (!result.success) {
+          throw new Error(result.error ?? "Export failed");
+        }
+      } else {
+        await host.exportDocument(documentId ?? undefined);
+      }
       showModal("Exporting document via HIE render pipeline...", "info", 2500);
       setStatusMessage("Export complete");
       host.notify("Export complete");
@@ -108,7 +142,16 @@ export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal }) => {
     const active = tools.find((t) => t.id === selectedTool);
     if (!active) return;
     try {
-      if (documentId && host.previewPolicy) {
+      if (hostClient?.hieExecuteEdit) {
+        const result = await hostClient.hieExecuteEdit({
+          document_id: documentId ?? "doc-session",
+          operation: active.policyName,
+          parameters: { tool: active.id },
+        });
+        if (!result.success) {
+          throw new Error(result.error ?? "Edit operation failed");
+        }
+      } else if (documentId && host.previewPolicy) {
         await host.previewPolicy(documentId, active.policyName);
       }
       setProposalReady(true);
@@ -123,7 +166,15 @@ export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal }) => {
     const active = tools.find((t) => t.id === selectedTool);
     if (!active) return;
     try {
-      if (documentId && host.acceptProposal) {
+      if (hostClient?.hieExecuteEdit) {
+        const result = await hostClient.hieExecuteEdit({
+          document_id: documentId ?? "doc-session",
+          operation: `${active.policyName}_accept`,
+        });
+        if (!result.success) {
+          throw new Error(result.error ?? "Accept proposal failed");
+        }
+      } else if (documentId && host.acceptProposal) {
         await host.acceptProposal(documentId);
       }
       setProposalReady(false);

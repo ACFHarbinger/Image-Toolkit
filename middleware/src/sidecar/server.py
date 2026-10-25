@@ -28,6 +28,7 @@ from middleware.src.bridge import (
     write_frame,
 )
 from middleware.src.services.cloud_jobs.projection import CloudProjection
+from middleware.src.services.hie.service import HieService
 from middleware.src.sidecar.handlers.cloud_jobs import (
     BadgeSource,
     JobsSource,
@@ -41,6 +42,12 @@ from middleware.src.sidecar.handlers.cloud_jobs import (
 from middleware.src.sidecar.handlers.cloud_offer import handle_prefill
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
 from middleware.src.sidecar.handlers.extractor import handle_probe
+from middleware.src.sidecar.handlers.hie import (
+    handle_execute_edit,
+    handle_export_document,
+    handle_list_capabilities,
+    handle_open_document,
+)
 from middleware.src.sidecar.handlers.library import (
     handle_list_groups,
     handle_list_images,
@@ -91,6 +98,7 @@ class SidecarServer:
         scan_service: Any | None = None,
         library_store: Any | None = None,
         library_admin_store: Any | None = None,
+        hie_service: Any | None = None,
     ) -> None:
         self.table = table or catalog()
         self.stdin = stdin or sys.stdin
@@ -102,6 +110,7 @@ class SidecarServer:
         self.scan_service = scan_service
         self.library_store = library_store
         self.library_admin_store = library_admin_store
+        self.hie_service = hie_service or HieService()
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self.cloud_service = None
         self._handshaken = False
@@ -165,14 +174,9 @@ class SidecarServer:
             return self._handshake(params)
         if method == "system.ping":
             return build_ping_result(table=self.table)
-        if method == "jobs.submit":
-            return self.jobs.submit(params)
-        if method == "jobs.status":
-            return self.jobs.status(params)
-        if method == "jobs.list":
-            return self.jobs.list(params)
-        if method == "jobs.cancel":
-            return self.jobs.cancel(params)
+        jobs = self._dispatch_jobs(method, params)
+        if jobs is not _UNHANDLED:
+            return jobs
         if method == "convert.convert":
             return handle_convert(params)
         if method == "convert.convert_batch":
@@ -192,10 +196,24 @@ class SidecarServer:
         scan = self._dispatch_scan(method, params)
         if scan is not _UNHANDLED:
             return scan
+        hie = self._dispatch_hie(method, params)
+        if hie is not _UNHANDLED:
+            return hie
         system_pages = self._dispatch_system_pages(method, params)
         if system_pages is not _UNHANDLED:
             return system_pages
         raise BridgeAppError("bridge.method_not_found", details={"method": method})
+
+    def _dispatch_jobs(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "jobs.submit":
+            return self.jobs.submit(params)
+        if method == "jobs.status":
+            return self.jobs.status(params)
+        if method == "jobs.list":
+            return self.jobs.list(params)
+        if method == "jobs.cancel":
+            return self.jobs.cancel(params)
+        return _UNHANDLED
 
     def _dispatch_cloud(self, method: str, params: dict[str, Any]) -> Any:
         if method == "cloud_jobs.summary":
@@ -265,6 +283,17 @@ class SidecarServer:
             return handle_save_metadata(self.scan_service, params)
         if method == "scan.suggest_tags":
             return handle_suggest_tags(self.scan_service, params)
+        return _UNHANDLED
+
+    def _dispatch_hie(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "hie.open_document":
+            return handle_open_document(self.hie_service, params)
+        if method == "hie.execute_edit":
+            return handle_execute_edit(self.hie_service, params)
+        if method == "hie.export_document":
+            return handle_export_document(self.hie_service, params)
+        if method == "hie.list_capabilities":
+            return handle_list_capabilities(self.hie_service, params)
         return _UNHANDLED
 
     def _dispatch_system_pages(self, method: str, params: dict[str, Any]) -> Any:
