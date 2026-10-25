@@ -62,8 +62,8 @@ WALLPAPER_BACKGROUND_BLUR = 'blur'
 
 # --- wallpaper slideshows (in-app and daemons) ---
 # Seconds added to every slideshow interval to cover the wallpaper
-# transition itself: a 1 min 30 s interval actually advances every 1 min 33 s.
-DEFAULT_TRANSITION_DELAY_SECONDS = 3
+# transition itself: a 1 min 30 s interval actually advances every 1 min 35 s.
+DEFAULT_TRANSITION_DELAY_SECONDS = 5
 MAX_TRANSITION_DELAY_SECONDS = 60
 
 # --- from middleware/src/core/wallpaper/_windows.py ---
