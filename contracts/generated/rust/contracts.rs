@@ -40,7 +40,8 @@ pub struct JobDetailResult {
 pub struct JobEventItem {
     pub id: i64,
     pub ts: f64,
-    pub type: String,
+    #[serde(rename = "type")]
+    pub r#type: String,
     pub data: std::collections::HashMap<String, serde_json::Value>,
 }
 
