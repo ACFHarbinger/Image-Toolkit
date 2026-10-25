@@ -10,6 +10,10 @@ import type {
   GetParams,
   GetResult,
   SummaryResult,
+  JobDetailParams,
+  JobDetailResult,
+  ListJobsParams,
+  ListJobsResult,
   HandshakeResult,
   JobStatus,
   ListParams,
@@ -92,6 +96,16 @@ export class HostClient {
   async cloudJobsSummary(): Promise<SummaryResult> {
     await this.connect();
     return this.send<SummaryResult>("cloud_jobs.summary", {});
+  }
+
+  async cloudJobsList(params: ListJobsParams = {}): Promise<ListJobsResult> {
+    await this.connect();
+    return this.send<ListJobsResult>("cloud_jobs.list", params as unknown as Record<string, unknown>);
+  }
+
+  async cloudJobsDetail(params: JobDetailParams): Promise<JobDetailResult> {
+    await this.connect();
+    return this.send<JobDetailResult>("cloud_jobs.detail", params as unknown as Record<string, unknown>);
   }
 
   async convert(params: ConvertParams): Promise<ConvertResult> {

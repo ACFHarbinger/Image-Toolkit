@@ -18,5 +18,5 @@ export function CloudJobsPopout(): React.ReactElement {
     };
   }, []);
   const badge = useCloudBadge(client);
-  return <CloudJobsWindow badge={badge} hostClient={client} />;
+  return <CloudJobsWindow badge={badge} client={client} />;
 }

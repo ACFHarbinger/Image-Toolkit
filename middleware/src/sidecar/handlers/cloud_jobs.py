@@ -1,4 +1,4 @@
-"""Sidecar handler for the cloud.jobs header badge (#847)."""
+"""Sidecar handlers for the cloud.jobs capability (#847, #848)."""
 
 from __future__ import annotations
 
@@ -6,9 +6,13 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from middleware.src.services.cloud_jobs.badge import summary_result
+from middleware.src.services.cloud_jobs.jobs_service import job_detail, list_jobs
 
 BadgeRows = Iterable[tuple[str, float]]
 BadgeSource = Callable[[], BadgeRows]
+
+JobsData = list[dict[str, Any]]
+JobsSource = Callable[[], JobsData]
 
 
 def handle_summary(source: BadgeSource | None) -> dict[str, Any]:
@@ -16,3 +20,17 @@ def handle_summary(source: BadgeSource | None) -> dict[str, Any]:
     if source is None:
         return summary_result(None)
     return summary_result(source())
+
+
+def handle_list(source: JobsSource | None, params: dict[str, Any]) -> dict[str, Any]:
+    """List jobs filtered by params."""
+    if source is None:
+        return list_jobs(None, params)
+    return list_jobs(source(), params)
+
+
+def handle_detail(source: JobsSource | None, params: dict[str, Any]) -> dict[str, Any]:
+    """Return detail for a job."""
+    if source is None:
+        return job_detail(None, params)
+    return job_detail(source(), params)

@@ -1,8 +1,99 @@
-// GENERATED — contract hash ec6a61092d909f9e2161d5089fa6ebc740ab2ce342d29bb779e41de84a587bdc. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 141e9dd167559991d9c1639884ad1460a97baa9297e5847fbddd7e35315adc12. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DaemonStatus {
+    pub lease_owner: String,
+    pub wal_depth: i64,
+    pub last_poll_ts: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct JobDetailParams {
+    pub job_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct JobDetailResult {
+    pub job_id: String,
+    pub kind: String,
+    pub title: String,
+    pub state: String,
+    pub provider: String,
+    pub created_at: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub started_at: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ended_at: Option<serde_json::Value>,
+    pub events: Vec<JobEventItem>,
+    pub outputs: Vec<String>,
+    pub logs: Vec<String>,
+    pub metrics: JobMetrics,
+    pub spend: JobSpend,
+    pub daemon_status: DaemonStatus,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct JobEventItem {
+    pub id: i64,
+    pub ts: f64,
+    #[serde(rename = "type")]
+    pub r#type: String,
+    pub data: std::collections::HashMap<String, serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct JobMetrics {
+    pub gpu_util_pct: f64,
+    pub vram_used_mb: f64,
+    pub peak_vcpu: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct JobSpend {
+    pub cost_so_far_usd: f64,
+    pub reserved_usd: f64,
+    pub max_spend_usd: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct JobSummaryItem {
+    pub job_id: String,
+    pub kind: String,
+    pub title: String,
+    pub state: String,
+    pub provider: String,
+    pub created_at: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub started_at: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ended_at: Option<serde_json::Value>,
+    pub cost_usd: f64,
+    pub shards_total: i64,
+    pub shards_done: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ListJobsParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ListJobsResult {
+    pub jobs: Vec<JobSummaryItem>,
+}
 
 pub type SummaryParams = std::collections::HashMap<String, serde_json::Value>;
 

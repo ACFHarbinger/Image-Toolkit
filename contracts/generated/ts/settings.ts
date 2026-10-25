@@ -1,4 +1,4 @@
-// GENERATED — contract hash ec6a61092d909f9e2161d5089fa6ebc740ab2ce342d29bb779e41de84a587bdc. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 141e9dd167559991d9c1639884ad1460a97baa9297e5847fbddd7e35315adc12. Do not edit; edit the schema and regenerate.
 
 export interface GetManyParams {
   readonly keys: Array<string>;
