@@ -40,6 +40,11 @@ from middleware.src.sidecar.handlers.cloud_jobs import (
 )
 from middleware.src.sidecar.handlers.cloud_offer import handle_prefill
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
+from middleware.src.sidecar.handlers.library_preview import (
+    handle_describe,
+    handle_difference,
+    handle_frame,
+)
 from middleware.src.sidecar.handlers.settings import (
     handle_settings_get,
     handle_settings_get_many,
@@ -154,6 +159,9 @@ class SidecarServer:
         settings = self._dispatch_settings(method, params)
         if settings is not _UNHANDLED:
             return settings
+        library = self._dispatch_library(method, params)
+        if library is not _UNHANDLED:
+            return library
         raise BridgeAppError("bridge.method_not_found", details={"method": method})
 
     def _dispatch_cloud(self, method: str, params: dict[str, Any]) -> Any:
@@ -190,6 +198,15 @@ class SidecarServer:
             return handle_settings_get_many(params)
         if method == "settings.set_many":
             return handle_settings_set_many(params)
+        return _UNHANDLED
+
+    def _dispatch_library(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "library_preview.describe":
+            return handle_describe(params)
+        if method == "library_preview.frame":
+            return handle_frame(params)
+        if method == "library_preview.difference":
+            return handle_difference(params)
         return _UNHANDLED
 
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:

@@ -290,6 +290,7 @@ _WINDOWS = (
     CatalogWindow("tray", WindowRole.TRAY),
     CatalogWindow("slideshow", WindowRole.SLIDESHOW),
     CatalogWindow("cloud.jobs", WindowRole.POPOUT, panel_of="main"),
+    CatalogWindow("library.preview", WindowRole.POPOUT, panel_of="main"),
 )
 
 
