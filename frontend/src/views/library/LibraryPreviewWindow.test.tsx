@@ -54,8 +54,28 @@ test("preview steps through described paths and rotates", async () => {
 
 test("compare asks for a difference and drag preview ignores pointer events", async () => {
   const view = client();
+  view.libraryPreviewDescribe = vi.fn().mockResolvedValue({
+    items: [
+      { path: LEFT, exists: true, width: 2, height: 1, animated: false, error: "" },
+      { path: RIGHT, exists: true, width: 2, height: 1, animated: false, error: "" },
+    ],
+  });
+  view.libraryPreviewFrame = vi.fn().mockImplementation(async ({ path }: { path: string }) => ({
+    path,
+    width: 2,
+    height: 1,
+    png_base64: "aaaa",
+    error: "",
+  }));
   await inspect(view);
   fireEvent.click(screen.getByTestId("mode-compare"));
+  const overlay = screen.getByTestId("compare-overlay");
+  const frames = overlay.querySelectorAll("[data-testid=preview-frame]");
+  expect(frames).toHaveLength(2);
+  for (const frame of frames) {
+    expect(frame.parentElement?.className).toContain("absolute");
+    expect(frame.parentElement?.className).toContain("inset-0");
+  }
   fireEvent.click(screen.getByTestId("compare-difference"));
   expect(await screen.findByTestId("difference-result")).toHaveTextContent("size mismatch");
   expect(view.libraryPreviewDifference).toHaveBeenCalledWith({ left: LEFT, right: RIGHT, boost: 1 });

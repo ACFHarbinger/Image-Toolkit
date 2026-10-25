@@ -97,35 +97,50 @@ def _unavailable(reason: str) -> dict[str, Any]:
 
 
 def _open_rgb(path: str) -> Image.Image:
+    """Decode RGB only after the header dimensions are within the pixel cap.
+
+    ``Image.open`` reads the header. ``convert`` allocates the buffer, so a
+    file that is too large is closed before that conversion.
+    """
     file = Path(path)
     if not file.is_file():
         raise FileNotFoundError(path)
     image = Image.open(file)
-    rgb = image.convert("RGB")
-    image.close()
-    return rgb
+    try:
+        width, height = image.size
+        if width < 1 or height < 1 or width * height > _MAX_PIXELS:
+            raise ValueError("image is too large")
+        # convert() returns the same object when the mode is already RGB.
+        rgb = image.convert("RGB")
+        if rgb is image:
+            rgb = image.copy()
+        return rgb
+    finally:
+        image.close()
 
 
 def difference_map(left: str, right: str, boost: int) -> dict[str, Any]:
+    left_image = None
+    right_image = None
     try:
-        left_image = _open_rgb(left)
-        right_image = _open_rgb(right)
-    except FileNotFoundError as exc:
-        return _unavailable(f"not a file: {exc}")
-    except (UnidentifiedImageError, OSError) as exc:
-        return _unavailable(str(exc))
-    if left_image.size != right_image.size:
-        left_image.close()
-        right_image.close()
-        return _unavailable("size mismatch")
-    width, height = left_image.size
-    if width * height > _MAX_PIXELS:
-        left_image.close()
-        right_image.close()
-        return _unavailable("image is too large")
-    diff = ImageChops.difference(left_image, right_image)
-    left_image.close()
-    right_image.close()
+        try:
+            left_image = _open_rgb(left)
+            right_image = _open_rgb(right)
+        except FileNotFoundError as exc:
+            return _unavailable(f"not a file: {exc}")
+        except ValueError as exc:
+            return _unavailable(str(exc))
+        except (UnidentifiedImageError, OSError) as exc:
+            return _unavailable(str(exc))
+        if left_image.size != right_image.size:
+            return _unavailable("size mismatch")
+        width, height = left_image.size
+        diff = ImageChops.difference(left_image, right_image)
+    finally:
+        if left_image is not None:
+            left_image.close()
+        if right_image is not None:
+            right_image.close()
     raw = diff.tobytes()
     total = sum(raw)
     count = len(raw)

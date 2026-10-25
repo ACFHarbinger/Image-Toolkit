@@ -95,6 +95,30 @@ def test_sidecar_describe_does_not_require_a_database(tmp_path) -> None:
     assert response["result"]["items"][0]["width"] == 2
 
 
+def _png_header(path, width: int, height: int) -> None:
+    """A PNG whose IHDR claims a huge frame and whose pixels were never written."""
+    import struct
+    import zlib
+
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        crc = zlib.crc32(tag + data) & 0xFFFFFFFF
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", crc)
+
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IEND", b""))
+
+
+def test_oversized_header_is_refused_before_decode(tmp_path) -> None:
+    left = tmp_path / "left.png"
+    right = tmp_path / "right.png"
+    _png(left, (1, 2, 3), (2, 2))
+    _png_header(right, 8000, 8000)
+    result = difference_map(str(left), str(right), 1)
+    assert result["available"] is False
+    assert result["reason"] == "image is too large"
+    assert result["png_base64"] == ""
+
+
 def test_size_mismatch_does_not_resize(tmp_path) -> None:
     left = tmp_path / "left.png"
     right = tmp_path / "right.png"

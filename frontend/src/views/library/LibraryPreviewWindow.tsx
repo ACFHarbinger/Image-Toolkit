@@ -161,9 +161,11 @@ export function LibraryPreviewWindow({ client }: { readonly client: PreviewClien
               onChange={(event) => setOpacity(Number(event.target.value))}
             />
           </label>
-          <div className="relative h-40">
-            <FrameImage frame={frameFor(items[1].path)} zoom={1} rotation={0} />
-            <div style={{ opacity: opacity / 100 }}>
+          <div className="relative h-40" data-testid="compare-overlay">
+            <div className="absolute inset-0">
+              <FrameImage frame={frameFor(items[1].path)} zoom={1} rotation={0} />
+            </div>
+            <div className="absolute inset-0" style={{ opacity: opacity / 100 }}>
               <FrameImage frame={frameFor(items[0].path)} zoom={1} rotation={0} />
             </div>
           </div>
