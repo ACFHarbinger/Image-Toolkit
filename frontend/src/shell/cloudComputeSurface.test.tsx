@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import type { GetResult, ProvidersResult, ResourcesResult, SpendResult } from "../../../contracts/generated/ts";
+import type { GetResult, ProvidersResult, ResourcesResult, SpendResult, TerminateResult } from "../../../contracts/generated/ts";
 import { CloudComputeSurface } from "./CloudComputeSurface";
 
 afterEach(() => cleanup());
@@ -108,6 +108,56 @@ test("the dashboards tab mounts the D3 resources and spend views", async () => {
   expect(await screen.findByTestId("cloud-jobs-spend")).toBeInTheDocument();
   expect(screen.getByTestId("cloud-jobs-resources")).toBeInTheDocument();
   expect(screen.getByText(/This month \$12\.50 · reserved \$4\.00/)).toBeInTheDocument();
+});
+
+const orphanResources = (): ResourcesResult => ({
+  available: true,
+  resources: [
+    {
+      provider: "gcd",
+      kind: "instance",
+      resource_id: "inst-1",
+      region: "us-central1",
+      job_id: "job-1",
+      orphan: true,
+    },
+  ],
+});
+
+test("the dashboards tab terminates an orphan through the host client", async () => {
+  const client = {
+    ...stubClient(),
+    cloudJobsResources: vi.fn(async (): Promise<ResourcesResult> => orphanResources()),
+    cloudJobsTerminate: vi.fn(async (): Promise<TerminateResult> => ({
+      accepted: true,
+      resource_id: "inst-1",
+      reason: "terminated inst-1",
+    })),
+  };
+  render(<CloudComputeSurface hostClient={client as never} onClose={() => {}} />);
+  await screen.findByTestId("cloud-provider-card-gcd");
+
+  fireEvent.click(screen.getByTestId("cloud-compute-tab-dashboards"));
+  fireEvent.click(await screen.findByRole("button", { name: "Terminate" }));
+
+  await waitFor(() => {
+    expect(client.cloudJobsTerminate).toHaveBeenCalledWith("inst-1");
+  });
+  expect(await screen.findByTestId("cloud-jobs-terminate-notice")).toHaveTextContent("terminated inst-1");
+});
+
+test("the dashboards tab reports no daemon lease when terminate is missing", async () => {
+  const client = {
+    ...stubClient(),
+    cloudJobsResources: vi.fn(async (): Promise<ResourcesResult> => orphanResources()),
+  };
+  render(<CloudComputeSurface hostClient={client as never} onClose={() => {}} />);
+  await screen.findByTestId("cloud-provider-card-gcd");
+
+  fireEvent.click(screen.getByTestId("cloud-compute-tab-dashboards"));
+  fireEvent.click(await screen.findByRole("button", { name: "Terminate" }));
+
+  expect(await screen.findByTestId("cloud-jobs-terminate-notice")).toHaveTextContent("no daemon lease");
 });
 
 test("the request builder tab mounts the D4 builder when the client is attached", async () => {

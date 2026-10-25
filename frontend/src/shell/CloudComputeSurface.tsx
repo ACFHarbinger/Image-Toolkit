@@ -278,6 +278,7 @@ function ProviderProfileForm({
 function DashboardsPanel({ hostClient }: { hostClient: HostClient | null }): React.ReactElement {
   const [resources, setResources] = useState<CloudResources>(EMPTY_RESOURCES);
   const [spend, setSpend] = useState<CloudSpend>(EMPTY_SPEND);
+  const [terminateNotice, setTerminateNotice] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -306,9 +307,21 @@ function DashboardsPanel({ hostClient }: { hostClient: HostClient | null }): Rea
     };
   }, [hostClient]);
 
+  const onTerminate = (resourceId: string) => {
+    if (!hostClient?.cloudJobsTerminate) {
+      setTerminateNotice("no daemon lease");
+      return;
+    }
+    void hostClient.cloudJobsTerminate(resourceId).then((result) => {
+      setTerminateNotice(result.reason);
+    }).catch(() => {
+      setTerminateNotice("no daemon lease");
+    });
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto" data-testid="cloud-compute-dashboards">
-      <ResourcesView view={resources} notice="" onTerminate={() => {}} />
+      <ResourcesView view={resources} notice={terminateNotice} onTerminate={onTerminate} />
       <SpendView view={spend} />
     </div>
   );
