@@ -41,6 +41,7 @@ def _empty(reason: str) -> dict[str, Any]:
         "region": "",
         "runtime_s": 0.0,
         "job_id": "",
+        "spec": {},
     }
 
 
@@ -86,4 +87,5 @@ def offer_for_vram_refusal(
         "region": PREFILL_REGION,
         "runtime_s": PREFILL_RUNTIME_S,
         "job_id": spec.job_id,
+        "spec": spec.to_dict(),
     }

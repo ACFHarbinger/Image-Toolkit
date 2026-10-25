@@ -136,6 +136,7 @@ def test_fitting_vram_is_not_offered() -> None:
     assert result["offered"] is False
     assert result["submitted"] is False
     assert result["job_id"] == ""
+    assert result["spec"] == {}
 
 
 def test_vram_refusal_prefills_without_submitting() -> None:
@@ -152,6 +153,8 @@ def test_vram_refusal_prefills_without_submitting() -> None:
     assert result["vram_gb_min"] == 9.1
     assert result["provider"] == "gcp"
     assert result["job_id"].startswith("cj-")
+    assert result["spec"]["job_id"] == result["job_id"]
+    assert result["spec"]["kind"] == "lora_train"
     assert "GPU admission refused" in result["reason"]
 
 

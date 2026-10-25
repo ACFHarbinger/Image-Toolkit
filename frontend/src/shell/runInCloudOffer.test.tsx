@@ -31,10 +31,24 @@ test("a priced prefill stays unsubmitted", () => {
         region: "us-central1",
         runtime_s: 600,
         job_id: "cj-abc",
+        spec: {
+          job_id: "cj-abc",
+          kind: "lora_train",
+          title: "train-lora",
+          placement: { provider: "gcp", region: "us-central1", mode: "instance" },
+          resources: { vram_gb_min: 9.1 },
+          params: { expected_runtime_s: 600 },
+        },
       }}
     />,
   );
   expect(screen.getByTestId("run-in-cloud-prefill")).toHaveTextContent("lora_train");
   expect(screen.getByTestId("run-in-cloud-prefill")).toHaveTextContent("$0.66");
   expect(screen.getByTestId("run-in-cloud-prefill")).toHaveTextContent("cj-abc");
+  expect(screen.getByTestId("offer-title")).toHaveValue("train-lora");
+  expect(screen.getByTestId("offer-provider")).toHaveValue("gcp");
+  fireEvent.change(screen.getByTestId("offer-title"), { target: { value: "evening train" } });
+  expect(screen.getByTestId("offer-title")).toHaveValue("evening train");
+  expect(screen.queryByRole("button", { name: /^submit/i })).toBeNull();
+  expect(screen.getByText(/does not save or submit/i)).toBeInTheDocument();
 });

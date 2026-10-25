@@ -29,6 +29,7 @@ def test_a_fitting_estimate_is_not_offered() -> None:
     assert result["offered"] is False
     assert result["submitted"] is False
     assert result["job_id"] == ""
+    assert result["spec"] == {}
 
 
 def test_a_vram_refusal_prefills_a_priced_spec() -> None:
@@ -48,3 +49,10 @@ def test_a_vram_refusal_prefills_a_priced_spec() -> None:
     assert result["estimate_known"] is True
     assert result["estimate_usd"] > 0
     assert result["job_id"].startswith("cj-")
+    assert result["spec"]["job_id"] == result["job_id"]
+    assert result["spec"]["kind"] == "lora_train"
+    assert result["spec"]["title"] == "train-lora"
+    assert result["spec"]["placement"]["provider"] == "gcp"
+    assert result["spec"]["placement"]["region"] == "us-central1"
+    assert result["spec"]["resources"]["vram_gb_min"] == 9.1
+    assert result["spec"]["params"]["expected_runtime_s"] == 600.0

@@ -31,7 +31,8 @@
         "provider",
         "region",
         "runtime_s",
-        "job_id"
+        "job_id",
+        "spec"
       ],
       "properties": {
         "offered": { "type": "boolean" },
@@ -44,7 +45,11 @@
         "provider": { "type": "string" },
         "region": { "type": "string" },
         "runtime_s": { "type": "number", "minimum": 0 },
-        "job_id": { "type": "string" }
+        "job_id": { "type": "string" },
+        "spec": {
+          "type": "object",
+          "description": "The JobSpec the offer constructed. Empty when nothing is offered. Editing it does not submit."
+        }
       }
     }
   }

@@ -1,4 +1,4 @@
-// GENERATED — contract hash 9c3ee12cc3be627bb53d8e6b3f564849a135edb081df72e2492a9981a5782385. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 121107d6c8af7ea8eaf2408ee5ee09b85b47ac31aafc0a0cccb660d30457f571. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -125,6 +125,7 @@ pub struct PrefillResult {
     pub region: String,
     pub runtime_s: f64,
     pub job_id: String,
+    pub spec: std::collections::HashMap<String, serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
