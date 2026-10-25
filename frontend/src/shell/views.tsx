@@ -12,7 +12,7 @@ import { ScanMetadataView } from "../views/library/ScanMetadataView";
 import DriveSyncTab from "../tabs/web/DriveSyncTab";
 import ImageCrawlerTab from "../tabs/web/ImageCrawlerTab";
 import ReverseSearchTab from "../tabs/web/ReverseSearchTab";
-import WebRequestsTab from "../tabs/web/WebRequestsTab";
+import { WebRequestsView } from "../views/web/WebRequestsView";
 import { UnifiedTrainTab } from "../tabs/models/UnifiedTrainTab";
 import { UnifiedGenerateTab } from "../tabs/models/UnifiedGenerateTab";
 import { MetaCLIPInferenceTab } from "../tabs/models/MetaCLIPInferenceTab";
@@ -44,7 +44,7 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "library.data-browser": DataBrowser,
   "library.scan": ScanMetadataView,
   "web.crawler": ImageCrawlerTab,
-  "web.requests": WebRequestsTab,
+  "web.requests": WebRequestsView,
   "web.drive-sync": DriveSyncTab,
   "web.reverse-search": ReverseSearchTab,
   "ml.training": UnifiedTrainTab,

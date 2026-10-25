@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Web: Requests pipeline and single-request execution** (Tauri migration Wave 5, B-02 #907).
+  - **Contracts & Capability:** added `webreq` capability (`webreq.execute`, `webreq.sequence`) with schema `contracts/schemas/capability/webreq.json` and method routing in `contracts/methods.toml`.
+  - **Service Layer:** `middleware/src/services/webreq/` implementing `WebRequestsServiceProtocol` (`WebRequestsService`, `ExecuteHandler`, `SequenceHandler`) backed by native C++ `backend.run_web_requests_sequence` / `WebRequestsLogic` and Python fallback. Gate B compliant: no database access.
+  - **Frontend View:** modular React view `WebRequestsView.tsx` (< 450 LoC) replacing legacy simulated tab in `frontend/src/views/web/WebRequestsView.tsx`, mounted in `CatalogView` for `web.requests`.
+  - **HostClient API:** added `webreqExecute` and `webreqSequence` methods to `HostClient`.
+  - **Ledger & Docs:** registered in `migration/features.toml` (`owner = "Gemini"`, `contract = "webreq"`), docs in `docs/modules/webreq.md`.
 - Merge, similarity, and extractor probes (#903, #904, #905): `merge.concatenate` joins caller images horizontally or vertically, `similarity.compare` reports average-hash pairs, and `extractor.probe` reads one video with ffprobe. None of them open `library.db`. The placement canvas, file deletion, and frame extraction stay on PySide6.
 - **Library: Scan and Tag service and webview** (Tauri migration Wave 3, L-04 #898).
   - **Contracts & Capability:** added `scan` capability (`scan.directory`, `scan.save_metadata`, `scan.suggest_tags`) with schema `contracts/schemas/capability/scan.json` and method routing in `contracts/methods.toml`.

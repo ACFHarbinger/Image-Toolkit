@@ -452,6 +452,31 @@ emits = []
 stability = "experimental"
 owner = 905
 
+[[method]]
+name = "webreq.execute"
+capability = "webreq"
+summary = "Execute a single HTTP request (B-02 / #907)."
+params = "webreq.ExecuteParams"
+result = "webreq.ExecuteResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 907
+
+[[method]]
+name = "webreq.sequence"
+capability = "webreq"
+summary = "Execute a sequential batch of HTTP requests with response actions (B-02 / #907)."
+params = "webreq.SequenceParams"
+result = "webreq.SequenceResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 907
+
+
 [[channel]]
 name = "jobs"
 payload = "jobs.JobEventPayload"

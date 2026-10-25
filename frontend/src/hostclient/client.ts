@@ -1,4 +1,5 @@
 import type { ScanDirectoryParams, ScanDirectoryResult, SaveMetadataParams, SaveMetadataResult, SuggestTagsParams, SuggestTagsResult } from "../../../contracts/generated/ts";
+import type { ExecuteParams, ExecuteResult, SequenceParams, SequenceResult } from "../../../contracts/generated/ts";
 import type { BrowseParams, BrowseResult, CatalogResult, MutateParams, MutateResult } from "../../../contracts/generated/ts";
 import type {
   BridgeResponse,
@@ -278,6 +279,16 @@ export class HostClient {
   async scanSuggestTags(params: SuggestTagsParams): Promise<SuggestTagsResult> {
     await this.connect();
     return this.send<SuggestTagsResult>("scan.suggest_tags", params as unknown as Record<string, unknown>);
+  }
+
+  async webreqExecute(params: ExecuteParams): Promise<ExecuteResult> {
+    await this.connect();
+    return this.send<ExecuteResult>("webreq.execute", params as unknown as Record<string, unknown>);
+  }
+
+  async webreqSequence(params: SequenceParams): Promise<SequenceResult> {
+    await this.connect();
+    return this.send<SequenceResult>("webreq.sequence", params as unknown as Record<string, unknown>);
   }
 
   onEvent(listener: Parameters<NonNullable<BridgeTransport["onEvent"]>>[0]): () => void {

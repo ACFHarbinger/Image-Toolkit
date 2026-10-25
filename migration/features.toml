@@ -269,17 +269,17 @@ os_checklist = []
 id = "web.requests"
 kind = "page"
 title = "Requests"
-owner = "unclaimed"
+owner = "Gemini"
 wave = "wave-5"
 issue = 907
 status = "pyside-only"
 routes = ["web.requests"]
 route_map = { webreq = "web.requests" }
 pyside = ["gui/src/tabs/web/web_requests_tab.py"]
-tauri = ["frontend/src/tabs/web/WebRequestsTab.tsx"]
-service = ""
-contract = ""
-docs = ""
+tauri = ["frontend/src/views/web/WebRequestsView.tsx"]
+service = "middleware/src/services/webreq/service.py"
+contract = "webreq"
+docs = "docs/modules/webreq.md"
 scenarios = []
 os_checklist = []
 

@@ -1,4 +1,4 @@
-// GENERATED — contract hash 48148467512ee584ac757ff420b1212bf259e6bc06655926b2980419a7ded0cc. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash bca68aa26aa4dff9163ec317617db41a7cf4b1d5f8198ea7f4b3f952664d3782. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -861,4 +861,80 @@ pub type PingParams = std::collections::HashMap<String, serde_json::Value>;
 pub struct PingResult {
     /// must be true (enforced by the framing layer, #875)
     pub ok: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ActionItem {
+    #[serde(rename = "type")]
+    pub r#type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub param: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ExecuteParams {
+    pub url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub method: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub headers: Option<std::collections::HashMap<String, String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_seconds: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ExecuteResult {
+    pub url: String,
+    pub status_code: i64,
+    pub status_text: String,
+    pub headers: std::collections::HashMap<String, String>,
+    pub content_type: String,
+    pub body: String,
+    pub duration_ms: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct RequestItem {
+    #[serde(rename = "type")]
+    pub r#type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub param: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub headers: Option<std::collections::HashMap<String, String>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SequenceItemResult {
+    pub index: i64,
+    pub url: String,
+    pub method: String,
+    pub status_code: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub saved_path: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SequenceParams {
+    pub base_url: String,
+    pub requests: Vec<RequestItem>,
+    pub actions: Vec<ActionItem>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_seconds: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SequenceResult {
+    pub status: String,
+    pub base_url: String,
+    pub total_requests: i64,
+    pub completed_requests: i64,
+    pub logs: Vec<String>,
+    pub items: Vec<SequenceItemResult>,
+    pub message: String,
 }
