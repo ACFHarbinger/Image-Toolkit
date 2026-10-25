@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/cloud_offer.json",
+  "title": "CloudOfferCapability",
+  "description": "Prefill a cloud job when local GPU admission refuses on VRAM (#852). This does not submit.",
+  "type": "object",
+  "$defs": {
+    "PrefillParams": {
+      "title": "PrefillParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "estimated_gb", "device_gb"],
+      "properties": {
+        "owner": { "type": "string", "minLength": 1 },
+        "estimated_gb": { "type": "number", "minimum": 0 },
+        "device_gb": { "type": "number", "minimum": 0 }
+      }
+    },
+    "PrefillResult": {
+      "title": "PrefillResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "offered",
+        "submitted",
+        "reason",
+        "estimate_usd",
+        "estimate_known",
+        "kind",
+        "vram_gb_min",
+        "provider",
+        "region",
+        "runtime_s",
+        "job_id",
+        "spec"
+      ],
+      "properties": {
+        "offered": { "type": "boolean" },
+        "submitted": { "const": false },
+        "reason": { "type": "string" },
+        "estimate_usd": { "type": "number", "minimum": 0 },
+        "estimate_known": { "type": "boolean" },
+        "kind": { "type": "string" },
+        "vram_gb_min": { "type": "number", "minimum": 0 },
+        "provider": { "type": "string" },
+        "region": { "type": "string" },
+        "runtime_s": { "type": "number", "minimum": 0 },
+        "job_id": { "type": "string" },
+        "spec": {
+          "type": "object",
+          "description": "The JobSpec the offer constructed. Empty when nothing is offered. Editing it does not submit."
+        }
+      }
+    }
+  }
+}

@@ -7,6 +7,8 @@ import type {
   CloudSubmitResult,
   ConvertParams,
   ConvertResult,
+  PrefillParams,
+  PrefillResult,
   PreviewParams,
   PreviewResult,
   JobDetailParams,
@@ -130,6 +132,11 @@ export class HostClient {
   async cloudJobsTerminate(resourceId: string): Promise<TerminateResult> {
     await this.connect();
     return this.send<TerminateResult>("cloud_jobs.terminate", { resource_id: resourceId });
+  }
+
+  async cloudOfferPrefill(params: PrefillParams): Promise<PrefillResult> {
+    await this.connect();
+    return this.send<PrefillResult>("cloud_offer.prefill", params as unknown as Record<string, unknown>);
   }
 
   async convert(params: ConvertParams): Promise<ConvertResult> {

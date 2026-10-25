@@ -1,4 +1,4 @@
-// GENERATED — contract hash 3233ab7fcaaa28c5e93c830b5852f2ef5d5181dba831967ce1073e10c44d75ec. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 0d32f1eb2b24dbf8a6a979c5d8cadb97d33755cf15241cb784241f253c00c55c. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -209,6 +209,30 @@ pub struct TerminateResult {
     pub accepted: bool,
     pub resource_id: String,
     pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefillParams {
+    pub owner: String,
+    pub estimated_gb: f64,
+    pub device_gb: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefillResult {
+    pub offered: bool,
+    /// must be false (enforced by the framing layer, #875)
+    pub submitted: bool,
+    pub reason: String,
+    pub estimate_usd: f64,
+    pub estimate_known: bool,
+    pub kind: String,
+    pub vram_gb_min: f64,
+    pub provider: String,
+    pub region: String,
+    pub runtime_s: f64,
+    pub job_id: String,
+    pub spec: std::collections::HashMap<String, serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

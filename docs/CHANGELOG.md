@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Cloud Jobs generates a fresh request ID after acceptance while retaining the existing ID for failed-submission retries and preserving form parameters (#992).
 - Cloud Jobs confirmation uses backend preflight findings and required acknowledgment IDs, rejects blocked or unacknowledged submissions, and ignores stale preview responses (#992).
 - The Cloud Jobs window refreshes its list and selected detail while open, schedules each refresh after the prior request finishes, and stops polling on unmount (#989).
+- Cloud offer carries the full JobSpec document into editable prefill fields without saving or auto-submitting (#991).
 - Cloud Jobs discards stale list responses and failures after filters, search, or client changes (#989).
 - Cloud Jobs disables cancellation with an explanation until its authenticated cloud command is connected, avoiding the unrelated in-memory job cancellation route (#989).
 - ComfyUI's external-browser fallback uses a native opener restricted to credential-free loopback HTTP(S) URLs and reports launch failures (#993).

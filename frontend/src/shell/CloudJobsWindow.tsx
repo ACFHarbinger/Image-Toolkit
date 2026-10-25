@@ -24,10 +24,11 @@ export interface CloudJobsWindowProps {
   readonly client?: HostClient | null;
   readonly resources?: React.ReactNode;
   readonly spend?: React.ReactNode;
+  readonly offer?: React.ReactNode;
 }
 
-/** Labeled cloud.jobs shell with the jobs table, detail, resources, and spend. */
-export function CloudJobsWindow({ badge, client, resources, spend }: CloudJobsWindowProps): React.ReactElement {
+/** Labeled cloud.jobs shell with the jobs table, detail, resources, spend, and the run-in-cloud offer. */
+export function CloudJobsWindow({ badge, client, resources, spend, offer }: CloudJobsWindowProps): React.ReactElement {
   const [jobs, setJobs] = useState<JobSummaryItem[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -184,6 +185,7 @@ export function CloudJobsWindow({ badge, client, resources, spend }: CloudJobsWi
         <ResourcesView view={resourceView} notice={terminateNotice} onTerminate={onTerminate} />
       )}
       {spend ?? <SpendView view={spendView} />}
+      {offer}
     </main>
   );
 }

@@ -2,14 +2,17 @@ import React, { useEffect, useState } from "react";
 import { HostClient, RustTransport } from "../hostclient";
 import { RequestBuilder } from "../views/cloudjobs/RequestBuilder";
 import { CloudJobsWindow } from "./CloudJobsWindow";
+import { RunInCloudOffer, type CloudOffer } from "./RunInCloudOffer";
 import { useCloudBadge } from "./useCloudBadge";
 
 export type CloudJobsTab = "builder" | "jobs";
 
-/** Gate D panel host (#847, #850). Logical role `cloud.jobs`; native window label `cloud-jobs`. */
+/** Gate D panel host (#847, #850, #852). Logical role `cloud.jobs`; native window label `cloud-jobs`. */
 export function CloudJobsPopout(): React.ReactElement {
   const [client, setClient] = useState<HostClient | null>(null);
   const [activeTab, setActiveTab] = useState<CloudJobsTab>("builder");
+  const [offer, setOffer] = useState<CloudOffer | null>(null);
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     const next = new HostClient(new RustTransport(), {
@@ -25,9 +28,26 @@ export function CloudJobsPopout(): React.ReactElement {
 
   const badge = useCloudBadge(client);
 
+  const onPrefill = (owner: string, estimatedGb: number, deviceGb: number) => {
+    if (!client) {
+      setOffer(null);
+      setNotice("cloud offer is unavailable");
+      return;
+    }
+    void client
+      .cloudOfferPrefill({ owner, estimated_gb: estimatedGb, device_gb: deviceGb })
+      .then((result) => {
+        setOffer(result);
+        setNotice(result.reason);
+      })
+      .catch(() => {
+        setOffer(null);
+        setNotice("cloud offer is unavailable");
+      });
+  };
+
   return (
     <div data-testid="cloud-jobs-popout" className="flex min-h-screen flex-col bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
-      {/* Popout Header Navigation */}
       <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center gap-3">
           <span className="text-xl">☁️</span>
@@ -64,14 +84,17 @@ export function CloudJobsPopout(): React.ReactElement {
         </nav>
       </header>
 
-      {/* Main Tab Content. CloudJobsWindow owns the <main> element. */}
       <div className="flex-1 p-6">
         <div hidden={activeTab !== "builder"}>
           <RequestBuilder client={client} />
         </div>
         {activeTab === "jobs" && (
           <div data-testid="cloud-jobs-queue-view">
-            <CloudJobsWindow badge={badge} client={client} />
+            <CloudJobsWindow
+              badge={badge}
+              client={client}
+              offer={<RunInCloudOffer offer={offer} notice={notice} onPrefill={onPrefill} />}
+            />
           </div>
         )}
       </div>

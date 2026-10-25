@@ -58,6 +58,7 @@ tauri = [
     "frontend/src/shell/JobsTable.tsx",
     "frontend/src/shell/JobDetail.tsx",
     "frontend/src/shell/CloudJobsViews.tsx",
+    "frontend/src/shell/RunInCloudOffer.tsx",
 ]
 service = "middleware/src/services/cloud_jobs/badge.py"
 contract = "cloud_jobs"

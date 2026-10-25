@@ -22,7 +22,7 @@ Provides single-file and batch image format conversion (`png`, `jpg`, `webp`, `b
 
 ## Contract & Routing
 
-- **JSON Schema:** `contracts/schemas/capability/system.json` (total spine hash `3233ab7fcaaa28c5e93c830b5852f2ef5d5181dba831967ce1073e10c44d75ec` in `contracts/CONTRACTS.sha256`).
+- **JSON Schema:** `contracts/schemas/capability/system.json` (total spine hash `0d32f1eb2b24dbf8a6a979c5d8cadb97d33755cf15241cb784241f253c00c55c` in `contracts/CONTRACTS.sha256`).
 - **Boundary Enforcement:**
   - `import-linter` contracts in `pyproject.toml` (`middleware.src.services must not import GUI`, `middleware.src.services must not import PySide`, `middleware.src.services features must be independent`).
   - `eslint-plugin-boundaries` in `frontend/eslint.config.mjs`.
