@@ -1,4 +1,4 @@
-# GENERATED — contract hash 02cbf994e4637ef9eaf9b96f7bc8b6258c31d0f77f66e4fec308264c40cddf06. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 0ddf43995ce7387ccdcb17b3e1810f19002528a099b4e8c2a036122b876a07fb. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -551,6 +551,67 @@ class RpcErrorObject:
     code: int
     message: str
     data: BridgeError
+
+
+@dataclass(frozen=True)
+class SaveMetadataItem:
+    path: str
+    tags: (list[str]) | None = None
+    group_name: (str | None) | None = None
+    subgroup_name: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class SaveMetadataParams:
+    items: list[SaveMetadataItem]
+
+
+@dataclass(frozen=True)
+class SaveMetadataResult:
+    saved_count: int
+    success: bool
+    database_available: bool
+    errors: (list[str]) | None = None
+
+
+@dataclass(frozen=True)
+class ScanDirectoryParams:
+    directory: str
+    recursive: bool | None = None
+    formats: (list[str]) | None = None
+    max_results: int | None = None
+
+
+@dataclass(frozen=True)
+class ScanDirectoryResult:
+    directory: str
+    total_found: int
+    images: list[ScannedImage]
+    database_available: bool
+
+
+@dataclass(frozen=True)
+class ScannedImage:
+    path: str
+    filename: str
+    extension: str
+    size_bytes: int
+    in_database: bool
+    width: (int | None) | None = None
+    height: (int | None) | None = None
+    tags: (list[str]) | None = None
+    group_name: (str | None) | None = None
+    subgroup_name: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class SuggestTagsParams:
+    paths: list[str]
+
+
+@dataclass(frozen=True)
+class SuggestTagsResult:
+    suggestions: dict[str, list[str]]
 
 
 @dataclass(frozen=True)

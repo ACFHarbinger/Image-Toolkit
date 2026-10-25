@@ -25,6 +25,7 @@
               "library",
               "library_admin",
               "library_preview",
+              "scan",
               "settings",
               "system"
             ]

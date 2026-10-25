@@ -30,7 +30,18 @@ def test_handshake_accept(sidecar: SidecarClient) -> None:
     result = response["result"]
     assert result["protocol"] == "image-toolkit-bridge"
     assert result["compatibility"] == {"min": "1.0.0", "max": "1.0.0"}
-    assert sorted(result["capabilities"]) == ['cloud_jobs', 'cloud_offer', 'convert', 'jobs', 'library', 'library_admin', 'library_preview', 'settings', 'system']
+    assert sorted(result["capabilities"]) == [
+        "cloud_jobs",
+        "cloud_offer",
+        "convert",
+        "jobs",
+        "library",
+        "library_admin",
+        "library_preview",
+        "scan",
+        "settings",
+        "system",
+    ]
 
 
 def test_handshake_version_mismatch_rejected(sidecar: SidecarClient) -> None:

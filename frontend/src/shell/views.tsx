@@ -8,7 +8,7 @@ import DeleteTab from "../tabs/core/DeleteTab";
 import WallpaperTab from "../tabs/core/WallpaperTab";
 import { ImageExtractorTab } from "../tabs/core/ImageExtractorTab";
 import { ImageSearch } from "../views/library/ImageSearch";
-import ScanMetadataTab from "../tabs/database/ScanMetadataTab";
+import { ScanMetadataView } from "../views/library/ScanMetadataView";
 import DriveSyncTab from "../tabs/web/DriveSyncTab";
 import ImageCrawlerTab from "../tabs/web/ImageCrawlerTab";
 import ReverseSearchTab from "../tabs/web/ReverseSearchTab";
@@ -42,7 +42,7 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "library.search": ImageSearch,
   "library.management": LibraryManagement,
   "library.data-browser": DataBrowser,
-  "library.scan": ScanMetadataTab,
+  "library.scan": ScanMetadataView,
   "web.crawler": ImageCrawlerTab,
   "web.requests": WebRequestsTab,
   "web.drive-sync": DriveSyncTab,
@@ -72,6 +72,6 @@ export function CatalogView({
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
   const hostClientProps =
-    ["system.convert", "library.search", "library.listings", "library.management", "library.data-browser"].includes(entry.id) ? { hostClient, client: hostClient } : {};
+    ["system.convert", "library.scan", "library.search", "library.listings", "library.management", "library.data-browser"].includes(entry.id) ? { hostClient, client: hostClient } : {};
   return <View showModal={showModal} {...extra} {...hostClientProps} />;
 }

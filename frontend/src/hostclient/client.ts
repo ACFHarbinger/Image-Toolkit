@@ -1,3 +1,4 @@
+import type { ScanDirectoryParams, ScanDirectoryResult, SaveMetadataParams, SaveMetadataResult, SuggestTagsParams, SuggestTagsResult } from "../../../contracts/generated/ts";
 import type { BrowseParams, BrowseResult, CatalogResult, MutateParams, MutateResult } from "../../../contracts/generated/ts";
 import type {
   BridgeResponse,
@@ -241,6 +242,21 @@ export class HostClient {
       "library_admin.browse",
       params as unknown as Record<string, unknown>,
     );
+  }
+
+  async scanDirectory(params: ScanDirectoryParams): Promise<ScanDirectoryResult> {
+    await this.connect();
+    return this.send<ScanDirectoryResult>("scan.directory", params as unknown as Record<string, unknown>);
+  }
+
+  async scanSaveMetadata(params: SaveMetadataParams): Promise<SaveMetadataResult> {
+    await this.connect();
+    return this.send<SaveMetadataResult>("scan.save_metadata", params as unknown as Record<string, unknown>);
+  }
+
+  async scanSuggestTags(params: SuggestTagsParams): Promise<SuggestTagsResult> {
+    await this.connect();
+    return this.send<SuggestTagsResult>("scan.suggest_tags", params as unknown as Record<string, unknown>);
   }
 
   onEvent(listener: Parameters<NonNullable<BridgeTransport["onEvent"]>>[0]): () => void {

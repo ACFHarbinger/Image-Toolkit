@@ -380,6 +380,44 @@ owner = 900
 
 
 
+[[method]]
+name = "scan.directory"
+capability = "scan"
+summary = "Scan a filesystem directory for image assets and metadata (L-04 / #898)."
+params = "scan.ScanDirectoryParams"
+result = "scan.ScanDirectoryResult"
+errors = ["scan.directory_not_found"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 898
+
+[[method]]
+name = "scan.save_metadata"
+capability = "scan"
+summary = "Save metadata, groups, subgroups, and tags for scanned image assets (L-04 / #898)."
+params = "scan.SaveMetadataParams"
+result = "scan.SaveMetadataResult"
+errors = ["scan.save_failed"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 898
+
+[[method]]
+name = "scan.suggest_tags"
+capability = "scan"
+summary = "Generate heuristic tag suggestions from image paths and folder structure (L-04 / #898)."
+params = "scan.SuggestTagsParams"
+result = "scan.SuggestTagsResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 898
+
+
+
 [[channel]]
 name = "jobs"
 payload = "jobs.JobEventPayload"

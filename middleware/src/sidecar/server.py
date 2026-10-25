@@ -55,6 +55,11 @@ from middleware.src.sidecar.handlers.library_admin import (
     handle_catalog,
     handle_mutate,
 )
+from middleware.src.sidecar.handlers.scan import (
+    handle_save_metadata,
+    handle_scan_directory,
+    handle_suggest_tags,
+)
 from middleware.src.sidecar.handlers.settings import (
     handle_settings_get,
     handle_settings_get_many,
@@ -80,6 +85,7 @@ class SidecarServer:
         cloud_projection: CloudProjection | None = None,
         badge_source: BadgeSource | None = None,
         jobs_source: JobsSource | None = None,
+        scan_service: Any | None = None,
         library_store: Any | None = None,
         library_admin_store: Any | None = None,
     ) -> None:
@@ -90,6 +96,7 @@ class SidecarServer:
         self.cloud_projection = cloud_projection
         self.badge_source = badge_source
         self.jobs_source = jobs_source
+        self.scan_service = scan_service
         self.library_store = library_store
         self.library_admin_store = library_admin_store
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
@@ -179,6 +186,9 @@ class SidecarServer:
         admin = self._dispatch_admin(method, params)
         if admin is not _UNHANDLED:
             return admin
+        scan = self._dispatch_scan(method, params)
+        if scan is not _UNHANDLED:
+            return scan
         raise BridgeAppError("bridge.method_not_found", details={"method": method})
 
     def _dispatch_cloud(self, method: str, params: dict[str, Any]) -> Any:
@@ -240,6 +250,15 @@ class SidecarServer:
             return handle_mutate(store, params)
         if method == "library_admin.browse":
             return handle_browse(store, params)
+        return _UNHANDLED
+
+    def _dispatch_scan(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "scan.directory":
+            return handle_scan_directory(self.scan_service, params)
+        if method == "scan.save_metadata":
+            return handle_save_metadata(self.scan_service, params)
+        if method == "scan.suggest_tags":
+            return handle_suggest_tags(self.scan_service, params)
         return _UNHANDLED
 
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:

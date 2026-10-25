@@ -31,7 +31,7 @@ the status lifecycle and deletion gate are documented in
 | library.listings | Listings | Mistral | [#896](https://github.com/ACFHarbinger/Image-Toolkit/issues/896) | both | library.listings | — | 1 |
 | library.management | Management | Grok | [#899](https://github.com/ACFHarbinger/Image-Toolkit/issues/899) | pyside-only | library.management | — | 0 |
 | library.preview | Image preview, compare and drag-preview viewers | Grok | [#895](https://github.com/ACFHarbinger/Image-Toolkit/issues/895) | pyside-only | — | 0/3 | 0 |
-| library.scan | Scan and Tag | unclaimed | [#898](https://github.com/ACFHarbinger/Image-Toolkit/issues/898) | pyside-only | library.scan | — | 0 |
+| library.scan | Scan and Tag | Gemini | [#898](https://github.com/ACFHarbinger/Image-Toolkit/issues/898) | pyside-only | library.scan | — | 0 |
 | library.search | Image Search | Mistral | [#897](https://github.com/ACFHarbinger/Image-Toolkit/issues/897) | both | library.search | — | 1 |
 
 ## wave-4
