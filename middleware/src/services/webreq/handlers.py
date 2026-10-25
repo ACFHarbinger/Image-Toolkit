@@ -25,6 +25,82 @@ from middleware.src.services.webreq.commands import (
     SequenceResult,
 )
 
+_PREVIEW_BYTES = 65536
+_NATIVE_METHODS = frozenset({"GET", "POST"})
+_STATUS_RE = re.compile(r"Request complete\. Status: (\d+)")
+_ERROR_RE = re.compile(r"Request failed: (.*)")
+_UNSUPPORTED_RE = re.compile(r"Unsupported request type: (.*)")
+_SAVE_RE = re.compile(r"Response content saved to (.*)")
+_BOUNDARY_RE = re.compile(r"--- Request (\d+)/\d+:")
+
+
+def _preview_text(raw: bytes) -> str:
+    """Decode a display preview without changing the bytes a save action writes."""
+    return raw[:_PREVIEW_BYTES].decode("utf-8", errors="replace")
+
+
+def _native_sequence_supported(requests: list[RequestItem]) -> bool:
+    """The C++ executor sends only header-less GET and POST."""
+    return all(item.type in _NATIVE_METHODS and not item.headers for item in requests)
+
+
+def _log_slices(logs: list[str], count: int) -> list[list[str]]:
+    """Group status lines under the request boundary that emitted them."""
+    slices: list[list[str]] = [[] for _ in range(count)]
+    current = -1
+    for line in logs:
+        match = _BOUNDARY_RE.search(line)
+        if match:
+            index = int(match.group(1)) - 1
+            if 0 <= index < count:
+                current = index
+        if current >= 0:
+            slices[current].append(line)
+    return slices
+
+
+def _resolved_url(base_url: str, req: RequestItem) -> str:
+    sub_path = req.param.strip()
+    if req.type == "GET" and sub_path:
+        return urllib.parse.urljoin(base_url.rstrip("/") + "/", sub_path.lstrip("/"))
+    return base_url
+
+
+def _item_from_slice(index: int, req: RequestItem, url: str, lines: list[str]) -> SequenceItemResult:
+    if not lines:
+        return SequenceItemResult(index=index, url=url, method=req.type, status_code=0, error="request did not run")
+    code = 200
+    saw_status = False
+    error: str | None = None
+    saved: str | None = None
+    for line in lines:
+        status_match = _STATUS_RE.search(line)
+        if status_match:
+            code = int(status_match.group(1))
+            saw_status = True
+        error_match = _ERROR_RE.search(line)
+        if error_match:
+            error = error_match.group(1)
+        unsupported = _UNSUPPORTED_RE.search(line)
+        if unsupported:
+            error = f"Unsupported request type: {unsupported.group(1)}"
+        save_match = _SAVE_RE.search(line)
+        if save_match:
+            saved = save_match.group(1).strip()
+    if error and (not saw_status or code == 200):
+        code = 0
+    elif not saw_status and error is None:
+        code = 0
+        error = "request did not complete"
+    return SequenceItemResult(
+        index=index,
+        url=url,
+        method=req.type,
+        status_code=code,
+        saved_path=saved,
+        error=error,
+    )
+
 
 def _sanitize_url(url: str) -> str:
     """Validate and ensure scheme for HTTP URLs."""
@@ -52,7 +128,11 @@ class ExecuteHandler(Handler[ExecuteCommand, ExecuteResult]):
         if command.body and method in {"POST", "PUT", "PATCH"}:
             data = command.body.encode("utf-8")
             if "Content-Type" not in headers and "content-type" not in headers:
-                headers["Content-Type"] = "application/json" if command.body.strip().startswith(("{", "[")) else "application/x-www-form-urlencoded"
+                headers["Content-Type"] = (
+                    "application/json"
+                    if command.body.strip().startswith(("{", "["))
+                    else "application/x-www-form-urlencoded"
+                )
 
         if "User-Agent" not in headers and "user-agent" not in headers:
             headers["User-Agent"] = "ImageToolkit/1.0.0 (WebRequests)"
@@ -67,39 +147,36 @@ class ExecuteHandler(Handler[ExecuteCommand, ExecuteResult]):
                 status_text = response.msg or "OK"
                 resp_headers = {k: v for k, v in response.headers.items()}
                 content_type = response.headers.get("Content-Type", "application/octet-stream")
-                raw_bytes = response.read(65536)  # limit preview read to 64KB
-                try:
-                    body_text = raw_bytes.decode("utf-8", errors="replace")
-                except Exception:
-                    body_text = f"<binary data: {len(raw_bytes)} bytes>"
-
+                raw_bytes = response.read()
                 return ExecuteResult(
                     url=clean_url,
                     status_code=status_code,
                     status_text=status_text,
                     headers=resp_headers,
                     content_type=content_type,
-                    body=body_text,
+                    body=_preview_text(raw_bytes),
                     duration_ms=round(duration_ms, 2),
                     error=None,
+                    raw_body=raw_bytes,
                 )
         except urllib.error.HTTPError as exc:
             duration_ms = (time.perf_counter() - start_time) * 1000.0
             resp_headers = {k: v for k, v in exc.headers.items()} if exc.headers else {}
             content_type = exc.headers.get("Content-Type", "") if exc.headers else ""
             try:
-                err_body = exc.read(65536).decode("utf-8", errors="replace")
+                err_raw = exc.read()
             except Exception:
-                err_body = ""
+                err_raw = b""
             return ExecuteResult(
                 url=clean_url,
                 status_code=exc.code,
                 status_text=exc.reason or "HTTP Error",
                 headers=resp_headers,
                 content_type=content_type,
-                body=err_body,
+                body=_preview_text(err_raw),
                 duration_ms=round(duration_ms, 2),
                 error=f"HTTP {exc.code}: {exc.reason}",
+                raw_body=err_raw,
             )
         except urllib.error.URLError as exc:
             duration_ms = (time.perf_counter() - start_time) * 1000.0
@@ -150,7 +227,9 @@ class SequenceHandler(Handler[SequenceCommand, SequenceResult]):
         logs: list[str] = []
         item_results: list[SequenceItemResult] = []
 
-        if self._logic_cls == "fallback":
+        # Native httplib only executes header-less GET and POST. Other methods
+        # report "Unsupported request type" and still look like HTTP 200 here.
+        if self._logic_cls == "fallback" or not _native_sequence_supported(requests):
             return self._fallback_sequence_execution(base_url, requests, actions, timeout)
 
         # Attempt execution through WebRequestsLogic if available
@@ -160,6 +239,7 @@ class SequenceHandler(Handler[SequenceCommand, SequenceResult]):
         else:
             try:
                 from middleware.src.web.clients.web_requests import WebRequestsLogic
+
                 logic = WebRequestsLogic(config)
             except Exception as e:
                 logs.append(f"[INIT] WebRequestsLogic fallback active: {e}")
@@ -176,48 +256,8 @@ class SequenceHandler(Handler[SequenceCommand, SequenceResult]):
                 logs.append(f"[CRITICAL] Sequence execution failed: {exc}")
                 final_status.append(str(exc))
 
-            # Parse logs to construct SequenceItemResult entries
-            status_pattern = re.compile(r"Request complete\. Status: (\d+)")
-            error_pattern = re.compile(r"Request failed: (.*)")
-            save_pattern = re.compile(r"Response content saved to (.*)")
-
-            for i, req in enumerate(requests):
-                # Construct resolved URL
-                sub_path = req.param.strip()
-                if req.type == "GET" and sub_path:
-                    url = urllib.parse.urljoin(base_url.rstrip("/") + "/", sub_path.lstrip("/"))
-                else:
-                    url = base_url
-
-                # Find status in logs
-                item_code = 200
-                item_err = None
-                item_save = None
-                for line in logs:
-                    if f"Request {i + 1}/" in line:
-                        pass
-                    sm = status_pattern.search(line)
-                    if sm:
-                        item_code = int(sm.group(1))
-                    em = error_pattern.search(line)
-                    if em:
-                        item_err = em.group(1)
-                        if item_code == 200:
-                            item_code = 0
-                    sp = save_pattern.search(line)
-                    if sp:
-                        item_save = sp.group(1).strip()
-
-                item_results.append(
-                    SequenceItemResult(
-                        index=i,
-                        url=url,
-                        method=req.type,
-                        status_code=item_code,
-                        saved_path=item_save,
-                        error=item_err,
-                    )
-                )
+            for index, (req, lines) in enumerate(zip(requests, _log_slices(logs, len(requests)), strict=True)):
+                item_results.append(_item_from_slice(index, req, _resolved_url(base_url, req), lines))
 
             summary = final_status[0] if final_status else "Sequence execution completed."
             status: str = "completed"
@@ -298,11 +338,13 @@ class SequenceHandler(Handler[SequenceCommand, SequenceResult]):
                             try:
                                 target_path = aparam
                                 if os.path.isdir(target_path):
-                                    fname = os.path.basename(urllib.parse.urlparse(url).path) or f"response_{idx + 1}.dat"
+                                    fname = (
+                                        os.path.basename(urllib.parse.urlparse(url).path) or f"response_{idx + 1}.dat"
+                                    )
                                     target_path = os.path.join(target_path, fname)
                                 os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
                                 with open(target_path, "wb") as f:
-                                    f.write(exec_res.body.encode("utf-8", errors="replace"))
+                                    f.write(exec_res.raw_body)
                                 saved_path = target_path
                                 logs.append(f"  > Action: Response content saved to {target_path}")
                             except Exception as save_err:

@@ -52,6 +52,8 @@ class ExecuteResult:
     body: str
     duration_ms: float
     error: str | None = None
+    # Full response bytes. ``body`` is only a display preview.
+    raw_body: bytes = b""
 
 
 @dataclass(frozen=True)
