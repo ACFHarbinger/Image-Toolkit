@@ -1,4 +1,4 @@
-// GENERATED — contract hash 0ddf43995ce7387ccdcb17b3e1810f19002528a099b4e8c2a036122b876a07fb. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 48148467512ee584ac757ff420b1212bf259e6bc06655926b2980419a7ded0cc. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -303,6 +303,22 @@ pub struct BridgeEvent {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ProbeParams {
+    pub path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ProbeResult {
+    pub available: bool,
+    pub path: String,
+    pub width: i64,
+    pub height: i64,
+    pub duration_seconds: f64,
+    pub codec: String,
+    pub error: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CancelParams {
     pub job_id: String,
 }
@@ -591,6 +607,25 @@ pub struct FrameResult {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ConcatenateParams {
+    pub paths: Vec<String>,
+    pub output_path: String,
+    pub direction: String,
+    pub spacing: i64,
+    pub align: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ConcatenateResult {
+    pub written: bool,
+    pub output_path: String,
+    pub width: i64,
+    pub height: i64,
+    pub preview_png_base64: String,
+    pub error: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct BridgeRequest {
     /// must be "2.0" (enforced by the framing layer, #875)
     pub jsonrpc: String,
@@ -754,6 +789,34 @@ pub struct SetResult {
     pub key: String,
     pub value: serde_json::Value,
     pub scope: Scope,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CompareItem {
+    pub path: String,
+    pub width: i64,
+    pub height: i64,
+    pub ahash: String,
+    pub error: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ComparePair {
+    pub left: String,
+    pub right: String,
+    pub distance: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CompareParams {
+    pub paths: Vec<String>,
+    pub threshold: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CompareResult {
+    pub items: Vec<CompareItem>,
+    pub pairs: Vec<ComparePair>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

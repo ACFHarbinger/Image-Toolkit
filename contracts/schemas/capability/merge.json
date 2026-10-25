@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/merge.json",
+  "title": "MergeCapability",
+  "description": "Concatenate caller image paths (#903). Does not open library.db and does not call the panorama engines.",
+  "type": "object",
+  "$defs": {
+    "ConcatenateParams": {
+      "title": "ConcatenateParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["paths", "output_path", "direction", "spacing", "align"],
+      "properties": {
+        "paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "output_path": { "type": "string", "minLength": 1 },
+        "direction": { "type": "string", "enum": ["horizontal", "vertical"] },
+        "spacing": { "type": "integer", "minimum": 0, "maximum": 64 },
+        "align": { "type": "string", "enum": ["start", "center", "end"] }
+      }
+    },
+    "ConcatenateResult": {
+      "title": "ConcatenateResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["written", "output_path", "width", "height", "preview_png_base64", "error"],
+      "properties": {
+        "written": { "type": "boolean" },
+        "output_path": { "type": "string" },
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 },
+        "preview_png_base64": { "type": "string" },
+        "error": { "type": "string" }
+      }
+    }
+  }
+}

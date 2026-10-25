@@ -190,17 +190,17 @@ os_checklist = []
 id = "system.merge"
 kind = "page"
 title = "Merge"
-owner = "unclaimed"
+owner = "Grok"
 wave = "wave-4"
 issue = 903
 status = "pyside-only"
 routes = ["system.merge"]
 route_map = { merge = "system.merge" }
 pyside = ["gui/src/tabs/core/merge_tab"]
-tauri = ["frontend/src/tabs/core/MergeTab.tsx"]
-service = ""
-contract = ""
-docs = ""
+tauri = ["frontend/src/views/system/MergeView.tsx"]
+service = "middleware/src/services/merge/concatenate.py"
+contract = "merge"
+docs = "docs/modules/merge.md"
 scenarios = []
 os_checklist = []
 
@@ -208,17 +208,17 @@ os_checklist = []
 id = "system.similarity"
 kind = "page"
 title = "Similarity"
-owner = "unclaimed"
+owner = "Grok"
 wave = "wave-4"
 issue = 904
 status = "pyside-only"
 routes = ["system.similarity"]
 route_map = { delete = "system.similarity" }
 pyside = ["gui/src/tabs/core/similarity_tab"]
-tauri = ["frontend/src/tabs/core/DeleteTab.tsx"]
-service = ""
-contract = ""
-docs = ""
+tauri = ["frontend/src/views/system/SimilarityView.tsx"]
+service = "middleware/src/services/similarity/compare.py"
+contract = "similarity"
+docs = "docs/modules/similarity.md"
 scenarios = []
 os_checklist = []
 
@@ -226,7 +226,7 @@ os_checklist = []
 id = "system.extractor"
 kind = "page"
 title = "Extractor"
-owner = "unclaimed"
+owner = "Grok"
 wave = "wave-4"
 issue = 905
 status = "pyside-only"
@@ -238,10 +238,10 @@ pyside = [
     "gui/src/tabs/core/image_extractor_gallery.py",
     "gui/src/tabs/core/image_extractor_subtab.py",
 ]
-tauri = ["frontend/src/tabs/core/ImageExtractorTab.tsx"]
-service = ""
-contract = ""
-docs = ""
+tauri = ["frontend/src/views/system/ExtractorView.tsx"]
+service = "middleware/src/services/extractor/probe.py"
+contract = "extractor"
+docs = "docs/modules/extractor.md"
 scenarios = []
 os_checklist = []
 

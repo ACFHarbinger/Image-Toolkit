@@ -13,6 +13,12 @@ import type {
   DescribeResult,
   DifferenceParams,
   DifferenceResult,
+  ConcatenateParams,
+  ConcatenateResult,
+  CompareParams,
+  CompareResult,
+  ProbeParams,
+  ProbeResult,
   FrameParams,
   FrameResult,
   GetManyParams,
@@ -167,6 +173,21 @@ export class HostClient {
   async libraryPreviewDifference(params: DifferenceParams): Promise<DifferenceResult> {
     await this.connect();
     return this.send<DifferenceResult>("library_preview.difference", params as unknown as Record<string, unknown>);
+  }
+
+  async mergeConcatenate(params: ConcatenateParams): Promise<ConcatenateResult> {
+    await this.connect();
+    return this.send<ConcatenateResult>("merge.concatenate", params as unknown as Record<string, unknown>);
+  }
+
+  async similarityCompare(params: CompareParams): Promise<CompareResult> {
+    await this.connect();
+    return this.send<CompareResult>("similarity.compare", params as unknown as Record<string, unknown>);
+  }
+
+  async extractorProbe(params: ProbeParams): Promise<ProbeResult> {
+    await this.connect();
+    return this.send<ProbeResult>("extractor.probe", params as unknown as Record<string, unknown>);
   }
 
   async cloudOfferPrefill(params: PrefillParams): Promise<PrefillResult> {

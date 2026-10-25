@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/similarity.json",
+  "title": "SimilarityCapability",
+  "description": "Average-hash comparison of caller image paths (#904). Does not open library.db and does not delete files.",
+  "type": "object",
+  "$defs": {
+    "CompareParams": {
+      "title": "CompareParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["paths", "threshold"],
+      "properties": {
+        "paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "threshold": { "type": "integer", "minimum": 0, "maximum": 64 }
+      }
+    },
+    "CompareItem": {
+      "title": "CompareItem",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "width", "height", "ahash", "error"],
+      "properties": {
+        "path": { "type": "string" },
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 },
+        "ahash": { "type": "string" },
+        "error": { "type": "string" }
+      }
+    },
+    "ComparePair": {
+      "title": "ComparePair",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["left", "right", "distance"],
+      "properties": {
+        "left": { "type": "string" },
+        "right": { "type": "string" },
+        "distance": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "CompareResult": {
+      "title": "CompareResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["items", "pairs"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/CompareItem" }
+        },
+        "pairs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ComparePair" }
+        }
+      }
+    }
+  }
+}

@@ -3,10 +3,10 @@ import { DataBrowser } from "../views/library/DataBrowser";
 import { ComponentType, ReactNode } from "react";
 import { ConvertPilot } from "../views/ConvertPilot";
 import { Listings } from "../views/library/Listings";
-import MergeTab from "../tabs/core/MergeTab";
-import DeleteTab from "../tabs/core/DeleteTab";
+import { MergeView } from "../views/system/MergeView";
+import { SimilarityView } from "../views/system/SimilarityView";
+import { ExtractorView } from "../views/system/ExtractorView";
 import WallpaperTab from "../tabs/core/WallpaperTab";
-import { ImageExtractorTab } from "../tabs/core/ImageExtractorTab";
 import { ImageSearch } from "../views/library/ImageSearch";
 import { ScanMetadataView } from "../views/library/ScanMetadataView";
 import DriveSyncTab from "../tabs/web/DriveSyncTab";
@@ -35,9 +35,9 @@ export interface ViewProps {
 export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "system.convert": ConvertPilot,
   "library.listings": Listings,
-  "system.merge": MergeTab,
-  "system.similarity": DeleteTab,
-  "system.extractor": ImageExtractorTab,
+  "system.merge": MergeView,
+  "system.similarity": SimilarityView,
+  "system.extractor": ExtractorView,
   "system.wallpaper": WallpaperTab,
   "library.search": ImageSearch,
   "library.management": LibraryManagement,
@@ -72,6 +72,6 @@ export function CatalogView({
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
   const hostClientProps =
-    ["system.convert", "library.scan", "library.search", "library.listings", "library.management", "library.data-browser"].includes(entry.id) ? { hostClient, client: hostClient } : {};
+    ["system.convert", "system.merge", "system.similarity", "system.extractor", "library.scan", "library.search", "library.listings", "library.management", "library.data-browser"].includes(entry.id) ? { hostClient, client: hostClient } : {};
   return <View showModal={showModal} {...extra} {...hostClientProps} />;
 }

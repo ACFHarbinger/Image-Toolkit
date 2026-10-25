@@ -46,6 +46,9 @@ def test_handshake_result_and_ping_validate() -> None:
         "cloud_jobs",
         "library_preview",
         "cloud_offer",
+        "merge",
+        "similarity",
+        "extractor",
     }
     assert _request(server, "system.ping", {}, "ping")["result"] == {"ok": True}
 

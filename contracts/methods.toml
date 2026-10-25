@@ -416,7 +416,41 @@ emits = []
 stability = "experimental"
 owner = 898
 
+[[method]]
+name = "merge.concatenate"
+capability = "merge"
+summary = "Concatenate caller images horizontally or vertically (#903). Does not open library.db."
+params = "merge.ConcatenateParams"
+result = "merge.ConcatenateResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 903
 
+[[method]]
+name = "similarity.compare"
+capability = "similarity"
+summary = "Average-hash pairs for caller images (#904). Does not open library.db or delete files."
+params = "similarity.CompareParams"
+result = "similarity.CompareResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 904
+
+[[method]]
+name = "extractor.probe"
+capability = "extractor"
+summary = "Duration, size, and codec for one caller video path (#905). Does not extract frames."
+params = "extractor.ProbeParams"
+result = "extractor.ProbeResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 905
 
 [[channel]]
 name = "jobs"
