@@ -80,6 +80,9 @@ export function RequestBuilder({ client, origins, onJobSubmitted }: RequestBuild
   const [previewRisk, setPreviewRisk] = useState<RiskDiagnosis | null>(null);
   const previewGeneration = useRef(0);
 
+  const hasWorkloadData = spec.shards.some((shard) =>
+    Object.keys(shard.params ?? {}).length > 0 || (shard.inputs?.length ?? 0) > 0);
+
   const diagnosis = useMemo(() => evaluateRisk(spec), [spec]);
 
   const handleKindChange = (kind: WorkloadKind) => {
@@ -248,8 +251,10 @@ export function RequestBuilder({ client, origins, onJobSubmitted }: RequestBuild
           onKindChange={handleKindChange}
           onPresetChange={handlePresetChange}
           onTitleChange={(title) => setSpec({ ...spec, title })}
+          shardsLocked={hasWorkloadData}
           onShardsCountChange={(count) => {
-            const cnt = Math.max(1, count);
+            if (hasWorkloadData || !Number.isFinite(count)) return;
+            const cnt = Math.min(1000, Math.max(1, Math.floor(count)));
             setSpec({
               ...spec,
               shards: Array.from({ length: cnt }, (_, i) => ({ index: i, params: {}, inputs: [] })),

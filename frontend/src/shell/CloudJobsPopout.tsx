@@ -66,9 +66,9 @@ export function CloudJobsPopout(): React.ReactElement {
 
       {/* Main Tab Content. CloudJobsWindow owns the <main> element. */}
       <div className="flex-1 p-6">
-        {activeTab === "builder" && (
+        <div hidden={activeTab !== "builder"}>
           <RequestBuilder client={client} />
-        )}
+        </div>
         {activeTab === "jobs" && (
           <div data-testid="cloud-jobs-queue-view">
             <CloudJobsWindow badge={badge} client={client} />

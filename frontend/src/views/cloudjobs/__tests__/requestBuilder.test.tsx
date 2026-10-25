@@ -1,7 +1,10 @@
+import * as matchers from "@testing-library/jest-dom/matchers";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CloudJobsPopout } from "../../../shell/CloudJobsPopout";
+
+expect.extend(matchers);
 
 afterEach(() => {
   cleanup();
@@ -352,14 +355,18 @@ describe("RequestBuilder Component (#850)", () => {
     expect(screen.getByTestId("cloud-jobs-popout")).toBeInTheDocument();
     expect(screen.getByTestId("cloud-jobs-request-builder")).toBeInTheDocument();
 
+    fireEvent.change(screen.getByTestId("input-job-title"), { target: { value: "Retain my draft" } });
+    fireEvent.change(screen.getByTestId("input-max-spend"), { target: { value: "27" } });
     const jobsTab = screen.getByTestId("tab-jobs-queue");
     fireEvent.click(jobsTab);
     expect(screen.getByTestId("cloud-jobs-queue-view")).toBeInTheDocument();
-    expect(screen.queryByTestId("cloud-jobs-request-builder")).not.toBeInTheDocument();
+    expect(screen.getByTestId("cloud-jobs-request-builder")).not.toBeVisible();
 
     const builderTab = screen.getByTestId("tab-request-builder");
     fireEvent.click(builderTab);
     expect(screen.getByTestId("cloud-jobs-request-builder")).toBeInTheDocument();
+    expect(screen.getByTestId("input-job-title")).toHaveValue("Retain my draft");
+    expect(screen.getByTestId("input-max-spend")).toHaveValue(27);
   });
 });
 
@@ -422,4 +429,28 @@ it("retains the job ID on refusal and renews it only after acceptance", async ()
   const nextSpec = cloudJobsSubmit.mock.calls[2][0].spec;
   expect(nextSpec.job_id).not.toBe(firstId);
   expect(nextSpec.title).toBe("Keep these parameters");
+});
+
+
+it.each(["convert", "extract", "comfy"])("preserves populated %s shards when a count change is attempted", async (preset) => {
+  const preview = vi.fn().mockResolvedValue({ available: false, estimate_known: false, estimate: null, issues: [], needs_ack: [] });
+  const origins = {
+    convert: { inputPaths: ["/library/a.webp", "/library/b.webp"], outputFormat: "png" },
+    extract: { mediaPath: "/library/movie.mp4", startMs: 0, endMs: 10000, fps: 30, resolution: "1280x720" },
+    comfy: { workflow: { node: "sampler" }, prompts: ["sunrise", "forest"] },
+  };
+  render(<RequestBuilder origins={origins} client={{ cloudJobsPreview: preview } as unknown as HostClient} />);
+  fireEvent.change(screen.getByTestId("preset-selector"), { target: { value: preset } });
+  const count = screen.getByTestId("input-shards-count");
+  const before = (count as HTMLInputElement).value;
+  expect(count).toBeDisabled();
+  fireEvent.click(screen.getByTestId("review-plan-button"));
+  await waitFor(() => expect(preview).toHaveBeenCalledTimes(1));
+  const shards = preview.mock.calls[0][0].spec.shards;
+  fireEvent.click(screen.getByRole("button", { name: "Cancel / Edit Spec" }));
+  fireEvent.change(count, { target: { value: "9" } });
+  expect(count).toHaveValue(Number(before));
+  fireEvent.click(screen.getByTestId("review-plan-button"));
+  await waitFor(() => expect(preview).toHaveBeenCalledTimes(2));
+  expect(preview.mock.calls[1][0].spec.shards).toEqual(shards);
 });

@@ -37,6 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Cloud Jobs preserves populated shard payloads by locking their count, and retains the request draft when switching workspace tabs (#992).
 - Cloud Jobs generates a fresh request ID after acceptance while retaining the existing ID for failed-submission retries and preserving form parameters (#992).
 - Cloud Jobs confirmation uses backend preflight findings and required acknowledgment IDs, rejects blocked or unacknowledged submissions, and ignores stale preview responses (#992).
 - The Cloud Jobs window refreshes its list and selected detail while open, schedules each refresh after the prior request finishes, and stops polling on unmount (#989).

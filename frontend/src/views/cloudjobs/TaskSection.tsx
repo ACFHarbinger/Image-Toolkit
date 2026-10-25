@@ -10,6 +10,7 @@ export interface TaskSectionProps {
   onKindChange: (kind: WorkloadKind) => void;
   onPresetChange: (preset: string) => void;
   onTitleChange: (title: string) => void;
+  shardsLocked?: boolean;
   onShardsCountChange: (count: number) => void;
   renderFieldRisk: (fieldName: string) => React.ReactNode;
 }
@@ -23,6 +24,7 @@ export function TaskSection({
   onPresetChange,
   onTitleChange,
   onShardsCountChange,
+  shardsLocked = false,
   renderFieldRisk,
 }: TaskSectionProps): React.ReactElement {
   return (
@@ -106,6 +108,8 @@ export function TaskSection({
           type="number"
           min={1}
           max={1000}
+          disabled={shardsLocked}
+          aria-describedby={shardsLocked ? "shards-lock-reason" : undefined}
           data-testid="input-shards-count"
           value={spec.shards.length}
           onChange={(e) => onShardsCountChange(parseInt(e.target.value || "1", 10))}
@@ -113,6 +117,9 @@ export function TaskSection({
             diagnosis.severity_of("shards"),
           )}`}
         />
+        {shardsLocked && <p id="shards-lock-reason" className="text-xs text-gray-500">
+          Shard count is fixed for this populated workload to preserve its files and parameters.
+        </p>}
         {renderFieldRisk("shards")}
       </div>
     </section>
