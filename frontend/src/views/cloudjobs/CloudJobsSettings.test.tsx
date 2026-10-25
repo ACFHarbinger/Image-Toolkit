@@ -192,3 +192,58 @@ test("duplicate provider drafts cannot overwrite another region or be saved", as
   expect((client.setSetting.mock.calls[0][0].value as CloudJobsSettingsDocument).default_regions)
     .toEqual({ gcp: "us-central1", aws: "us-east-1" });
 });
+
+test("a trailing comma stays in the provider allowlist until blur or save", async () => {
+  const client = stubClient();
+  client.setSetting.mockImplementation(async (params) => ({
+    key: CLOUD_JOBS_SETTINGS_KEY,
+    value: params.value as SetResult["value"],
+    scope: "account",
+  }));
+  render(<CloudJobsSettings hostClient={client as never} />);
+  await screen.findByTestId("cloud-jobs-settings");
+
+  const allowlist = screen.getByTestId("setting-sensitive_allowlist");
+  fireEvent.change(allowlist, { target: { value: "gcp," } });
+  expect(allowlist).toHaveValue("gcp,");
+  fireEvent.change(allowlist, { target: { value: "gcp, aws" } });
+  expect(allowlist).toHaveValue("gcp, aws");
+  fireEvent.blur(allowlist);
+  expect(allowlist).toHaveValue("gcp, aws");
+
+  fireEvent.change(allowlist, { target: { value: "gcp, aws," } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(client.setSetting).toHaveBeenCalledTimes(1));
+  expect((client.setSetting.mock.calls[0][0].value as CloudJobsSettingsDocument).sensitive_allowlist)
+    .toEqual(["gcp", "aws"]);
+});
+
+test("settings inputs stay disabled while a save is pending", async () => {
+  const client = stubClient();
+  let release: (value: SetResult) => void = () => undefined;
+  client.setSetting.mockImplementation(() => new Promise<SetResult>((resolve) => {
+    release = resolve;
+  }));
+  render(<CloudJobsSettings hostClient={client as never} />);
+  await screen.findByTestId("cloud-jobs-settings");
+
+  fireEvent.change(screen.getByTestId("setting-monthly_cap_usd"), { target: { value: "250" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  await waitFor(() => expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled());
+  expect(screen.getByTestId("setting-monthly_cap_usd")).toBeDisabled();
+  expect(screen.getByTestId("setting-sensitive_allowlist")).toBeDisabled();
+  expect(screen.getByTestId("setting-packing_mode")).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Add region" })).toBeDisabled();
+  fireEvent.change(screen.getByTestId("setting-monthly_cap_usd"), { target: { value: "999" } });
+  expect(screen.getByTestId("setting-monthly_cap_usd")).toHaveValue(250);
+
+  release({
+    key: CLOUD_JOBS_SETTINGS_KEY,
+    value: documentFixture({ monthly_cap_usd: 250 }) as unknown as SetResult["value"],
+    scope: "account",
+  });
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+  expect(screen.getByTestId("setting-monthly_cap_usd")).toHaveValue(250);
+  expect(screen.getByTestId("setting-monthly_cap_usd")).toBeEnabled();
+});

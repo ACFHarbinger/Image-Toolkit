@@ -3,7 +3,7 @@
 // service, read and written whole through the `cloud_jobs/settings` key.
 // The risk rule editor rides the jobs capability when that surface opens.
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { RegionsEditor } from "./RegionsEditor";
 import type { HostClient } from "../../hostclient";
 import {
@@ -18,6 +18,23 @@ export interface CloudJobsSettingsProps {
 }
 
 type Phase = "loading" | "ready" | "saving" | "error";
+
+function normalizeList(raw: string): string[] {
+  return raw.split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function withListDrafts(
+  document: CloudJobsSettingsDocument,
+  drafts: Record<string, string>,
+): CloudJobsSettingsDocument {
+  if (Object.keys(drafts).length === 0) return document;
+  const next = { ...document } as CloudJobsSettingsDocument;
+  const record = next as unknown as Record<string, unknown>;
+  for (const [key, raw] of Object.entries(drafts)) {
+    record[key] = normalizeList(raw);
+  }
+  return next;
+}
 
 function isDocument(value: unknown): value is CloudJobsSettingsDocument {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
@@ -43,6 +60,11 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
   const [error, setError] = useState("");
   const [regionsValid, setRegionsValid] = useState(true);
   const [regionVersion, setRegionVersion] = useState(0);
+  const [listDrafts, setListDrafts] = useState<Record<string, string>>({});
+  const documentRef = useRef<CloudJobsSettingsDocument | null>(null);
+  const listDraftsRef = useRef<Record<string, string>>({});
+  documentRef.current = document;
+  listDraftsRef.current = listDrafts;
 
   const load = React.useCallback(async () => {
     setPhase("loading");
@@ -52,6 +74,9 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
         throw new Error("the settings document is malformed");
       }
       setDocument(result.value);
+      documentRef.current = result.value;
+      setListDrafts({});
+      listDraftsRef.current = {};
       setRegionsValid(true);
       setRegionVersion((version) => version + 1);
       setError("");
@@ -66,20 +91,34 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
     void load();
   }, [load]);
 
+  const commitLists = (): CloudJobsSettingsDocument | null => {
+    const current = documentRef.current;
+    if (!current) return null;
+    const next = withListDrafts(current, listDraftsRef.current);
+    listDraftsRef.current = {};
+    documentRef.current = next;
+    setListDrafts({});
+    setDocument(next);
+    return next;
+  };
+
   const save = async () => {
-    if (!document || !regionsValid) {
+    if (!documentRef.current || !regionsValid || phase === "saving") {
       return;
     }
+    const snapshot = commitLists();
+    if (!snapshot) return;
     setPhase("saving");
     try {
       const result = await hostClient.setSetting({
         key: CLOUD_JOBS_SETTINGS_KEY,
-        value: document as unknown as Record<string, unknown>,
+        value: snapshot as unknown as Record<string, unknown>,
       });
       if (!isDocument(result.value)) {
         throw new Error("the settings document is malformed");
       }
       setDocument(result.value);
+      documentRef.current = result.value;
       setRegionsValid(true);
       setRegionVersion((version) => version + 1);
       setError("");
@@ -103,12 +142,35 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
     return <p data-testid="cloud-jobs-settings-status">Loading Cloud Jobs settings…</p>;
   }
 
+  const locked = phase === "saving";
+
   const setField = (key: keyof CloudJobsSettingsDocument, value: unknown) => {
-    setDocument({ ...document, [key]: value } as CloudJobsSettingsDocument);
+    if (locked) return;
+    const next = { ...document, [key]: value } as CloudJobsSettingsDocument;
+    documentRef.current = next;
+    setDocument(next);
+  };
+
+  const setListDraft = (key: string, raw: string) => {
+    if (locked) return;
+    const next = { ...listDraftsRef.current, [key]: raw };
+    listDraftsRef.current = next;
+    setListDrafts(next);
+  };
+
+  const commitList = (key: string) => {
+    if (!(key in listDraftsRef.current) || !documentRef.current) return;
+    const next = withListDrafts(documentRef.current, { [key]: listDraftsRef.current[key] });
+    const drafts = { ...listDraftsRef.current };
+    delete drafts[key];
+    listDraftsRef.current = drafts;
+    documentRef.current = next;
+    setListDrafts(drafts);
+    setDocument(next);
   };
 
   return (
-    <div className="flex flex-col gap-4" data-testid="cloud-jobs-settings">
+    <div className="flex flex-col gap-4" data-testid="cloud-jobs-settings" aria-busy={locked}>
       <header className="flex items-center justify-between">
         <h1 className="text-xl">Cloud Jobs settings</h1>
         <button
@@ -125,6 +187,7 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
           {error}
         </p>
       ) : null}
+      <fieldset disabled={locked} className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0">
       {CLOUD_JOBS_SECTIONS.map((section) => (
         <section
           key={section.id}
@@ -138,12 +201,16 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
                 key={field.key}
                 field={field}
                 document={document}
+                listDraft={listDrafts[field.key]}
                 onChange={(value) => setField(field.key as keyof CloudJobsSettingsDocument, value)}
+                onListDraft={(raw) => setListDraft(field.key, raw)}
+                onListCommit={() => commitList(field.key)}
               />
             ))}
             {section.id === "placement" ? (
               <RegionsEditor
                 key={regionVersion}
+                disabled={locked}
                 onValidityChange={setRegionsValid}
                 regions={document.default_regions}
                 onChange={(regions) => setField("default_regions", regions)}
@@ -152,6 +219,7 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
           </div>
         </section>
       ))}
+      </fieldset>
     </div>
   );
 }
@@ -159,11 +227,17 @@ export function CloudJobsSettings({ hostClient }: CloudJobsSettingsProps) {
 function FieldRow({
   field,
   document,
+  listDraft,
   onChange,
+  onListDraft,
+  onListCommit,
 }: {
   field: Field;
   document: CloudJobsSettingsDocument;
+  listDraft?: string;
   onChange: (value: unknown) => void;
+  onListDraft: (raw: string) => void;
+  onListCommit: () => void;
 }) {
   const label = (
     <label className="w-56 shrink-0 text-it-muted-text" htmlFor={`setting-${field.key}`}>
@@ -224,16 +298,10 @@ function FieldRow({
         <input
           id={`setting-${field.key}`}
           type="text"
-          value={(record[field.key] as string[]).join(", ")}
+          value={listDraft ?? (record[field.key] as string[]).join(", ")}
           placeholder={field.hint}
-          onChange={(event) =>
-            onChange(
-              event.target.value
-                .split(",")
-                .map((item) => item.trim())
-                .filter(Boolean),
-            )
-          }
+          onChange={(event) => onListDraft(event.target.value)}
+          onBlur={onListCommit}
           data-testid={`setting-${field.key}`}
           className="grow rounded border border-it-border bg-it-window-bg px-2 py-1 text-it-text"
         />
