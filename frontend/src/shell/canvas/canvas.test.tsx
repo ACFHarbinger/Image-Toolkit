@@ -186,6 +186,9 @@ test("WebGL2 renderer compiles shaders and draws tile quads when WebGL2 context 
     DYNAMIC_DRAW: 0x88e8,
     FLOAT: 0x1406,
     TRIANGLES: 0x0004,
+    BLEND: 0x0be2,
+    SRC_ALPHA: 0x0302,
+    ONE_MINUS_SRC_ALPHA: 0x0303,
     createShader: vi.fn(() => ({})),
     shaderSource: vi.fn(),
     compileShader: vi.fn(),
@@ -215,6 +218,9 @@ test("WebGL2 renderer compiles shaders and draws tile quads when WebGL2 context 
     getUniformLocation: vi.fn(() => ({})),
     uniform1i: vi.fn(),
     uniform1f: vi.fn(),
+    enable: vi.fn(),
+    disable: vi.fn(),
+    blendFunc: vi.fn(),
   };
   vi.spyOn(canvas, "getContext").mockImplementation(
     ((contextId: string) => (contextId === "webgl2" ? mockGl : null)) as unknown as typeof canvas.getContext,
@@ -235,6 +241,9 @@ test("WebGL2 renderer compiles shaders and draws tile quads when WebGL2 context 
   expect(stats.drawnTileCount).toBe(culled.tiles.length);
   // Per-tile draws since Y-00: each visible tile binds its own texture.
   expect(drawArrays).toHaveBeenCalledTimes(culled.tiles.length);
+  expect(mockGl.enable).toHaveBeenCalledWith(mockGl.BLEND);
+  expect(mockGl.blendFunc).toHaveBeenCalledWith(mockGl.SRC_ALPHA, mockGl.ONE_MINUS_SRC_ALPHA);
+  expect(mockGl.disable).toHaveBeenCalledWith(mockGl.BLEND);
   for (let i = 0; i < culled.tiles.length; i += 1) {
     expect(drawArrays).toHaveBeenNthCalledWith(i + 1, mockGl.TRIANGLES, i * 6, 6);
   }

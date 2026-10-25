@@ -76,6 +76,10 @@ test("the LRU budget evicts and frees GL-side entries with the JS ones", async (
     expect(Number(host.getAttribute("data-texture-cache-entries"))).toBeLessThanOrEqual(2);
   });
   expect(Number(host.getAttribute("data-texture-cache-evictions"))).toBeGreaterThan(0);
+  // Evicted sources must not be uploaded after their cache entry is gone.
+  expect(Number(host.getAttribute("data-textured-tile-count"))).toBe(
+    Number(host.getAttribute("data-texture-cache-entries")),
+  );
 });
 
 test("failed loads keep the placeholder and never throw", async () => {

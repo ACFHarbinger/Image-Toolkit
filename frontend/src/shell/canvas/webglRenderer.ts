@@ -349,6 +349,9 @@ export class SharedCanvasRenderer {
         command.blendMode === "difference" ? 1 : command.blendMode === "split-wipe" ? 2 : 0;
       const layerOrder = Object.keys(command.layerOpacities);
       const splitWipeNdcX = clampedWipe * 2 - 1;
+      // Straight alpha from the fragment shader: src alpha, one-minus-src.
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       let texturedTileCount = 0;
       for (let i = 0; i < command.tiles.length; i += 1) {
         const tile = command.tiles[i];
@@ -367,6 +370,7 @@ export class SharedCanvasRenderer {
         gl.uniform1i(uLayerIndex, Math.max(0, layerOrder.indexOf(tile.layerId)));
         gl.drawArrays(gl.TRIANGLES, i * 6, 6);
       }
+      gl.disable(gl.BLEND);
     }
 
     this.lastStats = {

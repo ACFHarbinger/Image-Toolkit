@@ -165,6 +165,11 @@ export function SharedCanvasHost({
         if (!source) {
           return; // failed load: the placeholder stays for this tile
         }
+        // A later load can evict this URL before the callback runs. Uploading
+        // then would create a GL texture with no cache entry left to free it.
+        if (textureCache.get(url) !== source) {
+          return;
+        }
         rendererRef.current?.uploadTileTexture(url, source);
         setTextureVersion((version) => version + 1);
       });
