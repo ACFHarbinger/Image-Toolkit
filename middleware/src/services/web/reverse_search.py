@@ -28,10 +28,7 @@ def engines_result() -> dict[str, Any]:
     """Bridge payload for ``reverse_search.engines``."""
     from middleware.src.web.crawlers.reverse_image_search_crawler import SUPPORTED_ENGINES
 
-    engines = [
-        {"id": engine, "label": ENGINE_LABELS.get(engine, engine)}
-        for engine in sorted(SUPPORTED_ENGINES)
-    ]
+    engines = [{"id": engine, "label": ENGINE_LABELS.get(engine, engine)} for engine in sorted(SUPPORTED_ENGINES)]
     return {"engines": engines}
 
 
@@ -52,14 +49,14 @@ def search_result(manager: Any, params: Mapping[str, Any]) -> dict[str, Any]:
             image_path,
             engine_type=engine,
             roi=roi,
-            limit=limit,
+            **_count_args(engine, limit),
         )
     except ValueError as exc:
         return _failed(engine, str(exc))
     except Exception as exc:  # a provider/browser failure is a failed search, not a bridge error
         return _failed(engine, f"{type(exc).__name__}: {exc}")
 
-    results = [_item(row) for row in rows]
+    results = [_item(row) for row in rows][:limit]
     return {"ok": True, "engine": engine, "results": results, "error": None}
 
 
@@ -81,6 +78,18 @@ def _item(row: Mapping[str, Any]) -> dict[str, Any]:
 
 def _failed(engine: str, reason: str) -> dict[str, Any]:
     return {"ok": False, "engine": engine, "results": [], "error": reason}
+
+
+# Strategy.search() does not share one count parameter: TinEye reads
+# ``limit``, local CBIR reads ``top_k``, and SauceNAO reads ``numres``.
+_COUNT_PARAM = {
+    "local_cbir": "top_k",
+    "saucenao": "numres",
+}
+
+
+def _count_args(engine: str, limit: int) -> dict[str, int]:
+    return {_COUNT_PARAM.get(engine, "limit"): limit}
 
 
 def _limit(value: Any) -> int:

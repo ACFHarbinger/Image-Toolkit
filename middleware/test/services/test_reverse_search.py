@@ -44,8 +44,20 @@ def test_engine_catalog_lists_every_supported_engine_sorted() -> None:
 def test_search_normalizes_the_legacy_to_dict_shape() -> None:
     manager = _FakeManager(
         rows=[
-            {"url": "https://example.com/a", "engine": "tineye", "score": "0.8123", "resolution": "1920x1080", "title": "A match"},
-            {"url": "https://example.com/b", "engine": "tineye", "score": "not-a-number", "resolution": "", "title": None},
+            {
+                "url": "https://example.com/a",
+                "engine": "tineye",
+                "score": "0.8123",
+                "resolution": "1920x1080",
+                "title": "A match",
+            },
+            {
+                "url": "https://example.com/b",
+                "engine": "tineye",
+                "score": "not-a-number",
+                "resolution": "",
+                "title": None,
+            },
         ]
     )
     result = search_result(manager, {"engine": "tineye", "image_path": "/pics/q.png", "limit": 10})
@@ -60,9 +72,7 @@ def test_search_normalizes_the_legacy_to_dict_shape() -> None:
     assert result["results"][1]["title"] is None
     assert result["results"][1]["resolution"] == ""
     # The manager received the engine, path, roi and limit exactly once.
-    assert manager.calls == [
-        {"image_path": "/pics/q.png", "engine_type": "tineye", "roi": None, "limit": 10}
-    ]
+    assert manager.calls == [{"image_path": "/pics/q.png", "engine_type": "tineye", "roi": None, "limit": 10}]
 
 
 def test_roi_is_passed_as_a_tuple_and_bounded() -> None:
@@ -92,5 +102,23 @@ def test_an_unknown_engine_is_reported_by_the_service() -> None:
 def test_limit_defaults_and_invalid_roi_is_dropped() -> None:
     manager = _FakeManager()
     search_result(manager, {"engine": "local_cbir", "image_path": "/q.png", "roi": [1, 2, 3]})
-    assert manager.calls[0]["limit"] == 20
+    assert manager.calls[0]["top_k"] == 20
+    assert "limit" not in manager.calls[0]
     assert manager.calls[0]["roi"] is None
+
+
+def test_count_argument_matches_the_engine_and_results_are_capped() -> None:
+    rows = [{"url": f"https://example.com/{index}", "engine": "saucenao", "score": 1} for index in range(5)]
+    sauce = _FakeManager(rows=rows)
+    result = search_result(sauce, {"engine": "saucenao", "image_path": "/q.png", "limit": 1})
+    assert sauce.calls[0]["numres"] == 1
+    assert "limit" not in sauce.calls[0]
+    assert len(result["results"]) == 1
+
+    local = _FakeManager(rows=rows)
+    search_result(local, {"engine": "local_cbir", "image_path": "/q.png", "limit": 2})
+    assert local.calls[0]["top_k"] == 2
+    assert (
+        len(search_result(_FakeManager(rows=rows), {"engine": "google", "image_path": "/q.png", "limit": 1})["results"])
+        == 1
+    )
