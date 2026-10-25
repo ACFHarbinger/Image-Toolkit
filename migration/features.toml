@@ -251,7 +251,7 @@ os_checklist = []
 id = "web.crawler"
 kind = "page"
 title = "Crawler"
-owner = "unclaimed"
+owner = "Gemini"
 wave = "wave-5"
 issue = 906
 status = "pyside-only"
@@ -259,9 +259,9 @@ routes = ["web.crawler"]
 route_map = { crawler = "web.crawler" }
 pyside = ["gui/src/tabs/web/image_crawler_tab"]
 tauri = ["frontend/src/tabs/web/ImageCrawlerTab.tsx"]
-service = ""
-contract = ""
-docs = ""
+service = "middleware/src/services/crawler/service.py"
+contract = "crawler"
+docs = "docs/modules/crawler.md"
 scenarios = []
 os_checklist = []
 

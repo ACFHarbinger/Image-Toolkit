@@ -1,4 +1,4 @@
-# GENERATED — contract hash 48148467512ee584ac757ff420b1212bf259e6bc06655926b2980419a7ded0cc. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 7815df7f5295b89443325131d204adacad3557f783b5a5e23e9a70b22aad0e0f. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -254,6 +254,49 @@ class ConvertResult:
     size_bytes: int | None = None
     elapsed_seconds: float | None = None
     error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class AuthConfig:
+    username: (str | None) | None = None
+    api_key: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class CrawlParams:
+    crawler_type: str
+    download_dir: str
+    url: (str | None) | None = None
+    tags: (str | None) | None = None
+    limit: (int | None) | None = None
+    max_pages: (int | None) | None = None
+    actions: (list[str] | None) | None = None
+    login_config: LoginConfig | None = None
+    auth: AuthConfig | None = None
+
+
+@dataclass(frozen=True)
+class CrawlResult:
+    success: bool
+    crawler_type: str
+    total_downloaded: int
+    download_dir: str
+    errors: list[str]
+    elapsed_seconds: float
+
+
+@dataclass(frozen=True)
+class CrawlerSupportedResult:
+    types: list[str]
+    boards: list[str]
+    action_templates: list[str]
+
+
+@dataclass(frozen=True)
+class LoginConfig:
+    url: (str | None) | None = None
+    username: (str | None) | None = None
+    password: (str | None) | None = None
 
 
 @dataclass(frozen=True)
@@ -779,6 +822,9 @@ SpendParams = dict[str, Any]
 
 
 SummaryParams = dict[str, Any]
+
+
+CrawlerSupportedParams = dict[str, Any]
 
 
 EmptyParams = dict[str, Any]

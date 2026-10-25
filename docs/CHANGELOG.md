@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Web: Crawler capability and tab integration** (Tauri migration Wave 5, B-01 #906):
+  - **Contracts & Capability:** added `crawler` capability (`crawler.crawl`, `crawler.list_supported`) with schema `contracts/schemas/capability/crawler.json` and method routing in `contracts/methods.toml`.
+  - **Service Layer:** canonical domain service in `middleware/src/services/crawler/` (`commands.py`, `protocols.py`, `service.py`, `__init__.py`) implementing `CrawlerServiceProtocol` for automated scraping into caller paths without opening `library.db`.
+  - **Sidecar & HostClient:** sidecar handler in `middleware/src/sidecar/handlers/crawler.py` dispatched in `SidecarServer._dispatch_crawler`, typed client methods `crawlerCrawl` and `crawlerListSupported` on `HostClient`.
+  - **Frontend Webview:** updated `frontend/src/tabs/web/ImageCrawlerTab.tsx` with HostClient integration, live download status/error reporting, and component test `ImageCrawlerTab.test.tsx`.
+  - **Ledger & Docs:** registered in `migration/features.toml` (`owner = "Gemini"`, `contract = "crawler"`, `service = "middleware/src/services/crawler/service.py"`), documented in `docs/modules/crawler.md`.
+
 - Merge, similarity, and extractor probes (#903, #904, #905): `merge.concatenate` joins caller images horizontally or vertically, `similarity.compare` reports average-hash pairs, and `extractor.probe` reads one video with ffprobe. None of them open `library.db`. The placement canvas, file deletion, and frame extraction stay on PySide6.
 - **Library: Scan and Tag service and webview** (Tauri migration Wave 3, L-04 #898).
   - **Contracts & Capability:** added `scan` capability (`scan.directory`, `scan.save_metadata`, `scan.suggest_tags`) with schema `contracts/schemas/capability/scan.json` and method routing in `contracts/methods.toml`.

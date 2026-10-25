@@ -28,6 +28,7 @@ from middleware.src.bridge import (
     write_frame,
 )
 from middleware.src.services.cloud_jobs.projection import CloudProjection
+from middleware.src.services.crawler.service import CrawlerService
 from middleware.src.sidecar.handlers.cloud_jobs import (
     BadgeSource,
     JobsSource,
@@ -40,6 +41,7 @@ from middleware.src.sidecar.handlers.cloud_jobs import (
 )
 from middleware.src.sidecar.handlers.cloud_offer import handle_prefill
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
+from middleware.src.sidecar.handlers.crawler import handle_crawl, handle_list_supported
 from middleware.src.sidecar.handlers.extractor import handle_probe
 from middleware.src.sidecar.handlers.library import (
     handle_list_groups,
@@ -91,6 +93,7 @@ class SidecarServer:
         scan_service: Any | None = None,
         library_store: Any | None = None,
         library_admin_store: Any | None = None,
+        crawler_service: Any | None = None,
     ) -> None:
         self.table = table or catalog()
         self.stdin = stdin or sys.stdin
@@ -102,6 +105,7 @@ class SidecarServer:
         self.scan_service = scan_service
         self.library_store = library_store
         self.library_admin_store = library_admin_store
+        self.crawler_service = crawler_service or CrawlerService()
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self.cloud_service = None
         self._handshaken = False
@@ -165,14 +169,9 @@ class SidecarServer:
             return self._handshake(params)
         if method == "system.ping":
             return build_ping_result(table=self.table)
-        if method == "jobs.submit":
-            return self.jobs.submit(params)
-        if method == "jobs.status":
-            return self.jobs.status(params)
-        if method == "jobs.list":
-            return self.jobs.list(params)
-        if method == "jobs.cancel":
-            return self.jobs.cancel(params)
+        jobs = self._dispatch_jobs(method, params)
+        if jobs is not _UNHANDLED:
+            return jobs
         if method == "convert.convert":
             return handle_convert(params)
         if method == "convert.convert_batch":
@@ -192,10 +191,31 @@ class SidecarServer:
         scan = self._dispatch_scan(method, params)
         if scan is not _UNHANDLED:
             return scan
+        crawler = self._dispatch_crawler(method, params)
+        if crawler is not _UNHANDLED:
+            return crawler
         system_pages = self._dispatch_system_pages(method, params)
         if system_pages is not _UNHANDLED:
             return system_pages
         raise BridgeAppError("bridge.method_not_found", details={"method": method})
+
+    def _dispatch_jobs(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "jobs.submit":
+            return self.jobs.submit(params)
+        if method == "jobs.status":
+            return self.jobs.status(params)
+        if method == "jobs.list":
+            return self.jobs.list(params)
+        if method == "jobs.cancel":
+            return self.jobs.cancel(params)
+        return _UNHANDLED
+
+    def _dispatch_crawler(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "crawler.crawl":
+            return handle_crawl(self.crawler_service, params)
+        if method == "crawler.list_supported":
+            return handle_list_supported(self.crawler_service, params)
+        return _UNHANDLED
 
     def _dispatch_cloud(self, method: str, params: dict[str, Any]) -> Any:
         if method == "cloud_jobs.summary":
