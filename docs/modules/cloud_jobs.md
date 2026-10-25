@@ -6,7 +6,7 @@
 | **Service Package** | `middleware/src/services/cloud_jobs/` / `middleware/src/cloud/service.py` |
 | **Frontend View** | `frontend/src/views/cloudjobs/RequestBuilder.tsx` / `frontend/src/shell/CloudJobsWindow.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/cloud_jobs.json` |
-| **Contract SHA-256** | `f7decebc58560f91af1448b80d01a55b0df7965df43a1c409469b3ecbb344e67` |
+| **Contract SHA-256** | `0457600b727d66323e80ecacb9462a49f64fd498f282ffe6b2db6eba75974a5d` |
 
 ## Overview
 

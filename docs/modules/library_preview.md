@@ -6,7 +6,7 @@
 | **Service Package** | `middleware/src/services/library_preview/` |
 | **Frontend View** | `frontend/src/views/library/LibraryPreviewWindow.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/library_preview.json` |
-| **Contract SHA-256** | `f7decebc58560f91af1448b80d01a55b0df7965df43a1c409469b3ecbb344e67` |
+| **Contract SHA-256** | `ce9a0bef6eafb08082f4bf9753f73870686ceabbfc9c5b79f23a654e13ece677` |
 
 ## Overview
 

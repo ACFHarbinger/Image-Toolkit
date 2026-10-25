@@ -6,7 +6,7 @@
 | **Service Package** | `middleware/src/settings/` |
 | **Frontend View** | `frontend/src/views/cloudjobs/CloudJobsSettings.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/settings.json` |
-| **Contract SHA-256** | `f7decebc58560f91af1448b80d01a55b0df7965df43a1c409469b3ecbb344e67` |
+| **Contract SHA-256** | `04d34395c989baf3ae8444870049bb6a0e0c7b63ae3830e622b5d7f88e70a4d6` |
 
 ## Overview
 

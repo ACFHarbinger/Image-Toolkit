@@ -6,7 +6,7 @@
 | **Service Package** | `middleware/src/services/library/listings.py` |
 | **Frontend View** | `frontend/src/views/library/Listings.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/library.json` |
-| **Contract SHA-256** | `f7decebc58560f91af1448b80d01a55b0df7965df43a1c409469b3ecbb344e67` |
+| **Contract SHA-256** | `6deca491f5fefa9b57f32170f98dbe84dcfa19d33ee05548f97d6689cae3dac6` |
 
 ## Overview
 
