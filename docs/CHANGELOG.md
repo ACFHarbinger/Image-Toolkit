@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Refuse ASP stitching when an attached pipeline has no runnable operation.
+
 - CRE indexing uses the recommendation embedder instead of storing incompatible SHA-derived vectors. Missing embedding backends fail without inserting an item.
 
 - Reject HIE media export when IPC returns only a document description; leave caller output untouched.
