@@ -1,0 +1,7 @@
+{
+  "id": "window.cloud-compute.providers-parity",
+  "feature": "window.cloud-compute",
+  "kind": "differential",
+  "entry": "migration/scenarios/cloud_setup_providers.py",
+  "ignore": []
+}
