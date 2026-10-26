@@ -11,6 +11,9 @@ import time
 from pathlib import Path
 from typing import Any
 
+import cv2
+import numpy as np
+
 from middleware.src.services._submodule_loader import ensure_submodules_registered
 from middleware.src.services.asp.commands import (
     MatchFramesCommand,
@@ -22,6 +25,29 @@ from middleware.src.services.asp.commands import (
 )
 from middleware.src.services.asp.protocols import StitchServiceProtocol
 from middleware.src.services.base import CommandValidationError
+
+_IDENTITY_AFFINE = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=np.float64)
+
+
+def _elapsed(t0: float) -> float:
+    return round(time.monotonic() - t0, 4)
+
+
+def _affine_2x3(transform: Any) -> np.ndarray:
+    """Copy a caller-supplied transform into a 2×3 float64 affine."""
+    matrix = np.asarray(transform, dtype=np.float64)
+    if matrix.shape != (2, 3):
+        raise ValueError(f"affine transform must be 2x3, got shape {matrix.shape}")
+    return np.ascontiguousarray(matrix, dtype=np.float64)
+
+
+def _overlap_count(img1: np.ndarray, img2: np.ndarray, matrix: np.ndarray) -> int:
+    """Count img1 pixels that land on img2 after the pairwise warp."""
+    height, width = img2.shape[:2]
+    warped = cv2.warpAffine(img1, np.ascontiguousarray(matrix, dtype=np.float64), (width, height))
+    if warped.ndim == 3:
+        return int(np.count_nonzero(np.any(warped != 0, axis=-1)))
+    return int(np.count_nonzero(warped))
 
 
 class StitchService(StitchServiceProtocol):
@@ -118,21 +144,52 @@ class StitchService(StitchServiceProtocol):
                 field="image_path_2",
             )
 
+        img1 = cv2.imread(command.image_path_1)
+        if img1 is None:
+            return MatchFramesResult(
+                success=False,
+                elapsed_seconds=_elapsed(t0),
+                error=f"Image file is unreadable: {command.image_path_1}",
+            )
+        img2 = cv2.imread(command.image_path_2)
+        if img2 is None:
+            return MatchFramesResult(
+                success=False,
+                elapsed_seconds=_elapsed(t0),
+                error=f"Image file is unreadable: {command.image_path_2}",
+            )
+
         try:
-            # Check for pipeline delegate or cv2 matching
-            identity_transform = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
-            elapsed = round(time.monotonic() - t0, 4)
+            from asp_backend.alignment.matching._matcher_plugins import TemplateMatcher
+        except ImportError as exc:
+            return MatchFramesResult(
+                success=False,
+                elapsed_seconds=_elapsed(t0),
+                error=f"ASP template matcher unavailable: {exc}",
+            )
+
+        try:
+            matcher = TemplateMatcher()
+            matrix, confidence = matcher.match(img1, img2)
+            if matrix is None:
+                return MatchFramesResult(
+                    success=False,
+                    elapsed_seconds=_elapsed(t0),
+                    error="Matcher produced no transform",
+                )
+            affine = _affine_2x3(matrix)
+            transform = tuple(tuple(float(value) for value in row) for row in affine)
             return MatchFramesResult(
                 success=True,
-                inlier_count=100,
-                transform_matrix=identity_transform,
-                confidence=0.95,
-                elapsed_seconds=elapsed,
+                inlier_count=_overlap_count(img1, img2, affine),
+                transform_matrix=transform,
+                confidence=float(confidence),
+                elapsed_seconds=_elapsed(t0),
             )
         except Exception as exc:
             return MatchFramesResult(
                 success=False,
-                elapsed_seconds=round(time.monotonic() - t0, 4),
+                elapsed_seconds=_elapsed(t0),
                 error=str(exc),
             )
 
@@ -148,24 +205,88 @@ class StitchService(StitchServiceProtocol):
             if not os.path.isfile(p):
                 return RenderCanvasResult(
                     success=False,
-                    elapsed_seconds=round(time.monotonic() - t0, 4),
+                    elapsed_seconds=_elapsed(t0),
                     error=f"Image file does not exist: {p}",
                 )
 
+        frames: list[np.ndarray] = []
+        for path in command.image_paths:
+            frame = cv2.imread(path)
+            if frame is None:
+                return RenderCanvasResult(
+                    success=False,
+                    elapsed_seconds=_elapsed(t0),
+                    error=f"Image file is unreadable: {path}",
+                )
+            frames.append(frame)
+
         try:
-            if command.output_path:
-                Path(command.output_path).parent.mkdir(parents=True, exist_ok=True)
-            elapsed = round(time.monotonic() - t0, 4)
+            from asp_backend.alignment.canvas import _compute_canvas
+            from asp_backend.rendering.rendering.first import _render_first
+        except ImportError as exc:
+            return RenderCanvasResult(
+                success=False,
+                elapsed_seconds=_elapsed(t0),
+                error=f"ASP canvas renderer unavailable: {exc}",
+            )
+
+        try:
+            if len(command.transforms) == len(frames):
+                affines = [_affine_2x3(transform) for transform in command.transforms]
+            else:
+                affines = [np.array(_IDENTITY_AFFINE, copy=True) for _ in frames]
+
+            canvas_h, canvas_w, translation = _compute_canvas(frames, affines)
+            offset = np.asarray(translation, dtype=np.float64).reshape(-1)
+            for affine in affines:
+                affine[0, 2] = float(affine[0, 2]) + float(offset[0])
+                affine[1, 2] = float(affine[1, 2]) + float(offset[1])
+
+            rendered, _mask = _render_first(frames, affines, int(canvas_h), int(canvas_w))
+            if rendered is None or rendered.size == 0:
+                return RenderCanvasResult(
+                    success=False,
+                    elapsed_seconds=_elapsed(t0),
+                    error="Renderer produced an empty canvas",
+                )
+
+            output_path = command.output_path
+            if output_path:
+                destination = Path(output_path)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                if not cv2.imwrite(output_path, rendered):
+                    return RenderCanvasResult(
+                        success=False,
+                        elapsed_seconds=_elapsed(t0),
+                        error=f"Failed to write canvas: {output_path}",
+                    )
+                if not destination.is_file() or destination.stat().st_size == 0:
+                    return RenderCanvasResult(
+                        success=False,
+                        elapsed_seconds=_elapsed(t0),
+                        error=f"Canvas file is empty: {output_path}",
+                    )
+                saved = cv2.imread(output_path)
+                if saved is None or saved.size == 0:
+                    return RenderCanvasResult(
+                        success=False,
+                        elapsed_seconds=_elapsed(t0),
+                        error=f"Wrote canvas but could not read it back: {output_path}",
+                    )
+                height, width = saved.shape[:2]
+            else:
+                height, width = rendered.shape[:2]
+
             return RenderCanvasResult(
                 success=True,
-                output_path=command.output_path,
-                canvas_width=1920,
-                canvas_height=1080,
-                elapsed_seconds=elapsed,
+                output_path=output_path,
+                canvas_width=int(width),
+                canvas_height=int(height),
+                elapsed_seconds=_elapsed(t0),
             )
         except Exception as exc:
             return RenderCanvasResult(
                 success=False,
-                elapsed_seconds=round(time.monotonic() - t0, 4),
+                elapsed_seconds=_elapsed(t0),
                 error=str(exc),
             )

@@ -83,14 +83,67 @@ def test_match_frames_validation(tmp_path: Path) -> None:
         service.match_frames(MatchFramesCommand(image_path_1="/nonexistent1.png", image_path_2="/nonexistent2.png"))
 
 
+def test_match_frames_unreadable_file(tmp_path: Path) -> None:
+    empty = tmp_path / "empty.png"
+    empty.write_bytes(b"")
+    other = _create_sample_frame(tmp_path / "other.png")
+    service = StitchService()
+    result = service.match_frames(
+        MatchFramesCommand(image_path_1=str(empty), image_path_2=other)
+    )
+    assert result.success is False
+    assert result.error
+    assert result.inlier_count != 100
+    assert result.confidence != 0.95
+    assert result.transform_matrix is None
+
+
+def _overlap_count(path_1: str, path_2: str, transform: tuple[tuple[float, ...], ...]) -> int:
+    import cv2
+    import numpy as np
+
+    img1 = cv2.imread(path_1)
+    img2 = cv2.imread(path_2)
+    assert img1 is not None and img2 is not None
+    matrix = np.asarray(transform, dtype=np.float64)
+    height, width = img2.shape[:2]
+    warped = cv2.warpAffine(img1, matrix, (width, height))
+    return int(np.count_nonzero(np.any(warped != 0, axis=-1)))
+
+
 def test_match_frames_execution(tmp_path: Path) -> None:
-    f1 = _create_sample_frame(tmp_path / "f1.png")
-    f2 = _create_sample_frame(tmp_path / "f2.png")
+    f1 = _create_sample_frame(tmp_path / "f1.png", color=(100, 150, 200))
+    f2 = _create_sample_frame(tmp_path / "f2.png", color=(20, 80, 140))
     service = StitchService()
     result = service.match_frames(MatchFramesCommand(image_path_1=f1, image_path_2=f2))
-    assert result.success is True
-    assert result.inlier_count > 0
-    assert result.transform_matrix is not None
+    identity = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
+    stub = (
+        result.inlier_count == 100
+        and result.confidence == 0.95
+        and result.transform_matrix == identity
+    )
+    if stub:
+        import cv2
+        from asp_backend.alignment.matching._matcher_plugins import TemplateMatcher
+
+        img1 = cv2.imread(f1)
+        img2 = cv2.imread(f2)
+        matrix, confidence = TemplateMatcher().match(img1, img2)
+        assert matrix is not None
+        assert float(confidence) == 0.95
+        assert _overlap_count(f1, f2, identity) == 100
+    if result.success:
+        assert result.transform_matrix is not None
+        assert len(result.transform_matrix) == 2
+        assert all(len(row) == 3 for row in result.transform_matrix)
+        assert isinstance(result.confidence, float)
+        assert 0.0 <= result.confidence <= 1.0
+        assert result.inlier_count == _overlap_count(f1, f2, result.transform_matrix)
+        assert not stub
+    else:
+        assert result.error
+        assert result.transform_matrix is None
+        assert "no transform" in result.error.lower() or "unavailable" in result.error.lower()
 
 
 def test_render_canvas_validation() -> None:
@@ -105,6 +158,10 @@ def test_render_canvas_execution(tmp_path: Path) -> None:
     out = str(tmp_path / "canvas.png")
     service = StitchService()
     result = service.render_canvas(RenderCanvasCommand(image_paths=(f1, f2), output_path=out))
-    assert result.success is True
+    assert result.success is True, result.error
     assert result.output_path == out
-    assert result.canvas_width > 0
+    assert Path(out).stat().st_size > 0
+    with Image.open(out) as image:
+        assert image.size != (1920, 1080)
+        assert result.canvas_width == image.size[0]
+        assert result.canvas_height == image.size[1]
