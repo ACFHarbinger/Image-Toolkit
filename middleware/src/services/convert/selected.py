@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import signal
 import subprocess
 import tempfile
 import time
@@ -47,6 +48,7 @@ _PIL_FORMATS = {
     "ico": "ICO",
 }
 _OPAQUE_FORMATS = frozenset({"jpg", "jpeg", "bmp"})
+_QUALITY_FORMATS = frozenset({"jpg", "jpeg", "webp"})
 
 
 def list_directory(directory: str) -> dict[str, Any]:
@@ -65,7 +67,11 @@ def list_directory(directory: str) -> dict[str, Any]:
     return {"files": found, "error": error}
 
 
-def run_selected(params: dict[str, Any], before_file: Callable[[int, int], None]) -> dict[str, Any]:
+def run_selected(
+    params: dict[str, Any],
+    before_file: Callable[[int, int], None],
+    raise_if_cancelled: Callable[[], None] | None = None,
+) -> dict[str, Any]:
     """Process selected files. ``before_file(done, total)`` runs before each file."""
     started = time.monotonic()
     action = str(params.get("action") or "convert")
@@ -79,7 +85,7 @@ def run_selected(params: dict[str, Any], before_file: Callable[[int, int], None]
     for index, src in enumerate(paths):
         if index:
             before_file(index, total)
-        output, error = _one(params, action, src)
+        output, error = _one(params, action, src, raise_if_cancelled)
         if error:
             failed += 1
             errors.append(f"{Path(src).name}: {error}")
@@ -125,11 +131,16 @@ def _discover(params: dict[str, Any]) -> list[str]:
     return [path for path in listed["files"] if Path(path).suffix.lower().lstrip(".") in wanted]
 
 
-def _one(params: dict[str, Any], action: str, src: str) -> tuple[str, str]:
+def _one(
+    params: dict[str, Any],
+    action: str,
+    src: str,
+    raise_if_cancelled: Callable[[], None] | None = None,
+) -> tuple[str, str]:
     if action == "resample":
         return _resample(params, src)
     if action == "reencode":
-        return _reencode(params, src)
+        return _reencode(params, src, raise_if_cancelled)
     if action != "convert":
         return "", f"unknown action {action}"
     return _convert(params, src)
@@ -176,13 +187,38 @@ def _resample(params: dict[str, Any], src: str) -> tuple[str, str]:
     if dest.resolve() == Path(src).resolve():
         return "", "input and output must be different files"
     try:
-        _resize_image(src, dest, params.get("width"), params.get("height"), str(params.get("algorithm") or "lanczos"), fmt)
+        _resize_image(
+            src,
+            dest,
+            params.get("width"),
+            params.get("height"),
+            str(params.get("algorithm") or "lanczos"),
+            fmt,
+            params.get("quality"),
+        )
     except (OSError, ValueError) as exc:
         return "", str(exc)
     return str(dest), ""
 
 
-def _resize_image(src: str, dest: Path, width: Any, height: Any, algorithm: str, fmt: str) -> None:
+def _encoder_quality(fmt: str, quality: Any) -> dict[str, int]:
+    """Pillow quality for encoders that honor it. Missing or invalid values keep the encoder default."""
+    if fmt not in _QUALITY_FORMATS:
+        return {}
+    if isinstance(quality, bool) or not isinstance(quality, int) or quality < 1 or quality > 100:
+        return {}
+    return {"quality": quality}
+
+
+def _resize_image(
+    src: str,
+    dest: Path,
+    width: Any,
+    height: Any,
+    algorithm: str,
+    fmt: str,
+    quality: Any = None,
+) -> None:
     from PIL import Image
 
     resampling = {
@@ -199,7 +235,7 @@ def _resize_image(src: str, dest: Path, width: Any, height: Any, algorithm: str,
         try:
             resized = working.resize((target_w, target_h), resampling[algorithm])
             try:
-                resized.save(dest, format=_PIL_FORMATS[fmt])
+                resized.save(dest, format=_PIL_FORMATS[fmt], **_encoder_quality(fmt, quality))
             finally:
                 resized.close()
         finally:
@@ -235,13 +271,17 @@ def _target_size(source_w: int, source_h: int, width: Any, height: Any) -> tuple
     return target_w, target_h
 
 
-def _reencode(params: dict[str, Any], src: str) -> tuple[str, str]:
+def _reencode(
+    params: dict[str, Any],
+    src: str,
+    raise_if_cancelled: Callable[[], None] | None = None,
+) -> tuple[str, str]:
     ext = Path(src).suffix.lower().lstrip(".")
     if ext in _IMAGE_EXTS:
         return _reencode_image(params, src, ext)
     if ext not in _VIDEO_EXTS:
         return "", "unsupported file"
-    return _reencode_video(params, src, ext)
+    return _reencode_video(params, src, ext, raise_if_cancelled)
 
 
 def _reencode_image(params: dict[str, Any], src: str, ext: str) -> tuple[str, str]:
@@ -261,7 +301,12 @@ def _reencode_image(params: dict[str, Any], src: str, ext: str) -> tuple[str, st
     return _resample(cloned, src)
 
 
-def _reencode_video(params: dict[str, Any], src: str, ext: str) -> tuple[str, str]:
+def _reencode_video(
+    params: dict[str, Any],
+    src: str,
+    ext: str,
+    raise_if_cancelled: Callable[[], None] | None = None,
+) -> tuple[str, str]:
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
         return "", "ffmpeg is not available"
@@ -281,24 +326,87 @@ def _reencode_video(params: dict[str, Any], src: str, ext: str) -> tuple[str, st
     crf = params.get("crf")
     if isinstance(crf, int) and not isinstance(crf, bool) and video != "copy":
         command.extend(["-crf", str(crf)])
-    return _publish_ffmpeg(command, dest)
+    return _publish_ffmpeg(command, dest, raise_if_cancelled)
 
 
-def _publish_ffmpeg(command: list[str], dest: Path) -> tuple[str, str]:
+def _publish_ffmpeg(
+    command: list[str],
+    dest: Path,
+    raise_if_cancelled: Callable[[], None] | None = None,
+) -> tuple[str, str]:
     """Write beside ``dest``, keeping its suffix so ffmpeg can see the format."""
     fd, temporary_name = tempfile.mkstemp(prefix=f".{dest.stem}.", suffix=dest.suffix, dir=dest.parent)
     os.close(fd)
     temporary = Path(temporary_name)
+    process: subprocess.Popen[bytes] | None = None
     try:
         try:
-            completed = subprocess.run([*command, str(temporary)], capture_output=True, check=False, timeout=120)
+            process = subprocess.Popen(
+                [*command, str(temporary)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            _wait_ffmpeg(process, raise_if_cancelled)
         except (OSError, subprocess.TimeoutExpired) as exc:
             return "", str(exc)
-        if completed.returncode != 0 or not temporary.is_file() or temporary.stat().st_size == 0:
+        _checkpoint(raise_if_cancelled, process)
+        if process.returncode != 0 or not temporary.is_file() or temporary.stat().st_size == 0:
             return "", "ffmpeg failed"
+        _checkpoint(raise_if_cancelled, process)
         temporary.replace(dest)
         temporary = None
         return str(dest), ""
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
+
+
+def _wait_ffmpeg(process: subprocess.Popen[bytes], raise_if_cancelled: Callable[[], None] | None) -> None:
+    """Poll ffmpeg so a cancel can stop it before the temporary file is published."""
+    deadline = time.monotonic() + 120
+    while process.poll() is None:
+        _checkpoint(raise_if_cancelled, process)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            _stop_process(process)
+            raise subprocess.TimeoutExpired(process.args, 120)
+        try:
+            process.wait(timeout=min(0.2, remaining))
+        except subprocess.TimeoutExpired:
+            continue
+
+
+def _checkpoint(raise_if_cancelled: Callable[[], None] | None, process: subprocess.Popen[bytes] | None) -> None:
+    if raise_if_cancelled is None:
+        return
+    try:
+        raise_if_cancelled()
+    except Exception:
+        if process is not None:
+            _stop_process(process)
+        raise
+
+
+def _stop_process(process: subprocess.Popen[bytes]) -> None:
+    if process.poll() is not None:
+        return
+    pid = getattr(process, "pid", None)
+    if isinstance(pid, int) and pid > 0:
+        try:
+            os.killpg(pid, signal.SIGTERM)
+        except OSError:
+            process.terminate()
+    else:
+        process.terminate()
+    try:
+        process.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        if isinstance(pid, int) and pid > 0:
+            try:
+                os.killpg(pid, signal.SIGKILL)
+            except OSError:
+                process.kill()
+        else:
+            process.kill()
+        process.wait(timeout=2)

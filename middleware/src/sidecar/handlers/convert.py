@@ -100,7 +100,7 @@ def _start_selected_batch(jobs: JobRegistry, params: dict[str, Any]) -> dict[str
                 token.raise_if_cancelled()
                 jobs.transition(job_id, "running", progress={"done": done, "total": total})
 
-            result = run_selected(params, before_file)
+            result = run_selected(params, before_file, token.raise_if_cancelled)
             jobs.transition(
                 job_id,
                 "completed",

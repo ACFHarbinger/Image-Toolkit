@@ -148,6 +148,85 @@ def test_image_reencode_writes_jpeg_without_ffmpeg(tmp_path) -> None:
         assert image.size == (3, 3)
 
 
+class _Finished:
+    def __init__(self, args: list[str], *, code: int = 0, payload: bytes = b"encoded") -> None:
+        self.args = args
+        self.pid = None
+        self.returncode: int | None = None
+        self.code = code
+        self.payload = payload
+
+    def poll(self) -> int | None:
+        return self.returncode
+
+    def wait(self, timeout: float | None = None) -> int:
+        del timeout
+        if self.returncode is None:
+            if self.code == 0 and self.payload:
+                Path(self.args[-1]).write_bytes(self.payload)
+            self.returncode = self.code
+        return self.returncode
+
+    def terminate(self) -> None:
+        self.returncode = -15
+
+    def kill(self) -> None:
+        self.terminate()
+
+
+class _Running:
+    def __init__(self, args: list[str]) -> None:
+        self.args = args
+        self.pid = None
+        self.returncode: int | None = None
+        self.terminated = False
+        Path(args[-1]).write_bytes(b"partial-video")
+
+    def poll(self) -> int | None:
+        return self.returncode
+
+    def wait(self, timeout: float | None = None) -> int:
+        if self.terminated:
+            self.returncode = -15
+            return self.returncode
+        raise subprocess.TimeoutExpired(self.args, timeout or 0.2)
+
+    def terminate(self) -> None:
+        self.terminated = True
+
+    def kill(self) -> None:
+        self.terminate()
+
+
+def test_image_reencode_forwards_jpeg_quality(tmp_path) -> None:
+    source = tmp_path / "in"
+    low_dir = tmp_path / "low"
+    high_dir = tmp_path / "high"
+    source.mkdir()
+    low_dir.mkdir()
+    high_dir.mkdir()
+    image = Image.new("RGB", (32, 32))
+    image.putdata([(x * 8 % 256, y * 7 % 256, (x * y) % 256) for y in range(32) for x in range(32)])
+    image.save(source / "a.png")
+
+    def once(out: Path, quality: int) -> bytes:
+        result = run_selected(
+            {
+                "input_dir": str(source),
+                "output_dir": str(out),
+                "action": "reencode",
+                "paths": [str(source / "a.png")],
+                "output_format": "jpg",
+                "quality": quality,
+            },
+            lambda _done, _total: None,
+        )
+        assert result["succeeded"] == 1
+        return Path(result["output_paths"][0]).read_bytes()
+
+    assert once(low_dir, 5) != once(high_dir, 95)
+
+
 def test_failed_video_reencode_keeps_the_existing_file(tmp_path, monkeypatch) -> None:
     source = tmp_path / "in"
     output = tmp_path / "out"
@@ -158,14 +237,14 @@ def test_failed_video_reencode_keeps_the_existing_file(tmp_path, monkeypatch) ->
     existing = output / "clip.mp4"
     existing.write_bytes(b"keep-me")
 
-    def fake_run(args, **_kwargs):
+    def fake_popen(args, **_kwargs):
         target = Path(args[-1])
         assert target.suffix == ".mp4"
         assert target != existing
-        return subprocess.CompletedProcess(args, 1)
+        return _Finished(args, code=1, payload=b"")
 
     monkeypatch.setattr("middleware.src.services.convert.selected.shutil.which", lambda _name: "/usr/bin/ffmpeg")
-    monkeypatch.setattr("middleware.src.services.convert.selected.subprocess.run", fake_run)
+    monkeypatch.setattr("middleware.src.services.convert.selected.subprocess.Popen", fake_popen)
     result = run_selected(
         {
             "input_dir": str(source),
@@ -180,6 +259,75 @@ def test_failed_video_reencode_keeps_the_existing_file(tmp_path, monkeypatch) ->
     assert result["failed"] == 1
     assert "ffmpeg failed" in result["errors"][0]
     assert existing.read_bytes() == b"keep-me"
+
+
+def test_video_reencode_publishes_only_after_ffmpeg_succeeds(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "in"
+    output = tmp_path / "out"
+    source.mkdir()
+    output.mkdir()
+    video = source / "clip.mp4"
+    video.write_bytes(b"not a video")
+    existing = output / "clip.mp4"
+    existing.write_bytes(b"keep-me")
+
+    monkeypatch.setattr("middleware.src.services.convert.selected.shutil.which", lambda _name: "/usr/bin/ffmpeg")
+    monkeypatch.setattr(
+        "middleware.src.services.convert.selected.subprocess.Popen",
+        lambda args, **_kwargs: _Finished(args, payload=b"encoded-video"),
+    )
+    result = run_selected(
+        {
+            "input_dir": str(source),
+            "output_dir": str(output),
+            "action": "reencode",
+            "paths": [str(video)],
+            "video_codec": "h264",
+            "audio_codec": "aac",
+        },
+        lambda _done, _total: None,
+    )
+    assert result["succeeded"] == 1
+    assert existing.read_bytes() == b"encoded-video"
+
+
+def test_cancelled_video_reencode_does_not_publish(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "in"
+    output = tmp_path / "out"
+    source.mkdir()
+    output.mkdir()
+    video = source / "clip.mp4"
+    video.write_bytes(b"not a video")
+    existing = output / "clip.mp4"
+    existing.write_bytes(b"keep-me")
+    running: list[_Running] = []
+
+    def fake_popen(args, **_kwargs):
+        process = _Running(args)
+        running.append(process)
+        return process
+
+    def cancel() -> None:
+        raise Cancelled()
+
+    monkeypatch.setattr("middleware.src.services.convert.selected.shutil.which", lambda _name: "/usr/bin/ffmpeg")
+    monkeypatch.setattr("middleware.src.services.convert.selected.subprocess.Popen", fake_popen)
+    with pytest.raises(Cancelled):
+        run_selected(
+            {
+                "input_dir": str(source),
+                "output_dir": str(output),
+                "action": "reencode",
+                "paths": [str(video)],
+                "video_codec": "h264",
+                "audio_codec": "aac",
+            },
+            lambda _done, _total: None,
+            cancel,
+        )
+    assert running and running[0].terminated
+    assert existing.read_bytes() == b"keep-me"
+    assert list(output.iterdir()) == [existing]
 
 
 def test_video_reencode_uses_ffmpeg_and_does_not_fake_output(tmp_path, monkeypatch) -> None:
