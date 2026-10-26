@@ -49,11 +49,11 @@
 | `gui/src/tabs/web/web_requests_tab.py` | 377 | 39 | 6 | 422 |
 | `gui/src/components/dialogs/dataset_advisor_panel.py` | 371 | 12 | 16 | 399 |
 | `gui/src/windows/settings/_profile_management.py` | 371 | 34 | 18 | 423 |
+| `middleware/src/services/wallpaper/handlers.py` | 367 | 4 | 18 | 389 |
 | `gui/src/tabs/models/guidance_diff_widget.py` | 366 | 4 | 21 | 391 |
 | `middleware/src/core/dataset_advisor.py` | 365 | 9 | 31 | 405 |
 | `gui/src/components/virtual_gallery/virtual_gallery_model.py` | 365 | 48 | 81 | 494 |
 | `middleware/src/models/core/comfy_provenance.py` | 357 | 16 | 32 | 405 |
 | `gui/src/tabs/core/extractor_tab/_extraction_workers.py` | 355 | 11 | 9 | 375 |
 | `middleware/src/models/tuning/cbir_tuner.py` | 352 | 32 | 76 | 460 |
-| `middleware/src/app.py` | 346 | 112 | 50 | 508 |
-| **TOTALS** | **114974** | **6725** | **11772** | **133471** |
+| **TOTALS** | **115153** | **6727** | **11782** | **133662** |
