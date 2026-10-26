@@ -13,7 +13,7 @@ from middleware.src.bridge import PROTOCOL_NAME
 from middleware.src.bridge.envelope import BridgeAppError
 from middleware.src.services.auth.status import auth_status
 from middleware.src.services.prefs.describe import REASON, SECTIONS, describe
-from middleware.src.services.prefs.password import LOCKED, set_master_password
+from middleware.src.services.prefs.password import LOCKED, MISMATCH, set_master_password
 from middleware.src.services.prefs.store import load_window, save_window
 from middleware.src.sidecar.handlers.prefs import bind_prefs_paths, bind_vault_session
 from middleware.src.sidecar.server import SidecarServer
@@ -137,6 +137,9 @@ def test_password_change_requires_current_password_and_session(tmp_path: Path) -
         def __init__(self) -> None:
             self.calls: list[tuple[str, str]] = []
 
+        def confirm_password(self, raw_password: str) -> bool:
+            return raw_password == "old-secret"
+
         def update_account_password(self, account_name: str, new_raw_pass: str) -> None:
             self.calls.append((account_name, new_raw_pass))
 
@@ -160,6 +163,11 @@ def test_password_change_requires_current_password_and_session(tmp_path: Path) -
     missing_current = set_master_password("ada", "   ", "new-secret", Session())
     assert missing_current["success"] is False
     assert missing_current["reason"] == LOCKED
+
+    wrong = Session()
+    mismatch = set_master_password("ada", "not-the-password", "new-secret", wrong)
+    assert mismatch == {"success": False, "credentials_changed": False, "reason": MISMATCH}
+    assert wrong.calls == []
 
     session = Session()
     changed = set_master_password("ada", "old-secret", "new-secret", session)
@@ -254,6 +262,9 @@ def test_sidecar_round_trip_password_and_unknown_action(bound_paths: tuple[Path,
     assert not keys.exists()
 
     class Session:
+        def confirm_password(self, raw_password: str) -> bool:
+            return raw_password == "old-secret"
+
         def update_account_password(self, account_name: str, new_raw_pass: str) -> None:
             self.account_name = account_name
             self.new_raw_pass = new_raw_pass
@@ -286,6 +297,9 @@ def test_server_vault_session_gates_password_change(bound_paths: tuple[Path, Pat
     class Session:
         def __init__(self) -> None:
             self.calls: list[tuple[str, str]] = []
+
+        def confirm_password(self, raw_password: str) -> bool:
+            return raw_password == "old-secret"
 
         def update_account_password(self, account_name: str, new_raw_pass: str) -> None:
             self.calls.append((account_name, new_raw_pass))
