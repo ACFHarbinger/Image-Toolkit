@@ -1,54 +1,60 @@
-# Round 6: parity audit, remaining Tauri work, CI repair
+# Round 6: redo the Tauri UI to classic parity
 
-Roles from 2026-10-27: Codex is out (usage). **Claude reviews, makes final edits and merges.** **Grok** leads investigation and triage and delegates on the bus; Grok and Gemini each run a swarm, in parallel. Mistral and the others take rows Grok hands out.
+Roles from 2026-10-27: Codex is out (usage). **Claude reviews, makes final edits and merges.** **Grok leads investigation and triage and delegates on the bus.** Grok and Gemini each run a swarm, in parallel. Mistral and others take what Grok hands out.
 
-## Why this round exists
+Evidence: `.agent/reports/parity/cross_check_2026-10-27.md`. Every Tauri page is partial; none has parity. Ledger rows stay `pyside-only` until parity is real.
 
-The Tauri pages were built from the new UI, which was never checked against the PySide6 app. Features the old app has may be missing. A ledger row cannot become `pyside-deleted` until its parity gaps are zero or explicitly accepted by Harbinger.
+## Decision
 
-## Parity audit (both swarms, in parallel)
+**Keep** the catalog ids, the JSON-RPC contracts, and the sidecar methods that already do real work: `convert.convert`, `merge.concatenate`, wallpaper set and slideshow, `extractor.probe`, the desk reads, and the HIE and CSG calls that reach a solver.
+**Delete** the current desk-form pages as the product UI. Each page is deleted in the PR that replaces it, never earlier.
+**Build** a new shell that follows the classic shape: category, tab, subtab, gallery, inspector.
 
-For every ledger row you own (list below), compare the PySide6 original (`pyside` paths in `migration/features.toml`) with the Tauri view, control by control:
+## Work packages
 
-- every button, field, menu, shortcut, drag/drop target, context menu, setting and persisted option
-- every background action (daemons, workers, progress, cancel, error states)
-- every keyboard and accessibility behaviour
+| WP | Content | Owner swarm |
+|---|---|---|
+| 1 | Session and chrome: a window navigated by the 33 classic routes; shared folder picker, thumbnail gallery, selection, progress, cancel; the C++ vault session as the process that holds the database key (the React login flag is not that session) | **Grok** |
+| 2 | System tools as the Qt workflows: directory batch for convert, codec and sampler; merge queue plus a real placement canvas; similarity directory scan; extractor video actions then image-sheet extras; wallpaper monitor graph after the static apply path | **Grok** |
+| 3 | Library on a live store: listings editors, search with preview, scan that writes, management, data browser; preview wired to those galleries | **Grok** |
+| 4 | Web and cloud: crawler that downloads, drive sync that authenticates, media loader that fetches, entity recon with an engine, cloud submit that reaches a provider | **Gemini** |
+| 5 | Canvases: stitch's eight panels on the real workers; manga scribble, sequence and ARAP; hybrid editor viewport | **Gemini** |
+| 6 | Deep learning (training, generation, evaluation, inference, ComfyUI as separate tools), then the settings window (account, profiles, gallery, logging, shortcuts) | **Gemini** (DL, ComfyUI); settings goes to **Grok** because it sits on WP1 |
 
-Write one file per row: `.agent/reports/parity/<row-id>.md` with a table `item | PySide6 | Tauri | status (ok / missing / differs)`. Do not fix anything while auditing.
+## Order (parallel where it can be)
 
-**Mark every gap on the bus**, one line each, starting with `PARITY-GAP <row-id>:` and a one-sentence description. Anything you are unsure about gets `PARITY-GAP? <row-id>:`. Do not leave a gap only in your report file.
+**Phase 1, now, both swarms at once**
+- Grok: WP1 (shell, shared components, vault session). Everything on the Grok side waits for this.
+- Gemini: the headless halves of WP4, WP5 and WP6: live engines and workers behind the existing sidecar methods or new ones, with tests and fakes, and no new UI. Stitch workers, manga solvers, HIE viewport data, DL run control, crawler, media loader, entity recon engine.
 
-**Grok triages.** Grok reads the bus, merges duplicates, decides which gaps are real, sizes them, and delegates them by posting `PARITY-ASSIGN <row-id> -> <agent>` lines. Agents take only what was assigned to them, one PR per gap or per row, against `main`, no stacking. Gaps Grok rejects are listed in the row's report as `accepted-by-grok`; Harbinger has the final word.
+**Phase 2, after WP1's shared components land**
+- Grok: WP2 and WP3 pages (WP3 also needs the vault session from WP1).
+- Gemini: pages for WP4, WP5, WP6 on the new shell.
 
-## Work split
+**Phase 3**
+- Settings window (needs WP1 and the vault session).
+- Cloud submit to a provider: needs Gate A's PASS and Gate B (#834 to #840), and any live or paid provider run needs Harbinger's explicit authorization. Build against the fake provider only until then.
+- Delete the old desk-form pages, close parity gaps, then ledger sign-off row by row (Harbinger's checklist).
 
-### Grok swarm
-Audit: `library.listings`, `library.search`, `library.preview`, `library.scan`, `library.management`, `library.data-browser`, `system.convert`, `system.merge`, `system.similarity`, `system.extractor`, `cloud.jobs`, `window.settings`, `window.auth`, `window.logging`, `developer.logs`, `developer.metadata`, `window.cloud-compute`.
-Build:
-- Placement canvas (Merge) and frame-slice canvas (Extractor) on the shared canvas host (#1001); both still on PySide6.
-- Triage and delegation of all `PARITY-GAP` lines (Grok's own job, ahead of building).
-CI repair: `cargo` build and test, the GUI pytest suite, lychee (links to archived repos and `moon/` paths).
+## Blockers to respect
 
-### Gemini swarm
-Audit: `web.crawler`, `web.requests`, `web.drive-sync`, `web.media-loader`, `web.reverse-search`, `web.entity-recon`, `dl`, `system.wallpaper`, `stitch`, `editor.hybrid`, `manga.colorization`, `manga.animation`, `manga.puppeteering`, `developer.benchmarks`.
-Build:
-- Reconcile the two HIE editor views (`HieEditorTab` is wired; `HieEditorView` is not).
-- Review `feat/w0-03-submodule-services` and `feat/a01-wallpaper` (pushed as WIP): salvage, make `cv2`/`numpy` imports lazy, open PRs or delete.
-CI repair: `tsc` and `vitest` clean, `ruff` on the moved stitching code (about 143 findings), the three failing stitching tests (`test_audit_recomputes_strip_banding`, `test_gui_progress_pipeline_still_subclasses_without_session_override`, `test_compute_all_metrics_emits_strip_banding`), and configure and build `backend/` once (C++ test CMake paths now point to `backend/src/asp`).
+- **Library, scan-write, management and data browser** need the C++ vault session from the T6 decision. Do not build them on the React login flag.
+- **Drive sync and cloud credentials** need the vault from WP1.
+- **Cloud submit** needs `cloud_service` set and Gate B.
 
-### Shared
-- The 54 issues moved from the old repos (#1050 to #1103): Grok triages on the bus (keep, fold into the roadmap, or close); no agent starts one without an assignment.
-- Dependabot and pixi PRs (#1004, #1006, #1007, #1032, #1048, #1049, #1104): Grok reviews, Claude merges.
+## Missing features still to be found
+
+The cross-check was a read-only pass; more features may be missing. Every agent, while working a page, compares the classic widget against the Tauri page and posts each gap on the bus as one line starting `PARITY-GAP <row-id>:` (use `PARITY-GAP?` if unsure) and adds it to `.agent/reports/parity/<row-id>.md`. **Grok reads the bus, merges duplicates, sizes the gaps and delegates with `PARITY-ASSIGN <row-id> -> <agent>` lines.** Take only what is assigned. Grok decides which gaps are real; Harbinger has the last word.
+
+## Cleanup work that stays in this round
+
+- **Grok:** `cargo` build and test, the GUI suite, lychee; triage of the 54 issues moved from the old repos (#1050 to #1103); review of the Dependabot and pixi PRs.
+- **Gemini:** `tsc` and vitest clean, `ruff` on the moved stitching code, the three failing stitching tests, a `backend/` C++ build, reconcile the two HIE views, salvage `feat/w0-03-submodule-services` and `feat/a01-wallpaper`.
 
 ## Rules
 
-- One PR per item against `main`. Claim on the bus before editing.
-- Run `tsc`, vitest on touched files, contracts, docs freshness, ledger and import-linter before pushing. Auto-merges of TypeScript and `server.py` have corrupted code twice: read the merged result.
-- Python stays Qt-free and lazy on `numpy`, `cv2`, `PIL` imports at module level (the staged sidecar has none of them).
-- No behaviour changes in cleanup PRs. Do not touch another agent's uncommitted worktree.
-- Post results on the bus as: what changed, what was run, what was not run.
+- One PR per item against `main`. Claim on the bus first. No stacking.
+- Run `tsc`, vitest on touched files, contracts, docs freshness, ledger and import-linter before pushing. Read merged TypeScript and `server.py`; auto-merge has corrupted them twice.
+- Python stays Qt-free; no top-level `numpy`, `cv2` or `PIL` imports in service code (the staged sidecar has none).
+- Post results as: what changed, what was run, what was not run.
 - Claude reviews every PR before it lands and may push final edits to the branch.
-
-## Not in this round
-
-Cloud Jobs gates A to G (#824 track), the OS checks (Harbinger's checklist), and the PySide6 deletion (#921), which waits for zero `pyside-only` rows or recorded exceptions.
