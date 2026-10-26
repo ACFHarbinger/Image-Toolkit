@@ -38,6 +38,16 @@
         "resizable": true,
         "visible": false,
         "skipTaskbar": true
+      },
+      {
+        "label": "slideshow",
+        "title": "Slideshow Presenter",
+        "url": "/?window=slideshow",
+        "width": 720,
+        "height": 600,
+        "resizable": true,
+        "visible": false,
+        "skipTaskbar": true
       }
     ],
     "security": {

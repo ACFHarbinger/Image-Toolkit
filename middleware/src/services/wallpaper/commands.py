@@ -81,6 +81,7 @@ class SlideshowConfigResult(Result):
     monitor_queues: dict[str, list[str]] = field(default_factory=dict)
     current_paths: dict[str, str] = field(default_factory=dict)
     config_path: str = ""
+    running: bool = False
     elapsed_seconds: float = 0.0
     error: str | None = None
 

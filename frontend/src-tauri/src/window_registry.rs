@@ -137,7 +137,7 @@ pub fn restore(app: &AppHandle) -> Result<(), String> {
 
 pub fn popout(app: &AppHandle, role: &str) -> Result<(), String> {
     let spec = find_role(role).ok_or_else(|| format!("unknown window role {role}"))?;
-    if spec.role != "popout" || spec.kind != "webview" {
+    if (spec.role != "popout" && spec.role != "slideshow") || spec.kind != "webview" {
         return Err(format!("{role} is not a labeled pop-out"));
     }
     let label = spec.native_label();

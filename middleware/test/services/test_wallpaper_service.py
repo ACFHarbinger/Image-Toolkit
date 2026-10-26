@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 import dataclasses
+import json
+import os
+import signal
+import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -118,18 +123,225 @@ def test_slideshow_config_read_and_update(tmp_path: Path, monkeypatch: pytest.Mo
     assert readback.interval_seconds == 120
     assert readback.style == "span"
     assert readback.monitor_queues["0"] == ["/path/1.png", "/path/2.png"]
+    assert readback.running is False
 
 
-def test_slideshow_toggle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_slideshow_config_reports_a_live_daemon(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from middleware.src.sidecar.handlers.wallpaper import handle_slideshow_config
+
     cfg_path = tmp_path / "slideshow.json"
     monkeypatch.setattr("middleware.src.services.wallpaper.handlers.DAEMON_CONFIG_PATH", cfg_path)
     monkeypatch.setattr("middleware.src.services.wallpaper.handlers.IMAGE_TOOLKIT_DIR", tmp_path)
+    cfg_path.write_text(
+        json.dumps(
+            {
+                "interval_seconds": 30,
+                "style": "fill",
+                "monitor_queues": {},
+                "current_paths": {},
+                "running": True,
+                "pid": 424242,
+            }
+        ),
+        encoding="utf-8",
+    )
 
     service = WallpaperService()
+    dead = service.slideshow_config(SlideshowConfigCommand(update=False))
+    assert dead.running is False
+
+    monkeypatch.setattr(
+        "middleware.src.services.wallpaper.handlers._pid_alive", lambda pid: pid == 424242
+    )
+    live = handle_slideshow_config(service, {"update": False})
+    assert live["running"] is True
+
+    cfg_path.write_text(
+        json.dumps({"running": False, "pid": 424242, "interval_seconds": 30, "style": "fill"}),
+        encoding="utf-8",
+    )
+    stopped = service.slideshow_config(SlideshowConfigCommand(update=False))
+    assert stopped.running is False
+
+
+_FAKE_DAEMON_PID = 515151
+
+
+class _FakeDaemonProc:
+    pid = _FAKE_DAEMON_PID
+
+
+def _isolate_daemon_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    cfg_path = tmp_path / "slideshow.json"
+    monkeypatch.setattr("middleware.src.services.wallpaper.handlers.DAEMON_CONFIG_PATH", cfg_path)
+    monkeypatch.setattr("middleware.src.services.wallpaper.handlers.IMAGE_TOOLKIT_DIR", tmp_path)
+    return cfg_path
+
+
+def _patch_daemon_process(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    die_on_term: bool,
+) -> dict[str, list]:
+    """Replace Popen and os.kill so the real slideshow daemon never starts."""
+    captured: dict[str, list] = {"commands": [], "signals": []}
+    alive = {"value": True}
+
+    def _popen(cmd, **kwargs):
+        captured["commands"].append((list(cmd), kwargs))
+        return _FakeDaemonProc()
+
+    def _kill(pid: int, sig: int) -> None:
+        captured["signals"].append((pid, sig))
+        if pid != _FAKE_DAEMON_PID:
+            raise ProcessLookupError
+        if sig == 0 and not alive["value"]:
+            raise ProcessLookupError
+        if sig == signal.SIGTERM and die_on_term:
+            alive["value"] = False
+
+    monkeypatch.setattr("middleware.src.services.wallpaper.handlers.subprocess.Popen", _popen)
+    monkeypatch.setattr("middleware.src.services.wallpaper.handlers.os.kill", _kill)
+    return captured
+
+
+def test_slideshow_toggle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg_path = _isolate_daemon_config(tmp_path, monkeypatch)
+    captured = _patch_daemon_process(monkeypatch, die_on_term=True)
+    service = WallpaperService()
+    service.slideshow_config(
+        SlideshowConfigCommand(
+            update=True,
+            interval_seconds=120,
+            style="span",
+            monitor_queues={"0": ["/path/1.png"]},
+            current_paths={"0": "/path/1.png"},
+        )
+    )
+
     start_res = service.slideshow_toggle(SlideshowToggleCommand(running=True))
     assert start_res.running is True
+    assert start_res.pid == _FAKE_DAEMON_PID
+    assert start_res.pid != os.getpid()
     assert "started" in start_res.message
+    assert start_res.error is None
+
+    assert len(captured["commands"]) == 1
+    cmd, kwargs = captured["commands"][0]
+    script = Path(cmd[-1])
+    assert cmd[0] == sys.executable
+    assert script.name == "slideshow_daemon.py"
+    assert script.is_file()
+    assert kwargs["start_new_session"] is True
+    assert kwargs["stdout"] is subprocess.DEVNULL
+    assert kwargs["stderr"] is subprocess.DEVNULL
+
+    stored = json.loads(cfg_path.read_text(encoding="utf-8"))
+    assert stored["running"] is True
+    assert stored["pid"] == _FAKE_DAEMON_PID
+    assert stored["interval_seconds"] == 120
+    assert stored["style"] == "span"
+    assert stored["monitor_queues"]["0"] == ["/path/1.png"]
+    assert stored["current_paths"]["0"] == "/path/1.png"
 
     stop_res = service.slideshow_toggle(SlideshowToggleCommand(running=False))
     assert stop_res.running is False
+    assert stop_res.pid != os.getpid()
     assert "stopped" in stop_res.message
+    assert signal.SIGTERM in {sig for _pid, sig in captured["signals"]}
+    stopped = json.loads(cfg_path.read_text(encoding="utf-8"))
+    assert stopped["running"] is False
+    assert stopped["interval_seconds"] == 120
+    assert stopped["style"] == "span"
+
+
+def test_slideshow_toggle_stop_when_pid_stays_alive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg_path = _isolate_daemon_config(tmp_path, monkeypatch)
+    captured = _patch_daemon_process(monkeypatch, die_on_term=False)
+    service = WallpaperService()
+    start_res = service.slideshow_toggle(SlideshowToggleCommand(running=True))
+    assert start_res.running is True
+    assert start_res.pid == _FAKE_DAEMON_PID
+
+    def _kill_after_config_cleared(pid: int, sig: int) -> None:
+        captured["signals"].append((pid, sig))
+        if sig == signal.SIGTERM:
+            stored = json.loads(cfg_path.read_text(encoding="utf-8"))
+            assert stored["running"] is False
+        if pid != _FAKE_DAEMON_PID:
+            raise ProcessLookupError
+
+    monkeypatch.setattr(
+        "middleware.src.services.wallpaper.handlers.os.kill", _kill_after_config_cleared
+    )
+
+    stop_res = service.slideshow_toggle(SlideshowToggleCommand(running=False))
+    assert stop_res.running is True
+    assert stop_res.pid == _FAKE_DAEMON_PID
+    assert stop_res.pid != os.getpid()
+    assert stop_res.error
+    assert "did not stop" in stop_res.message
+    assert any(sig == signal.SIGTERM and pid == _FAKE_DAEMON_PID for pid, sig in captured["signals"])
+
+
+def test_slideshow_toggle_dead_pid_is_not_started(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg_path = _isolate_daemon_config(tmp_path, monkeypatch)
+
+    def _popen(cmd, **kwargs):
+        return _FakeDaemonProc()
+
+    def _kill(pid: int, sig: int) -> None:
+        raise ProcessLookupError
+
+    monkeypatch.setattr("middleware.src.services.wallpaper.handlers.subprocess.Popen", _popen)
+    monkeypatch.setattr("middleware.src.services.wallpaper.handlers.os.kill", _kill)
+
+    service = WallpaperService()
+    start_res = service.slideshow_toggle(SlideshowToggleCommand(running=True))
+    assert start_res.running is False
+    assert start_res.pid != _FAKE_DAEMON_PID
+    assert "started" not in start_res.message
+    assert start_res.error
+    stored = json.loads(cfg_path.read_text(encoding="utf-8"))
+    assert stored["running"] is False
+    assert "pid" not in stored
+
+
+def test_set_wallpaper_style_names_follow_desktop(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    img_path = _create_sample_image(tmp_path / "bg.png")
+    service = WallpaperService()
+    monkeypatch.setattr("middleware.src.services.wallpaper.handlers.platform.system", lambda: "Linux")
+
+    expected = {
+        "KDE": {
+            "fit": "Scaled, Keep Proportions",
+            "center": "Centered",
+            "tile": "Tiled",
+            "span": "Span",
+        },
+        "GNOME": {
+            "fit": "Scaled",
+            "center": "Centered",
+            "tile": "Wallpaper",
+            "span": "Spanned",
+        },
+    }
+    for desktop, styles in expected.items():
+        monkeypatch.setenv("XDG_CURRENT_DESKTOP", desktop)
+        monkeypatch.setenv("XDG_SESSION_DESKTOP", "")
+        for style, canonical in styles.items():
+            with patch(
+                "middleware.src.core.wallpaper.manager.WallpaperManager.apply_wallpaper"
+            ) as mock_apply:
+                result = service.set_wallpaper(
+                    SetWallpaperCommand(path_map={"0": img_path}, style=style)
+                )
+                assert result.success is True
+                assert canonical in result.message
+                assert mock_apply.call_args.kwargs["style_name"] == canonical

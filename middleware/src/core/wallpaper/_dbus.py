@@ -10,6 +10,7 @@ We try all known names in descending preference order.
 import logging
 import re
 import shutil
+import subprocess
 from typing import Optional
 
 import backend  # Native extension
@@ -62,13 +63,23 @@ def with_desktops_fallback(script: str) -> str:
 
 
 def find_qdbus_binary() -> Optional[str]:
-    """Return the first available ``qdbus`` binary name, or ``None``.
+    """Return the first available working ``qdbus`` binary name, or ``None``.
 
     Tries ``qdbus6``, ``qdbus-qt6``, ``qdbus``, ``qdbus-qt5`` in that order.
-    The result is not cached — call once at startup and store the value.
+    Skips any candidate whose invocation reports 'could not find a Qt installation'.
     """
     for name in _QDBUS_CANDIDATES:
-        if shutil.which(name):
+        path = shutil.which(name)
+        if not path:
+            continue
+        try:
+            res = subprocess.run([path], capture_output=True, text=True, timeout=1.5)
+            combined = (res.stdout + " " + res.stderr).lower()
+            if "could not find a qt installation" in combined:
+                logger.warning("Candidate %s failed Qt installation check; skipping", name)
+                continue
+            return name
+        except Exception:
             return name
     return None
 
@@ -99,24 +110,39 @@ def evaluate_kde_script_dbus_python(script: str) -> str:
 
 
 def evaluate_kde_script_with_fallback(qdbus: Optional[str], script: str) -> str:
-    """Evaluate a Plasma JS script via qdbus CLI, falling back to dbus-python.
+    """Evaluate a Plasma JS script via qdbus CLI, falling back across candidates and dbus-python.
 
     Chain:
-    1. If *qdbus* is a non-empty string: call ``base.evaluate_kde_script(qdbus, script)``.
-    2. If that fails (or qdbus is None): try ``evaluate_kde_script_dbus_python()``.
-    3. If both fail: re-raise the most recent exception.
+    1. If *qdbus* is a non-empty string, try calling ``base.evaluate_kde_script(qdbus, script)``.
+    2. If that fails (or qdbus is None), try all available candidates in ``_QDBUS_CANDIDATES``.
+    3. If all candidates fail: try ``evaluate_kde_script_dbus_python()``.
+    4. If both fail: re-raise the most recent exception.
 
     Returns the script output string.
     """
     script = with_desktops_fallback(script)
+    candidates: list[str] = []
     if qdbus:
+        candidates.append(qdbus)
+    for c in _QDBUS_CANDIDATES:
+        if c not in candidates and shutil.which(c):
+            candidates.append(c)
+
+    last_exc: Optional[Exception] = None
+    for cand in candidates:
         try:
-            return backend.evaluate_kde_script(qdbus, script)
+            return backend.evaluate_kde_script(cand, script)
         except Exception as exc:
-            logger.debug("qdbus CLI failed (%s), trying dbus-python fallback.", exc)
+            logger.debug("qdbus CLI candidate '%s' failed (%s)", cand, exc)
+            last_exc = exc
+
     try:
         return evaluate_kde_script_dbus_python(script)
     except ImportError:
+        if last_exc:
+            raise RuntimeError(
+                f"KDE scripting failed across candidates ({candidates}) and dbus-python is unavailable: {last_exc}"
+            ) from last_exc
         raise RuntimeError(
             "Neither qdbus CLI nor dbus-python is available. "
             "Install 'qdbus6'/'qdbus-qt6' or 'dbus-python' to enable KDE wallpaper support."

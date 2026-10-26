@@ -1,3 +1,5 @@
+mod auth_commands;
+mod settings_commands;
 mod benchmark_commands;
 mod bridge_commands;
 mod comfy_commands;
@@ -24,6 +26,9 @@ pub fn run() {
             core_commands::scan_files,
             core_commands::delete_files,
             core_commands::delete_directory,
+            // Authentication commands
+            auth_commands::authenticate_user,
+            auth_commands::create_user_account,
             // Settings commands (#917). Vault unlock is auth.status, not a Rust command.
             settings_commands::load_user_settings,
             settings_commands::save_user_settings,

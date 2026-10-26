@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Wallpaper Slideshow Presenter Window & Unified Daemon Config** (Tauri migration Wave 7, S-07 #893):
+  - **KDE Candidate Fallback & Styles:** updated `middleware/src/core/wallpaper/_dbus.py` to filter out broken `qdbus` binaries reporting `could not find a Qt installation` and fallback through candidate executables (`qdbus6`, `qdbus-qt6`, etc.) before D-Bus Python. Added integer `fillMode` containment mapping for `Fill` (2) and `Fit` (1) in `middleware/src/constants/app.py`.
+  - **Unified Daemon Config & Detached Process:** unified `wallpaper_commands.rs`, `WallpaperService` (`handlers.py`), and `slideshow_daemon.py` to read and write canonical `DAEMON_CONFIG_PATH` (`~/.image-toolkit/.slideshow_config.json`). Spawns daemon detached (`start_new_session=True` / `setsid`) with tracked PID so hiding the main UI window leaves the background process intact.
+  - **Slideshow Presenter Window:** implemented webview companion window `frontend/src/shell/SlideshowPresenterWindow.tsx` and host for role `slideshow` in `roles.json` and `tauri.conf.json`. Preserves the invariant that opening the presenter window queries monitor queues without modifying active desktop wallpaper.
 - **Manga CSG rides the bridge** (Tauri migration Wave 8, E-03 #916).
   - **Contracts & Capability:** added `csg` capability (`csg.colorize_scribble`, `csg.colorize_reference`, `csg.arap_deform`, `csg.propagate_sequence`) with schema `contracts/schemas/capability/csg.json` and method routing in `contracts/methods.toml`.
   - **Sidecar:** handler in `middleware/src/sidecar/handlers/csg.py` dispatched in `SidecarServer._dispatch_csg`; builds the frozen Phase C `CsgService` commands, maps `CommandValidationError` to `csg.invalid_params`, and normalizes tuples to JSON lists in the payload.

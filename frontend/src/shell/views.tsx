@@ -11,6 +11,8 @@ import { ExtractorView } from "../views/system/ExtractorView";
 import WallpaperView from "../views/system/WallpaperView";
 import { StitchWorkspace } from "../views/stitch/StitchWorkspace";
 import { DlWorkspace, type DlRoute } from "../views/dl/DlWorkspace";
+import { ImageSearch } from "../views/library/ImageSearch";
+import { ScanMetadataView } from "../views/library/ScanMetadataView";
 import { ReverseSearchView } from "../views/web/ReverseSearch";
 import { EntityReconView } from "../views/web/EntityRecon";
 import { WebRequestsView } from "../views/web/WebRequestsView";
@@ -20,6 +22,9 @@ import { MangaColorizationView } from "../views/manga/MangaColorizationView";
 import { MangaAnimationView } from "../views/manga/MangaAnimationView";
 import { MangaPuppeteeringView } from "../views/manga/MangaPuppeteeringView";
 import ImageCrawlerTab from "../tabs/web/ImageCrawlerTab";
+import { EntityReconView } from "../views/web/EntityRecon";
+import { ReverseSearchView } from "../views/web/ReverseSearch";
+import { WebRequestsView } from "../views/web/WebRequestsView";
 import { BenchmarkDashboard } from "../tabs/apollo/BenchmarkDashboard";
 import { HieEditorTab } from "../tabs/editor/HieEditorTab";
 import { LogDeskView } from "../views/windows/LogDeskView";
@@ -51,6 +56,7 @@ const STITCH_ROUTE_IDS = [
 const STITCH_VIEWS: Record<string, ComponentType<any>> = Object.fromEntries(
   STITCH_ROUTE_IDS.map((id) => [id, StitchWorkspace]),
 );
+
 const DL_ROUTE: Record<string, DlRoute> = {
   "dl.train": "train",
   "dl.generate": "generate",
@@ -74,6 +80,17 @@ const HOST_CLIENT_VIEWS = new Set([
   "library.listings",
   "library.management",
   "library.data-browser",
+  "web.crawler",
+  "web.requests",
+  "web.drive-sync",
+  "web.media-loader",
+  "web.reverse-search",
+  "web.entity-recon",
+  "editor.hybrid",
+  "developer.logs",
+  "developer.metadata",
+  ...STITCH_ROUTE_IDS,
+  ...Object.keys(DL_ROUTE),
   "web.reverse-search",
   "web.entity-recon",
   "web.requests",
@@ -143,6 +160,18 @@ export function CatalogView({
   const hostClientProps = HOST_CLIENT_VIEWS.has(entry.id)
     ? { hostClient, client: hostClient }
     : {};
+  const stitchRoute = (STITCH_ROUTE_IDS as readonly string[]).includes(entry.id);
+  const routeProps = stitchRoute ? { route: entry.id } : {};
+  const route = DL_ROUTE[entry.id];
+  return (
+    <View
+      showModal={showModal}
+      {...extra}
+      {...hostClientProps}
+      {...routeProps}
+      {...(route ? { route } : {})}
+    />
+  );
   const route = (STITCH_ROUTE_IDS as readonly string[]).includes(entry.id)
     ? entry.id
     : DL_ROUTE[entry.id];

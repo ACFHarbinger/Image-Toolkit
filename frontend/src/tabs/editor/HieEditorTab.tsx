@@ -401,3 +401,5 @@ export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal, hostClien
 };
 
 export default HieEditorTab;
+
+export * from "./host";

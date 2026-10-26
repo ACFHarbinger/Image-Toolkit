@@ -100,7 +100,7 @@
       "title": "SlideshowConfigResult",
       "type": "object",
       "additionalProperties": false,
-      "required": ["interval_seconds", "style", "monitor_queues", "current_paths", "config_path"],
+      "required": ["interval_seconds", "style", "monitor_queues", "current_paths", "config_path", "running"],
       "properties": {
         "interval_seconds": { "type": "integer", "minimum": 1 },
         "style": { "type": "string" },
@@ -115,7 +115,8 @@
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
-        "config_path": { "type": "string" }
+        "config_path": { "type": "string" },
+        "running": { "type": "boolean" }
       }
     },
     "SlideshowToggleParams": {

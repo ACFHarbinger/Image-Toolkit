@@ -1,4 +1,4 @@
-# GENERATED — contract hash 6a45b8f32749068100d96710e9ad83f596745d32b6cb9702fc61e1997c228ea4. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 25bb1ff48ee734cd0ab7e3b3a0936c4ad12ee96988058c651d235a1188a48fd3. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -1227,6 +1227,7 @@ class SlideshowConfigResult:
     monitor_queues: dict[str, list[str]]
     current_paths: dict[str, str]
     config_path: str
+    running: bool
 
 
 @dataclass(frozen=True)

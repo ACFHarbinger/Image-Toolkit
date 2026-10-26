@@ -23,6 +23,8 @@ WALLPAPER_STYLES = {
         "Tile": ("0", "1"),
     },
     "KDE": {
+        "Fill": 2,
+        "Fit": 1,
         "Scaled, Keep Proportions": 1,
         "Scaled": 1,
         "Scaled and Cropped (Zoom)": 2,

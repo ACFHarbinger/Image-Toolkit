@@ -75,6 +75,7 @@ def handle_slideshow_config(
         "monitor_queues": result.monitor_queues,
         "current_paths": result.current_paths,
         "config_path": result.config_path,
+        "running": result.running,
     }
 
 
