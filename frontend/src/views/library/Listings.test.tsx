@@ -91,6 +91,58 @@ test("an unavailable store shows the daemon-lease notice and no rows", async () 
   expect(screen.queryByText("a.png")).not.toBeInTheDocument();
 });
 
+test("edits image metadata and deletes a group through the store methods", async () => {
+  const client = stubClient();
+  const extra = {
+    scanSaveMetadata: vi.fn(async () => ({
+      saved_count: 1,
+      success: true,
+      database_available: true,
+      errors: [],
+    })),
+    libraryAdminMutate: vi.fn(async () => ({ available: true, applied: 1, error: "" })),
+    libraryPreviewDescribe: vi.fn(async () => ({
+      items: [{ path: "/pics/a.png", exists: true, width: 3, height: 2, animated: false, error: "" }],
+    })),
+    libraryPreviewFrame: vi.fn(async () => ({
+      path: "/pics/a.png",
+      width: 3,
+      height: 2,
+      png_base64: "bbbb",
+      error: "",
+    })),
+  };
+  render(<Listings hostClient={{ ...client, ...extra } as never} />);
+  await screen.findByText("a.png");
+
+  fireEvent.change(screen.getByTestId("library-listings-kind"), { target: { value: "image" } });
+  fireEvent.change(screen.getByLabelText("image to edit"), { target: { value: "/pics/a.png" } });
+  fireEvent.change(screen.getByLabelText("image group"), { target: { value: "Studio" } });
+  fireEvent.click(screen.getByTestId("library-listings-save"));
+  await waitFor(() => {
+    expect(extra.scanSaveMetadata).toHaveBeenCalledWith({
+      items: [
+        {
+          path: "/pics/a.png",
+          tags: ["night"],
+          group_name: "Studio",
+          subgroup_name: "Beach",
+        },
+      ],
+    });
+  });
+
+  fireEvent.click(screen.getByTestId("library-listings-preview"));
+  expect(await screen.findByTestId("library-listings-preview-pane")).toHaveTextContent("/pics/a.png 3x2");
+
+  fireEvent.change(screen.getByTestId("library-listings-kind"), { target: { value: "group" } });
+  fireEvent.change(screen.getByLabelText("group to edit"), { target: { value: "Trips" } });
+  fireEvent.click(screen.getByTestId("library-listings-delete"));
+  await waitFor(() => {
+    expect(extra.libraryAdminMutate).toHaveBeenCalledWith({ action: "remove_group", name: "Trips" });
+  });
+});
+
 test("tag filters and pagination are client-side over the returned rows", async () => {
   const client = stubClient();
   render(<Listings hostClient={client as never} />);

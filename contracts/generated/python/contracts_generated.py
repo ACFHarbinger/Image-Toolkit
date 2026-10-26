@@ -1,4 +1,4 @@
-# GENERATED — contract hash 25bb1ff48ee734cd0ab7e3b3a0936c4ad12ee96988058c651d235a1188a48fd3. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash c9b6edf9c60311bf50a4e7d58a6a25d9164f0ceda3a71af6ec8de11344e19fe8. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -790,6 +790,7 @@ class CatalogResult:
     available: bool
     groups: list[AdminGroupRecord]
     tags: list[TagRecord]
+    tables: list[str]
 
 
 class MutateAction(str, enum.Enum):
@@ -800,6 +801,11 @@ class MutateAction(str, enum.Enum):
     REMOVE_SUBGROUP = "remove_subgroup"
     REMOVE_TAG = "remove_tag"
     MERGE_TAGS = "merge_tags"
+    RENAME_GROUP = "rename_group"
+    RENAME_SUBGROUP = "rename_subgroup"
+    RENAME_TAG = "rename_tag"
+    UPDATE_TAG = "update_tag"
+    DELETE_IMAGE = "delete_image"
 
 
 @dataclass(frozen=True)

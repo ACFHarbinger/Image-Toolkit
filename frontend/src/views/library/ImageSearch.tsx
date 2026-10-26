@@ -37,6 +37,14 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
   const [error, setError] = useState("");
   const [page, setPage] = useState(0);
   const [searched, setSearched] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [preview, setPreview] = useState<{
+    path: string;
+    width: number;
+    height: number;
+    error: string;
+    png: string;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +87,8 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
       setImages(result.images);
       setAvailable(result.available);
       setPage(0);
+      setSelectedIndex(0);
+      setPreview(null);
       setSearched(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -104,8 +114,34 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
     );
   }
 
+  const openPreview = async (index: number) => {
+    const image = images[index];
+    if (!image) return;
+    setSelectedIndex(index);
+    const described = await hostClient.libraryPreviewDescribe({ paths: [image.file_path] });
+    const frame = await hostClient.libraryPreviewFrame({ path: image.file_path });
+    const item = described.items[0];
+    setPreview({
+      path: image.file_path,
+      width: item ? item.width : 0,
+      height: item ? item.height : 0,
+      error: (item && item.error) || frame.error,
+      png: frame.png_base64,
+    });
+  };
+
+  const moveSelection = (delta: number) => {
+    if (images.length === 0) return;
+    const next = Math.min(images.length - 1, Math.max(0, selectedIndex + delta));
+    setSelectedIndex(next);
+    if (preview) {
+      void openPreview(next);
+    }
+  };
+
   const pageCount = Math.max(1, Math.ceil(images.length / PAGE_SIZE));
   const pageImages = images.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const selected = images[selectedIndex];
 
   return (
     <div data-testid="library-search" className="flex min-h-0 flex-1 flex-col gap-3 p-4">
@@ -198,6 +234,46 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
 
       {searched ? (
         <div className="flex min-h-0 flex-1 flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              data-testid="library-search-preview-open"
+              disabled={!selected}
+              onClick={() => void openPreview(selectedIndex)}
+            >
+              Preview
+            </button>
+            <button
+              type="button"
+              data-testid="library-search-prev"
+              disabled={selectedIndex <= 0}
+              onClick={() => moveSelection(-1)}
+            >
+              Previous result
+            </button>
+            <button
+              type="button"
+              data-testid="library-search-next"
+              disabled={selectedIndex >= images.length - 1}
+              onClick={() => moveSelection(1)}
+            >
+              Next result
+            </button>
+            <span data-testid="library-search-selected">
+              {selected ? `Selected: ${selected.filename}` : "None selected"}
+            </span>
+          </div>
+          {preview ? (
+            <div data-testid="library-search-preview">
+              <p>
+                {preview.path} {preview.width}x{preview.height}
+              </p>
+              {preview.error ? <p role="alert">{preview.error}</p> : null}
+              {preview.png ? (
+                <img alt="Search preview" src={"data:image/png;base64," + preview.png} />
+              ) : null}
+            </div>
+          ) : null}
           <div
             className="min-h-0 flex-1 overflow-y-auto rounded border border-it-border"
             data-testid="library-search-rows"
@@ -207,9 +283,15 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
                 key={image.id}
                 className="flex items-center justify-between gap-2 border-b border-it-border px-2 py-1 text-sm"
               >
-                <span className="truncate" title={image.file_path}>
+                <button
+                  type="button"
+                  className="truncate text-left"
+                  title={image.file_path}
+                  aria-pressed={selected?.file_path === image.file_path}
+                  onClick={() => setSelectedIndex(images.indexOf(image))}
+                >
                   {image.filename}
-                </span>
+                </button>
                 <span className="shrink-0 text-it-muted-text">
                   {image.group_name ?? "—"}
                   {image.width && image.height ? ` · ${image.width}×${image.height}` : ""}

@@ -33,6 +33,8 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [filterNewOnly, setFilterNewOnly] = useState(false);
+  const [previewText, setPreviewText] = useState("");
+  const [previewPng, setPreviewPng] = useState("");
 
   const notify = (msg: string, type: "info" | "error" | "success" = "info") => {
     if (showModal) {
@@ -123,6 +125,27 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
     }
   };
 
+  const handlePreview = async () => {
+    const path = Array.from(selectedPaths)[0];
+    if (!path) {
+      notify("Select an image to preview.", "error");
+      return;
+    }
+    try {
+      const described = await hostClient.libraryPreviewDescribe({ paths: [path] });
+      const frame = await hostClient.libraryPreviewFrame({ path });
+      const item = described.items[0];
+      const detail = item ? `${item.path} ${item.width}x${item.height} ${item.error}` : path;
+      setPreviewText(detail);
+      setPreviewPng(frame.error ? "" : frame.png_base64);
+      if ((item && item.error) || frame.error) {
+        notify((item && item.error) || frame.error, "error");
+      }
+    } catch (err) {
+      notify(`Preview failed: ${String(err)}`, "error");
+    }
+  };
+
   const toggleSelect = (p: string) => {
     const next = new Set(selectedPaths);
     if (next.has(p)) {
@@ -153,8 +176,11 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
           </p>
         </div>
         {dbAvailable === false && (
-          <div className="rounded-lg bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-            Database offline (vault locked) — scanning is available; metadata saves will queue when unlocked.
+          <div
+            data-testid="scan-db-unavailable"
+            className="rounded-lg bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+          >
+            No database session is attached. Metadata saves fail until a vault session is open.
           </div>
         )}
       </div>
@@ -330,6 +356,22 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
                 ))}
               </div>
             )}
+
+            <button
+              type="button"
+              onClick={() => void handlePreview()}
+              disabled={selectedPaths.size === 0}
+              data-testid="scan-preview"
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+            >
+              Preview selected
+            </button>
+            {previewText ? (
+              <div data-testid="scan-preview-pane">
+                <p>{previewText}</p>
+                {previewPng ? <img alt="Scan preview" src={"data:image/png;base64," + previewPng} /> : null}
+              </div>
+            ) : null}
 
             <button
               type="button"

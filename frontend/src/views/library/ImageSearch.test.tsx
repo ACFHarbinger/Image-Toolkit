@@ -106,6 +106,46 @@ test("an unavailable store shows the daemon-lease notice", async () => {
   expect(screen.queryByText("a.png")).not.toBeInTheDocument();
 });
 
+test("preview describe and frame follow the selected result", async () => {
+  const client = stubClient();
+  const preview = {
+    libraryPreviewDescribe: vi.fn(async (params: { paths: string[] }) => ({
+      items: [
+        {
+          path: params.paths[0],
+          exists: true,
+          width: 8,
+          height: 4,
+          animated: false,
+          error: "",
+        },
+      ],
+    })),
+    libraryPreviewFrame: vi.fn(async (params: { path: string }) => ({
+      path: params.path,
+      width: 8,
+      height: 4,
+      png_base64: "aaaa",
+      error: "",
+    })),
+  };
+  render(<ImageSearch hostClient={{ ...client, ...preview } as never} />);
+  await screen.findByTestId("library-search");
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  await screen.findByText("a.png");
+
+  fireEvent.click(screen.getByTestId("library-search-next"));
+  expect(screen.getByTestId("library-search-selected")).toHaveTextContent("b.jpg");
+  fireEvent.click(screen.getByTestId("library-search-prev"));
+  expect(screen.getByTestId("library-search-selected")).toHaveTextContent("a.png");
+
+  fireEvent.click(screen.getByTestId("library-search-preview-open"));
+  expect(await screen.findByTestId("library-search-preview")).toHaveTextContent("/pics/a.png 8x4");
+  expect(preview.libraryPreviewDescribe).toHaveBeenCalledWith({ paths: ["/pics/a.png"] });
+  expect(preview.libraryPreviewFrame).toHaveBeenCalledWith({ path: "/pics/a.png" });
+  expect(screen.getByRole("img", { name: "Search preview" })).toBeInTheDocument();
+});
+
 test("the filename pattern rides the request", async () => {
   const client = stubClient();
   render(<ImageSearch hostClient={client as never} />);

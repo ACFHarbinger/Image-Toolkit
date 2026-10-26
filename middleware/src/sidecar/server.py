@@ -138,6 +138,7 @@ class SidecarServer:
         recon_engine: Any | None = None,
         webreq_service: Any | None = None,
         hie_service: Any | None = None,
+        library_session: Any | None = None,
     ) -> None:
         self.table = table or catalog()
         self.stdin = stdin or sys.stdin
@@ -154,6 +155,10 @@ class SidecarServer:
         self.recon_engine = recon_engine
         self.webreq_service = webreq_service
         self.hie_service = hie_service or HieService()
+        if library_session is not None:
+            from middleware.src.services.library.attach import attach_library
+
+            attach_library(self, library_session)
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self.cloud_service = None
         self._handshaken = False

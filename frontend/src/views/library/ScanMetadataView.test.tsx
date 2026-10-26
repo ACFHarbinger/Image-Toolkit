@@ -170,6 +170,7 @@ test("displays offline database banner when database_available is false", async 
   fireEvent.click(screen.getByRole("button", { name: /scan directory/i }));
 
   await waitFor(() => {
-    expect(screen.getByText(/Database offline/i)).toBeInTheDocument();
+    expect(screen.getByText(/No database session is attached/i)).toBeInTheDocument();
+    expect(screen.queryByText(/queue/i)).not.toBeInTheDocument();
   });
 });

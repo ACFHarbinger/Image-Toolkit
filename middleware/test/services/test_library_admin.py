@@ -64,7 +64,7 @@ class _Store:
 
 
 def test_catalog_without_a_store_is_unavailable() -> None:
-    assert catalog_result(None) == {"available": False, "groups": [], "tags": []}
+    assert catalog_result(None) == {"available": False, "groups": [], "tags": [], "tables": []}
 
 
 def test_catalog_lists_groups_and_tags() -> None:
@@ -72,6 +72,7 @@ def test_catalog_lists_groups_and_tags() -> None:
     assert result["available"] is True
     assert result["groups"] == [{"name": "people", "subgroups": ["faces"]}]
     assert result["tags"] == [{"name": "smile", "category": "mood"}]
+    assert result["tables"] == ["images"]
 
 
 def test_create_splits_comma_separated_groups() -> None:

@@ -1,4 +1,4 @@
-// GENERATED — contract hash 25bb1ff48ee734cd0ab7e3b3a0936c4ad12ee96988058c651d235a1188a48fd3. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash c9b6edf9c60311bf50a4e7d58a6a25d9164f0ceda3a71af6ec8de11344e19fe8. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -907,6 +907,7 @@ pub struct CatalogResult {
     pub available: bool,
     pub groups: Vec<AdminGroupRecord>,
     pub tags: Vec<TagRecord>,
+    pub tables: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -919,6 +920,11 @@ pub enum MutateAction {
     RemoveSubgroup,
     RemoveTag,
     MergeTags,
+    RenameGroup,
+    RenameSubgroup,
+    RenameTag,
+    UpdateTag,
+    DeleteImage,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

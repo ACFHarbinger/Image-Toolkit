@@ -9,6 +9,7 @@ from typing import Any, Sequence
 
 from middleware.src.services.base import CommandValidationError, Handler
 from middleware.src.services.scan.commands import (
+    MetadataItemCommand,
     SaveMetadataCommand,
     SaveMetadataResult,
     ScanDirectoryCommand,
@@ -87,7 +88,7 @@ class ScanDirectoryHandler(Handler[ScanDirectoryCommand, ScanDirectoryResult]):
         discovered_paths: list[Path] = []
         self._walk_dir(dir_path, discovered_paths, normalized_formats, command.recursive, command.max_results)
 
-        db_known_paths = self._query_db_paths(discovered_paths) if self._db_session else set()
+        db_known_paths = self._query_db_paths(discovered_paths) if self._db_session is not None else set()
 
         records: list[ScannedImageRecord] = []
         for path in discovered_paths:
@@ -162,9 +163,15 @@ class ScanDirectoryHandler(Handler[ScanDirectoryCommand, ScanDirectoryResult]):
             return
 
     def _query_db_paths(self, paths: Sequence[Path]) -> set[str]:
-        if not self._db_session:
+        if self._db_session is None:
             return set()
         str_paths = [str(p.resolve()) for p in paths]
+        known = getattr(self._db_session, "paths_in_db", None)
+        if callable(known):
+            return set(known(str_paths))
+        listed = getattr(self._db_session, "filter_known_paths", None)
+        if callable(listed):
+            return set(listed(str_paths))
         try:
             from middleware.src.database.unified.image_repo import ImageRepo
 
@@ -198,33 +205,41 @@ class SaveMetadataHandler(Handler[SaveMetadataCommand, SaveMetadataResult]):
 
         saved = 0
         errors: list[str] = []
-        try:
-            from middleware.src.database.unified.image_repo import ImageRepo
-
-            repo = ImageRepo(self._db_session)
-            for item in command.items:
-                try:
-                    image_id = repo.add_image(
-                        item.path,
-                        group_name=item.group_name,
-                        subgroup_name=item.subgroup_name,
-                        tags=list(item.tags),
-                    )
-                except Exception as exc:
-                    errors.append(f"Failed to save {item.path}: {exc}")
-                    continue
-                if image_id is None:
-                    errors.append(f"Failed to save {item.path}: write did not complete")
-                    continue
-                saved += 1
-        except Exception as exc:
-            errors.append(f"Persistence failed: {exc}")
+        for item in command.items:
+            try:
+                image_id = self._write_item(item)
+            except Exception as exc:
+                errors.append(f"Failed to save {item.path}: {exc}")
+                continue
+            if image_id is None:
+                errors.append(f"Failed to save {item.path}: write did not complete")
+                continue
+            saved += 1
 
         return SaveMetadataResult(
             saved_count=saved,
-            success=len(errors) == 0,
+            success=len(errors) == 0 and saved == len(command.items),
             database_available=True,
             errors=tuple(errors),
+        )
+
+    def _write_item(self, item: MetadataItemCommand) -> int | None:
+        """Prefer a store ``add_image``. A raw SQL session still goes through ImageRepo."""
+        writer = getattr(self._db_session, "add_image", None)
+        if callable(writer):
+            return writer(
+                item.path,
+                group_name=item.group_name,
+                subgroup_name=item.subgroup_name,
+                tags=list(item.tags),
+            )
+        from middleware.src.database.unified.image_repo import ImageRepo
+
+        return ImageRepo(self._db_session).add_image(
+            item.path,
+            group_name=item.group_name,
+            subgroup_name=item.subgroup_name,
+            tags=list(item.tags),
         )
 
 
