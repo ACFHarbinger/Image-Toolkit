@@ -1,4 +1,4 @@
-// GENERATED — contract hash e3ece40abeda17e5df8d079ddeb991acf09d8b6d21b5da6663083a66186f821d. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 11d82ceaf8037efde28126d5553743180fc68a3cda0403f18d9fb8b764f6b3df. Do not edit; edit the schema and regenerate.
 import type { BridgeError } from "./error";
 
 export type BridgeResponse = ResultResponse | ErrorResponse;

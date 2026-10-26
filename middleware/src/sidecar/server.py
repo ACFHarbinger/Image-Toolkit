@@ -40,6 +40,7 @@ from middleware.src.sidecar.handlers.cloud_jobs import (
     handle_terminate,
 )
 from middleware.src.sidecar.handlers.cloud_offer import handle_prefill
+from middleware.src.sidecar.handlers.cloud_setup import handle_cloud_setup_providers
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
 from middleware.src.sidecar.handlers.desk import handle_logs_read, handle_metadata_describe
 from middleware.src.sidecar.handlers.dl import handle_inspect
@@ -197,6 +198,9 @@ class SidecarServer:
         reverse = self._dispatch_reverse_search(method, params)
         if reverse is not _UNHANDLED:
             return reverse
+        setup = self._dispatch_cloud_setup(method, params)
+        if setup is not _UNHANDLED:
+            return setup
         raise BridgeAppError("bridge.method_not_found", details={"method": method})
 
     def _dispatch_core(self, method: str, params: dict[str, Any]) -> Any:
@@ -216,6 +220,11 @@ class SidecarServer:
             return handle_convert(params)
         if method == "convert.convert_batch":
             return start_convert_batch(self.jobs, params)
+        return _UNHANDLED
+
+    def _dispatch_cloud_setup(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "cloud_setup.providers":
+            return handle_cloud_setup_providers()
         return _UNHANDLED
 
     def _dispatch_cloud(self, method: str, params: dict[str, Any]) -> Any:

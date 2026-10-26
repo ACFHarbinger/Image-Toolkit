@@ -1,4 +1,4 @@
-// GENERATED — contract hash e3ece40abeda17e5df8d079ddeb991acf09d8b6d21b5da6663083a66186f821d. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 11d82ceaf8037efde28126d5553743180fc68a3cda0403f18d9fb8b764f6b3df. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -247,6 +247,32 @@ pub struct PrefillResult {
     pub runtime_s: f64,
     pub job_id: String,
     pub spec: std::collections::HashMap<String, serde_json::Value>,
+}
+
+pub type CloudSetupEmptyParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ProviderDescriptor {
+    pub provider_id: String,
+    pub name: String,
+    pub badge_text: String,
+    pub badge_token: String,
+    pub description: String,
+    pub target_service: String,
+    pub cpu_shapes: String,
+    pub memory_tiers: String,
+    pub gpu_options: String,
+    pub cost_estimate: String,
+    pub cold_start: String,
+    pub regions: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config_file: Option<String>,
+    pub is_poc_target: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ProvidersResult {
+    pub providers: Vec<ProviderDescriptor>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Cloud Compute setup window rides the bridge (Tauri T-04, #920): a `cloud_setup` capability (`cloud_setup.providers`) carrying the Qt providers pane's four-provider descriptor catalog (gcd, cloudflare, oracle, aws; badge colors as theme-token names), and the setup surface becomes the real window — Providers (descriptor cards), Credentials (per-provider non-secret region/endpoint config persisted through the settings capability under the ACCOUNT-scoped `cloud_setup/profiles` key; real credentials live in the vault and never transit the bridge — attaching rides the vault unlock #918/#879), Request Builder (D4's, mounted), and Dashboards (D3's Resources/Spend views, mounted). Parity differential loads the live Qt descriptors and matches the catalog exactly; ledger row `both`.
+
 - Logging and metadata windows (#919): `logs.read` returns the last lines of a caller file and does not follow it. `metadata.describe` reports name and size and does not open `library.db`.
 - Deep Learning workspace inspect (#912): `dl.inspect` reads `record.json` and `events.jsonl` from a caller run directory. It does not start training, write the directory, or open `library.db`. The train, generate, review, and runs views call inspect only. The ledger row stays `pyside-only`.
 - Cloud sync and media-loader plans (#908, #909): `drive_sync.plan` records a provider and caller paths with `submitted: false`, and `media_loader.plan` checks one http(s) URL and a destination directory with `downloaded: false`. Neither call authenticates, uploads, fetches, or opens `cloud_jobs.db`.

@@ -1,4 +1,4 @@
-# GENERATED — contract hash e3ece40abeda17e5df8d079ddeb991acf09d8b6d21b5da6663083a66186f821d. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 11d82ceaf8037efde28126d5553743180fc68a3cda0403f18d9fb8b764f6b3df. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -231,6 +231,29 @@ class PrefillResult:
     runtime_s: float
     job_id: str
     spec: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ProviderDescriptor:
+    provider_id: str
+    name: str
+    badge_text: str
+    badge_token: str
+    description: str
+    target_service: str
+    cpu_shapes: str
+    memory_tiers: str
+    gpu_options: str
+    cost_estimate: str
+    cold_start: str
+    regions: list[str]
+    is_poc_target: bool
+    config_file: str | None = None
+
+
+@dataclass(frozen=True)
+class ProvidersResult:
+    providers: list[ProviderDescriptor]
 
 
 @dataclass(frozen=True)
@@ -904,6 +927,9 @@ SpendParams = dict[str, Any]
 
 
 SummaryParams = dict[str, Any]
+
+
+CloudSetupEmptyParams = dict[str, Any]
 
 
 EmptyParams = dict[str, Any]

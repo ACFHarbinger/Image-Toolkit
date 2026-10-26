@@ -565,3 +565,15 @@ cancelable = false
 emits = []
 stability = "experimental"
 owner = 919
+
+[[method]]
+name = "cloud_setup.providers"
+capability = "cloud_setup"
+summary = "The cloud compute provider descriptor catalog for the setup window (T-04 / #920). No credentials transit the bridge."
+params = "cloud_setup.CloudSetupEmptyParams"
+result = "cloud_setup.ProvidersResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 920

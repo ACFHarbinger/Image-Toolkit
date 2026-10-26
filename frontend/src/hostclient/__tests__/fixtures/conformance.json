@@ -36,7 +36,8 @@
               "drive_sync",
               "media_loader",
               "dl",
-              "desk"
+              "desk",
+              "cloud_setup"
             ]
           }
         }

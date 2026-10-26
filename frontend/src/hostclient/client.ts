@@ -7,6 +7,7 @@ import type {
   ConvertBatchResult,
   CloudSubmitParams,
   CloudSubmitResult,
+  ProvidersResult as CloudSetupProvidersResult,
   ConvertParams,
   ConvertResult,
   DescribeParams,
@@ -133,6 +134,11 @@ export class HostClient {
   async listJobs(params: ListParams = {}): Promise<ListResult> {
     await this.connect();
     return this.send<ListResult>("jobs.list", params as unknown as Record<string, unknown>);
+  }
+
+  async cloudSetupProviders(): Promise<CloudSetupProvidersResult> {
+    await this.connect();
+    return this.send<CloudSetupProvidersResult>("cloud_setup.providers", {});
   }
 
   async cloudJobsSummary(): Promise<SummaryResult> {
