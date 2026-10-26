@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import io
 import json
+import sys
+import types
 from typing import Any
 
 from middleware.src.bridge import PROTOCOL_NAME
@@ -91,6 +93,59 @@ def test_unlock_holds_the_fake_session_and_lock_drops_it() -> None:
     assert after["result"]["unlocked"] is False
     assert after["result"]["reason"] == LOCKED_REASON
     assert password not in json.dumps(locked) + json.dumps(after)
+
+
+def test_unlock_forwards_the_opened_session_and_lock_forwards_none() -> None:
+    calls: list[Any] = []
+    module = types.ModuleType("middleware.src.services.library.lifecycle")
+
+    def bind_vault_session(session: Any) -> None:
+        calls.append(session)
+
+    module.bind_vault_session = bind_vault_session
+    previous = sys.modules.get(module.__name__)
+    sys.modules[module.__name__] = module
+    try:
+        password = "s3cret-value"
+
+        def opener(account: str, given: str) -> FakeSession:
+            assert given == password
+            return FakeSession(account)
+
+        server = _ready(opener)
+        opened = _request(server, "auth.unlock", {"account": " keeper ", "password": password}, "open")
+        assert opened["result"]["success"] is True
+        assert calls == [server.auth.session]
+        assert calls[0].account == "keeper"
+        held = calls[0]
+        wrong = _request(server, "auth.lock", {"account": "other"}, "wrong")
+        assert wrong["result"]["success"] is False
+        assert calls == [held]
+        locked = _request(server, "auth.lock", {"account": "keeper"}, "lock")
+        assert locked["result"]["success"] is True
+        assert calls == [held, None]
+        assert password not in json.dumps(opened) + json.dumps(locked)
+
+        rejected: list[Any] = []
+
+        def bind_rejected(session: Any) -> None:
+            rejected.append(session)
+
+        module.bind_vault_session = bind_rejected
+
+        def reject(_account: str, _given: str) -> FakeSession:
+            raise VaultOpenError("Invalid password.")
+
+        refused = _ready(reject)
+        failed = _request(refused, "auth.unlock", {"account": "keeper", "password": password}, "reject")
+        assert failed["result"]["success"] is False
+        assert rejected == []
+        assert refused.auth.session is None
+    finally:
+        if previous is None:
+            sys.modules.pop(module.__name__, None)
+        else:
+            sys.modules[module.__name__] = previous
 
 
 def test_rejected_unlock_does_not_pretend_the_session_is_open() -> None:

@@ -30,6 +30,19 @@ def _bind_prefs_vault(session: Any | None) -> None:
     bind_vault_session(session)
 
 
+def _bind_library_vault(session: Any | None) -> None:
+    """Attach library stores when the library lifecycle module is on this tree.
+
+    The shell branch can run without that module. A missing import must not
+    fail unlock or lock.
+    """
+    try:
+        from middleware.src.services.library.lifecycle import bind_vault_session
+    except ImportError:
+        return
+    bind_vault_session(session)
+
+
 class VaultHub:
     def __init__(self, opener: Opener | None = None) -> None:
         self._opener = opener or open_live_session
@@ -59,6 +72,7 @@ class VaultHub:
         if previous is not None and previous is not opened:
             previous.shutdown()
         _bind_prefs_vault(opened)
+        _bind_library_vault(opened)
         return {"success": True, "account": cleaned, "message": OPENED}
 
     def lock(self, account: str) -> dict[str, Any]:
@@ -69,10 +83,12 @@ class VaultHub:
         if session is None or not getattr(session, "open", False):
             self.session = None
             _bind_prefs_vault(None)
+            _bind_library_vault(None)
             return {"success": True, "account": cleaned}
         if getattr(session, "account", None) != cleaned:
             return {"success": False, "account": cleaned}
         session.shutdown()
         self.session = None
         _bind_prefs_vault(None)
+        _bind_library_vault(None)
         return {"success": True, "account": cleaned}
