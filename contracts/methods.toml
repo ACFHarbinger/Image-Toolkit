@@ -452,6 +452,18 @@ emits = []
 stability = "experimental"
 owner = 905
 
+[[method]]
+name = "auth.status"
+capability = "auth"
+summary = "Report a locked session (#918). Unlocked stays false and the vault is not opened."
+params = "auth.AuthStatusParams"
+result = "auth.AuthStatusResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 918
+
 [[channel]]
 name = "jobs"
 payload = "jobs.JobEventPayload"
