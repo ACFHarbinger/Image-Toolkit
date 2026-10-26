@@ -1,4 +1,4 @@
-// GENERATED — contract hash 11d82ceaf8037efde28126d5553743180fc68a3cda0403f18d9fb8b764f6b3df. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash a06471e200d0ebbad6b544aa116489d517a985e837bd9bf5c797eb5238e2867d. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -743,6 +743,20 @@ pub struct ConcatenateResult {
     pub height: i64,
     pub preview_png_base64: String,
     pub error: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefsDescribeParams {
+    pub account: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefsDescribeResult {
+    pub sections: Vec<String>,
+    /// must be false (enforced by the framing layer, #875)
+    pub credentials_changed: bool,
+    /// must be "credentials stay on the C++ vault session" (enforced by the framing layer, #875)
+    pub reason: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

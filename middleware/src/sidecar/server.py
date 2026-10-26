@@ -63,6 +63,7 @@ from middleware.src.sidecar.handlers.library_preview import (
 )
 from middleware.src.sidecar.handlers.media_loader import handle_media_plan
 from middleware.src.sidecar.handlers.merge import handle_concatenate
+from middleware.src.sidecar.handlers.prefs import handle_prefs_describe
 from middleware.src.sidecar.handlers.reverse_search import (
     handle_reverse_search,
     handle_reverse_search_engines,
@@ -261,6 +262,8 @@ class SidecarServer:
             return handle_settings_get_many(params)
         if method == "settings.set_many":
             return handle_settings_set_many(params)
+        if method == "prefs.describe":
+            return handle_prefs_describe(params)
         return _UNHANDLED
 
     def _dispatch_reverse_search(self, method: str, params: dict[str, Any]) -> Any:

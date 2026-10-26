@@ -1,4 +1,4 @@
-// GENERATED — contract hash 11d82ceaf8037efde28126d5553743180fc68a3cda0403f18d9fb8b764f6b3df. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash a06471e200d0ebbad6b544aa116489d517a985e837bd9bf5c797eb5238e2867d. Do not edit; edit the schema and regenerate.
 
 export interface MediaPlanParams {
   readonly url: string;

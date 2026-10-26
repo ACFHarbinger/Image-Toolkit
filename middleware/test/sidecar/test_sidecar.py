@@ -46,6 +46,7 @@ def test_handshake_accept(sidecar: SidecarClient) -> None:
         "library_preview",
         "media_loader",
         "merge",
+        "prefs",
         "reverse_search",
         "scan",
         "settings",

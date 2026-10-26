@@ -65,6 +65,7 @@ def test_handshake_request_result_roundtrip() -> None:
         "merge",
         "similarity",
         "extractor",
+        "prefs",
         "desk",
         "dl",
         "drive_sync",
