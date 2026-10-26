@@ -19,6 +19,10 @@ export interface SimilarityClient {
     items: SimilarityItem[];
     pairs: SimilarityPair[];
   }>;
+  similarityScan(params: { directory: string; threshold: number }): Promise<{
+    items: SimilarityItem[];
+    pairs: SimilarityPair[];
+  }>;
 }
 
 function splitPaths(raw: string): string[] {
@@ -31,6 +35,7 @@ function splitPaths(raw: string): string[] {
 /** Average-hash pairs for caller paths (#904). This view does not delete files. */
 export function SimilarityView({ hostClient }: { readonly hostClient: SimilarityClient }): React.ReactElement {
   const [rawPaths, setRawPaths] = useState("");
+  const [directory, setDirectory] = useState("");
   const [threshold, setThreshold] = useState(8);
   const [pairs, setPairs] = useState<SimilarityPair[]>([]);
   const [error, setError] = useState("");
@@ -51,8 +56,30 @@ export function SimilarityView({ hostClient }: { readonly hostClient: Similarity
     }
   }
 
+  async function onScan(): Promise<void> {
+    setError("");
+    try {
+      const result = await hostClient.similarityScan({ directory, threshold });
+      setPairs(result.pairs);
+      const failed = result.items.find((item) => item.error);
+      if (failed) {
+        setError(failed.error);
+      }
+    } catch (exc) {
+      setPairs([]);
+      setError(exc instanceof Error ? exc.message : "scan failed");
+    }
+  }
+
   return (
     <form data-testid="similarity-view" onSubmit={onSubmit}>
+      <label>
+        Directory
+        <input value={directory} onChange={(event) => setDirectory(event.target.value)} />
+      </label>
+      <button type="button" onClick={onScan}>
+        Scan directory
+      </button>
       <label>
         Images
         <textarea value={rawPaths} onChange={(event) => setRawPaths(event.target.value)} />

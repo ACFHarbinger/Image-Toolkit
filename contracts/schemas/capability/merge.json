@@ -34,6 +34,32 @@
         "preview_png_base64": { "type": "string" },
         "error": { "type": "string" }
       }
+    },
+    "MergePlacement": {
+      "title": "MergePlacement",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "x", "y", "width", "height"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "x": { "type": "integer", "minimum": 0, "maximum": 8192 },
+        "y": { "type": "integer", "minimum": 0, "maximum": 8192 },
+        "width": { "type": "integer", "minimum": 1, "maximum": 8192 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 8192 }
+      }
+    },
+    "MergePlaceParams": {
+      "title": "MergePlaceParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["placements", "output_path"],
+      "properties": {
+        "placements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/MergePlacement" }
+        },
+        "output_path": { "type": "string", "minLength": 1 }
+      }
     }
   }
 }

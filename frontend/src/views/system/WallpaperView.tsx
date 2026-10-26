@@ -18,6 +18,8 @@ import type { HostClient } from "../../hostclient";
 import type {
   MonitorInfo,
   SetWallpaperParams,
+  WallpaperGraphEdge,
+  WallpaperGraphNode,
 } from "../../../../contracts/generated/ts";
 
 export interface WallpaperViewProps {
@@ -39,6 +41,15 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
   const [selectedMonitorQueue, setSelectedMonitorQueue] = useState<string>("0");
   const [monitorQueues, setMonitorQueues] = useState<Record<string, string[]>>({});
   const [newQueuePath, setNewQueuePath] = useState<string>("");
+  const [graphPath, setGraphPath] = useState<string>("");
+  const [graphNodes, setGraphNodes] = useState<WallpaperGraphNode[]>([]);
+  const [graphEdges, setGraphEdges] = useState<WallpaperGraphEdge[]>([]);
+  const [endBehavior, setEndBehavior] = useState<"repeat" | "stay" | "solid">("repeat");
+  const [endColor, setEndColor] = useState<string>("#000000");
+  const [nodePath, setNodePath] = useState<string>("");
+  const [nodeDuration, setNodeDuration] = useState<number>(10);
+  const [edgeFrom, setEdgeFrom] = useState<string>("");
+  const [edgeTo, setEdgeTo] = useState<string>("");
 
   const refreshMonitors = useCallback(async () => {
     try {
@@ -181,6 +192,77 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
       ...monitorQueues,
       [selectedMonitorQueue]: currentList.filter((_, i) => i !== idx),
     });
+  };
+
+  const handleAddGraphNode = () => {
+    const path = nodePath.trim();
+    if (!path) return;
+    const id = `n${graphNodes.length + 1}`;
+    setGraphNodes([...graphNodes, { id, path, duration_seconds: Math.max(1, Math.floor(nodeDuration) || 1) }]);
+    setNodePath("");
+  };
+
+  const handleAddGraphEdge = () => {
+    if (!edgeFrom || !edgeTo) return;
+    setGraphEdges([...graphEdges, { source: edgeFrom, target: edgeTo }]);
+  };
+
+  const handleSaveGraph = async () => {
+    const path = graphPath.trim();
+    if (!path) {
+      setStatus("Error: graph file path is required");
+      setStatusType("error");
+      return;
+    }
+    try {
+      setLoading(true);
+      const res = await hostClient.wallpaperMonitorGraph({
+        update: true,
+        path,
+        nodes: graphNodes,
+        edges: graphEdges,
+        end_behavior: endBehavior,
+        end_color: endColor,
+      });
+      if (res.error) {
+        setStatus(res.error);
+        setStatusType("error");
+        return;
+      }
+      setStatus(`Graph saved ${res.path}`);
+      setStatusType("success");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setStatus(`Failed to save graph: ${msg}`);
+      setStatusType("error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLoadGraph = async () => {
+    const path = graphPath.trim();
+    if (!path) {
+      setStatus("Error: graph file path is required");
+      setStatusType("error");
+      return;
+    }
+    try {
+      setLoading(true);
+      const res = await hostClient.wallpaperMonitorGraph({ update: false, path });
+      setGraphNodes(res.nodes);
+      setGraphEdges(res.edges);
+      setEndBehavior(res.end_behavior);
+      setEndColor(res.end_color || "#000000");
+      setStatus(res.error ? res.error : `Graph loaded ${res.path}`);
+      setStatusType(res.error ? "error" : "success");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setStatus(`Failed to load graph: ${msg}`);
+      setStatusType("error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleMoveQueueItem = (idx: number, direction: "up" | "down") => {
@@ -462,6 +544,135 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
             </div>
           </div>
         </div>
+
+        <section className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+          <h3 className="text-sm font-bold mb-4">Monitor display graph</h3>
+          <div className="space-y-3 text-sm">
+            <label className="block text-xs font-medium text-gray-500 uppercase">
+              Graph file
+              <input
+                type="text"
+                aria-label="Graph file"
+                placeholder="/tmp/monitor-graph.json"
+                value={graphPath}
+                onChange={(e) => setGraphPath(e.target.value)}
+                className="mt-1 w-full text-xs p-2 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 font-mono"
+              />
+            </label>
+            <div className="flex flex-wrap gap-2 items-end">
+              <label className="text-xs">
+                Node path
+                <input
+                  type="text"
+                  aria-label="Node path"
+                  value={nodePath}
+                  onChange={(e) => setNodePath(e.target.value)}
+                  className="block mt-1 text-xs p-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 font-mono"
+                />
+              </label>
+              <label className="text-xs">
+                Duration seconds
+                <input
+                  type="number"
+                  aria-label="Duration seconds"
+                  min={1}
+                  value={nodeDuration}
+                  onChange={(e) => setNodeDuration(Number(e.target.value))}
+                  className="block mt-1 w-24 text-xs p-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700"
+                />
+              </label>
+              <button type="button" onClick={handleAddGraphNode} className="px-3 py-1.5 bg-violet-600 text-white rounded text-xs">
+                Add node
+              </button>
+            </div>
+            <ul className="text-xs font-mono space-y-1">
+              {graphNodes.map((node) => (
+                <li key={node.id}>
+                  {node.id} {node.path} {node.duration_seconds}s
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap gap-2 items-end">
+              <label className="text-xs">
+                From
+                <select aria-label="Edge from" value={edgeFrom} onChange={(e) => setEdgeFrom(e.target.value)} className="block mt-1 text-xs p-1.5 rounded border dark:bg-gray-700">
+                  <option value="">source</option>
+                  {graphNodes.map((node) => (
+                    <option key={node.id} value={node.id}>{node.id}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-xs">
+                To
+                <select aria-label="Edge to" value={edgeTo} onChange={(e) => setEdgeTo(e.target.value)} className="block mt-1 text-xs p-1.5 rounded border dark:bg-gray-700">
+                  <option value="">target</option>
+                  {graphNodes.map((node) => (
+                    <option key={`t-${node.id}`} value={node.id}>{node.id}</option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" onClick={handleAddGraphEdge} className="px-3 py-1.5 border rounded text-xs">
+                Add edge
+              </button>
+            </div>
+            <label className="block text-xs">
+              End behavior
+              <select
+                aria-label="End behavior"
+                value={endBehavior}
+                onChange={(e) => setEndBehavior(e.target.value as "repeat" | "stay" | "solid")}
+                className="block mt-1 text-xs p-1.5 rounded border dark:bg-gray-700"
+              >
+                <option value="repeat">repeat</option>
+                <option value="stay">stay</option>
+                <option value="solid">solid</option>
+              </select>
+            </label>
+            {endBehavior === "solid" && (
+              <label className="block text-xs">
+                End color
+                <input
+                  type="text"
+                  aria-label="End color"
+                  value={endColor}
+                  onChange={(e) => setEndColor(e.target.value)}
+                  className="block mt-1 text-xs p-1.5 rounded border font-mono dark:bg-gray-700"
+                />
+              </label>
+            )}
+            <svg data-testid="monitor-graph" width="480" height="72" role="img" aria-label="Monitor display graph">
+              {graphEdges.map((edge, index) => {
+                const source = graphNodes.findIndex((node) => node.id === edge.source);
+                const target = graphNodes.findIndex((node) => node.id === edge.target);
+                if (source < 0 || target < 0) return null;
+                return (
+                  <line
+                    key={`${edge.source}-${edge.target}-${index}`}
+                    x1={24 + source * 110 + 88}
+                    y1={36}
+                    x2={24 + target * 110}
+                    y2={36}
+                    stroke="currentColor"
+                  />
+                );
+              })}
+              {graphNodes.map((node, index) => (
+                <g key={node.id}>
+                  <rect x={24 + index * 110} y={16} width={88} height={40} fill="none" stroke="currentColor" />
+                  <text x={28 + index * 110} y={40} fontSize="11">{node.id}</text>
+                </g>
+              ))}
+            </svg>
+            <div className="flex gap-2">
+              <button type="button" onClick={handleSaveGraph} disabled={loading} className="px-3 py-1.5 bg-violet-600 text-white rounded text-xs">
+                Save graph
+              </button>
+              <button type="button" onClick={handleLoadGraph} disabled={loading} className="px-3 py-1.5 border rounded text-xs">
+                Load graph
+              </button>
+            </div>
+          </div>
+        </section>
 
         {/* Live Status Notification */}
         {status && (

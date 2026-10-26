@@ -160,4 +160,43 @@ describe("WallpaperView", () => {
 
     expect(await screen.findByText("Slideshow configuration saved successfully")).toBeInTheDocument();
   });
+
+  test("saves a monitor graph only after the user asks", async () => {
+    const hostClient = {
+      wallpaperGetMonitors: vi.fn().mockResolvedValue(mockMonitorsResult),
+      wallpaperSlideshowConfig: vi.fn().mockResolvedValue(mockConfigResult),
+      wallpaperSet: vi.fn(),
+      wallpaperSlideshowToggle: vi.fn(),
+      wallpaperMonitorGraph: vi.fn().mockResolvedValue({
+        path: "/tmp/monitor-graph.json",
+        nodes: [{ id: "n1", path: "/tmp/a.png", duration_seconds: 12 }],
+        edges: [],
+        end_behavior: "stay",
+        end_color: "#000000",
+        error: "",
+      }),
+    };
+    render(<WallpaperView hostClient={hostClient as any} />);
+    await screen.findByText("KDE Plasma");
+    expect(hostClient.wallpaperMonitorGraph).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Graph file"), { target: { value: "/tmp/monitor-graph.json" } });
+    fireEvent.change(screen.getByLabelText("Node path"), { target: { value: "/tmp/a.png" } });
+    fireEvent.change(screen.getByLabelText("Duration seconds"), { target: { value: "12" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add node" }));
+    fireEvent.change(screen.getByLabelText("End behavior"), { target: { value: "stay" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save graph" }));
+
+    await waitFor(() => {
+      expect(hostClient.wallpaperMonitorGraph).toHaveBeenCalledWith({
+        update: true,
+        path: "/tmp/monitor-graph.json",
+        nodes: [{ id: "n1", path: "/tmp/a.png", duration_seconds: 12 }],
+        edges: [],
+        end_behavior: "stay",
+        end_color: "#000000",
+      });
+    });
+    expect(await screen.findByText("Graph saved /tmp/monitor-graph.json")).toBeInTheDocument();
+  });
 });

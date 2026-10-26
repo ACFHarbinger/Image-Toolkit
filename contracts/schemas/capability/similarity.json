@@ -5,6 +5,16 @@
   "description": "Average-hash comparison of caller image paths (#904). Does not open library.db and does not delete files.",
   "type": "object",
   "$defs": {
+    "SimilarityScanParams": {
+      "title": "SimilarityScanParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["directory", "threshold"],
+      "properties": {
+        "directory": { "type": "string", "minLength": 1 },
+        "threshold": { "type": "integer", "minimum": 0, "maximum": 64 }
+      }
+    },
     "CompareParams": {
       "title": "CompareParams",
       "type": "object",

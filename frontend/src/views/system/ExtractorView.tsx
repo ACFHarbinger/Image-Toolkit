@@ -9,8 +9,41 @@ export interface ProbeResult {
   readonly error: string;
 }
 
+export interface FileResult {
+  readonly written: boolean;
+  readonly output_path: string;
+  readonly error: string;
+}
+
+export interface CutResult {
+  readonly written: boolean;
+  readonly output_dir: string;
+  readonly width: number;
+  readonly height: number;
+  readonly paths: readonly string[];
+  readonly error: string;
+}
+
 export interface ExtractorClient {
   extractorProbe(params: { path: string }): Promise<ProbeResult>;
+  extractorSnapshot(params: { path: string; time_seconds: number; output_path: string }): Promise<FileResult>;
+  extractorExtractRange(params: {
+    path: string;
+    start_seconds: number;
+    end_seconds: number;
+    output_path: string;
+  }): Promise<FileResult>;
+  extractorCutSheet(params: {
+    path: string;
+    output_dir: string;
+    arrangement: "grid" | "vertical" | "horizontal";
+    frame_width: number;
+    frame_height: number;
+    offset_x: number;
+    offset_y: number;
+    spacing: number;
+    include_partial: boolean;
+  }): Promise<CutResult>;
 }
 
 /** One-path video probe (#905). Frame extraction stays on PySide6. */
@@ -18,6 +51,21 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
   const [path, setPath] = useState("");
   const [result, setResult] = useState<ProbeResult | null>(null);
   const [error, setError] = useState("");
+  const [snapshotAt, setSnapshotAt] = useState(0);
+  const [snapshotOut, setSnapshotOut] = useState("");
+  const [rangeStart, setRangeStart] = useState(0);
+  const [rangeEnd, setRangeEnd] = useState(1);
+  const [rangeOut, setRangeOut] = useState("");
+  const [sheetPath, setSheetPath] = useState("");
+  const [sheetDir, setSheetDir] = useState("");
+  const [arrangement, setArrangement] = useState<"grid" | "vertical" | "horizontal">("grid");
+  const [frameWidth, setFrameWidth] = useState(32);
+  const [frameHeight, setFrameHeight] = useState(32);
+  const [offsetX, setOffsetX] = useState(0);
+  const [offsetY, setOffsetY] = useState(0);
+  const [spacing, setSpacing] = useState(0);
+  const [includePartial, setIncludePartial] = useState(false);
+  const [actionNote, setActionNote] = useState("");
 
   async function onSubmit(event: React.FormEvent): Promise<void> {
     event.preventDefault();
@@ -34,6 +82,61 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
     }
   }
 
+  async function onSnapshot(): Promise<void> {
+    setError("");
+    try {
+      const next = await hostClient.extractorSnapshot({
+        path,
+        time_seconds: snapshotAt,
+        output_path: snapshotOut,
+      });
+      setActionNote(next.written ? next.output_path : "");
+      setError(next.error);
+    } catch (exc) {
+      setActionNote("");
+      setError(exc instanceof Error ? exc.message : "snapshot failed");
+    }
+  }
+
+  async function onRange(): Promise<void> {
+    setError("");
+    try {
+      const next = await hostClient.extractorExtractRange({
+        path,
+        start_seconds: rangeStart,
+        end_seconds: rangeEnd,
+        output_path: rangeOut,
+      });
+      setActionNote(next.written ? next.output_path : "");
+      setError(next.error);
+    } catch (exc) {
+      setActionNote("");
+      setError(exc instanceof Error ? exc.message : "extract failed");
+    }
+  }
+
+  async function onCut(): Promise<void> {
+    setError("");
+    try {
+      const next = await hostClient.extractorCutSheet({
+        path: sheetPath,
+        output_dir: sheetDir,
+        arrangement,
+        frame_width: frameWidth,
+        frame_height: frameHeight,
+        offset_x: offsetX,
+        offset_y: offsetY,
+        spacing,
+        include_partial: includePartial,
+      });
+      setActionNote(next.written ? `${next.width}x${next.height} ${next.paths.length}` : "");
+      setError(next.error);
+    } catch (exc) {
+      setActionNote("");
+      setError(exc instanceof Error ? exc.message : "cut failed");
+    }
+  }
+
   return (
     <form data-testid="extractor-view" onSubmit={onSubmit}>
       <label>
@@ -47,6 +150,93 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
           {result.width}x{result.height} {result.codec} {result.duration_seconds}s
         </p>
       ) : null}
+      <label>
+        Snapshot at
+        <input
+          type="number"
+          min={0}
+          value={snapshotAt}
+          onChange={(event) => setSnapshotAt(Number(event.target.value))}
+        />
+      </label>
+      <label>
+        Snapshot output
+        <input value={snapshotOut} onChange={(event) => setSnapshotOut(event.target.value)} />
+      </label>
+      <button type="button" onClick={onSnapshot}>
+        Snapshot
+      </button>
+      <label>
+        Range start
+        <input type="number" min={0} value={rangeStart} onChange={(event) => setRangeStart(Number(event.target.value))} />
+      </label>
+      <label>
+        Range end
+        <input type="number" min={0} value={rangeEnd} onChange={(event) => setRangeEnd(Number(event.target.value))} />
+      </label>
+      <label>
+        Range output
+        <input value={rangeOut} onChange={(event) => setRangeOut(event.target.value)} />
+      </label>
+      <button type="button" onClick={onRange}>
+        Extract range
+      </button>
+      <label>
+        Sheet image
+        <input value={sheetPath} onChange={(event) => setSheetPath(event.target.value)} />
+      </label>
+      <label>
+        Sheet output
+        <input value={sheetDir} onChange={(event) => setSheetDir(event.target.value)} />
+      </label>
+      <label>
+        Arrangement
+        <select
+          value={arrangement}
+          onChange={(event) => setArrangement(event.target.value as "grid" | "vertical" | "horizontal")}
+        >
+          <option value="grid">grid</option>
+          <option value="vertical">vertical</option>
+          <option value="horizontal">horizontal</option>
+        </select>
+      </label>
+      <label>
+        Frame width
+        <input type="number" min={1} value={frameWidth} onChange={(event) => setFrameWidth(Number(event.target.value))} />
+      </label>
+      <label>
+        Frame height
+        <input
+          type="number"
+          min={1}
+          value={frameHeight}
+          onChange={(event) => setFrameHeight(Number(event.target.value))}
+        />
+      </label>
+      <label>
+        Offset x
+        <input type="number" min={0} value={offsetX} onChange={(event) => setOffsetX(Number(event.target.value))} />
+      </label>
+      <label>
+        Offset y
+        <input type="number" min={0} value={offsetY} onChange={(event) => setOffsetY(Number(event.target.value))} />
+      </label>
+      <label>
+        Spacing
+        <input type="number" min={0} value={spacing} onChange={(event) => setSpacing(Number(event.target.value))} />
+      </label>
+      <label>
+        Include partial last frame
+        <input
+          type="checkbox"
+          checked={includePartial}
+          onChange={(event) => setIncludePartial(event.target.checked)}
+        />
+      </label>
+      <button type="button" onClick={onCut}>
+        Cut sheet
+      </button>
+      {actionNote ? <p>{actionNote}</p> : null}
     </form>
   );
 }

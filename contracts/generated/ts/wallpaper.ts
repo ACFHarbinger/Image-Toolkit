@@ -1,4 +1,4 @@
-// GENERATED — contract hash 25bb1ff48ee734cd0ab7e3b3a0936c4ad12ee96988058c651d235a1188a48fd3. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 653032d8e300ffda76d5ce42c68053ca1c26001221cde7b7e609718d8a3f829a. Do not edit; edit the schema and regenerate.
 
 export type GetMonitorsParams = Record<string, unknown>;
 export interface GetMonitorsResult {
@@ -47,4 +47,29 @@ export interface SlideshowToggleResult {
   readonly running: boolean;
   readonly pid?: number | null;
   readonly message: string;
+}
+export interface WallpaperGraphEdge {
+  readonly source: string;
+  readonly target: string;
+}
+export interface WallpaperGraphNode {
+  readonly id: string;
+  readonly path: string;
+  readonly duration_seconds: number;
+}
+export interface WallpaperGraphParams {
+  readonly update: boolean;
+  readonly path: string;
+  readonly nodes?: Array<WallpaperGraphNode>;
+  readonly edges?: Array<WallpaperGraphEdge>;
+  readonly end_behavior?: "repeat" | "stay" | "solid";
+  readonly end_color?: string;
+}
+export interface WallpaperGraphResult {
+  readonly path: string;
+  readonly nodes: Array<WallpaperGraphNode>;
+  readonly edges: Array<WallpaperGraphEdge>;
+  readonly end_behavior: "repeat" | "stay" | "solid";
+  readonly end_color: string;
+  readonly error: string;
 }

@@ -6,22 +6,22 @@
 | **Service Package** | `middleware/src/services/similarity/` |
 | **Frontend View** | `frontend/src/views/system/SimilarityView.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/similarity.json` |
-| **Contract SHA-256** | `57cbae48dcdc65e25a8412c734e890602432fa92f2c57600fe28ec4c6b825408` |
+| **Contract SHA-256** | `7103ca769b88b1aee94288b761ff2c647ebbc0f52add99a4b6ed88751cf206a1` |
 
 ## Overview
 
-`similarity.compare` reports width, height, and an 8x8 average hash for caller images, plus pairs whose Hamming distance is within the caller's threshold. It does not open `library.db` and it does not delete files. Directory deletion stays on PySide6.
+`similarity.compare` reports width, height, and an 8x8 average hash for caller images, plus pairs whose Hamming distance is within the caller's threshold. `similarity.scan` lists pairs in one directory the same way and does not recurse or delete. It does not open `library.db`. Directory deletion stays on PySide6.
 
 ## Public Surface
 
-- **Python (`middleware/src/services/similarity/compare.py`):** `compare_paths`.
-- **Sidecar:** `similarity.compare`.
+- **Python (`middleware/src/services/similarity/compare.py`):** `compare_paths`, `scan_directory`.
+- **Sidecar:** `similarity.compare`, `similarity.scan`.
 - **C++ Native Entrypoints:** none.
 
 ## Contract & Routing
 
 - **JSON Schema:** `contracts/schemas/capability/similarity.json`
-- **Methods:** `similarity.compare`
+- **Methods:** `similarity.compare`, `similarity.scan`
 - **Events:** none
 
 ## Accessibility & Known Gaps

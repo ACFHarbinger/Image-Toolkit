@@ -10,6 +10,7 @@ from middleware.src.bridge import BridgeAppError, Cancelled
 from middleware.src.services.base import CommandValidationError
 from middleware.src.services.convert.commands import BatchConvertCommand, ConvertSingleCommand
 from middleware.src.services.convert.handlers import SUPPORTED_FORMATS
+from middleware.src.services.convert.selected import list_directory, run_selected
 from middleware.src.services.convert.service import ConvertService
 from middleware.src.sidecar.jobs import JobRegistry
 
@@ -41,8 +42,15 @@ def handle_convert(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def handle_list_dir(params: dict[str, Any]) -> dict[str, Any]:
+    """List image and video files in one directory."""
+    return list_directory(str(params["directory"]))
+
+
 def start_convert_batch(jobs: JobRegistry, params: dict[str, Any]) -> dict[str, Any]:
     """Queue convert.convert_batch and return its job id without blocking the reader."""
+    if _selected_batch(params):
+        return _start_selected_batch(jobs, params)
     job_id, token = jobs.open_job("convert.batch", params)
 
     def worker() -> None:
@@ -73,6 +81,38 @@ def start_convert_batch(jobs: JobRegistry, params: dict[str, Any]) -> dict[str, 
             jobs.transition(job_id, "failed", error=_job_error(exc))
 
     threading.Thread(target=worker, name=f"convert-batch-{job_id}", daemon=True).start()
+    return {"job_id": job_id}
+
+
+def _selected_batch(params: dict[str, Any]) -> bool:
+    action = params.get("action") or "convert"
+    return "paths" in params or action != "convert"
+
+
+def _start_selected_batch(jobs: JobRegistry, params: dict[str, Any]) -> dict[str, Any]:
+    """Loop the selection on a worker thread and stop when the job is cancelled."""
+    job_id, token = jobs.open_job("convert.batch", params)
+
+    def worker() -> None:
+        try:
+
+            def before_file(done: int, total: int) -> None:
+                token.raise_if_cancelled()
+                jobs.transition(job_id, "running", progress={"done": done, "total": total})
+
+            result = run_selected(params, before_file)
+            jobs.transition(
+                job_id,
+                "completed",
+                progress={"done": result["total_discovered"], "total": result["total_discovered"]},
+                result=result,
+            )
+        except Cancelled:
+            return
+        except Exception as exc:
+            jobs.transition(job_id, "failed", error=_job_error(exc))
+
+    threading.Thread(target=worker, name=f"convert-selected-{job_id}", daemon=True).start()
     return {"job_id": job_id}
 
 

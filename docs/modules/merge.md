@@ -6,22 +6,22 @@
 | **Service Package** | `middleware/src/services/merge/` |
 | **Frontend View** | `frontend/src/views/system/MergeView.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/merge.json` |
-| **Contract SHA-256** | `53eb3fb183582712206ab3909936fd77e9939adf30fa5acb8af44d72cd77fbce` |
+| **Contract SHA-256** | `4d371e905879d266771d27d557b42b828bc5b8084838565b350b6941532e33df` |
 
 ## Overview
 
-`merge.concatenate` joins two to eight caller images horizontally or vertically and writes a PNG or JPEG at a caller path. Header size is checked before decode. A canvas larger than four million pixels is refused. The placement canvas and the panorama engines stay on PySide6. Nothing here opens `library.db`.
+`merge.concatenate` joins two to eight caller images horizontally or vertically and writes a PNG or JPEG at a caller path. `merge.place` paints caller rectangles (x, y, width, height) with Pillow and reports width, height, and the written path. Header size is checked before decode. A canvas larger than four million pixels is refused. Grid, panorama, and the external stitch engines stay on PySide6. Nothing here opens `library.db`.
 
 ## Public Surface
 
-- **Python (`middleware/src/services/merge/concatenate.py`):** `concatenate`.
-- **Sidecar:** `merge.concatenate`.
+- **Python (`middleware/src/services/merge/concatenate.py`, `placement.py`):** `concatenate`, `place`.
+- **Sidecar:** `merge.concatenate`, `merge.place`.
 - **C++ Native Entrypoints:** none. The Rust `merge_images` command is removed.
 
 ## Contract & Routing
 
 - **JSON Schema:** `contracts/schemas/capability/merge.json`
-- **Methods:** `merge.concatenate`
+- **Methods:** `merge.concatenate`, `merge.place`
 - **Events:** none
 
 ## Accessibility & Known Gaps

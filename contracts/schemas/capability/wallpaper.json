@@ -138,6 +138,67 @@
         "pid": { "type": ["integer", "null"] },
         "message": { "type": "string" }
       }
+    },
+    "WallpaperGraphNode": {
+      "title": "WallpaperGraphNode",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "duration_seconds"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "duration_seconds": { "type": "integer", "minimum": 1, "maximum": 86400 }
+      }
+    },
+    "WallpaperGraphEdge": {
+      "title": "WallpaperGraphEdge",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "target"],
+      "properties": {
+        "source": { "type": "string", "minLength": 1 },
+        "target": { "type": "string", "minLength": 1 }
+      }
+    },
+    "WallpaperGraphParams": {
+      "title": "WallpaperGraphParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["update", "path"],
+      "properties": {
+        "update": { "type": "boolean" },
+        "path": { "type": "string", "minLength": 1 },
+        "nodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/WallpaperGraphNode" }
+        },
+        "edges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/WallpaperGraphEdge" }
+        },
+        "end_behavior": { "type": "string", "enum": ["repeat", "stay", "solid"] },
+        "end_color": { "type": "string" }
+      }
+    },
+    "WallpaperGraphResult": {
+      "title": "WallpaperGraphResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "nodes", "edges", "end_behavior", "end_color", "error"],
+      "properties": {
+        "path": { "type": "string" },
+        "nodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/WallpaperGraphNode" }
+        },
+        "edges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/WallpaperGraphEdge" }
+        },
+        "end_behavior": { "type": "string", "enum": ["repeat", "stay", "solid"] },
+        "end_color": { "type": "string" },
+        "error": { "type": "string" }
+      }
     }
   }
 }
