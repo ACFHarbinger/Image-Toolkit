@@ -66,6 +66,7 @@ def test_handshake_request_result_roundtrip() -> None:
         "merge",
         "similarity",
         "extractor",
+        "wallpaper",
         "crawler",
         "webreq",
         "hie",

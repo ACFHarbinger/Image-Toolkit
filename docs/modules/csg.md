@@ -6,7 +6,7 @@
 | **Service Package** | `middleware/src/services/csg/service.py` |
 | **Frontend View** | `submodules/CSG/gui/src/tabs/` (migrating to Wave 8 #916 E-03 `frontend/src/views/manga/`) |
 | **Contract Schema** | `contracts/CONTRACTS.sha256` |
-| **Contract SHA-256** | `fa9e3693e2291ced0dfb8ea17a7f05e5e7d4db54a64c8886140409356df48860` |
+| **Contract SHA-256** | `7f853bd58530640761fee9a62783e191b67b9cbc62db9153cfadfc7c15d42687` |
 
 ## Overview
 
@@ -22,7 +22,7 @@ The Cel-Shaded Generator (CSG) provides automated and interactive manga/lineart 
 
 ## Contract & Routing
 
-- **Contract Manifest:** `contracts/CONTRACTS.sha256` (`fa9e3693e2291ced0dfb8ea17a7f05e5e7d4db54a64c8886140409356df48860`).
+- **Contract Manifest:** `contracts/CONTRACTS.sha256` (`7f853bd58530640761fee9a62783e191b67b9cbc62db9153cfadfc7c15d42687`).
 - **Feature Ledger Routing:** Tracks feature rows `manga.colorization`, `manga.animation`, and `manga.puppeteering` (Issue #916, wave-8) with routes `manga.colorization`, `manga.animation`, `manga.puppeteering`.
 - **Boundary Enforcement:**
   - `import-linter` contracts in `pyproject.toml` (`middleware.src.services must not import GUI`, `middleware.src.services must not import PySide`, `middleware.src.services features must be independent`).

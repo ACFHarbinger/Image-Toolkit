@@ -56,6 +56,7 @@ def test_handshake_accept(sidecar: SidecarClient) -> None:
         "similarity",
         "stitch",
         "system",
+        "wallpaper",
         "webreq",
     ]
 

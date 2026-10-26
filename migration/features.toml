@@ -395,7 +395,7 @@ os_checklist = []
 id = "system.wallpaper"
 kind = "page"
 title = "Wallpaper"
-owner = "unclaimed"
+owner = "Gemini"
 wave = "wave-7"
 issue = 913
 status = "pyside-only"
@@ -406,10 +406,10 @@ pyside = [
     "gui/src/windows/slideshow_backend.py",
     "gui/src/windows/slideshow_window.py",
 ]
-tauri = ["frontend/src/tabs/core/WallpaperTab.tsx"]
-service = ""
-contract = ""
-docs = ""
+tauri = ["frontend/src/views/system/WallpaperView.tsx"]
+service = "middleware/src/services/wallpaper/service.py"
+contract = "wallpaper"
+docs = "docs/modules/wallpaper.md"
 scenarios = []
 os_checklist = [
     { item = "Per-monitor wallpaper control and slideshow presenter window (spike S-07)", platform = "linux", checked = false },

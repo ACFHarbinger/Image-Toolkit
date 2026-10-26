@@ -94,6 +94,12 @@ from middleware.src.sidecar.handlers.settings import (
     handle_settings_set_many,
 )
 from middleware.src.sidecar.handlers.similarity import handle_compare
+from middleware.src.sidecar.handlers.wallpaper import (
+    handle_get_monitors,
+    handle_set_wallpaper,
+    handle_slideshow_config,
+    handle_slideshow_toggle,
+)
 from middleware.src.sidecar.handlers.webreq import (
     handle_webreq_execute,
     handle_webreq_sequence,
@@ -120,6 +126,7 @@ class SidecarServer:
         scan_service: Any | None = None,
         library_store: Any | None = None,
         library_admin_store: Any | None = None,
+        wallpaper_service: Any | None = None,
         crawler_service: Any | None = None,
         recon_engine: Any | None = None,
         webreq_service: Any | None = None,
@@ -135,6 +142,7 @@ class SidecarServer:
         self.scan_service = scan_service
         self.library_store = library_store
         self.library_admin_store = library_admin_store
+        self.wallpaper_service = wallpaper_service
         self.crawler_service = crawler_service or CrawlerService()
         self.recon_engine = recon_engine
         self.webreq_service = webreq_service
@@ -349,7 +357,21 @@ class SidecarServer:
         crawler = self._dispatch_crawler(method, params)
         if crawler is not _UNHANDLED:
             return crawler
+        wallpaper = self._dispatch_wallpaper(method, params)
+        if wallpaper is not _UNHANDLED:
+            return wallpaper
         return self._dispatch_web(method, params)
+
+    def _dispatch_wallpaper(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "wallpaper.get_monitors":
+            return handle_get_monitors(self.wallpaper_service, params)
+        if method == "wallpaper.set":
+            return handle_set_wallpaper(self.wallpaper_service, params)
+        if method == "wallpaper.slideshow_config":
+            return handle_slideshow_config(self.wallpaper_service, params)
+        if method == "wallpaper.slideshow_toggle":
+            return handle_slideshow_toggle(self.wallpaper_service, params)
+        return _UNHANDLED
 
     def _dispatch_crawler(self, method: str, params: dict[str, Any]) -> Any:
         if method == "crawler.crawl":

@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Wallpaper Service & Multi-Monitor Presenter** (Tauri migration Wave 7, A-01 #913).
+  - **Contracts & Capability:** added `wallpaper` capability (`wallpaper.get_monitors`, `wallpaper.set`, `wallpaper.slideshow_config`, `wallpaper.slideshow_toggle`) with schema `contracts/schemas/capability/wallpaper.json` and method routing in `contracts/methods.toml`.
+  - **Service Layer:** `middleware/src/services/wallpaper/` implementing `WallpaperServiceProtocol` (`WallpaperService`, `GetMonitorsHandler`, `SetWallpaperHandler`, `SlideshowConfigHandler`, `SlideshowToggleHandler`) wrapping `WallpaperManager` and canonical slideshow config at `~/.image-toolkit/.slideshow_config.json`.
+  - **Frontend View:** modular React view `WallpaperView.tsx` (< 470 LoC) replacing legacy `WallpaperTab.tsx` in `frontend/src/views/system/WallpaperView.tsx`, mounted in `CatalogView` for `system.wallpaper`.
+  - **HostClient API:** added `wallpaperGetMonitors`, `wallpaperSet`, `wallpaperSlideshowConfig`, and `wallpaperSlideshowToggle` methods to `HostClient`.
+  - **Ledger & Docs:** registered in `migration/features.toml` (`owner = "Gemini"`, `contract = "wallpaper"`), docs in `docs/modules/wallpaper.md`.
+
 - **Submodule Frontends Consolidated into `frontend/`** (Tauri migration W0-03 Phase D, #867).
   - Consolidated absorbed submodule frontend codebases (HIE, ASP, CSG) natively into `frontend/src/views/{editor,stitch,manga}/`.
   - Removed local file dependency `"hie-frontend": "file:../submodules/HIE/frontend"` from `frontend/package.json`.

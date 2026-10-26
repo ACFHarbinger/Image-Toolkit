@@ -1,4 +1,4 @@
-# GENERATED — contract hash fa9e3693e2291ced0dfb8ea17a7f05e5e7d4db54a64c8886140409356df48860. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 7f853bd58530640761fee9a62783e191b67b9cbc62db9153cfadfc7c15d42687. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -1116,6 +1116,68 @@ class PingResult:
 
 
 @dataclass(frozen=True)
+class GetMonitorsResult:
+    monitors: list[MonitorInfo]
+    desktop_environment: str
+
+
+@dataclass(frozen=True)
+class MonitorInfo:
+    id: str
+    name: str
+    width: int
+    height: int
+    x: int
+    y: int
+    is_primary: bool
+
+
+@dataclass(frozen=True)
+class SetWallpaperParams:
+    path_map: dict[str, str]
+    style: str | None = None
+    monitors: (list[int]) | None = None
+    background_color: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class SetWallpaperResult:
+    success: bool
+    message: str
+    applied_monitors: list[str]
+
+
+@dataclass(frozen=True)
+class SlideshowConfigParams:
+    update: bool
+    interval_seconds: (int | None) | None = None
+    style: (str | None) | None = None
+    monitor_queues: (dict[str, list[str]] | None) | None = None
+    current_paths: (dict[str, str] | None) | None = None
+
+
+@dataclass(frozen=True)
+class SlideshowConfigResult:
+    interval_seconds: int
+    style: str
+    monitor_queues: dict[str, list[str]]
+    current_paths: dict[str, str]
+    config_path: str
+
+
+@dataclass(frozen=True)
+class SlideshowToggleParams:
+    running: bool
+
+
+@dataclass(frozen=True)
+class SlideshowToggleResult:
+    running: bool
+    message: str
+    pid: (int | None) | None = None
+
+
+@dataclass(frozen=True)
 class ActionItem:
     type: str
     param: str | None = None
@@ -1215,3 +1277,6 @@ ReverseSearchEmptyParams = dict[str, Any]
 
 
 PingParams = dict[str, Any]
+
+
+GetMonitorsParams = dict[str, Any]

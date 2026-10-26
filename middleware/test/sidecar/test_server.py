@@ -52,6 +52,7 @@ def test_handshake_result_and_ping_validate() -> None:
         "merge",
         "similarity",
         "extractor",
+        "wallpaper",
         "crawler",
         "webreq",
         "hie",
