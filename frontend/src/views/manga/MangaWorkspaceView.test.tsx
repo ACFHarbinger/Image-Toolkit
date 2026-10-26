@@ -6,14 +6,19 @@ import { MangaColorizationView } from "./MangaColorizationView";
 import { MangaAnimationView } from "./MangaAnimationView";
 import { MangaPuppeteeringView } from "./MangaPuppeteeringView";
 
+type MangaHostClientMock = ReturnType<typeof makeHostClient>;
+
 function makeHostClient() {
   return {
     csgColorizeScribble: vi.fn(),
     csgColorizeReference: vi.fn(),
     csgArapDeform: vi.fn(),
     csgPropagateSequence: vi.fn(),
-  } as unknown as HostClient & Record<string, ReturnType<typeof vi.fn>>;
+  };
 }
+
+/** The view takes the real HostClient; the mock only implements the csg methods. */
+const asHostClient = (mock: MangaHostClientMock) => mock as unknown as HostClient;
 
 describe("MangaWorkspaceView", () => {
   afterEach(() => {
@@ -62,7 +67,7 @@ describe("MangaWorkspaceView", () => {
 
   test("validates source manga before solving", () => {
     const showModal = vi.fn();
-    render(<MangaWorkspaceView showModal={showModal} hostClient={makeHostClient()} />);
+    render(<MangaWorkspaceView showModal={showModal} hostClient={asHostClient(makeHostClient())} />);
 
     fireEvent.click(screen.getByRole("button", { name: /Execute colorization/i }));
 
@@ -83,7 +88,7 @@ describe("MangaWorkspaceView", () => {
     render(
       <MangaWorkspaceView
         showModal={showModal}
-        hostClient={hostClient}
+        hostClient={asHostClient(hostClient)}
       />
     );
 
@@ -115,7 +120,7 @@ describe("MangaWorkspaceView", () => {
       height: 100,
       elapsed_seconds: 0.1,
     });
-    render(<MangaWorkspaceView hostClient={hostClient} />);
+    render(<MangaWorkspaceView hostClient={asHostClient(hostClient)} />);
 
     fireEvent.change(screen.getByPlaceholderText("/path/to/lineart.png"), {
       target: { value: "/lineart.png" },
@@ -142,11 +147,20 @@ describe("MangaWorkspaceView", () => {
       frames_processed: 2,
       elapsed_seconds: 0.2,
     });
-    render(<MangaWorkspaceView hostClient={hostClient} />);
+    render(<MangaWorkspaceView hostClient={asHostClient(hostClient)} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Animation" }));
     fireEvent.change(screen.getByPlaceholderText(/frame_001/), {
       target: { value: "/f1.png\n/f2.png" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Execute animation/i }));
+    expect(hostClient.csgPropagateSequence).not.toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(screen.getByText("Error: Provide a color keyframe")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("/path/to/keyframe_color.png"), {
+      target: { value: "/key.png" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Execute animation/i }));
 
@@ -155,6 +169,7 @@ describe("MangaWorkspaceView", () => {
     });
     expect(hostClient.csgPropagateSequence).toHaveBeenCalledWith({
       frame_paths: ["/f1.png", "/f2.png"],
+      keyframe_color_path: "/key.png",
     });
   });
 
@@ -167,7 +182,7 @@ describe("MangaWorkspaceView", () => {
       num_triangles: 90,
       elapsed_seconds: 0.3,
     });
-    render(<MangaWorkspaceView hostClient={hostClient} />);
+    render(<MangaWorkspaceView hostClient={asHostClient(hostClient)} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Puppeteering" }));
     fireEvent.change(screen.getByPlaceholderText("/path/to/lineart.png"), {
@@ -208,7 +223,7 @@ describe("MangaWorkspaceView", () => {
       error: "solver diverged",
     });
     const showModal = vi.fn();
-    render(<MangaWorkspaceView showModal={showModal} hostClient={hostClient} />);
+    render(<MangaWorkspaceView showModal={showModal} hostClient={asHostClient(hostClient)} />);
 
     fireEvent.change(screen.getByPlaceholderText("/path/to/lineart.png"), {
       target: { value: "/lineart.png" },

@@ -72,6 +72,28 @@ def test_reference_delegate_writes_a_real_image(tmp_path: Path) -> None:
     assert out.stat().st_size > 0
 
 
+def test_arap_identity_mesh_covers_the_image(tmp_path: Path) -> None:
+    image = tmp_path / "white.png"
+    Image.new("RGB", (48, 48), (255, 255, 255)).save(image)
+    out = tmp_path / "identity.png"
+
+    result = SubmoduleCsgDelegate().arap_deform(
+        ArapDeformCommand(
+            image_path=str(image),
+            control_points=((0.0, 0.0),),
+            target_points=((0.0, 0.0),),
+            output_path=str(out),
+            mesh_resolution=12,
+        )
+    )
+
+    assert result.success is True, result.error
+    with Image.open(out) as written:
+        raw = written.convert("RGB").tobytes()
+    black = sum(1 for index in range(0, len(raw), 3) if raw[index : index + 3] == b"\x00\x00\x00")
+    assert black == 0
+
+
 def test_arap_delegate_reports_the_solved_mesh(tmp_path: Path) -> None:
     image = _color_mark(tmp_path / "plate.png", size=48)
     out = tmp_path / "posed.png"

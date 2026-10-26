@@ -13,7 +13,7 @@ freeze the GUI.
 from __future__ import annotations
 
 import numpy as np
-from execution import IsolatedRunner, JobRequest, Operation
+from middleware.src.csg.execution import IsolatedRunner, JobRequest, Operation
 from PySide6.QtCore import QThread, Signal
 
 

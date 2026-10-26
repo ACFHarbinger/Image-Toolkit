@@ -16,12 +16,12 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import numpy as np
-from colorization.colorization import colorize_scribble
-from colorization.optimal_transport import colorize_reference
-from colorization.screentone import colorize_scribble_screentone
-from execution import IsolatedRunner, JobRequest, Operation
+from middleware.src.csg.colorization.colorization import colorize_scribble
+from middleware.src.csg.colorization.optimal_transport import colorize_reference
+from middleware.src.csg.colorization.screentone import colorize_scribble_screentone
+from middleware.src.csg.execution import IsolatedRunner, JobRequest, Operation
+from middleware.src.csg.temporal.quadtree import colorize_region_incremental
 from PySide6.QtCore import QThread, Signal
-from temporal.quadtree import colorize_region_incremental
 
 
 class ColorizeWorker(QThread):

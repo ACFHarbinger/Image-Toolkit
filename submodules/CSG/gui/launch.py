@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Launch the standalone Qt demonstration application.
 
-Installed packages need no path setup. The two source roots are added only
-when this file is run directly from a repository checkout.
+Installed packages need no path setup. A checkout run adds the toolkit root
+so ``middleware.src.csg`` imports resolve (#1036).
 """
 
 from __future__ import annotations
@@ -12,10 +12,11 @@ import sys
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-for source_root in (_REPO_ROOT / "logic" / "src",):
-    source = str(source_root)
-    if source not in sys.path:
-        sys.path.insert(0, source)
+# Engine moved to middleware/src/csg (#1036). Checkout runs need the toolkit
+# root importable; installed Image-Toolkit already provides it.
+_TOOLKIT_ROOT = str(_REPO_ROOT.parent.parent)
+if _TOOLKIT_ROOT not in sys.path:
+    sys.path.insert(0, _TOOLKIT_ROOT)
 
 
 def _load_gui_package() -> None:

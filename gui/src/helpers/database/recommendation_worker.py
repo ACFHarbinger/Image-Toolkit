@@ -178,7 +178,7 @@ class RecommendationWorker(BaseQThreadWorker):
         # (e.g. this worker somehow ran before login) -- recommendations
         # still work either way, just not encrypted in that edge case.
         from middleware.src.database.unified import session as unified_session
-        from src.data.store import EncryptedSQLiteStore, SQLiteStore  # pyrefly: ignore [missing-import]
+        from middleware.src.cre.data.store import EncryptedSQLiteStore, SQLiteStore
 
         if unified_session.is_open():
             store = EncryptedSQLiteStore(unified_session.get_session())

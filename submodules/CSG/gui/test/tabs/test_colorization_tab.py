@@ -33,16 +33,16 @@ class TestMangaColorizationTab:
         assert tab.mode_combo.model().item(3).isEnabled() is False
 
     def test_screentone_mode_dispatches_to_screentone_backend(self, q_app):
-        from colorization.colorization import colorize_scribble
-        from colorization.screentone import colorize_scribble_screentone
         from csg_gui.tabs.colorization_tab import _MODE_BACKENDS
+        from middleware.src.csg.colorization.colorization import colorize_scribble
+        from middleware.src.csg.colorization.screentone import colorize_scribble_screentone
 
         assert _MODE_BACKENDS[0] is colorize_scribble
         assert _MODE_BACKENDS[1] is colorize_scribble_screentone
 
     def test_reference_mode_dispatches_to_optimal_transport_backend(self, q_app):
-        from colorization.optimal_transport import colorize_reference
         from csg_gui.tabs.colorization_tab import _REFERENCE_MODE_BACKENDS
+        from middleware.src.csg.colorization.optimal_transport import colorize_reference
 
         assert _REFERENCE_MODE_BACKENDS[2] is colorize_reference
 
@@ -90,7 +90,7 @@ class TestMangaColorizationTab:
                 tab._worker.wait()
 
     def test_run_colorize_uses_selected_mode_backend(self, q_app):
-        from colorization.screentone import colorize_scribble_screentone
+        from middleware.src.csg.colorization.screentone import colorize_scribble_screentone
         from PySide6.QtGui import QImage
 
         tab = MangaColorizationTab()
