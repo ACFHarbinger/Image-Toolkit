@@ -20,12 +20,12 @@
 | `gui/src/tabs/core/wallpaper_tab/graph/wallpaper_graph_scene.py` | 456 | 22 | 29 | 507 |
 | `gui/src/tabs/models/review_tools_page.py` | 455 | 1 | 8 | 464 |
 | `middleware/src/core/vault_manager.py` | 453 | 32 | 84 | 569 |
+| `middleware/src/sidecar/server.py` | 450 | 1 | 6 | 457 |
 | `gui/src/tabs/core/extractor_tab/_media_player.py` | 439 | 114 | 29 | 582 |
 | `gui/src/components/dialogs/asp_advanced_config_dialog.py` | 437 | 21 | 8 | 466 |
 | `gui/src/tabs/web/reverse_search_tab.py` | 434 | 45 | 21 | 500 |
 | `gui/src/tabs/models/dl_workspace_host.py` | 434 | 5 | 24 | 463 |
 | `gui/src/windows/settings/_reset_state.py` | 432 | 16 | 17 | 465 |
-| `middleware/src/sidecar/server.py` | 430 | 1 | 6 | 437 |
 | `gui/src/helpers/core/_queue_extraction_process.py` | 429 | 7 | 29 | 465 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 418 | 27 | 20 | 465 |
 | `middleware/src/core/guidance_schema.py` | 415 | 20 | 58 | 493 |
@@ -56,4 +56,4 @@
 | `gui/src/tabs/core/extractor_tab/_extraction_workers.py` | 355 | 11 | 9 | 375 |
 | `middleware/src/models/tuning/cbir_tuner.py` | 352 | 32 | 76 | 460 |
 | `middleware/src/app.py` | 346 | 112 | 50 | 508 |
-| **TOTALS** | **114700** | **6725** | **11755** | **133180** |
+| **TOTALS** | **114974** | **6725** | **11772** | **133471** |
