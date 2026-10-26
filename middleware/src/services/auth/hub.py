@@ -17,6 +17,19 @@ OPENED = "C++ vault session open."
 Opener = Callable[[str, str], Any]
 
 
+def _bind_prefs_vault(session: Any | None) -> None:
+    """Publish the live session when the settings handler is on this tree.
+
+    The shell branch can run without that module. A missing import must not
+    fail unlock or lock.
+    """
+    try:
+        from middleware.src.sidecar.handlers.prefs import bind_vault_session
+    except ImportError:
+        return
+    bind_vault_session(session)
+
+
 class VaultHub:
     def __init__(self, opener: Opener | None = None) -> None:
         self._opener = opener or open_live_session
@@ -45,6 +58,7 @@ class VaultHub:
         self.session = opened
         if previous is not None and previous is not opened:
             previous.shutdown()
+        _bind_prefs_vault(opened)
         return {"success": True, "account": cleaned, "message": OPENED}
 
     def lock(self, account: str) -> dict[str, Any]:
@@ -54,9 +68,11 @@ class VaultHub:
         session = self.session
         if session is None or not getattr(session, "open", False):
             self.session = None
+            _bind_prefs_vault(None)
             return {"success": True, "account": cleaned}
         if getattr(session, "account", None) != cleaned:
             return {"success": False, "account": cleaned}
         session.shutdown()
         self.session = None
+        _bind_prefs_vault(None)
         return {"success": True, "account": cleaned}

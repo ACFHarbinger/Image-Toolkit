@@ -7,7 +7,7 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-from middleware.src.services.auth.session import VaultOpenError, open_live_session
+from middleware.src.services.auth.session import LiveVault, VaultOpenError, open_live_session
 from middleware.src.services.auth.status import LOCKED_REASON, OPEN_REASON, auth_status
 
 
@@ -72,3 +72,25 @@ def test_missing_native_module_does_not_open_a_session(monkeypatch: pytest.Monke
     monkeypatch.setattr("middleware.src.services.auth.session._load_vault_api", lambda: None)
     with pytest.raises(VaultOpenError, match="missing"):
         open_live_session("keeper", "secret")
+
+
+def test_live_vault_delegates_password_change_only_while_open() -> None:
+    class Manager:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        def update_account_password(self, account_name: str, new_raw_pass: str) -> None:
+            self.calls.append((account_name, new_raw_pass))
+
+        def shutdown(self) -> None:
+            return None
+
+    manager = Manager()
+    live = LiveVault("ada", manager, [])
+    live.update_account_password("ada", "next")
+    assert manager.calls == [("ada", "next")]
+    with pytest.raises(RuntimeError, match="locked"):
+        live.update_account_password("other", "next")
+    live.shutdown()
+    with pytest.raises(RuntimeError, match="locked"):
+        live.update_account_password("ada", "later")

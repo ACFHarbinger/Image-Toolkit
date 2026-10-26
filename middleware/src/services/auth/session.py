@@ -31,6 +31,12 @@ class LiveVault:
         self._manager.shutdown()
         self.open = False
 
+    def update_account_password(self, account_name: str, new_raw_pass: str) -> None:
+        """Re-key only the account this process unlocked."""
+        if not self.open or account_name != self.account:
+            raise RuntimeError("C++ vault session locked")
+        self._manager.update_account_password(account_name, new_raw_pass)
+
 
 def _require(account: str, password: str) -> tuple[str, str]:
     cleaned = account.strip()
