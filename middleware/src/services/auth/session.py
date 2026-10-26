@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import sys
@@ -30,6 +31,24 @@ class LiveVault:
             return
         self._manager.shutdown()
         self.open = False
+
+    def confirm_password(self, raw_password: str) -> bool:
+        """True only when raw_password matches the hash stored in the open vault."""
+        if not self.open or not isinstance(raw_password, str) or not raw_password:
+            return False
+        try:
+            stored = self._manager.load_account_credentials()
+            salt = stored.get("salt") or ""
+            expected = stored.get("hashed_password")
+            pepper = getattr(self._manager, "PEPPER", "")
+            if not isinstance(expected, str) or not expected or not isinstance(salt, str):
+                return False
+            if not isinstance(pepper, str):
+                return False
+            digest = hashlib.sha256((raw_password + salt + pepper).encode("utf-8")).hexdigest()
+            return hmac.compare_digest(digest, expected)
+        except Exception:
+            return False
 
     def update_account_password(self, account_name: str, new_raw_pass: str) -> None:
         """Re-key only the account this process unlocked."""

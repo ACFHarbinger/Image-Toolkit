@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import builtins
+import hashlib
 import sqlite3
 from pathlib import Path
 
@@ -94,3 +95,27 @@ def test_live_vault_delegates_password_change_only_while_open() -> None:
     live.shutdown()
     with pytest.raises(RuntimeError, match="locked"):
         live.update_account_password("ada", "later")
+
+
+def test_live_vault_confirms_only_the_stored_password() -> None:
+    salt = "salt"
+    pepper = "pepper"
+    digest = hashlib.sha256(("old-secret" + salt + pepper).encode("utf-8")).hexdigest()
+
+    class Manager:
+        PEPPER = pepper
+
+        def load_account_credentials(self) -> dict[str, str]:
+            return {"account_name": "ada", "hashed_password": digest, "salt": salt}
+
+        def update_account_password(self, account_name: str, new_raw_pass: str) -> None:
+            raise AssertionError("confirm must not re-key")
+
+        def shutdown(self) -> None:
+            return None
+
+    live = LiveVault("ada", Manager(), [])
+    assert live.confirm_password("old-secret") is True
+    assert live.confirm_password("not-the-password") is False
+    live.shutdown()
+    assert live.confirm_password("old-secret") is False
