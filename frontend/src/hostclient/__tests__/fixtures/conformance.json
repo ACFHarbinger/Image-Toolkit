@@ -32,7 +32,6 @@
               "merge",
               "similarity",
               "extractor",
-              "wallpaper",
               "auth",
               "reverse_search",
               "drive_sync",
@@ -44,7 +43,8 @@
               "hie",
               "webreq",
               "entity_recon",
-              "crawler"
+              "crawler",
+              "wallpaper"
             ]
           }
         }
