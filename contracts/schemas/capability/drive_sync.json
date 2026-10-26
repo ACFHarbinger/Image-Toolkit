@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/drive_sync.json",
+  "title": "DriveSyncCapability",
+  "description": "A sync plan for caller paths (#908). Does not authenticate, upload, or open cloud_jobs.db.",
+  "type": "object",
+  "$defs": {
+    "DriveSyncPlanParams": {
+      "title": "DriveSyncPlanParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "paths"],
+      "properties": {
+        "provider": { "type": "string", "enum": ["google_drive", "dropbox", "onedrive"] },
+        "paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "DriveSyncPlanResult": {
+      "title": "DriveSyncPlanResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["submitted", "provider", "count", "reason"],
+      "properties": {
+        "submitted": { "type": "boolean", "const": false },
+        "provider": { "type": "string", "enum": ["google_drive", "dropbox", "onedrive"] },
+        "count": { "type": "integer", "minimum": 1 },
+        "reason": { "type": "string" }
+      }
+    }
+  }
+}

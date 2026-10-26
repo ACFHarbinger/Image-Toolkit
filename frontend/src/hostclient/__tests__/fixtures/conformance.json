@@ -24,6 +24,7 @@
               "cloud_jobs",
               "cloud_offer",
               "settings",
+              "prefs",
               "library_preview",
               "library",
               "library_admin",
@@ -31,6 +32,15 @@
               "merge",
               "similarity",
               "extractor",
+              "auth",
+              "reverse_search",
+              "drive_sync",
+              "media_loader",
+              "dl",
+              "desk",
+              "cloud_setup",
+              "stitch",
+              "hie",
               "webreq"
             ]
           }

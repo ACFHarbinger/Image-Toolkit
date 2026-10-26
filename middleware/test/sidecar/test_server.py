@@ -36,6 +36,8 @@ def test_handshake_result_and_ping_validate() -> None:
     assert result["protocol"] == PROTOCOL_NAME
     assert result["compatibility"] == {"min": "1.0.0", "max": "1.0.0"}
     assert set(result["capabilities"]) == {
+        "cloud_setup",
+        "reverse_search",
         "scan",
         "settings",
         "jobs",
@@ -50,8 +52,32 @@ def test_handshake_result_and_ping_validate() -> None:
         "similarity",
         "extractor",
         "webreq",
+        "hie",
+        "stitch",
+        "prefs",
+        "desk",
+        "dl",
+        "drive_sync",
+        "media_loader",
+        "auth",
     }
     assert _request(server, "system.ping", {}, "ping")["result"] == {"ok": True}
+
+
+def test_stitch_status_reports_the_route_and_refuses_unknown_ids() -> None:
+    server = SidecarServer(stdout=io.StringIO())
+    _handshake(server)
+    response = _request(server, "stitch.status", {"route": "stitch.canvas"}, "stitch")
+    assert response["result"] == {
+        "route": "stitch.canvas",
+        "started": False,
+        "reason": "stitch pipeline is not started",
+    }
+    refused = _request(server, "stitch.status", {"route": "stitch.nope"}, "refused")
+    assert "result" not in refused
+    assert refused["error"]["data"]["code"] == "bridge.invalid_params"
+    empty = _request(server, "stitch.status", {"route": ""}, "empty")
+    assert empty["error"]["data"]["code"] == "bridge.invalid_params"
 
 
 def test_handshake_rejects_wrong_protocol_and_version() -> None:

@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/hie.json",
+  "title": "HieCapability",
+  "description": "Hybrid Image Editor (HIE) capability for document session management, non-destructive editing operations, rendering export, and model capabilities querying (#915).",
+  "type": "object",
+  "$defs": {
+    "OpenDocumentParams": {
+      "title": "OpenDocumentParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source"],
+      "properties": {
+        "source": { "type": "string", "minLength": 1 },
+        "document_id": { "type": ["string", "null"] },
+        "metadata": {
+          "type": ["object", "null"],
+          "additionalProperties": true
+        }
+      }
+    },
+    "OpenDocumentResult": {
+      "title": "OpenDocumentResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "document_id", "frame_count", "width", "height", "elapsed_seconds"],
+      "properties": {
+        "success": { "type": "boolean" },
+        "document_id": { "type": "string" },
+        "frame_count": { "type": "integer", "minimum": 0 },
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 },
+        "elapsed_seconds": { "type": "number", "minimum": 0 },
+        "error": { "type": ["string", "null"] }
+      }
+    },
+    "EditParams": {
+      "title": "EditParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document_id", "operation"],
+      "properties": {
+        "document_id": { "type": "string", "minLength": 1 },
+        "operation": { "type": "string", "minLength": 1 },
+        "parameters": {
+          "type": ["object", "null"],
+          "additionalProperties": true
+        }
+      }
+    },
+    "EditResult": {
+      "title": "EditResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "document_id", "modified_layers", "elapsed_seconds"],
+      "properties": {
+        "success": { "type": "boolean" },
+        "document_id": { "type": "string" },
+        "output_document_id": { "type": ["string", "null"] },
+        "modified_layers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "elapsed_seconds": { "type": "number", "minimum": 0 },
+        "error": { "type": ["string", "null"] }
+      }
+    },
+    "ExportDocumentParams": {
+      "title": "ExportDocumentParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document_id", "output_path"],
+      "properties": {
+        "document_id": { "type": "string", "minLength": 1 },
+        "output_path": { "type": "string", "minLength": 1 },
+        "format": { "type": ["string", "null"] },
+        "quality": { "type": ["integer", "null"], "minimum": 1, "maximum": 100 }
+      }
+    },
+    "ExportDocumentResult": {
+      "title": "ExportDocumentResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "output_path", "size_bytes", "elapsed_seconds"],
+      "properties": {
+        "success": { "type": "boolean" },
+        "output_path": { "type": "string" },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "elapsed_seconds": { "type": "number", "minimum": 0 },
+        "error": { "type": ["string", "null"] }
+      }
+    },
+    "ListCapabilitiesParams": {
+      "title": "ListCapabilitiesParams",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "ListCapabilitiesResult": {
+      "title": "ListCapabilitiesResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capabilities", "models_available"],
+      "properties": {
+        "capabilities": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "models_available": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "error": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

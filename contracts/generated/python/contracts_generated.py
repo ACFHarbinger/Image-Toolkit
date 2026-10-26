@@ -1,4 +1,4 @@
-# GENERATED — contract hash bca68aa26aa4dff9163ec317617db41a7cf4b1d5f8198ea7f4b3f952664d3782. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash d4c2f9f05e94f415f5a6aecc1d7684c3dcd8e9bd27a3076fe28a1c5cfdf5a174. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -8,6 +8,18 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from typing import Any, Literal
+
+@dataclass(frozen=True)
+class AuthStatusParams:
+    account: str
+
+
+@dataclass(frozen=True)
+class AuthStatusResult:
+    unlocked: Literal[False]
+    account: str
+    reason: Literal["unlock stays on the C++ session"]
+
 
 @dataclass(frozen=True)
 class CloudSubmitParams:
@@ -222,6 +234,29 @@ class PrefillResult:
 
 
 @dataclass(frozen=True)
+class ProviderDescriptor:
+    provider_id: str
+    name: str
+    badge_text: str
+    badge_token: str
+    description: str
+    target_service: str
+    cpu_shapes: str
+    memory_tiers: str
+    gpu_options: str
+    cost_estimate: str
+    cold_start: str
+    regions: list[str]
+    is_poc_target: bool
+    config_file: str | None = None
+
+
+@dataclass(frozen=True)
+class ProvidersResult:
+    providers: list[ProviderDescriptor]
+
+
+@dataclass(frozen=True)
 class ConvertBatchParams:
     input_dir: str
     output_dir: str
@@ -257,6 +292,68 @@ class ConvertResult:
 
 
 @dataclass(frozen=True)
+class LogsReadParams:
+    path: str
+    limit: int
+
+
+@dataclass(frozen=True)
+class LogsReadResult:
+    found: bool
+    path: str
+    lines: list[str]
+    error_count: int
+    reason: str
+
+
+@dataclass(frozen=True)
+class MetadataDescribeParams:
+    path: str
+
+
+@dataclass(frozen=True)
+class MetadataDescribeResult:
+    found: bool
+    path: str
+    name: str
+    size: int
+    suffix: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class DlInspectParams:
+    run_dir: str
+
+
+@dataclass(frozen=True)
+class DlInspectResult:
+    found: bool
+    run_dir: str
+    run_id: str
+    status: str
+    engine: str
+    model_id: str
+    event_count: int
+    started: Literal[False]
+    reason: str
+
+
+@dataclass(frozen=True)
+class DriveSyncPlanParams:
+    provider: str
+    paths: list[str]
+
+
+@dataclass(frozen=True)
+class DriveSyncPlanResult:
+    submitted: Literal[False]
+    provider: str
+    count: int
+    reason: str
+
+
+@dataclass(frozen=True)
 class BridgeError:
     code: str
     retryable: bool
@@ -288,6 +385,65 @@ class ProbeResult:
     duration_seconds: float
     codec: str
     error: str
+
+
+@dataclass(frozen=True)
+class EditParams:
+    document_id: str
+    operation: str
+    parameters: (dict[str, Any] | None) | None = None
+
+
+@dataclass(frozen=True)
+class EditResult:
+    success: bool
+    document_id: str
+    modified_layers: list[str]
+    elapsed_seconds: float
+    output_document_id: (str | None) | None = None
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class ExportDocumentParams:
+    document_id: str
+    output_path: str
+    format: (str | None) | None = None
+    quality: (int | None) | None = None
+
+
+@dataclass(frozen=True)
+class ExportDocumentResult:
+    success: bool
+    output_path: str
+    size_bytes: int
+    elapsed_seconds: float
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class ListCapabilitiesResult:
+    capabilities: list[str]
+    models_available: list[str]
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class OpenDocumentParams:
+    source: str
+    document_id: (str | None) | None = None
+    metadata: (dict[str, Any] | None) | None = None
+
+
+@dataclass(frozen=True)
+class OpenDocumentResult:
+    success: bool
+    document_id: str
+    frame_count: int
+    width: int
+    height: int
+    elapsed_seconds: float
+    error: (str | None) | None = None
 
 
 @dataclass(frozen=True)
@@ -541,6 +697,21 @@ class FrameResult:
 
 
 @dataclass(frozen=True)
+class MediaPlanParams:
+    url: str
+    destination: str
+
+
+@dataclass(frozen=True)
+class MediaPlanResult:
+    accepted: bool
+    downloaded: Literal[False]
+    url: str
+    destination: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class ConcatenateParams:
     paths: list[str]
     output_path: str
@@ -557,6 +728,18 @@ class ConcatenateResult:
     height: int
     preview_png_base64: str
     error: str
+
+
+@dataclass(frozen=True)
+class PrefsDescribeParams:
+    account: str
+
+
+@dataclass(frozen=True)
+class PrefsDescribeResult:
+    sections: list[str]
+    credentials_changed: Literal[False]
+    reason: Literal["credentials stay on the C++ vault session"]
 
 
 @dataclass(frozen=True)
@@ -586,6 +769,42 @@ class RpcErrorObject:
     code: int
     message: str
     data: BridgeError
+
+
+@dataclass(frozen=True)
+class EngineRecord:
+    id: str
+    label: str
+
+
+@dataclass(frozen=True)
+class EnginesResult:
+    engines: list[EngineRecord]
+
+
+@dataclass(frozen=True)
+class ReverseSearchResultItem:
+    url: str
+    engine: str
+    score: float
+    resolution: str | None = None
+    title: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class SearchParams:
+    engine: str
+    image_path: str
+    limit: int | None = None
+    roi: (list[int]) | None = None
+
+
+@dataclass(frozen=True)
+class SearchResult:
+    ok: bool
+    engine: str
+    results: list[ReverseSearchResultItem]
+    error: (str | None) | None = None
 
 
 @dataclass(frozen=True)
@@ -729,6 +948,18 @@ class CompareResult:
 
 
 @dataclass(frozen=True)
+class StitchStatusParams:
+    route: str
+
+
+@dataclass(frozen=True)
+class StitchStatusResult:
+    route: str
+    started: Literal[False]
+    reason: Literal["stitch pipeline is not started"]
+
+
+@dataclass(frozen=True)
 class BridgeStatePayload:
     state: str
 
@@ -844,6 +1075,12 @@ SpendParams = dict[str, Any]
 SummaryParams = dict[str, Any]
 
 
+CloudSetupEmptyParams = dict[str, Any]
+
+
+ListCapabilitiesParams = dict[str, Any]
+
+
 EmptyParams = dict[str, Any]
 
 
@@ -851,6 +1088,9 @@ AdminEmptyParams = dict[str, Any]
 
 
 BridgeResponse = ResultResponse | ErrorResponse
+
+
+ReverseSearchEmptyParams = dict[str, Any]
 
 
 PingParams = dict[str, Any]

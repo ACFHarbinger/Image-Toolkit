@@ -1,0 +1,7 @@
+{
+  "id": "web.reverse-search.rows-shape",
+  "feature": "web.reverse-search",
+  "kind": "differential",
+  "entry": "migration/scenarios/reverse_search_rows.py",
+  "ignore": []
+}
