@@ -27,9 +27,7 @@ _REPO = Path(__file__).resolve().parents[2]
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
-from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa: E402
 
-register_submodule_packages(str(_REPO))
 
 _DRIVE_SCOPE = ["https://www.googleapis.com/auth/drive"]
 _REMOTE_FOLDER = ".image-toolkit"

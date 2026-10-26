@@ -7,10 +7,13 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import pytest
 from middleware.src.stitching.core.pipeline.bench_adapter import run_canonical_asp
 from middleware.src.stitching.core.pipeline.manager import AnimeStitchPipeline
 from middleware.src.stitching.core.pipeline.safety_policy import SafeAspPolicy
-from asp_gui.helpers._progress_pipeline import _ProgressPipeline
+
+_progress_mod = pytest.importorskip("asp_gui.helpers._progress_pipeline", reason="ASP GUI retired with submodules removal")
+_ProgressPipeline = _progress_mod._ProgressPipeline
 
 _SAMPLES = Path(__file__).resolve().parents[4] / "data" / "asp" / "samples" / "test_scroll_gradient"
 

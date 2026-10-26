@@ -51,13 +51,7 @@ build_base = os.path.join(repo_root, "build", "backend")
 if os.path.exists(build_base) and build_base not in sys.path:
     sys.path.insert(0, build_base)
 
-# ASP and Manga Colorization & Animation live in their own submodules;
-# see git/scripts/_submodule_bootstrap.py for why this isn't a plain
-# sys.path.insert.
 
-from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa: E402
-
-register_submodule_packages(repo_root)
 
 # When gui/test and middleware/test are collected in ONE pytest process, the
 # gui conftest's heavy-import blocker replaces middleware.src.models.* (and

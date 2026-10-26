@@ -4,7 +4,7 @@ set -u
 export PYTHONUNBUFFERED=1
 
 IT_ROOT="/home/pkhunter/Repositories/Repos/Image-Toolkit"
-ASP_ROOT="${IT_ROOT}/submodules/ASP"
+ASP_ROOT="${IT_ROOT}/data/asp"
 PY="${IT_ROOT}/.venv/bin/python"
 LOG="${IT_ROOT}/.agent/reports/grok/asp_ungated_97_detached.log"
 PIDFILE="${IT_ROOT}/.agent/reports/grok/asp_ungated_97_detached.pid"

@@ -13,9 +13,7 @@ from pathlib import Path
 # Reuse the real entry point's bootstrap before importing application modules.
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa: E402
 
-register_submodule_packages(str(ROOT))
 from middleware.src.qt_runtime_env import pin_qt_media_backend  # noqa: E402
 
 pin_qt_media_backend()

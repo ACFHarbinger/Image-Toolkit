@@ -35,15 +35,15 @@ export const benchmarkSuites: BenchmarkSuite[] = [
   },
   {
     suite: "ASP Corpus",
-    runner: "submodules/ASP/backend/benchmark/bench_anime_stitch.py (just asp-benchmark*)",
-    location: "submodules/ASP/backend/benchmark/",
+    runner: "middleware/benchmark/asp/bench_anime_stitch.py (just asp-benchmark*)",
+    location: "middleware/benchmark/asp/",
     output: "dump/ + benchmark JSON results",
     ciJob: "manual",
   },
   {
     suite: "ASP Human Coherence",
     runner: "just asp-benchmark-assess",
-    location: "submodules/ASP/backend/src/cli/eval_dispatch.py",
+    location: "middleware/src/stitching/cli/eval_dispatch.py",
     output: "data/benchmarks/asp_evaluations_*.json",
     ciJob: "manual",
   },

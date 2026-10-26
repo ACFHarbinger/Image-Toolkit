@@ -1,10 +1,7 @@
 # tools/benchmark/justfile
 # Performance benchmarks (Image-Toolkit) + ASP quality/eval recipes.
 #
-# After Anime-Stitch-Pipeline moved to submodules/ASP, stitch + human-rating
-# entrypoints live under that submodule. Recipes below re-wire those paths and
-# avoid bare `uv run` at the Image-Toolkit workspace root (uv fails on
-# submodules/CSG/pyproject.toml which is workspace-only with no [project] table).
+# ASP components live under middleware/benchmark/asp and middleware/src/stitching (W0-03 #867/#1039).
 
 set shell := ["bash", "-c"]
 set unstable := true
@@ -12,14 +9,14 @@ set working-directory := '../..'
 
 # Image-Toolkit root (this file is tools/benchmark/justfile)
 _IT_ROOT := justfile_directory()
-_ASP_ROOT := _IT_ROOT / "submodules" / "ASP"
+_ASP_BENCH := _IT_ROOT / "middleware" / "benchmark" / "asp"
+_ASP_CLI := _IT_ROOT / "middleware" / "src" / "stitching" / "cli"
 _IT_PY := _IT_ROOT / ".venv" / "bin" / "python"
-# Cross-repo PYTHONPATH: IT shared packages + ASP repo root for asp_* aliases.
 # Deterministic defaults pin the benchmark RNGs and CUDA kernels; caller
 # overrides are preserved. #654 found the RAW_ASP set could churn on identical
 # input/config. Three re-runs of the same flaky cases matched exactly with
 # deterministic mode, seed 42, and CUBLAS_WORKSPACE_CONFIG=:4096:8.
-_ASP_ENV := "PYTHONPATH='" + _IT_ROOT + ":" + _ASP_ROOT + "' " + \
+_ASP_ENV := "PYTHONPATH='" + _IT_ROOT + "' " + \
     "ASP_DETERMINISTIC=\"${ASP_DETERMINISTIC:-1}\" " + \
     "ASP_REPRO_SEED=\"${ASP_REPRO_SEED:-42}\" " + \
     "PYTHONHASHSEED=\"${PYTHONHASHSEED:-42}\" " + \
@@ -49,14 +46,13 @@ dashboard-data:
     @echo "📦 Generating docs website dashboard JSON..."
     node docs/website/scripts/generate-dashboard-data.mjs
 
-# --- ASP quality benchmark (submodules/ASP) ---
+# --- ASP quality benchmark (middleware/benchmark/asp) ---
 
-# Full corpus run. Script path (not -m middleware.benchmark.*) avoids colliding
-# with Image-Toolkit's own top-level `backend` package (ASP issue #3 pattern).
+# Full corpus run.
 asp-benchmark *ARGS:
     @echo "🎞️  Running ASP benchmark on all datasets..."
     {{_ASP_ENV}} {{_IT_PY}} \
-        {{_ASP_ROOT}}/backend/benchmark/bench_anime_stitch.py --data-dir {{_ASP_ROOT}}/dump {{ARGS}}
+        {{_ASP_BENCH}}/bench_anime_stitch.py --data-dir data/asp/dump {{ARGS}}
     @echo "✅ ASP benchmark complete."
 
 # Run ASP benchmark on specific named datasets.
@@ -64,7 +60,7 @@ asp-benchmark *ARGS:
 asp-benchmark-tests *tests:
     @echo "🎞️  Running ASP benchmark on: {{tests}}"
     {{_ASP_ENV}} {{_IT_PY}} \
-        {{_ASP_ROOT}}/backend/benchmark/bench_anime_stitch.py --data-dir {{_ASP_ROOT}}/dump --tests {{tests}}
+        {{_ASP_BENCH}}/bench_anime_stitch.py --data-dir data/asp/dump --tests {{tests}}
 
 # Run ASP benchmark on a numeric range of datasets.
 # Usage: just asp-benchmark-range 1-10
@@ -72,20 +68,20 @@ asp-benchmark-tests *tests:
 asp-benchmark-range range:
     @echo "🎞️  Running ASP benchmark on range: {{range}}"
     {{_ASP_ENV}} {{_IT_PY}} \
-        {{_ASP_ROOT}}/backend/benchmark/bench_anime_stitch.py --data-dir {{_ASP_ROOT}}/dump --range "{{range}}"
+        {{_ASP_BENCH}}/bench_anime_stitch.py --data-dir data/asp/dump --range "{{range}}"
 
 # Run ASP benchmark on the first N datasets.
 # Usage: just asp-benchmark-first 5
 asp-benchmark-first n="5":
     @echo "🎞️  Running ASP benchmark on first {{n}} datasets..."
     {{_ASP_ENV}} {{_IT_PY}} \
-        {{_ASP_ROOT}}/backend/benchmark/bench_anime_stitch.py --data-dir {{_ASP_ROOT}}/dump --first {{n}}
+        {{_ASP_BENCH}}/bench_anime_stitch.py --data-dir data/asp/dump --first {{n}}
 
 # Run ASP benchmark only on datasets not yet processed (panorama.png absent).
 asp-benchmark-resume:
     @echo "🎞️  Resuming ASP benchmark (skipping already-processed datasets)..."
     {{_ASP_ENV}} {{_IT_PY}} \
-        {{_ASP_ROOT}}/backend/benchmark/bench_anime_stitch.py --data-dir {{_ASP_ROOT}}/dump --skip-done
+        {{_ASP_BENCH}}/bench_anime_stitch.py --data-dir data/asp/dump --skip-done
 
 # Run ASP benchmark on the standard quality-verification test suite:
 # test09 (canonical seam-tear), test27 (full-body portrait), test08 (high-motion),
@@ -93,15 +89,15 @@ asp-benchmark-resume:
 asp-benchmark-verify:
     @echo "🎞️  Running ASP quality-verification suite (5 tests)..."
     {{_ASP_ENV}} {{_IT_PY}} \
-        {{_ASP_ROOT}}/backend/benchmark/bench_anime_stitch.py --data-dir {{_ASP_ROOT}}/dump \
+        {{_ASP_BENCH}}/bench_anime_stitch.py --data-dir data/asp/dump \
         --tests asp_test04 asp_test08 asp_test09 asp_test27 asp_test57
     @echo "✅ Verification complete. Check .agent/cache/pipeline_analysis_report.md"
 
 # Clean ASP benchmark output directories
 asp-benchmark-clean:
     @echo "🧹 Cleaning ASP benchmark output directories..."
-    rm -rf {{_ASP_ROOT}}/dump/asp_test*/output
-    rm -rf {{_ASP_ROOT}}/dump/output
+    rm -rf data/asp/dump/asp_test*/output
+    rm -rf data/asp/dump/output
     @echo "✅ Cleanup complete!"
 
 # Rate panoramic stitches (PySide6 inspector: N-way compare, pixel probe,
@@ -114,35 +110,31 @@ asp-benchmark-clean:
 #   just asp-benchmark-assess --data-dir dump --redo
 #   just asp-benchmark-assess --start-at asp_test09
 #
-# Dispatch lives in submodules/ASP (not middleware/controllers/ after the ASP
-# git-submodule migration). Do not use bare `uv run` here — workspace uv
-# resolution breaks on CSG's workspace-only pyproject.
+# Dispatch lives in middleware/src/stitching/cli.
 asp-benchmark-assess *ARGS:
     @echo "🎨 Rating ASP panoramic stitches (human coherence inspector)..."
     @test -x {{_IT_PY}} || (echo "error: missing {{_IT_PY}} — run: just install" && exit 1)
-    @test -f {{_ASP_ROOT}}/backend/src/cli/eval_dispatch.py || (echo "error: ASP missing eval_dispatch.py — check submodules/ASP" && exit 1)
+    @test -f {{_ASP_CLI}}/eval_dispatch.py || (echo "error: ASP missing eval_dispatch.py — check middleware/src/stitching/cli" && exit 1)
     {{_ASP_ENV}} {{_IT_PY}} \
-        {{_ASP_ROOT}}/backend/src/cli/eval_dispatch.py --surface inspector {{ARGS}}
+        {{_ASP_CLI}}/eval_dispatch.py --surface inspector {{ARGS}}
 
 # Corpus-level triage of the same evaluations in FiftyOne.
-# Needs: uv pip install -e 'submodules/ASP[benchmark-eval]' (or project extra)
-# and a reachable MongoDB — see `just asp-triage-db`.
 asp-triage *ARGS:
     @echo "🔎 Building the FiftyOne triage dataset for the ASP benchmark corpus..."
     {{_ASP_ENV}} {{_IT_PY}} \
-        {{_ASP_ROOT}}/backend/src/cli/eval_dispatch.py --surface triage {{ARGS}}
+        {{_ASP_CLI}}/eval_dispatch.py --surface triage {{ARGS}}
 
 # Build/refresh the FiftyOne dataset without opening the App
 asp-triage-ingest *ARGS:
     {{_ASP_ENV}} {{_IT_PY}} \
-        {{_ASP_ROOT}}/backend/src/cli/eval_dispatch.py --surface ingest {{ARGS}}
+        {{_ASP_CLI}}/eval_dispatch.py --surface ingest {{ARGS}}
 
 # Round-trip human judgment between FiftyOne and evaluations JSON.
 # pull: fold App-side defect tags into the JSON (JSON stays source of truth).
 # push: refresh the dataset's human fields/tags/regions from the JSON.
 asp-triage-sync DIRECTION="pull" *ARGS:
     {{_ASP_ENV}} {{_IT_PY}} \
-        {{_ASP_ROOT}}/backend/src/cli/eval_dispatch.py --surface sync \
+        {{_ASP_CLI}}/eval_dispatch.py --surface sync \
         --sync-direction {{DIRECTION}} {{ARGS}}
 
 # Start a local MongoDB for FiftyOne. `fiftyone-db` ships a prebuilt mongod only

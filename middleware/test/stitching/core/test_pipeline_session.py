@@ -16,7 +16,10 @@ from middleware.src.stitching.core.pipeline.session import (
     json_safe,
     snapshot_pipeline_config,
 )
-from asp_gui.helpers._progress_pipeline import _ProgressPipeline
+try:
+    from asp_gui.helpers._progress_pipeline import _ProgressPipeline
+except ImportError:
+    _ProgressPipeline = None
 from middleware.src.errors import PipelineError
 from PIL import Image
 
@@ -247,6 +250,8 @@ class TestHitlEventParity:
     def test_gui_progress_pipeline_still_subclasses_without_session_override(self):
         # M1a must not rewrite the GUI fork. Inheritance remains the old
         # override-run() shape until M1c.
+        if _ProgressPipeline is None:
+            pytest.skip("ASP GUI retired with submodules removal")
         assert issubclass(_ProgressPipeline, AnimeStitchPipeline)
         assert _ProgressPipeline.run is not AnimeStitchPipeline.run
 

@@ -1,2 +1,0 @@
-
-Co-Authored-By: Claude <noreply@anthropic.com>
