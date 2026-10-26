@@ -32,7 +32,6 @@
               "merge",
               "similarity",
               "extractor",
-              "entity_recon",
               "auth",
               "reverse_search",
               "drive_sync",
@@ -42,7 +41,8 @@
               "cloud_setup",
               "stitch",
               "hie",
-              "webreq"
+              "webreq",
+              "entity_recon"
             ]
           }
         }

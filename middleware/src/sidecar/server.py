@@ -44,13 +44,13 @@ from middleware.src.sidecar.handlers.cloud_jobs import (
 from middleware.src.sidecar.handlers.cloud_offer import handle_prefill
 from middleware.src.sidecar.handlers.cloud_setup import handle_cloud_setup_providers
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
+from middleware.src.sidecar.handlers.desk import handle_logs_read, handle_metadata_describe
+from middleware.src.sidecar.handlers.dl import handle_inspect
+from middleware.src.sidecar.handlers.drive_sync import handle_drive_plan
 from middleware.src.sidecar.handlers.entity_recon import (
     handle_entity_recon_describe,
     handle_entity_recon_resolve,
 )
-from middleware.src.sidecar.handlers.desk import handle_logs_read, handle_metadata_describe
-from middleware.src.sidecar.handlers.dl import handle_inspect
-from middleware.src.sidecar.handlers.drive_sync import handle_drive_plan
 from middleware.src.sidecar.handlers.extractor import handle_probe
 from middleware.src.sidecar.handlers.hie import (
     handle_execute_edit,
@@ -243,40 +243,11 @@ class SidecarServer:
             return handle_convert(params)
         if method == "convert.convert_batch":
             return start_convert_batch(self.jobs, params)
-        cloud = self._dispatch_cloud(method, params)
-        if cloud is not _UNHANDLED:
-            return cloud
-        settings = self._dispatch_settings(method, params)
-        if settings is not _UNHANDLED:
-            return settings
-        library = self._dispatch_library(method, params)
-        if library is not _UNHANDLED:
-            return library
-        admin = self._dispatch_admin(method, params)
-        if admin is not _UNHANDLED:
-            return admin
-        scan = self._dispatch_scan(method, params)
-        if scan is not _UNHANDLED:
-            return scan
-        system_pages = self._dispatch_system_pages(method, params)
-        if system_pages is not _UNHANDLED:
-            return system_pages
-        recon = self._dispatch_entity_recon(method, params)
-        if recon is not _UNHANDLED:
-            return recon
-        raise BridgeAppError("bridge.method_not_found", details={"method": method})
         return _UNHANDLED
 
     def _dispatch_cloud_setup(self, method: str, params: dict[str, Any]) -> Any:
         if method == "cloud_setup.providers":
             return handle_cloud_setup_providers()
-        return _UNHANDLED
-
-    def _dispatch_entity_recon(self, method: str, params: dict[str, Any]) -> Any:
-        if method == "entity_recon.describe":
-            return handle_entity_recon_describe(self.recon_engine)
-        if method == "entity_recon.resolve":
-            return handle_entity_recon_resolve(self.recon_engine, params)
         return _UNHANDLED
 
     def _dispatch_cloud(self, method: str, params: dict[str, Any]) -> Any:
@@ -368,7 +339,17 @@ class SidecarServer:
         webreq = self._dispatch_webreq(method, params)
         if webreq is not _UNHANDLED:
             return webreq
+        recon = self._dispatch_entity_recon(method, params)
+        if recon is not _UNHANDLED:
+            return recon
         return self._dispatch_web(method, params)
+
+    def _dispatch_entity_recon(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "entity_recon.describe":
+            return handle_entity_recon_describe(self.recon_engine)
+        if method == "entity_recon.resolve":
+            return handle_entity_recon_resolve(self.recon_engine, params)
+        return _UNHANDLED
 
     def _dispatch_webreq(self, method: str, params: dict[str, Any]) -> Any:
         if method == "webreq.execute":
