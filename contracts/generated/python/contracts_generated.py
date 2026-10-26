@@ -1,4 +1,4 @@
-# GENERATED — contract hash 25bb1ff48ee734cd0ab7e3b3a0936c4ad12ee96988058c651d235a1188a48fd3. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 9de51fd76cff26625db8bc02d1154d1664e095d6d5e14f6349c28a223d5ca512. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -601,6 +601,15 @@ class ExportDocumentResult:
 
 
 @dataclass(frozen=True)
+class HieLayer:
+    id: str
+    name: str
+    visible: bool
+    opacity: float
+    blend_mode: (str | None) | None = None
+
+
+@dataclass(frozen=True)
 class ListCapabilitiesResult:
     capabilities: list[str]
     models_available: list[str]
@@ -622,6 +631,27 @@ class OpenDocumentResult:
     width: int
     height: int
     elapsed_seconds: float
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class RenderViewportParams:
+    document_id: str
+    zoom: (float | None) | None = None
+    pan_x: (float | None) | None = None
+    pan_y: (float | None) | None = None
+    viewport_width: (int | None) | None = None
+    viewport_height: (int | None) | None = None
+
+
+@dataclass(frozen=True)
+class RenderViewportResult:
+    success: bool
+    document_id: str
+    elapsed_seconds: float
+    width: int | None = None
+    height: int | None = None
+    layers: (list[HieLayer]) | None = None
     error: (str | None) | None = None
 
 
@@ -1127,6 +1157,42 @@ class CompareResult:
 
 
 @dataclass(frozen=True)
+class StitchCanvasParams:
+    input_dir: str
+    preset: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class StitchCanvasResult:
+    success: bool
+    num_frames: int
+    elapsed_seconds: float
+    width: int | None = None
+    height: int | None = None
+    frames: (list[str]) | None = None
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class StitchRunParams:
+    input_dir: str
+    output_path: (str | None) | None = None
+    preset: (str | None) | None = None
+    blend_mode: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class StitchRunResult:
+    success: bool
+    frames_processed: int
+    elapsed_seconds: float
+    output_path: (str | None) | None = None
+    canvas_width: (int | None) | None = None
+    canvas_height: (int | None) | None = None
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
 class StitchStatusParams:
     route: str
 
@@ -1134,8 +1200,13 @@ class StitchStatusParams:
 @dataclass(frozen=True)
 class StitchStatusResult:
     route: str
-    started: Literal[False]
-    reason: Literal["stitch pipeline is not started"]
+    started: bool
+    reason: str
+    panel: (str | None) | None = None
+    stage: (str | None) | None = None
+    canvas_width: (int | None) | None = None
+    canvas_height: (int | None) | None = None
+    frames_count: (int | None) | None = None
 
 
 @dataclass(frozen=True)

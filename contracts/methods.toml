@@ -652,6 +652,30 @@ stability = "experimental"
 owner = 914
 
 [[method]]
+name = "stitch.run"
+capability = "stitch"
+summary = "Run headless stitch pipeline over an input directory (#914 / #1110)."
+params = "stitch.StitchRunParams"
+result = "stitch.StitchRunResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 914
+
+[[method]]
+name = "stitch.canvas"
+capability = "stitch"
+summary = "Compute stitched canvas layout and frame geometry (#914 / #1110)."
+params = "stitch.StitchCanvasParams"
+result = "stitch.StitchCanvasResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 914
+
+[[method]]
 name = "hie.open_document"
 capability = "hie"
 summary = "Open or initialize an image document session (E-02 / #915)."
@@ -693,6 +717,18 @@ capability = "hie"
 summary = "Query supported operations and available neural model adapters (E-02 / #915)."
 params = "hie.ListCapabilitiesParams"
 result = "hie.ListCapabilitiesResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 915
+
+[[method]]
+name = "hie.render_viewport"
+capability = "hie"
+summary = "Query layer and viewport rendering data for canvas display (E-02 / #915 / #1110)."
+params = "hie.RenderViewportParams"
+result = "hie.RenderViewportResult"
 errors = []
 cancelable = false
 emits = []

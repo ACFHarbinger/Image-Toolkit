@@ -1,4 +1,4 @@
-// GENERATED — contract hash 25bb1ff48ee734cd0ab7e3b3a0936c4ad12ee96988058c651d235a1188a48fd3. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 9de51fd76cff26625db8bc02d1154d1664e095d6d5e14f6349c28a223d5ca512. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -678,6 +678,16 @@ pub struct ExportDocumentResult {
     pub error: Option<serde_json::Value>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct HieLayer {
+    pub id: String,
+    pub name: String,
+    pub visible: bool,
+    pub opacity: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blend_mode: Option<serde_json::Value>,
+}
+
 pub type ListCapabilitiesParams = std::collections::HashMap<String, serde_json::Value>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -704,6 +714,36 @@ pub struct OpenDocumentResult {
     pub frame_count: i64,
     pub width: i64,
     pub height: i64,
+    pub elapsed_seconds: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct RenderViewportParams {
+    pub document_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zoom: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pan_x: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pan_y: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub viewport_width: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub viewport_height: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct RenderViewportResult {
+    pub success: bool,
+    pub document_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layers: Option<Vec<HieLayer>>,
     pub elapsed_seconds: f64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<serde_json::Value>,
@@ -1284,6 +1324,54 @@ pub struct CompareResult {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct StitchCanvasParams {
+    pub input_dir: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preset: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct StitchCanvasResult {
+    pub success: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<i64>,
+    pub num_frames: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frames: Option<Vec<String>>,
+    pub elapsed_seconds: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct StitchRunParams {
+    pub input_dir: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_path: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preset: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blend_mode: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct StitchRunResult {
+    pub success: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_path: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canvas_width: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canvas_height: Option<serde_json::Value>,
+    pub frames_processed: i64,
+    pub elapsed_seconds: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct StitchStatusParams {
     pub route: String,
 }
@@ -1291,10 +1379,18 @@ pub struct StitchStatusParams {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct StitchStatusResult {
     pub route: String,
-    /// must be false (enforced by the framing layer, #875)
     pub started: bool,
-    /// must be "stitch pipeline is not started" (enforced by the framing layer, #875)
     pub reason: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub panel: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stage: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canvas_width: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canvas_height: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frames_count: Option<serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

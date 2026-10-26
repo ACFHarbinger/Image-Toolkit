@@ -6,7 +6,7 @@
 | **Service Package** | `middleware/src/services/hie/` |
 | **Frontend View** | `frontend/src/tabs/editor/` |
 | **Contract Schema** | `contracts/schemas/capability/hie.json` |
-| **Contract SHA-256** | `b300d650a20b3df3cd66fc020c024b136af52e3b6aab1e7b38f51e50963ce075` |
+| **Contract SHA-256** | `78c9b2e828feec25169f854c5910f37784b5309efb4f5084995851040569cfb7` |
 
 ## Overview
 

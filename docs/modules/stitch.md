@@ -6,7 +6,7 @@
 | **Service Package** | `middleware/src/services/stitch/` |
 | **Frontend View** | `frontend/src/views/stitch/StitchWorkspace.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/stitch.json` |
-| **Contract SHA-256** | `c719a701bfa78fc1e00b211fdaecd4e0704009f83f729e9cd11656829c40e2eb` |
+| **Contract SHA-256** | `8b765179860d10fab062fdc7306e4e53b3a48824e80c816c1aa30bf8e8c0d8e9` |
 
 ## Overview
 
