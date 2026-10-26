@@ -155,6 +155,7 @@ class SidecarServer:
         self.recon_engine = recon_engine
         self.webreq_service = webreq_service
         self.hie_service = hie_service or HieService()
+        self.vault_session = None
         if library_session is not None:
             from middleware.src.services.library.attach import attach_library
 
@@ -163,6 +164,20 @@ class SidecarServer:
         self.cloud_service = None
         self._handshaken = False
         self._write_mu = threading.Lock()
+
+    def bind_vault_session(self, session: Any) -> None:
+        """Remember an already-open vault session and attach its library stores."""
+        self.vault_session = session
+        from middleware.src.services.library.attach import attach_library
+
+        attach_library(self, session)
+
+    def clear_vault_session(self) -> None:
+        """Drop the vault session. ``attach_library(None)`` clears the three stores."""
+        self.vault_session = None
+        from middleware.src.services.library.attach import attach_library
+
+        attach_library(self, None)
 
     @property
     def handshaken(self) -> bool:

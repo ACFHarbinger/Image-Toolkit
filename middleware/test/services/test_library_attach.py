@@ -43,6 +43,20 @@ def test_missing_session_stays_unavailable_and_does_not_open_the_home_library(mo
     assert before == after
 
 
+def test_vault_session_bind_and_clear_control_library_stores() -> None:
+    server = SidecarServer(stdout=io.StringIO())
+    assert server.library_store is None
+    store = MemoryLibraryStore()
+    server.bind_vault_session(store)
+    assert server.vault_session is store
+    assert server.library_store is store
+    server.clear_vault_session()
+    assert server.vault_session is None
+    assert server.library_store is None
+    assert server.library_admin_store is None
+    assert server.scan_service is None
+
+
 def test_memory_store_write_is_readable_and_a_missing_rename_is_an_error() -> None:
     store = MemoryLibraryStore()
     server = SidecarServer(stdout=io.StringIO(), library_session=store)
