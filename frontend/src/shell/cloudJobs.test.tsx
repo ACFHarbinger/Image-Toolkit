@@ -112,7 +112,7 @@ test("resources and spend panes replace the empty placeholders", () => {
 
 test("cloud compute is the setup surface", () => {
   const onClose = vi.fn();
-  render(<CloudComputeSurface onClose={onClose} />);
+  render(<CloudComputeSurface hostClient={null} onClose={onClose} />);
   expect(screen.getByTestId("cloud-compute-surface")).toHaveTextContent("Cloud Compute");
   fireEvent.click(screen.getByRole("button", { name: "Back" }));
   expect(onClose).toHaveBeenCalledOnce();
