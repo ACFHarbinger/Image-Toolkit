@@ -47,6 +47,10 @@ from middleware.src.sidecar.handlers.convert import handle_convert, start_conver
 from middleware.src.sidecar.handlers.desk import handle_logs_read, handle_metadata_describe
 from middleware.src.sidecar.handlers.dl import handle_inspect
 from middleware.src.sidecar.handlers.drive_sync import handle_drive_plan
+from middleware.src.sidecar.handlers.entity_recon import (
+    handle_entity_recon_describe,
+    handle_entity_recon_resolve,
+)
 from middleware.src.sidecar.handlers.extractor import handle_probe
 from middleware.src.sidecar.handlers.hie import (
     handle_execute_edit,
@@ -114,6 +118,7 @@ class SidecarServer:
         scan_service: Any | None = None,
         library_store: Any | None = None,
         library_admin_store: Any | None = None,
+        recon_engine: Any | None = None,
         webreq_service: Any | None = None,
         hie_service: Any | None = None,
     ) -> None:
@@ -127,6 +132,7 @@ class SidecarServer:
         self.scan_service = scan_service
         self.library_store = library_store
         self.library_admin_store = library_admin_store
+        self.recon_engine = recon_engine
         self.webreq_service = webreq_service
         self.hie_service = hie_service or HieService()
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
@@ -333,7 +339,17 @@ class SidecarServer:
         webreq = self._dispatch_webreq(method, params)
         if webreq is not _UNHANDLED:
             return webreq
+        recon = self._dispatch_entity_recon(method, params)
+        if recon is not _UNHANDLED:
+            return recon
         return self._dispatch_web(method, params)
+
+    def _dispatch_entity_recon(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "entity_recon.describe":
+            return handle_entity_recon_describe(self.recon_engine)
+        if method == "entity_recon.resolve":
+            return handle_entity_recon_resolve(self.recon_engine, params)
+        return _UNHANDLED
 
     def _dispatch_webreq(self, method: str, params: dict[str, Any]) -> Any:
         if method == "webreq.execute":

@@ -16,6 +16,7 @@ import { ScanMetadataView } from "../views/library/ScanMetadataView";
 import { DriveSyncView } from "../views/web/DriveSyncView";
 import { MediaLoaderView } from "../views/web/MediaLoaderView";
 import ImageCrawlerTab from "../tabs/web/ImageCrawlerTab";
+import { EntityReconView } from "../views/web/EntityRecon";
 import ReverseSearchTab from "../tabs/web/ReverseSearchTab";
 import { WebRequestsView } from "../views/web/WebRequestsView";
 import { UnifiedTrainTab } from "../tabs/models/UnifiedTrainTab";
@@ -98,6 +99,7 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "web.drive-sync": DriveSyncView,
   "web.media-loader": MediaLoaderView,
   "web.reverse-search": ReverseSearchTab,
+  "web.entity-recon": EntityReconView,
   "dl.train": DlWorkspace,
   "dl.generate": DlWorkspace,
   "dl.review": DlWorkspace,

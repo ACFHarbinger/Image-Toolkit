@@ -1,4 +1,4 @@
-# GENERATED — contract hash d4c2f9f05e94f415f5a6aecc1d7684c3dcd8e9bd27a3076fe28a1c5cfdf5a174. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 14dc0dc0480777ad7b420a37a80c7b853d9b7799347579fd417e144297b27b6c. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -351,6 +351,78 @@ class DriveSyncPlanResult:
     provider: str
     count: int
     reason: str
+
+
+@dataclass(frozen=True)
+class EntityReconDescribeResult:
+    available: bool
+    config: ReconConfigSnapshot
+
+
+@dataclass(frozen=True)
+class EntityReconResolveParams:
+    image_path: str
+    search_scope: str | None = None
+    local_match_threshold: float | None = None
+    top_k: int | None = None
+
+
+@dataclass(frozen=True)
+class EntityReconResolveResult:
+    available: bool
+    found: bool
+    name: str
+    confidence: float
+    method: str
+    origin: str
+    local_matches: list[LocalMatchItem]
+    web_domains: list[WebDomainItem]
+    report: ProvenanceReportItem
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class LocalMatchItem:
+    label: str
+    path: str
+    score: float
+
+
+@dataclass(frozen=True)
+class ProvenanceEntryItem:
+    kind: str
+    label: str
+    source: str
+    score: float
+    method: str
+    domain: str | None = None
+
+
+@dataclass(frozen=True)
+class ProvenanceReportItem:
+    query_hash: str
+    predicted_name: str
+    confidence: float
+    method: str
+    created_at: str
+    entries: list[ProvenanceEntryItem]
+
+
+@dataclass(frozen=True)
+class ReconConfigSnapshot:
+    search_scope: str
+    privacy_mode: bool
+    local_match_threshold: float
+    top_k: int
+    embed_mode: str
+    reverse_engines: list[str]
+
+
+@dataclass(frozen=True)
+class WebDomainItem:
+    domain: str
+    count: int
+    urls: list[str]
 
 
 @dataclass(frozen=True)
@@ -1076,6 +1148,9 @@ SummaryParams = dict[str, Any]
 
 
 CloudSetupEmptyParams = dict[str, Any]
+
+
+EntityReconEmptyParams = dict[str, Any]
 
 
 ListCapabilitiesParams = dict[str, Any]

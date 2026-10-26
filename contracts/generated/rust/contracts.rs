@@ -1,4 +1,4 @@
-// GENERATED — contract hash d4c2f9f05e94f415f5a6aecc1d7684c3dcd8e9bd27a3076fe28a1c5cfdf5a174. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 14dc0dc0480777ad7b420a37a80c7b853d9b7799347579fd417e144297b27b6c. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -385,6 +385,85 @@ pub struct DriveSyncPlanResult {
     pub provider: String,
     pub count: i64,
     pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct EntityReconDescribeResult {
+    pub available: bool,
+    pub config: ReconConfigSnapshot,
+}
+
+pub type EntityReconEmptyParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct EntityReconResolveParams {
+    pub image_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search_scope: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_match_threshold: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_k: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct EntityReconResolveResult {
+    pub available: bool,
+    pub found: bool,
+    pub name: String,
+    pub confidence: f64,
+    pub method: String,
+    pub origin: String,
+    pub local_matches: Vec<LocalMatchItem>,
+    pub web_domains: Vec<WebDomainItem>,
+    pub report: ProvenanceReportItem,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct LocalMatchItem {
+    pub label: String,
+    pub path: String,
+    pub score: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ProvenanceEntryItem {
+    pub kind: String,
+    pub label: String,
+    pub source: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub domain: Option<String>,
+    pub score: f64,
+    pub method: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ProvenanceReportItem {
+    pub query_hash: String,
+    pub predicted_name: String,
+    pub confidence: f64,
+    pub method: String,
+    pub created_at: String,
+    pub entries: Vec<ProvenanceEntryItem>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ReconConfigSnapshot {
+    pub search_scope: String,
+    pub privacy_mode: bool,
+    pub local_match_threshold: f64,
+    pub top_k: i64,
+    pub embed_mode: String,
+    pub reverse_engines: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct WebDomainItem {
+    pub domain: String,
+    pub count: i64,
+    pub urls: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

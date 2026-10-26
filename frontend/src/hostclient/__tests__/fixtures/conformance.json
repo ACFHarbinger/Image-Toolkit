@@ -41,7 +41,8 @@
               "cloud_setup",
               "stitch",
               "hie",
-              "webreq"
+              "webreq",
+              "entity_recon"
             ]
           }
         }

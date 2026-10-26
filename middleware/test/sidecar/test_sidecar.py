@@ -39,6 +39,7 @@ def test_handshake_accept(sidecar: SidecarClient) -> None:
         "desk",
         "dl",
         "drive_sync",
+        "entity_recon",
         "extractor",
         "hie",
         "jobs",

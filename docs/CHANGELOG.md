@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Entity reconnaissance rides the bridge (Tauri B-06, #911): an `entity_recon` capability (`entity_recon.describe` / `entity_recon.resolve`) over a Qt-free projection of the recon engine — one cutout resolves to an identity with its full provenance report (local ArcFace/CLIP matches first; reverse-image web discovery only at the user's explicit scope, default fully offline). The engine is injected on the sidecar; with none attached results stay `available: false`. The `web.entity-recon` catalog page gets its first webview (config panel, cutout resolve, local matches, web domains, provenance list, JSON export). Unreadable images and engine failures answer failed resolves; cv2 stays out of the sidecar's import graph (the heavy-import guard holds).
+
 - **Web: Requests pipeline and single-request execution** (Tauri migration Wave 5, B-02 #907).
   - **Contracts & Capability:** added `webreq` capability (`webreq.execute`, `webreq.sequence`) with schema `contracts/schemas/capability/webreq.json` and method routing in `contracts/methods.toml`.
   - **Service Layer:** `middleware/src/services/webreq/` implementing `WebRequestsServiceProtocol` (`WebRequestsService`, `ExecuteHandler`, `SequenceHandler`) backed by native C++ `backend.run_web_requests_sequence` / `WebRequestsLogic` and Python fallback. Gate B compliant: no database access.
