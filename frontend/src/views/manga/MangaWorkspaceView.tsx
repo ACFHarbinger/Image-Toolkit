@@ -111,7 +111,7 @@ export const MangaWorkspaceView: React.FC<MangaWorkspaceViewProps> = ({
           .filter(Boolean);
         if (framePaths.length === 0) throw new Error("Provide frame paths for the sequence");
         const payload = await hostClient.csgPropagateSequence({ frame_paths: framePaths });
-        if (!payload.success) throw new Error("sequence propagation failed");
+        if (!payload.success) throw new Error(payload.error ?? "sequence propagation failed");
         setStatusMessage(`Propagated ${payload.frames_processed} frame(s)`);
         if (showModal) showModal("Sequence propagation complete", "success", 2000);
       } else {

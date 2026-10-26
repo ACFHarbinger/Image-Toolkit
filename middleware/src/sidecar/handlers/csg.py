@@ -22,10 +22,15 @@ from middleware.src.services.csg.commands import (
 
 
 def csg_service() -> Any:
-    """The canonical service (Phase C home)."""
+    """Canonical service bound to the in-repo CSG solver.
+
+    A missing solver returns ``success=False`` with
+    ``CSG solver is unavailable``. It does not report a finished image.
+    """
+    from middleware.src.services.csg.delegate import SubmoduleCsgDelegate
     from middleware.src.services.csg.service import CsgService
 
-    return CsgService()
+    return CsgService(csg_delegate=SubmoduleCsgDelegate())
 
 
 def _invalid_params(field: str, message: str) -> Any:
