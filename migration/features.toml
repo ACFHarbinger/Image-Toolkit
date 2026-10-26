@@ -406,7 +406,10 @@ pyside = [
     "gui/src/windows/slideshow_backend.py",
     "gui/src/windows/slideshow_window.py",
 ]
-tauri = ["frontend/src/views/system/WallpaperView.tsx"]
+tauri = [
+    "frontend/src/views/system/WallpaperView.tsx",
+    "frontend/src/shell/SlideshowPresenterWindow.tsx",
+]
 service = "middleware/src/services/wallpaper/service.py"
 contract = "wallpaper"
 docs = "docs/modules/wallpaper.md"
