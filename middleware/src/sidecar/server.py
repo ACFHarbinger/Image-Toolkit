@@ -235,43 +235,6 @@ class SidecarServer:
             return self._handshake(params)
         if method == "system.ping":
             return build_ping_result(table=self.table)
-        jobs = self._dispatch_jobs(method, params)
-        if jobs is not _UNHANDLED:
-            return jobs
-        if method == "convert.convert":
-            return handle_convert(params)
-        if method == "convert.convert_batch":
-            return start_convert_batch(self.jobs, params)
-        cloud = self._dispatch_cloud(method, params)
-        if cloud is not _UNHANDLED:
-            return cloud
-        settings = self._dispatch_settings(method, params)
-        if settings is not _UNHANDLED:
-            return settings
-        library = self._dispatch_library(method, params)
-        if library is not _UNHANDLED:
-            return library
-        admin = self._dispatch_admin(method, params)
-        if admin is not _UNHANDLED:
-            return admin
-        scan = self._dispatch_scan(method, params)
-        if scan is not _UNHANDLED:
-            return scan
-        crawler = self._dispatch_crawler(method, params)
-        if crawler is not _UNHANDLED:
-            return crawler
-        system_pages = self._dispatch_system_pages(method, params)
-        if system_pages is not _UNHANDLED:
-            return system_pages
-        raise BridgeAppError("bridge.method_not_found", details={"method": method})
-        return _UNHANDLED
-
-    def _dispatch_cloud_setup(self, method: str, params: dict[str, Any]) -> Any:
-        if method == "cloud_setup.providers":
-            return handle_cloud_setup_providers()
-        return _UNHANDLED
-
-    def _dispatch_jobs(self, method: str, params: dict[str, Any]) -> Any:
         if method == "jobs.submit":
             return self.jobs.submit(params)
         if method == "jobs.status":
@@ -280,13 +243,15 @@ class SidecarServer:
             return self.jobs.list(params)
         if method == "jobs.cancel":
             return self.jobs.cancel(params)
+        if method == "convert.convert":
+            return handle_convert(params)
+        if method == "convert.convert_batch":
+            return start_convert_batch(self.jobs, params)
         return _UNHANDLED
 
-    def _dispatch_crawler(self, method: str, params: dict[str, Any]) -> Any:
-        if method == "crawler.crawl":
-            return handle_crawl(self.crawler_service, params)
-        if method == "crawler.list_supported":
-            return handle_list_supported(self.crawler_service, params)
+    def _dispatch_cloud_setup(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "cloud_setup.providers":
+            return handle_cloud_setup_providers()
         return _UNHANDLED
 
     def _dispatch_cloud(self, method: str, params: dict[str, Any]) -> Any:
@@ -381,7 +346,17 @@ class SidecarServer:
         recon = self._dispatch_entity_recon(method, params)
         if recon is not _UNHANDLED:
             return recon
+        crawler = self._dispatch_crawler(method, params)
+        if crawler is not _UNHANDLED:
+            return crawler
         return self._dispatch_web(method, params)
+
+    def _dispatch_crawler(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "crawler.crawl":
+            return handle_crawl(self.crawler_service, params)
+        if method == "crawler.list_supported":
+            return handle_list_supported(self.crawler_service, params)
+        return _UNHANDLED
 
     def _dispatch_entity_recon(self, method: str, params: dict[str, Any]) -> Any:
         if method == "entity_recon.describe":
