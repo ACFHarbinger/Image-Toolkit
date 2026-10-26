@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import uuid
 
-from editor import VALID_BLEND_MODES, EditHistory, Layer, LayerStack
+from middleware.src.csg.editor import VALID_BLEND_MODES, EditHistory, Layer, LayerStack
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,

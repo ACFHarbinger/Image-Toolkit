@@ -345,3 +345,15 @@ def test_set_wallpaper_style_names_follow_desktop(tmp_path: Path, monkeypatch: p
                 assert result.success is True
                 assert canonical in result.message
                 assert mock_apply.call_args.kwargs["style_name"] == canonical
+
+
+def test_repeated_start_retains_live_daemon(tmp_path, monkeypatch):
+    cfg_path = _isolate_daemon_config(tmp_path, monkeypatch)
+    captured = _patch_daemon_process(monkeypatch, die_on_term=True)
+    service = WallpaperService()
+    first = service.slideshow_toggle(SlideshowToggleCommand(running=True))
+    second = service.slideshow_toggle(SlideshowToggleCommand(running=True))
+    assert second.running is True
+    assert second.pid == first.pid
+    assert len(captured["commands"]) == 1
+    assert json.loads(cfg_path.read_text())["pid"] == first.pid

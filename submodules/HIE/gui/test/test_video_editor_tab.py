@@ -1,7 +1,8 @@
 """Unit tests for the VideoEditorTab (Track 05 timeline editor)."""
 
 from tabs.video_editor_tab import VideoEditorTab
-from document import ClipSegment, Timeline
+# Engine package moved to middleware.src.hie (#1037).
+from middleware.src.hie.document import ClipSegment, Timeline
 
 
 def _make_clip(tmp_path, name="clip.mp4"):

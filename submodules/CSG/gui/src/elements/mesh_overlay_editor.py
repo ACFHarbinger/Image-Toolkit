@@ -24,11 +24,11 @@ from __future__ import annotations
 import atexit
 
 import numpy as np
-from execution import JobRequest, Operation, PersistentIsolatedRunner
+from middleware.src.csg.execution import JobRequest, Operation, PersistentIsolatedRunner
+from middleware.src.csg.rigging.arap import generate_mesh
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsPixmapItem, QGraphicsScene, QGraphicsView
-from rigging.arap import generate_mesh
 
 from .canvas_editor import qimage_alpha_to_mask
 

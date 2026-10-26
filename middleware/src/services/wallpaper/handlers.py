@@ -349,6 +349,13 @@ class SlideshowToggleHandler(Handler[SlideshowToggleCommand, SlideshowToggleResu
     def handle(self, command: SlideshowToggleCommand) -> SlideshowToggleResult:
         t0 = time.monotonic()
         config = _load_daemon_config()
+        if command.running and _verified_daemon_running(config):
+            return SlideshowToggleResult(
+                running=True,
+                pid=_config_pid(config),
+                message="Slideshow daemon is already running",
+                elapsed_seconds=round(time.monotonic() - t0, 4),
+            )
         config["running"] = command.running
         try:
             _persist_daemon_config(config)

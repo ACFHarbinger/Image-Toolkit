@@ -44,7 +44,7 @@ class ListingsSemanticSearchWorker(BaseQRunnableWorker):
     def _execute(self) -> None:
         _ensure_re_on_path()
         try:
-            from src.data.embedder import Embedder  # pyrefly: ignore [missing-import]
+            from middleware.src.cre.data.embedder import Embedder
         except ImportError as exc:
             self.signals.error.emit(
                 "BGE-M3 embedder unavailable (FlagEmbedding not "

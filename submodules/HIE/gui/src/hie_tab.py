@@ -24,8 +24,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from document import Document, FrameSequence
-from pipeline import (
+# Engine package moved to middleware.src.hie (#1037). This Qt tab stays here.
+from middleware.src.hie.document import Document, FrameSequence
+from middleware.src.hie.pipeline import (
     PipelineSession,
     ProposalPipeline,
     RestorationPipeline,

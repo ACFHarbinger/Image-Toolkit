@@ -1,6 +1,6 @@
 import pytest
 from csg_gui.elements.layer_list_panel import LayerListPanel
-from editor import EditHistory, LayerStack
+from middleware.src.csg.editor import EditHistory, LayerStack
 from PySide6.QtCore import Qt
 
 pytestmark = pytest.mark.gui

@@ -11,7 +11,7 @@
 
 ## Overview
 
-The Content Recommendation Engine (CRE) provides multi-modal media item recommendation, hybrid semantic retrieval, cross-encoder reranking, and natural language explanation generation. Absorbed in W0-03 (#867 Phase C) and wrapping `submodules/CRE/src/` (`RecommendationPipeline`, `SQLiteStore`, and embedding pipelines), it provides ranking and discovery across media catalogs.
+The Content Recommendation Engine (CRE) provides multi-modal media item recommendation, hybrid semantic retrieval, cross-encoder reranking, and natural language explanation generation. Absorbed in W0-03 (#867 Phase C) and relocated from `submodules/CRE/` to `middleware/src/cre/` in #1035 (phase E), it provides ranking and discovery across media catalogs. Reference docs (architecture, roadmaps, research notes) live in [`docs/cre/`](../cre/README.md).
 
 ## Public Surface
 
@@ -19,7 +19,7 @@ The Content Recommendation Engine (CRE) provides multi-modal media item recommen
   - Commands: `RecommendCommand`, `IndexMediaItemCommand`, `RecommendationItem`
   - Results: `RecommendResult`, `IndexMediaItemResult`
   - Handlers & Service: `CreService`, `CreServiceProtocol`
-- **Core Pipeline:** `RecommendationPipeline` (`src.search.pipeline`), `SQLiteStore` (`src.data.store`), `Settings` (`src.core.config`).
+- **Core Pipeline:** `RecommendationPipeline` (`middleware.src.cre.search.pipeline`), `SQLiteStore` / `EncryptedSQLiteStore` (`middleware.src.cre.data.store`), `Embedder` (`middleware.src.cre.data.embedder`), `Settings` (`middleware.src.cre.core.config`).
 
 ## Contract & Routing
 
@@ -38,6 +38,7 @@ The Content Recommendation Engine (CRE) provides multi-modal media item recommen
 ```bash
 source .venv/bin/activate
 pytest middleware/test/services/test_cre_service.py -v
+pytest middleware/test/cre -q
 lint-imports
 python middleware/validation/check_docs_freshness.py
 python middleware/validation/check_migration_ledger.py

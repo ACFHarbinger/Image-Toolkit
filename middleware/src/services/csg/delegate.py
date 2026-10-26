@@ -1,6 +1,6 @@
 """CSG solver delegate.
 
-Calls the cel-shaded generator in ``submodules/CSG`` and writes the image it
+Calls the cel-shaded generator in ``middleware.src.csg`` and writes the image it
 returns. A missing solver is an unavailable result. This module does not
 invent dimensions or write an empty file.
 """
@@ -35,9 +35,9 @@ class SubmoduleCsgDelegate:
         try:
             gray, scribble_rgb, mask = _scribble_inputs(cv2, np, command.lineart_path, command.scribble_path)
             if command.use_screentone:
-                from colorization.screentone import colorize_scribble_screentone as solve
+                from middleware.src.csg.colorization.screentone import colorize_scribble_screentone as solve
             else:
-                from colorization.colorization import colorize_scribble as solve
+                from middleware.src.csg.colorization.colorization import colorize_scribble as solve
             colored = solve(gray, scribble_rgb, mask)
             if command.intensity < 1.0:
                 colored = _blend_intensity(np, gray, colored, command.intensity)
@@ -55,7 +55,7 @@ class SubmoduleCsgDelegate:
         try:
             gray = _read_gray(cv2, command.lineart_path)
             reference = _read_rgb(cv2, command.reference_path)
-            from colorization.optimal_transport import colorize_reference
+            from middleware.src.csg.colorization.optimal_transport import colorize_reference
 
             segments = _segment_budget(gray.shape[0] * gray.shape[1])
             colored = colorize_reference(
@@ -78,10 +78,13 @@ class SubmoduleCsgDelegate:
         cv2, np = loaded
         try:
             image = _read_bgr(cv2, command.image_path)
-            from rigging.arap import arap_deform, generate_mesh
+            from middleware.src.csg.rigging.arap import arap_deform, generate_mesh
 
             mask = np.ones(image.shape[:2], dtype=bool)
-            vertices, triangles = generate_mesh(mask, grid_step=_grid_step(image.shape, command.mesh_resolution))
+            vertices, _triangles = generate_mesh(mask, grid_step=_grid_step(image.shape, command.mesh_resolution))
+            # generate_mesh samples arange(0, dimension, step), so the grid stops
+            # short of the far pixel edge. The rasterizer leaves that strip black.
+            vertices, triangles = _cover_image_rect(np, vertices, image.shape[0], image.shape[1])
             anchors = _anchors(np, vertices, command.control_points, command.target_points)
             deformed = arap_deform(vertices, triangles, anchors)
             warped = _warp_bgr(cv2, np, image, vertices, deformed, triangles)
@@ -104,7 +107,7 @@ class SubmoduleCsgDelegate:
             if not command.keyframe_color_path or not Path(command.keyframe_color_path).is_file():
                 raise ValueError("keyframe color is required for temporal propagation")
             gray_stack, scribble_rgb, mask = _sequence_inputs(cv2, np, command)
-            from temporal.temporal import colorize_scribble_sequence
+            from middleware.src.csg.temporal.temporal import colorize_scribble_sequence
 
             colored = colorize_scribble_sequence(gray_stack, scribble_rgb, mask)
             output_dir = (
@@ -198,6 +201,40 @@ def _grid_step(shape: tuple[int, ...], requested: int) -> int:
     while step > 1 and (height // step) * (width // step) < 16:
         step //= 2
     return max(step, 1)
+
+
+def _cover_image_rect(np: Any, vertices: Any, height: int, width: int) -> tuple[Any, Any]:
+    """Rebuild the sampled grid so every pixel center lies inside a triangle.
+
+    OpenCV fills a pixel when its center is inside the polygon. A vertex on
+    the last pixel index (``width - 1``) leaves that column outside, so the
+    far edge is the exclusive bound ``width`` / ``height``.
+    """
+    if height < 1 or width < 1 or len(vertices) == 0:
+        return vertices, np.zeros((0, 3), dtype=np.int64)
+    xs = np.unique(vertices[:, 0].astype(np.float64))
+    ys = np.unique(vertices[:, 1].astype(np.float64))
+    right = float(width)
+    bottom = float(height)
+    if xs[0] > 0:
+        xs = np.insert(xs, 0, 0.0)
+    if ys[0] > 0:
+        ys = np.insert(ys, 0, 0.0)
+    if xs[-1] < right:
+        xs = np.append(xs, right)
+    if ys[-1] < bottom:
+        ys = np.append(ys, bottom)
+    grid_x, grid_y = np.meshgrid(xs, ys, indexing="xy")
+    covered = np.stack([grid_x.ravel(), grid_y.ravel()], axis=1).astype(np.float64)
+    nx = int(xs.size)
+    ny = int(ys.size)
+    tris: list[tuple[int, int, int]] = []
+    for row in range(ny - 1):
+        for col in range(nx - 1):
+            origin = row * nx + col
+            tris.append((origin, origin + 1, origin + nx + 1))
+            tris.append((origin, origin + nx + 1, origin + nx))
+    return covered, np.asarray(tris, dtype=np.int64)
 
 
 def _anchors(

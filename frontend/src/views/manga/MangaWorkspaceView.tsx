@@ -66,6 +66,7 @@ export const MangaWorkspaceView: React.FC<MangaWorkspaceViewProps> = ({
   const [referencePath, setReferencePath] = useState<string>("");
   const [scribblePath, setScribblePath] = useState<string>("");
   const [framePathsText, setFramePathsText] = useState<string>("");
+  const [keyframeColorPath, setKeyframeColorPath] = useState<string>("");
   const [controlPointsText, setControlPointsText] = useState<string>("");
   const [targetPointsText, setTargetPointsText] = useState<string>("");
   const [statusMessage, setStatusMessage] = useState<string>("Workspace ready");
@@ -110,7 +111,12 @@ export const MangaWorkspaceView: React.FC<MangaWorkspaceViewProps> = ({
           .map((line) => line.trim())
           .filter(Boolean);
         if (framePaths.length === 0) throw new Error("Provide frame paths for the sequence");
-        const payload = await hostClient.csgPropagateSequence({ frame_paths: framePaths });
+        const keyframeColor = keyframeColorPath.trim();
+        if (!keyframeColor) throw new Error("Provide a color keyframe");
+        const payload = await hostClient.csgPropagateSequence({
+          frame_paths: framePaths,
+          keyframe_color_path: keyframeColor,
+        });
         if (!payload.success) throw new Error(payload.error ?? "sequence propagation failed");
         setStatusMessage(`Propagated ${payload.frames_processed} frame(s)`);
         if (showModal) showModal("Sequence propagation complete", "success", 2000);
@@ -306,6 +312,26 @@ export const MangaWorkspaceView: React.FC<MangaWorkspaceViewProps> = ({
                 <div className="flex justify-between">
                   <span>Temporal Solver:</span>
                   <span>Optimal Transport</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Color Keyframe</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="/path/to/keyframe_color.png"
+                    value={keyframeColorPath}
+                    onChange={(e) => setKeyframeColorPath(e.target.value)}
+                    className="flex-1 text-xs p-2 rounded bg-gray-900 border border-gray-800 text-gray-100 font-mono outline-none focus:border-pink-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setKeyframeColorPath("/home/user/manga/keyframe_color.png")}
+                    className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700"
+                    title="Use sample keyframe"
+                  >
+                    <Upload size={14} />
+                  </button>
                 </div>
               </div>
               <div>
