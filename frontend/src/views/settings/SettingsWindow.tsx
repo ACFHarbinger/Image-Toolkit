@@ -112,7 +112,7 @@ export function SettingsWindow({
       profiles: form.profiles,
       gallery: form.gallery,
       logging: form.logging,
-      ...(shortcutAction && shortcutChord ? { shortcut: { action: shortcutAction, chord: shortcutChord } } : {}),
+      ...(shortcutAction && shortcutChord && shortcutChord !== (form.shortcuts.find((row) => row.id === shortcutAction)?.custom ?? "") ? { shortcut: { action: shortcutAction, chord: shortcutChord } } : {}),
     };
     hostClient.prefsSet(params).then(
       (next) => {

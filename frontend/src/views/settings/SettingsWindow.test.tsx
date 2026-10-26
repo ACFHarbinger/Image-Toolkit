@@ -151,3 +151,17 @@ test("an unknown shortcut action stays on the form as an error", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("unknown action");
   expect(screen.getByLabelText("Shortcut chord")).toHaveValue("Meta+A");
 });
+
+
+test("saving unrelated settings does not submit a preloaded shortcut", async () => {
+  const initial = { ...loaded(), shortcuts: [{ ...SHORTCUT, custom: "Meta+A" }] };
+  const hostClient = {
+    prefsGet: vi.fn().mockResolvedValue(initial),
+    prefsSet: vi.fn().mockResolvedValue({ ...initial, success: true, reason: "Saved", credentials_changed: false }),
+  };
+  render(<SettingsWindow hostClient={hostClient} account="ada" onClose={() => {}} />);
+  await screen.findByLabelText("New master password");
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(hostClient.prefsSet).toHaveBeenCalled());
+  expect(hostClient.prefsSet.mock.calls[0][0]).not.toHaveProperty("shortcut");
+});

@@ -183,7 +183,9 @@ def save_override(action: str, chord: str, path: Path | None = None) -> None:
         raise BridgeAppError("prefs.unknown_action", details={"action": action})
     target = path if path is not None else keybindings_path()
     current = _read(target)
-    current[action] = {"default_enabled": False, "custom": [chord]}
+    previous = current.get(action, {})
+    custom = previous.get("custom") or []
+    current[action] = {**previous, "custom": [chord, *custom[1:]]}
     _write(target, current)
 
 

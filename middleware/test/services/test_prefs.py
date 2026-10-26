@@ -105,7 +105,6 @@ def test_store_round_trip_stays_in_tmp_path(tmp_path: Path, monkeypatch: pytest.
     assert again["logging"] == saved["logging"]
     assert next(row for row in again["shortcuts"] if row["id"] == "gallery.select_all")["custom"] == "Meta+A"
     assert json.loads(keys.read_text(encoding="utf-8"))["gallery.select_all"] == {
-        "default_enabled": False,
         "custom": ["Meta+A"],
     }
     assert auth_status("ada") == before
@@ -329,3 +328,17 @@ def test_server_vault_session_gates_password_change(bound_paths: tuple[Path, Pat
     assert locked["result"]["credentials_changed"] is False
     assert locked["result"]["reason"] == LOCKED
     assert session.calls == [("ada", "new-secret")]
+
+
+def test_shortcut_editor_preserves_hidden_bindings(tmp_path):
+    import json
+
+    from middleware.src.services.prefs.store import save_override
+
+    path = tmp_path / "keys.json"
+    original = {"gallery.select_all": {"default_enabled": True, "custom": ["Meta+A", "Ctrl+Shift+A"]}}
+    path.write_text(json.dumps(original))
+    save_override("gallery.select_all", "Alt+A", path)
+    assert json.loads(path.read_text()) == {
+        "gallery.select_all": {"default_enabled": True, "custom": ["Alt+A", "Ctrl+Shift+A"]}
+    }
