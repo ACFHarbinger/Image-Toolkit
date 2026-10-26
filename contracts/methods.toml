@@ -453,16 +453,16 @@ stability = "experimental"
 owner = 905
 
 [[method]]
-name = "dl.inspect"
-capability = "dl"
-summary = "Read record.json and events.jsonl from a caller run directory (#912). started stays false and no run is written."
-params = "dl.DlInspectParams"
-result = "dl.DlInspectResult"
+name = "auth.status"
+capability = "auth"
+summary = "Report a locked session (#918). Unlocked stays false and the vault is not opened."
+params = "auth.AuthStatusParams"
+result = "auth.AuthStatusResult"
 errors = []
 cancelable = false
 emits = []
 stability = "experimental"
-owner = 912
+owner = 918
 
 [[channel]]
 name = "jobs"
@@ -481,3 +481,63 @@ durable_default = false
 producers = ["supervisor"]
 consumers = ["webview"]
 notes = "Restart contract (roadmap): bridge.down then bridge.ready around sidecar restarts; in-flight session requests fail with the error envelope."
+
+[[method]]
+name = "reverse_search.engines"
+capability = "reverse_search"
+summary = "The supported reverse-image-search engine catalog (B-05 / #910)."
+params = "reverse_search.ReverseSearchEmptyParams"
+result = "reverse_search.EnginesResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 910
+
+[[method]]
+name = "reverse_search.search"
+capability = "reverse_search"
+summary = "Run one reverse image search on the selected engine (B-05 / #910). Engines make live network or browser calls; the bridge carries the command."
+params = "reverse_search.SearchParams"
+result = "reverse_search.SearchResult"
+errors = ["reverse_search.failed"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 910
+
+[[method]]
+name = "drive_sync.plan"
+capability = "drive_sync"
+summary = "Record a provider and caller paths (#908). submitted stays false; nothing is uploaded."
+params = "drive_sync.DriveSyncPlanParams"
+result = "drive_sync.DriveSyncPlanResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 908
+
+[[method]]
+name = "media_loader.plan"
+capability = "media_loader"
+summary = "Check one http(s) URL and a destination directory (#909). downloaded stays false."
+params = "media_loader.MediaPlanParams"
+result = "media_loader.MediaPlanResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 909
+
+[[method]]
+name = "dl.inspect"
+capability = "dl"
+summary = "Read record.json and events.jsonl from a caller run directory (#912). started stays false and no run is written."
+params = "dl.DlInspectParams"
+result = "dl.DlInspectResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 912

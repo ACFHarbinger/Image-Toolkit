@@ -47,9 +47,9 @@ the status lifecycle and deletion gate are documented in
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
 | web.crawler | Crawler | unclaimed | [#906](https://github.com/ACFHarbinger/Image-Toolkit/issues/906) | pyside-only | web.crawler | — | 0 |
-| web.drive-sync | Cloud Synchronization | unclaimed | [#908](https://github.com/ACFHarbinger/Image-Toolkit/issues/908) | pyside-only | web.drive-sync | — | 0 |
+| web.drive-sync | Cloud Synchronization | Grok | [#908](https://github.com/ACFHarbinger/Image-Toolkit/issues/908) | pyside-only | web.drive-sync | — | 0 |
 | web.entity-recon | Entity Reconnaissance | unclaimed | [#911](https://github.com/ACFHarbinger/Image-Toolkit/issues/911) | pyside-only | web.entity-recon | — | 0 |
-| web.media-loader | Media Loader | unclaimed | [#909](https://github.com/ACFHarbinger/Image-Toolkit/issues/909) | pyside-only | web.media-loader | — | 0 |
+| web.media-loader | Media Loader | Grok | [#909](https://github.com/ACFHarbinger/Image-Toolkit/issues/909) | pyside-only | web.media-loader | — | 0 |
 | web.requests | Requests | unclaimed | [#907](https://github.com/ACFHarbinger/Image-Toolkit/issues/907) | pyside-only | web.requests | — | 0 |
 | web.reverse-search | Reverse Search | unclaimed | [#910](https://github.com/ACFHarbinger/Image-Toolkit/issues/910) | pyside-only | web.reverse-search | — | 0 |
 
@@ -79,7 +79,7 @@ the status lifecycle and deletion gate are documented in
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
-| window.auth | Authentication / vault unlock | unclaimed | [#918](https://github.com/ACFHarbinger/Image-Toolkit/issues/918) | pyside-only | — | — | 0 |
+| window.auth | Authentication / vault unlock | Grok | [#918](https://github.com/ACFHarbinger/Image-Toolkit/issues/918) | pyside-only | — | — | 0 |
 | window.cloud-compute | Cloud Compute setup window | unclaimed | [#920](https://github.com/ACFHarbinger/Image-Toolkit/issues/920) | pyside-only | — | — | 0 |
 | window.logging | Logging and metadata windows | unclaimed | [#919](https://github.com/ACFHarbinger/Image-Toolkit/issues/919) | pyside-only | — | — | 0 |
 | window.settings | Settings window | unclaimed | [#917](https://github.com/ACFHarbinger/Image-Toolkit/issues/917) | pyside-only | — | — | 0 |
