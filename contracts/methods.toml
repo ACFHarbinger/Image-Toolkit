@@ -453,6 +453,36 @@ stability = "experimental"
 owner = 905
 
 [[method]]
+name = "auth.status"
+capability = "auth"
+summary = "Report a locked session (#918). Unlocked stays false and the vault is not opened."
+params = "auth.AuthStatusParams"
+result = "auth.AuthStatusResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 918
+
+[[channel]]
+name = "jobs"
+payload = "jobs.JobEventPayload"
+snapshot = "jobs.JobListSnapshot"
+durable_default = true
+producers = ["sidecar", "cloud-jobs-daemon"]
+consumers = ["webview"]
+notes = "State transitions and progress of durable jobs; replay source is job_events / events.jsonl."
+
+[[channel]]
+name = "bridge"
+payload = "system.BridgeStatePayload"
+snapshot = "system.BridgeStateSnapshot"
+durable_default = false
+producers = ["supervisor"]
+consumers = ["webview"]
+notes = "Restart contract (roadmap): bridge.down then bridge.ready around sidecar restarts; in-flight session requests fail with the error envelope."
+
+[[method]]
 name = "reverse_search.engines"
 capability = "reverse_search"
 summary = "The supported reverse-image-search engine catalog (B-05 / #910)."
@@ -475,22 +505,3 @@ cancelable = false
 emits = []
 stability = "experimental"
 owner = 910
-
-[[channel]]
-
-name = "jobs"
-payload = "jobs.JobEventPayload"
-snapshot = "jobs.JobListSnapshot"
-durable_default = true
-producers = ["sidecar", "cloud-jobs-daemon"]
-consumers = ["webview"]
-notes = "State transitions and progress of durable jobs; replay source is job_events / events.jsonl."
-
-[[channel]]
-name = "bridge"
-payload = "system.BridgeStatePayload"
-snapshot = "system.BridgeStateSnapshot"
-durable_default = false
-producers = ["supervisor"]
-consumers = ["webview"]
-notes = "Restart contract (roadmap): bridge.down then bridge.ready around sidecar restarts; in-flight session requests fail with the error envelope."

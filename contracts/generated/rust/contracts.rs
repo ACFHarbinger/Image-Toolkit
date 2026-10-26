@@ -1,8 +1,22 @@
-// GENERATED — contract hash 9828d6dad4009910dd9a3f4c0e97811a422e460f41ff2599b0549387882f5f56. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 184e19fe7526c6a9f25ef4689e2df0cc7a2b4ad9cf77a0fbf5460be658376f83. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct AuthStatusParams {
+    pub account: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct AuthStatusResult {
+    /// must be false (enforced by the framing layer, #875)
+    pub unlocked: bool,
+    pub account: String,
+    /// must be "unlock stays on the C++ session" (enforced by the framing layer, #875)
+    pub reason: String,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CloudSubmitParams {

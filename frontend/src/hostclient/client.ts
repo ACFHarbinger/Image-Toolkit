@@ -17,6 +17,8 @@ import type {
   ConcatenateResult,
   CompareParams,
   CompareResult,
+  AuthStatusParams,
+  AuthStatusResult,
   ProbeParams,
   ProbeResult,
   FrameParams,
@@ -191,6 +193,11 @@ export class HostClient {
   async extractorProbe(params: ProbeParams): Promise<ProbeResult> {
     await this.connect();
     return this.send<ProbeResult>("extractor.probe", params as unknown as Record<string, unknown>);
+  }
+
+  async authStatus(params: AuthStatusParams): Promise<AuthStatusResult> {
+    await this.connect();
+    return this.send<AuthStatusResult>("auth.status", params as unknown as Record<string, unknown>);
   }
 
   async cloudOfferPrefill(params: PrefillParams): Promise<PrefillResult> {

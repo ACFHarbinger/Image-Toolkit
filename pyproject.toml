@@ -323,6 +323,7 @@ forbidden_modules = ["PySide6"]
 name = "middleware.src.services features must be independent"
 type = "independence"
 modules = [
+    "middleware.src.services.auth",
     "middleware.src.services.convert",
     "middleware.src.services.cloud_jobs",
     "middleware.src.services.cloud_offer",

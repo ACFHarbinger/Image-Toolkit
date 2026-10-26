@@ -9,8 +9,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, UnidentifiedImageError
-
 _MAX_PIXELS = 4_000_000
 _MAX_PATHS = 32
 _MAX_PAIRS = 64
@@ -35,6 +33,8 @@ def compare_paths(paths: list[str], threshold: int) -> dict[str, Any]:
 
 
 def _hash_one(path: str) -> dict[str, Any]:
+    from PIL import UnidentifiedImageError
+
     blank = {"path": path, "width": 0, "height": 0, "ahash": "", "error": "not a file"}
     if not Path(path).is_file():
         return blank
@@ -46,6 +46,8 @@ def _hash_one(path: str) -> dict[str, Any]:
 
 
 def _ahash(path: str) -> tuple[int, int, str]:
+    from PIL import Image
+
     with Image.open(path) as image:
         width, height = image.size
         if width < 1 or height < 1 or width * height > _MAX_PIXELS:

@@ -50,6 +50,7 @@ def test_handshake_result_and_ping_validate() -> None:
         "merge",
         "similarity",
         "extractor",
+        "auth",
     }
     assert _request(server, "system.ping", {}, "ping")["result"] == {"ok": True}
 

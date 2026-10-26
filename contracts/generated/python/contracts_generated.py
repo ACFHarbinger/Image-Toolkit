@@ -1,4 +1,4 @@
-# GENERATED — contract hash 9828d6dad4009910dd9a3f4c0e97811a422e460f41ff2599b0549387882f5f56. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 184e19fe7526c6a9f25ef4689e2df0cc7a2b4ad9cf77a0fbf5460be658376f83. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -8,6 +8,18 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from typing import Any, Literal
+
+@dataclass(frozen=True)
+class AuthStatusParams:
+    account: str
+
+
+@dataclass(frozen=True)
+class AuthStatusResult:
+    unlocked: Literal[False]
+    account: str
+    reason: Literal["unlock stays on the C++ session"]
+
 
 @dataclass(frozen=True)
 class CloudSubmitParams:
