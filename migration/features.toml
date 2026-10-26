@@ -439,10 +439,6 @@ routes = [
 ]
 route_map = {}
 pyside = ["gui/src/modules/stitch_workspace.py", "submodules/ASP/gui/src"]
-tauri = ["frontend/src/views/stitch/StitchWorkspaceView.tsx"]
-service = ""
-contract = ""
-docs = ""
 tauri = ["frontend/src/views/stitch/StitchWorkspace.tsx"]
 service = "middleware/src/services/stitch/status.py"
 contract = "stitch"
@@ -465,10 +461,6 @@ pyside = [
     "submodules/HIE/gui/src/tabs",
     "submodules/HIE/gui/src/viewport.py",
 ]
-tauri = ["frontend/src/views/editor/HieEditorView.tsx", "frontend/src/tabs/editor"]
-service = ""
-contract = ""
-docs = ""
 tauri = ["frontend/src/tabs/editor"]
 service = "middleware/src/services/hie/service.py"
 contract = "hie"
@@ -491,8 +483,6 @@ pyside = [
     "submodules/CSG/gui/src/tabs/reference_coloring_tab.py",
 ]
 tauri = ["frontend/src/views/manga/MangaColorizationView.tsx"]
-service = ""
-tauri = []
 service = "middleware/src/services/csg/service.py"
 contract = ""
 docs = "docs/modules/csg.md"
@@ -511,8 +501,6 @@ routes = ["manga.animation"]
 route_map = {}
 pyside = ["submodules/CSG/gui/src/tabs/animation_tab.py"]
 tauri = ["frontend/src/views/manga/MangaAnimationView.tsx"]
-service = ""
-tauri = []
 service = "middleware/src/services/csg/service.py"
 contract = ""
 docs = "docs/modules/csg.md"
@@ -531,8 +519,6 @@ routes = ["manga.puppeteering"]
 route_map = {}
 pyside = ["submodules/CSG/gui/src/tabs/puppeteering_tab.py"]
 tauri = ["frontend/src/views/manga/MangaPuppeteeringView.tsx"]
-service = ""
-tauri = []
 service = "middleware/src/services/csg/service.py"
 contract = ""
 docs = "docs/modules/csg.md"
