@@ -13,8 +13,6 @@ Connects stitch's eight panels to headless workers and pipeline execution:
 
 from __future__ import annotations
 
-import glob
-import os
 import time
 from pathlib import Path
 from typing import Any, Callable
@@ -31,6 +29,13 @@ PANEL_METADATA = {
 }
 
 _SUPPORTED_IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".bmp")
+
+
+def _pipeline_class() -> Any:
+    """Load the headless ASP pipeline. Tests replace this and skip the import."""
+    from middleware.src.stitching.core.pipeline import AnimeStitchPipeline
+
+    return AnimeStitchPipeline
 
 
 def collect_frames(directory: str | Path) -> list[str]:
@@ -214,53 +219,20 @@ class StitchService:
                     "error": str(exc),
                 }
 
-        # Headless execution via PIL & numpy composite
         try:
-            from PIL import Image
-            import numpy as np
+            import inspect
 
-            loaded = [Image.open(f).convert("RGBA") for f in frames[:10]]
-            f_w, f_h = loaded[0].size
-
-            if preset == "webtoon-strip":
-                overlap_y = int(f_h * 0.25)
-                step_y = f_h - overlap_y
-                canvas_h = f_h + (len(loaded) - 1) * step_y
-                canvas_w = f_w
-                canvas = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
-                for i, img in enumerate(loaded):
-                    canvas.alpha_composite(img, (0, i * step_y))
-            else:
-                overlap_x = int(f_w * 0.30)
-                step_x = f_w - overlap_x
-                canvas_w = f_w + (len(loaded) - 1) * step_x
-                canvas_h = f_h
-                canvas = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
-                for i, img in enumerate(loaded):
-                    canvas.alpha_composite(img, (i * step_x, 0))
-
-            out = Path(output_path)
-            out.parent.mkdir(parents=True, exist_ok=True)
-            canvas.convert("RGB").save(out, format="PNG")
-
-            # Update panel states
-            self._panel_state["stitch.stitch"].update({
-                "started": True,
-                "reason": f"Pipeline complete: generated {canvas_w}x{canvas_h}",
-                "canvas_width": canvas_w,
-                "canvas_height": canvas_h,
-                "frames_count": len(frames),
-            })
-
-            return {
-                "success": True,
-                "output_path": str(out),
-                "canvas_width": canvas_w,
-                "canvas_height": canvas_h,
-                "frames_processed": len(frames),
-                "elapsed_seconds": round(time.monotonic() - t0, 4),
-                "error": None,
-            }
+            pipeline_cls = _pipeline_class()
+            ctor_kwargs: dict[str, Any] = {}
+            params = inspect.signature(pipeline_cls).parameters
+            if "preset" in params:
+                ctor_kwargs["preset"] = preset
+            if "blend_mode" in params:
+                ctor_kwargs["blend_mode"] = blend_mode
+            elif "blend" in params:
+                ctor_kwargs["blend"] = blend_mode
+            pipeline = pipeline_cls(**ctor_kwargs)
+            stitched = pipeline.run(frames, output_path)
         except Exception as exc:
             return {
                 "success": False,
@@ -271,6 +243,31 @@ class StitchService:
                 "elapsed_seconds": round(time.monotonic() - t0, 4),
                 "error": str(exc),
             }
+
+        canvas_w = None
+        canvas_h = None
+        size = getattr(stitched, "size", None)
+        if isinstance(size, (tuple, list)) and len(size) >= 2:
+            canvas_w, canvas_h = int(size[0]), int(size[1])
+
+        out = Path(output_path)
+        self._panel_state["stitch.stitch"].update({
+            "started": True,
+            "reason": f"Pipeline complete: generated {canvas_w}x{canvas_h}",
+            "canvas_width": canvas_w,
+            "canvas_height": canvas_h,
+            "frames_count": len(frames),
+        })
+
+        return {
+            "success": True,
+            "output_path": str(out),
+            "canvas_width": canvas_w,
+            "canvas_height": canvas_h,
+            "frames_processed": len(frames),
+            "elapsed_seconds": round(time.monotonic() - t0, 4),
+            "error": None,
+        }
 
 
 __all__ = [
