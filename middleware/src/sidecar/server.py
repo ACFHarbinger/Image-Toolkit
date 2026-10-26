@@ -112,9 +112,9 @@ class SidecarServer:
         badge_source: BadgeSource | None = None,
         jobs_source: JobsSource | None = None,
         scan_service: Any | None = None,
-        webreq_service: Any | None = None,
         library_store: Any | None = None,
         library_admin_store: Any | None = None,
+        webreq_service: Any | None = None,
         hie_service: Any | None = None,
     ) -> None:
         self.table = table or catalog()
@@ -125,9 +125,9 @@ class SidecarServer:
         self.badge_source = badge_source
         self.jobs_source = jobs_source
         self.scan_service = scan_service
-        self.webreq_service = webreq_service
         self.library_store = library_store
         self.library_admin_store = library_admin_store
+        self.webreq_service = webreq_service
         self.hie_service = hie_service or HieService()
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self.cloud_service = None
@@ -225,43 +225,6 @@ class SidecarServer:
             return self._handshake(params)
         if method == "system.ping":
             return build_ping_result(table=self.table)
-        jobs = self._dispatch_jobs(method, params)
-        if jobs is not _UNHANDLED:
-            return jobs
-        if method == "convert.convert":
-            return handle_convert(params)
-        if method == "convert.convert_batch":
-            return start_convert_batch(self.jobs, params)
-        cloud = self._dispatch_cloud(method, params)
-        if cloud is not _UNHANDLED:
-            return cloud
-        settings = self._dispatch_settings(method, params)
-        if settings is not _UNHANDLED:
-            return settings
-        library = self._dispatch_library(method, params)
-        if library is not _UNHANDLED:
-            return library
-        admin = self._dispatch_admin(method, params)
-        if admin is not _UNHANDLED:
-            return admin
-        scan = self._dispatch_scan(method, params)
-        if scan is not _UNHANDLED:
-            return scan
-        system_pages = self._dispatch_system_pages(method, params)
-        if system_pages is not _UNHANDLED:
-            return system_pages
-        webreq = self._dispatch_webreq(method, params)
-        if webreq is not _UNHANDLED:
-            return webreq
-        raise BridgeAppError("bridge.method_not_found", details={"method": method})
-        return _UNHANDLED
-
-    def _dispatch_cloud_setup(self, method: str, params: dict[str, Any]) -> Any:
-        if method == "cloud_setup.providers":
-            return handle_cloud_setup_providers()
-        return _UNHANDLED
-
-    def _dispatch_jobs(self, method: str, params: dict[str, Any]) -> Any:
         if method == "jobs.submit":
             return self.jobs.submit(params)
         if method == "jobs.status":
@@ -270,6 +233,15 @@ class SidecarServer:
             return self.jobs.list(params)
         if method == "jobs.cancel":
             return self.jobs.cancel(params)
+        if method == "convert.convert":
+            return handle_convert(params)
+        if method == "convert.convert_batch":
+            return start_convert_batch(self.jobs, params)
+        return _UNHANDLED
+
+    def _dispatch_cloud_setup(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "cloud_setup.providers":
+            return handle_cloud_setup_providers()
         return _UNHANDLED
 
     def _dispatch_cloud(self, method: str, params: dict[str, Any]) -> Any:
@@ -358,7 +330,17 @@ class SidecarServer:
         hie = self._dispatch_hie(method, params)
         if hie is not _UNHANDLED:
             return hie
+        webreq = self._dispatch_webreq(method, params)
+        if webreq is not _UNHANDLED:
+            return webreq
         return self._dispatch_web(method, params)
+
+    def _dispatch_webreq(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "webreq.execute":
+            return handle_webreq_execute(self.webreq_service, params)
+        if method == "webreq.sequence":
+            return handle_webreq_sequence(self.webreq_service, params)
+        return _UNHANDLED
 
     def _dispatch_hie(self, method: str, params: dict[str, Any]) -> Any:
         if method == "hie.open_document":
@@ -395,13 +377,6 @@ class SidecarServer:
             return handle_drive_plan(params)
         if method == "media_loader.plan":
             return handle_media_plan(params)
-        return _UNHANDLED
-
-    def _dispatch_webreq(self, method: str, params: dict[str, Any]) -> Any:
-        if method == "webreq.execute":
-            return handle_webreq_execute(self.webreq_service, params)
-        if method == "webreq.sequence":
-            return handle_webreq_sequence(self.webreq_service, params)
         return _UNHANDLED
 
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:
