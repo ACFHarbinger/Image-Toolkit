@@ -1,33 +1,26 @@
-import { LogDeskView } from "../views/windows/LogDeskView";
-import { MetadataDeskView } from "../views/windows/MetadataDeskView";
-import { LibraryManagement } from "../views/library/LibraryManagement";
-import { DataBrowser } from "../views/library/DataBrowser";
 import { ComponentType, ReactNode } from "react";
 import { ConvertPilot } from "../views/ConvertPilot";
 import { Listings } from "../views/library/Listings";
+import { ImageSearch } from "../views/library/ImageSearch";
+import { LibraryManagement } from "../views/library/LibraryManagement";
+import { DataBrowser } from "../views/library/DataBrowser";
+import { ScanMetadataView } from "../views/library/ScanMetadataView";
 import { MergeView } from "../views/system/MergeView";
 import { SimilarityView } from "../views/system/SimilarityView";
 import { ExtractorView } from "../views/system/ExtractorView";
 import WallpaperView from "../views/system/WallpaperView";
 import { StitchWorkspace } from "../views/stitch/StitchWorkspace";
 import { DlWorkspace, type DlRoute } from "../views/dl/DlWorkspace";
-import WallpaperTab from "../tabs/core/WallpaperTab";
-import { ImageSearch } from "../views/library/ImageSearch";
-import { ScanMetadataView } from "../views/library/ScanMetadataView";
+import { ReverseSearchView } from "../views/web/ReverseSearch";
+import { EntityReconView } from "../views/web/EntityRecon";
+import { WebRequestsView } from "../views/web/WebRequestsView";
 import { DriveSyncView } from "../views/web/DriveSyncView";
 import { MediaLoaderView } from "../views/web/MediaLoaderView";
 import ImageCrawlerTab from "../tabs/web/ImageCrawlerTab";
-import { EntityReconView } from "../views/web/EntityRecon";
-import ReverseSearchTab from "../tabs/web/ReverseSearchTab";
-import { WebRequestsView } from "../views/web/WebRequestsView";
-import { UnifiedTrainTab } from "../tabs/models/UnifiedTrainTab";
-import { UnifiedGenerateTab } from "../tabs/models/UnifiedGenerateTab";
-import { MetaCLIPInferenceTab } from "../tabs/models/MetaCLIPInferenceTab";
-import { R3GANEvaluateTab } from "../tabs/models/R3GANEvaluateTab";
-import { ReverseSearchView } from "../views/web/ReverseSearch";
-import WebRequestsTab from "../tabs/web/WebRequestsTab";
 import { BenchmarkDashboard } from "../tabs/apollo/BenchmarkDashboard";
 import { HieEditorTab } from "../tabs/editor/HieEditorTab";
+import { LogDeskView } from "../views/windows/LogDeskView";
+import { MetadataDeskView } from "../views/windows/MetadataDeskView";
 import { CatalogEntry } from "./catalog";
 import type { HostClient } from "../hostclient";
 
@@ -66,40 +59,46 @@ const DL_ROUTE: Record<string, DlRoute> = {
   "ml.inference": "review",
 };
 
-const HOST_CLIENT_IDS = new Set([
+/** Catalog pages whose view takes a HostClient (passed as both prop spellings). */
 const HOST_CLIENT_VIEWS = new Set([
   "system.convert",
   "system.merge",
   "system.similarity",
   "system.extractor",
+  "system.wallpaper",
   "library.scan",
   "library.search",
   "library.listings",
   "library.management",
   "library.data-browser",
-  ...Object.keys(DL_ROUTE),
+  "web.reverse-search",
+  "web.entity-recon",
+  "web.requests",
   "web.drive-sync",
   "web.media-loader",
+  "editor.hybrid",
+  "developer.logs",
+  "developer.metadata",
+  ...Object.keys(DL_ROUTE),
+  ...STITCH_ROUTE_IDS,
 ]);
 
 export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "system.convert": ConvertPilot,
-  "library.listings": Listings,
   "system.merge": MergeView,
   "system.similarity": SimilarityView,
   "system.extractor": ExtractorView,
   "system.wallpaper": WallpaperView,
+  "library.listings": Listings,
   "library.search": ImageSearch,
   "library.management": LibraryManagement,
   "library.data-browser": DataBrowser,
   "library.scan": ScanMetadataView,
   "web.crawler": ImageCrawlerTab,
   "web.requests": WebRequestsView,
-  "web.drive-sync": DriveSyncTab,
-  "web.requests": WebRequestsTab,
   "web.drive-sync": DriveSyncView,
   "web.media-loader": MediaLoaderView,
-  "web.reverse-search": ReverseSearchTab,
+  "web.reverse-search": ReverseSearchView,
   "web.entity-recon": EntityReconView,
   "dl.train": DlWorkspace,
   "dl.generate": DlWorkspace,
@@ -109,17 +108,11 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "ml.generation": DlWorkspace,
   "ml.evaluation": DlWorkspace,
   "ml.inference": DlWorkspace,
-  "web.drive-sync": DriveSyncTab,
-  "web.reverse-search": ReverseSearchView,
-  "ml.training": UnifiedTrainTab,
-  "ml.generation": UnifiedGenerateTab,
-  "ml.evaluation": R3GANEvaluateTab,
-  "ml.inference": MetaCLIPInferenceTab,
   "editor.hybrid": HieEditorTab,
   "developer.benchmarks": BenchmarkDashboard,
-  ...STITCH_VIEWS,
   "developer.logs": LogDeskView,
   "developer.metadata": MetadataDeskView,
+  ...STITCH_VIEWS,
 };
 
 export function CatalogView({
@@ -138,46 +131,11 @@ export function CatalogView({
     );
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
-  const hostClientProps = [
-    "system.convert",
-    "system.merge",
-    "system.similarity",
-    "system.extractor",
-    "library.scan",
-    "library.search",
-    "library.listings",
-    "library.management",
-    "library.data-browser",
-    "editor.hybrid",
-  ].includes(entry.id)
+  const hostClientProps = HOST_CLIENT_VIEWS.has(entry.id)
     ? { hostClient, client: hostClient }
     : {};
-  const stitchRoute = (STITCH_ROUTE_IDS as readonly string[]).includes(entry.id);
-  const hostClientProps =
-    ["system.convert", "system.merge", "system.similarity", "system.extractor", "system.wallpaper", "library.scan", "library.search", "library.listings", "library.management", "library.data-browser"].includes(entry.id) ? { hostClient, client: hostClient } : {};
-    stitchRoute ||
-  const route = DL_ROUTE[entry.id];
-  const hostClientProps = HOST_CLIENT_IDS.has(entry.id) ? { hostClient, client: hostClient } : {};
+  const route = (STITCH_ROUTE_IDS as readonly string[]).includes(entry.id)
+    ? entry.id
+    : DL_ROUTE[entry.id];
   return <View showModal={showModal} {...extra} {...hostClientProps} {...(route ? { route } : {})} />;
-  const hostClientProps = HOST_CLIENT_VIEWS.has(entry.id) ? { hostClient, client: hostClient } : {};
-  const hostClientProps =
-    ["developer.logs", "developer.metadata", "system.convert", "system.merge", "system.similarity", "system.extractor", "library.scan", "library.search", "library.listings", "library.management", "library.data-browser"].includes(entry.id) ? { hostClient, client: hostClient } : {};
-    [
-      "system.convert",
-      "system.merge",
-      "system.similarity",
-      "system.extractor",
-      "library.scan",
-      "library.search",
-      "library.listings",
-      "library.management",
-      "library.data-browser",
-    ].includes(entry.id)
-      ? { hostClient, client: hostClient }
-      : {};
-  const routeProps = stitchRoute ? { route: entry.id } : {};
-  return <View showModal={showModal} {...extra} {...hostClientProps} {...routeProps} />;
-      "web.reverse-search",
-    ].includes(entry.id) ? { hostClient, client: hostClient } : {};
-  return <View showModal={showModal} {...extra} {...hostClientProps} />;
 }

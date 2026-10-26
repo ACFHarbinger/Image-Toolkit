@@ -173,6 +173,8 @@ export class HostClient {
   async entityReconResolve(params: EntityReconResolveParams): Promise<EntityReconResolveResult> {
     await this.connect();
     return this.send<EntityReconResolveResult>("entity_recon.resolve", params as unknown as Record<string, unknown>);
+  }
+
   async cloudSetupProviders(): Promise<CloudSetupProvidersResult> {
     await this.connect();
     return this.send<CloudSetupProvidersResult>("cloud_setup.providers", {});
@@ -251,6 +253,8 @@ export class HostClient {
   async stitchStatus(route: string): Promise<StitchStatusResult> {
     await this.connect();
     return this.send<StitchStatusResult>("stitch.status", { route });
+  }
+
   async logsRead(params: LogsReadParams): Promise<LogsReadResult> {
     await this.connect();
     return this.send<LogsReadResult>("logs.read", params as unknown as Record<string, unknown>);
@@ -259,9 +263,13 @@ export class HostClient {
   async metadataDescribe(params: MetadataDescribeParams): Promise<MetadataDescribeResult> {
     await this.connect();
     return this.send<MetadataDescribeResult>("metadata.describe", params as unknown as Record<string, unknown>);
+  }
+
   async dlInspect(params: DlInspectParams): Promise<DlInspectResult> {
     await this.connect();
     return this.send<DlInspectResult>("dl.inspect", params as unknown as Record<string, unknown>);
+  }
+
   async driveSyncPlan(params: DriveSyncPlanParams): Promise<DriveSyncPlanResult> {
     await this.connect();
     return this.send<DriveSyncPlanResult>("drive_sync.plan", params as unknown as Record<string, unknown>);
@@ -270,6 +278,8 @@ export class HostClient {
   async mediaLoaderPlan(params: MediaPlanParams): Promise<MediaPlanResult> {
     await this.connect();
     return this.send<MediaPlanResult>("media_loader.plan", params as unknown as Record<string, unknown>);
+  }
+
   async authStatus(params: AuthStatusParams): Promise<AuthStatusResult> {
     await this.connect();
     return this.send<AuthStatusResult>("auth.status", params as unknown as Record<string, unknown>);
@@ -399,6 +409,8 @@ export class HostClient {
   async wallpaperSlideshowToggle(params: SlideshowToggleParams): Promise<SlideshowToggleResult> {
     await this.connect();
     return this.send<SlideshowToggleResult>("wallpaper.slideshow_toggle", params as unknown as Record<string, unknown>);
+  }
+
   async crawlerCrawl(params: CrawlParams): Promise<CrawlResult> {
     await this.connect();
     return this.send<CrawlResult>("crawler.crawl", params as unknown as Record<string, unknown>);
@@ -407,6 +419,8 @@ export class HostClient {
   async crawlerListSupported(params?: CrawlerSupportedParams): Promise<CrawlerSupportedResult> {
     await this.connect();
     return this.send<CrawlerSupportedResult>("crawler.list_supported", (params ?? {}) as Record<string, unknown>);
+  }
+
   async webreqExecute(params: ExecuteParams): Promise<ExecuteResult> {
     await this.connect();
     return this.send<ExecuteResult>("webreq.execute", params as unknown as Record<string, unknown>);
@@ -415,6 +429,8 @@ export class HostClient {
   async webreqSequence(params: SequenceParams): Promise<SequenceResult> {
     await this.connect();
     return this.send<SequenceResult>("webreq.sequence", params as unknown as Record<string, unknown>);
+  }
+
   async hieOpenDocument(params: OpenDocumentParams): Promise<OpenDocumentResult> {
     await this.connect();
     return this.send<OpenDocumentResult>("hie.open_document", params as unknown as Record<string, unknown>);

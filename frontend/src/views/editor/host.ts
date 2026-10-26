@@ -18,12 +18,6 @@ export interface HieHost {
   submitRestoration?(documentId: string, model: string): Promise<{ taskId: string }>;
 }
 
-declare global {
-  interface Window {
-    __HIE_HOST__?: HieHost;
-  }
-}
-
 class BrowserFallbackHieHost implements HieHost {
   async openMedia(): Promise<{ documentId: string }> {
     return { documentId: `doc-${Date.now().toString(16)}` };
@@ -61,8 +55,9 @@ class BrowserFallbackHieHost implements HieHost {
 }
 
 export function getHieHost(): HieHost {
-  if (typeof window !== "undefined" && window.__HIE_HOST__) {
-    return window.__HIE_HOST__;
+  const injected = (window as { __HIE_HOST__?: HieHost } | undefined)?.__HIE_HOST__;
+  if (typeof window !== "undefined" && injected) {
+    return injected;
   }
   return new BrowserFallbackHieHost();
 }
