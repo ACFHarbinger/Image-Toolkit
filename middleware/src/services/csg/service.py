@@ -7,13 +7,14 @@ propagation (W0-03 Phase C, #867). Unblocks Wave 8 editor #916 E-03.
 from __future__ import annotations
 
 import os
+import tempfile
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
-from PIL import Image
+if TYPE_CHECKING:
+    import numpy as np
 
 from middleware.src.services._submodule_loader import ensure_submodules_registered
 from middleware.src.services.base import CommandValidationError
@@ -75,12 +76,18 @@ def _load_sequence() -> Any:
 
 
 def _read_rgb(path: str) -> np.ndarray:
+    import numpy as np
+    from PIL import Image
+
     with Image.open(path) as image:
         rgb = np.asarray(image.convert("RGB"), dtype=np.uint8)
     return np.ascontiguousarray(rgb)
 
 
 def _fit_rgb(rgb: np.ndarray, height: int, width: int) -> np.ndarray:
+    import numpy as np
+    from PIL import Image
+
     if rgb.shape[0] == height and rgb.shape[1] == width:
         return np.ascontiguousarray(rgb)
     # Nearest keeps a one-pixel stroke from being blended into gray.
@@ -89,21 +96,27 @@ def _fit_rgb(rgb: np.ndarray, height: int, width: int) -> np.ndarray:
 
 
 def _luminance(rgb: np.ndarray) -> np.ndarray:
+    import numpy as np
+
     acc = (
-        rgb[..., 0].astype(np.uint16) * 299
-        + rgb[..., 1].astype(np.uint16) * 587
-        + rgb[..., 2].astype(np.uint16) * 114
+        rgb[..., 0].astype(np.uint32) * 299
+        + rgb[..., 1].astype(np.uint32) * 587
+        + rgb[..., 2].astype(np.uint32) * 114
     )
     return np.ascontiguousarray((acc // 1000).astype(np.uint8))
 
 
 def _colored_mask(rgb: np.ndarray) -> np.ndarray:
+    import numpy as np
+
     channels = rgb.astype(np.int16)
     spread = channels.max(axis=2) - channels.min(axis=2)
     return spread >= _SCRIBBLE_SPREAD
 
 
 def _subject_mask(rgb: np.ndarray) -> np.ndarray:
+    import numpy as np
+
     ink = np.any(rgb < _NEAR_WHITE, axis=-1)
     if float(ink.mean()) >= 0.9:
         return np.ones(ink.shape, dtype=bool)
@@ -117,6 +130,8 @@ def _mesh_step(mask: np.ndarray, requested: int) -> int:
     A 64×64 frame at step 32 is enough; a coarser request is halved until
     the mask can form a triangle.
     """
+    import numpy as np
+
     height, width = mask.shape
     step = int(requested) if requested and int(requested) > 0 else 16
     step = max(1, step)
@@ -134,6 +149,8 @@ def _anchors(
     control_points: tuple[tuple[float, float], ...],
     target_points: tuple[tuple[float, float], ...],
 ) -> dict[int, tuple[float, float]]:
+    import numpy as np
+
     anchors: dict[int, tuple[float, float]] = {}
     if len(vertices) == 0:
         return anchors
@@ -145,6 +162,7 @@ def _anchors(
 
 def _warp_rgb(rgb: np.ndarray, rest: np.ndarray, moved: np.ndarray) -> np.ndarray:
     import cv2
+    import numpy as np
     from scipy.interpolate import griddata
 
     height, width = rgb.shape[:2]
@@ -170,6 +188,8 @@ def _warp_rgb(rgb: np.ndarray, rest: np.ndarray, moved: np.ndarray) -> np.ndarra
 
 
 def _as_rgb_uint8(rgb: np.ndarray) -> np.ndarray:
+    import numpy as np
+
     arr = np.asarray(rgb)
     if arr.dtype != np.uint8:
         arr = np.clip(arr, 0, 255).astype(np.uint8)
@@ -179,17 +199,22 @@ def _as_rgb_uint8(rgb: np.ndarray) -> np.ndarray:
 
 
 def _save_png(path: str | Path, rgb: np.ndarray) -> Path:
+    from PIL import Image
+
     dest = Path(path)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    partial = dest.with_name(dest.name + ".partial")
-    try:
-        Image.fromarray(_as_rgb_uint8(rgb), mode="RGB").save(partial, format="PNG")
-        if partial.stat().st_size <= 0:
-            raise ValueError("CSG writer produced an empty file")
-        partial.replace(dest)
-    except Exception:
-        partial.unlink(missing_ok=True)
-        raise
+    with tempfile.NamedTemporaryFile("w+b", dir=dest.parent, prefix=f".{dest.name}.", suffix=".partial", delete=False) as handle:
+        partial = Path(handle.name)
+        try:
+            Image.fromarray(_as_rgb_uint8(rgb), mode="RGB").save(handle, format="PNG")
+            handle.flush()
+            if handle.tell() <= 0:
+                raise ValueError("CSG writer produced an empty file")
+            handle.close()
+            partial.replace(dest)
+        finally:
+            handle.close()
+            partial.unlink(missing_ok=True)
     return dest
 
 
@@ -208,6 +233,8 @@ def _elapsed(t0: float) -> float:
 def _sequence_arrays(
     command: TemporalPropagateCommand,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    import numpy as np
+
     frames = [_read_rgb(path) for path in command.frame_paths]
     height, width = frames[0].shape[:2]
     fitted = [_fit_rgb(frame, height, width) for frame in frames]
@@ -237,6 +264,8 @@ class CsgService(CsgServiceProtocol):
 
     def colorize_scribble(self, command: ColorizeScribbleCommand) -> ColorizeScribbleResult:
         """Colorize lineart using scribble guidance."""
+        import numpy as np
+
         t0 = time.monotonic()
         if not os.path.isfile(command.lineart_path):
             raise CommandValidationError(
@@ -369,6 +398,8 @@ class CsgService(CsgServiceProtocol):
 
     def propagate_sequence(self, command: TemporalPropagateCommand) -> TemporalPropagateResult:
         """Propagate colorization temporally across a sequence of animation frames."""
+        import numpy as np
+
         t0 = time.monotonic()
         if not command.frame_paths:
             raise CommandValidationError(

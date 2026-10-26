@@ -9,10 +9,10 @@ from __future__ import annotations
 import os
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import cv2
-import numpy as np
+if TYPE_CHECKING:
+    import numpy as np
 
 from middleware.src.services._submodule_loader import ensure_submodules_registered
 from middleware.src.services.asp.commands import (
@@ -26,7 +26,7 @@ from middleware.src.services.asp.commands import (
 from middleware.src.services.asp.protocols import StitchServiceProtocol
 from middleware.src.services.base import CommandValidationError
 
-_IDENTITY_AFFINE = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=np.float64)
+_IDENTITY_AFFINE = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
 
 
 def _elapsed(t0: float) -> float:
@@ -35,6 +35,8 @@ def _elapsed(t0: float) -> float:
 
 def _affine_2x3(transform: Any) -> np.ndarray:
     """Copy a caller-supplied transform into a 2×3 float64 affine."""
+    import numpy as np
+
     matrix = np.asarray(transform, dtype=np.float64)
     if matrix.shape != (2, 3):
         raise ValueError(f"affine transform must be 2x3, got shape {matrix.shape}")
@@ -43,6 +45,9 @@ def _affine_2x3(transform: Any) -> np.ndarray:
 
 def _overlap_count(img1: np.ndarray, img2: np.ndarray, matrix: np.ndarray) -> int:
     """Count img1 pixels that land on img2 after the pairwise warp."""
+    import cv2
+    import numpy as np
+
     height, width = img2.shape[:2]
     warped = cv2.warpAffine(img1, np.ascontiguousarray(matrix, dtype=np.float64), (width, height))
     if warped.ndim == 3:
@@ -132,6 +137,8 @@ class StitchService(StitchServiceProtocol):
 
     def match_frames(self, command: MatchFramesCommand) -> MatchFramesResult:
         """Match two frames and compute pairwise alignment transform."""
+        import cv2
+
         t0 = time.monotonic()
         if not os.path.isfile(command.image_path_1):
             raise CommandValidationError(
@@ -195,6 +202,9 @@ class StitchService(StitchServiceProtocol):
 
     def render_canvas(self, command: RenderCanvasCommand) -> RenderCanvasResult:
         """Render aligned frames onto a composited canvas."""
+        import cv2
+        import numpy as np
+
         t0 = time.monotonic()
         if not command.image_paths:
             raise CommandValidationError(

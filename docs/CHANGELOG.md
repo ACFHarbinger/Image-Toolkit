@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep ASP/CSG image dependencies lazy, prevent CSG luminance overflow, and create exclusive temporary files for CSG output.
+
 ### Added
 
 - **Canonical Python Service Homes for Absorbed Submodules (ASP, HIE, CSG, CRE)** (Tauri migration W0-03 Phase C, #867):
