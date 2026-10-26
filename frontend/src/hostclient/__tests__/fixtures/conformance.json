@@ -31,10 +31,10 @@
               "merge",
               "similarity",
               "extractor",
-              "drive_sync",
-              "media_loader",
               "auth",
-              "reverse_search"
+              "reverse_search",
+              "drive_sync",
+              "media_loader"
             ]
           }
         }
