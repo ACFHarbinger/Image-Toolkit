@@ -28,6 +28,7 @@ Slideshow state is stored canonically at `~/.image-toolkit/.slideshow_config.jso
   - `wallpaper.slideshow_toggle`: starts or stops the background slideshow process.
 - **Frontend (`frontend/src/views/system/WallpaperView.tsx`):**
   - Modular React component providing per-monitor path assignment, preview details, queue reordering, and daemon control.
+  - `frontend/src/shell/SlideshowPresenterWindow.tsx`: Companion presentation window for role `slideshow` providing per-monitor queue inspection, queue item addition/removal, reordering, and background daemon toggle.
   - Client methods in `frontend/src/hostclient/client.ts`.
 
 ## Contract & Routing
@@ -43,7 +44,7 @@ Slideshow state is stored canonically at `~/.image-toolkit/.slideshow_config.jso
 ## Accessibility & Known Gaps
 
 - **Keyboard parity:** All monitor inputs, style selection, queue order controls, and daemon toggle buttons participate in standard tab order with visible focus states.
-- **Screen-reader notes & known gaps:** Dynamic status announcements use `role="status"` and `aria-live="polite"`. The secondary presenter fullscreen window remains on PySide6 until Wave 8 window management migration.
+- **Screen-reader notes & known gaps:** Dynamic status announcements use `role="status"` and `aria-live="polite"`.
 
 ## Verification
 
