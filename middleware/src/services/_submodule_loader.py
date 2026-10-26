@@ -1,4 +1,7 @@
-"""Private helper to ensure submodule package roots and aliases are registered."""
+"""Private helper to ensure submodule package roots and aliases are registered.
+
+CSG lives at ``middleware.src.csg`` (#1036) and is not inserted onto ``sys.path``.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +11,7 @@ from pathlib import Path
 
 
 def ensure_submodules_registered() -> None:
+    """Ensure ASP, HIE, and CRE submodule packages are registered in sys.path / sys.modules."""
     """Ensure submodule packages (ASP, HIE, CSG) are registered in sys.path / sys.modules.
 
     CRE no longer needs registration: it lives at ``middleware/src/cre`` since
@@ -18,7 +22,7 @@ def ensure_submodules_registered() -> None:
     if not submodules_dir.is_dir():
         return
 
-    # 1. Base submodule bootstrap (ASP, CSG, HIE)
+    # 1. Base submodule bootstrap (ASP, HIE). CSG is middleware.src.csg (#1036).
     try:
         from git.scripts._submodule_bootstrap import register_submodule_packages
 
@@ -26,7 +30,6 @@ def ensure_submodules_registered() -> None:
     except (ImportError, Exception):
         for rel_parts in [
             ("ASP", "backend", "src"),
-            ("CSG", "logic", "src"),
             ("HIE", "middleware", "src"),
         ]:
             target = str(submodules_dir.joinpath(*rel_parts))

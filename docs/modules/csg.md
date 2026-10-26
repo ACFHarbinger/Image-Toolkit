@@ -13,7 +13,7 @@
 
 ## Overview
 
-The Cel-Shaded Generator (CSG) provides automated and interactive manga/lineart colorization (scribble guidance, reference-based optimal transport color transfer, screentone handling), 2D mesh generation with As-Rigid-As-Possible (ARAP) character puppeteering, and temporal animation color propagation. Backed by C++ high-performance processing in `backend/` and Python logic in `submodules/CSG/logic/src/`, it enables rich 2D illustration workflows. Absorbed in W0-03 (#867 Phase C) and unblocking Wave 8 editor #916 (E-03).
+The Cel-Shaded Generator (CSG) provides automated and interactive manga/lineart colorization (scribble guidance, reference-based optimal transport color transfer, screentone handling), 2D mesh generation with As-Rigid-As-Possible (ARAP) character puppeteering, and temporal animation color propagation. Backed by C++ high-performance processing in `backend/` and Python logic in `middleware/src/csg/`, it enables rich 2D illustration workflows. Absorbed in W0-03 (#867 Phase C) and unblocking Wave 8 editor #916 (E-03).
 
 ## Public Surface
 
@@ -21,7 +21,7 @@ The Cel-Shaded Generator (CSG) provides automated and interactive manga/lineart 
   - Commands: `ColorizeScribbleCommand`, `ColorizeReferenceCommand`, `ArapDeformCommand`, `TemporalPropagateCommand`
   - Results: `ColorizeScribbleResult`, `ColorizeReferenceResult`, `ArapDeformResult`, `TemporalPropagateResult`
   - Handlers & Service: `CsgService`, `CsgServiceProtocol`
-- **Core Primitives:** `colorize_scribble`, `colorize_reference`, `generate_mesh`, `arap_deform`, `colorize_scribble_sequence` (`submodules/CSG/logic/src/`).
+- **Core Primitives:** `colorize_scribble`, `colorize_reference`, `generate_mesh`, `arap_deform`, `colorize_scribble_sequence` (`middleware/src/csg/`). Upstream notes and the Comic Scene Graph licence: [`docs/csg/`](../csg/).
 - **Bridge (`csg` capability, #916):** methods `csg.colorize_scribble`, `csg.colorize_reference`, `csg.arap_deform`, `csg.propagate_sequence` (schema `contracts/schemas/capability/csg.json`; handler `middleware/src/sidecar/handlers/csg.py`). Frontend calls them through `HostClient.csgColorizeScribble/…Reference/…ArapDeform/…PropagateSequence`.
 
 ## Contract & Routing
