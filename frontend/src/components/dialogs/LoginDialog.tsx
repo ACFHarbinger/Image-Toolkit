@@ -1,30 +1,45 @@
 /**
- * LoginDialog - Secure Authentication Interface
- * 
- * Provides user authentication using VaultManager integration.
- * Handles both login and account creation workflows.
+ * LoginDialog - locked session status (#918).
+ *
+ * Unlock stays on the C++ session. The password is not sent and no account
+ * is created. auth.status only reports that the vault was not opened.
  */
 
-import React, { useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import React, { useMemo, useState } from 'react';
+import { HostClient, RustTransport } from '../../hostclient';
 import { useAppStore } from '../../store/appStore';
 import { LogIn, UserPlus, Eye, EyeOff, Sun, Moon } from 'lucide-react';
 
-interface LoginDialogProps {
-  onClose?: () => void;
+export interface AuthStatusClient {
+  authStatus(params: { account: string }): Promise<{ unlocked: boolean; account: string; reason: string }>;
 }
 
-export const LoginDialog: React.FC<LoginDialogProps> = ({ onClose }) => {
-  const { login, preferences, setTheme } = useAppStore();
+interface LoginDialogProps {
+  onClose?: () => void;
+  authClient?: AuthStatusClient;
+}
+
+export const LoginDialog: React.FC<LoginDialogProps> = ({ authClient }) => {
+  const { preferences, setTheme } = useAppStore();
+  const ownedClient = useMemo(
+    () =>
+      new HostClient(new RustTransport(), {
+        clientName: "login-dialog",
+        clientVersion: "1.0.0",
+      }),
+    [],
+  );
+  const client = authClient ?? ownedClient;
   const [accountName, setAccountName] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = async () => {
-    if (!accountName.trim() || !password.trim()) {
-      setError('Please enter both account name and password');
+  const reportLocked = async () => {
+    const account = accountName.trim();
+    if (!account) {
+      setError('Please enter an account name');
       return;
     }
 
@@ -32,74 +47,10 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onClose }) => {
     setError('');
 
     try {
-      // Call Tauri backend to authenticate
-      const result = await invoke<{ success: boolean; message?: string; profiles?: any[] }>(
-        'authenticate_user',
-        {
-          accountName: accountName.trim(),
-          password,
-        }
-      );
-
-      if (result.success) {
-        // Check if there are preference profiles to choose from
-        if (result.profiles && result.profiles.length > 0) {
-          // TODO: Show profile selection dialog
-          console.log('Available profiles:', result.profiles);
-        }
-
-        // Update global state
-        login(accountName);
-
-        // Close dialog if callback provided
-        if (onClose) {
-          onClose();
-        }
-      } else {
-        setError(result.message || 'Authentication failed');
-      }
-    } catch (err: any) {
-      console.error('Login error:', err);
-      const errorMessage = typeof err === 'string' ? err : err.message || 'Failed to authenticate. Please check your credentials.';
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCreateAccount = async () => {
-    if (!accountName.trim() || !password.trim()) {
-      setError('Please enter both account name and password');
-      return;
-    }
-
-    setIsLoading(true);
-    setError('');
-
-    try {
-      // Call Tauri backend to create account
-      const result = await invoke<{ success: boolean; message?: string }>(
-        'create_user_account',
-        {
-          accountName: accountName.trim(),
-          password,
-        }
-      );
-
-      if (result.success) {
-        // Update global state
-        login(accountName);
-
-        // Close dialog if callback provided
-        if (onClose) {
-          onClose();
-        }
-      } else {
-        setError(result.message || 'Account creation failed');
-      }
-    } catch (err: any) {
-      console.error('Account creation error:', err);
-      const errorMessage = typeof err === 'string' ? err : err.message || 'Failed to create account. The account may already exist.';
+      const result = await client.authStatus({ account });
+      setError(result.reason);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to read the session status.';
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -108,7 +59,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onClose }) => {
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !isLoading) {
-      handleLogin();
+      void reportLocked();
     }
   };
 
@@ -151,7 +102,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onClose }) => {
         <div className="px-6 py-6 space-y-4">
           {/* Error Message */}
           {error && (
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-500 text-sm">
+            <div role="alert" className="p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-500 text-sm">
               {error}
             </div>
           )}
@@ -218,7 +169,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onClose }) => {
           {/* Action Buttons */}
           <div className="flex gap-3 pt-2">
             <button
-              onClick={handleCreateAccount}
+              onClick={() => void reportLocked()}
               disabled={isLoading}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold transition-colors ${isDark
                 ? 'bg-gray-700 text-white hover:bg-gray-600'
@@ -229,7 +180,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onClose }) => {
               Create Account
             </button>
             <button
-              onClick={handleLogin}
+              onClick={() => void reportLocked()}
               disabled={isLoading}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-white transition-colors ${isDark
                 ? 'bg-cyan-600 hover:bg-cyan-500'

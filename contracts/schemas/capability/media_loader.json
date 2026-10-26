@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/media_loader.json",
+  "title": "MediaLoaderCapability",
+  "description": "A download plan for one caller URL (#909). Does not fetch the URL.",
+  "type": "object",
+  "$defs": {
+    "MediaPlanParams": {
+      "title": "MediaPlanParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "destination"],
+      "properties": {
+        "url": { "type": "string", "minLength": 1 },
+        "destination": { "type": "string", "minLength": 1 }
+      }
+    },
+    "MediaPlanResult": {
+      "title": "MediaPlanResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accepted", "downloaded", "url", "destination", "reason"],
+      "properties": {
+        "accepted": { "type": "boolean" },
+        "downloaded": { "type": "boolean", "const": false },
+        "url": { "type": "string" },
+        "destination": { "type": "string" },
+        "reason": { "type": "string" }
+      }
+    }
+  }
+}

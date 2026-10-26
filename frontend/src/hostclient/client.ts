@@ -7,6 +7,7 @@ import type {
   ConvertBatchResult,
   CloudSubmitParams,
   CloudSubmitResult,
+  ProvidersResult as CloudSetupProvidersResult,
   ConvertParams,
   ConvertResult,
   DescribeParams,
@@ -17,9 +18,22 @@ import type {
   ConcatenateResult,
   CompareParams,
   CompareResult,
+  AuthStatusParams,
+  AuthStatusResult,
   ProbeParams,
   ProbeResult,
   StitchStatusResult,
+  PrefsDescribeResult,
+  LogsReadParams,
+  LogsReadResult,
+  MetadataDescribeParams,
+  MetadataDescribeResult,
+  DlInspectParams,
+  DlInspectResult,
+  DriveSyncPlanParams,
+  DriveSyncPlanResult,
+  MediaPlanParams,
+  MediaPlanResult,
   FrameParams,
   FrameResult,
   GetManyParams,
@@ -28,6 +42,9 @@ import type {
   ListImagesResult,
   ListGroupsResult,
   ListTagsResult,
+  EnginesResult as ReverseEnginesResult,
+  SearchParams as ReverseSearchParams,
+  SearchResult as ReverseSearchResult,
   GetParams,
   GetResult,
   PrefillParams,
@@ -121,6 +138,11 @@ export class HostClient {
     return this.send<ListResult>("jobs.list", params as unknown as Record<string, unknown>);
   }
 
+  async cloudSetupProviders(): Promise<CloudSetupProvidersResult> {
+    await this.connect();
+    return this.send<CloudSetupProvidersResult>("cloud_setup.providers", {});
+  }
+
   async cloudJobsSummary(): Promise<SummaryResult> {
     await this.connect();
     return this.send<SummaryResult>("cloud_jobs.summary", {});
@@ -194,6 +216,28 @@ export class HostClient {
   async stitchStatus(route: string): Promise<StitchStatusResult> {
     await this.connect();
     return this.send<StitchStatusResult>("stitch.status", { route });
+  async logsRead(params: LogsReadParams): Promise<LogsReadResult> {
+    await this.connect();
+    return this.send<LogsReadResult>("logs.read", params as unknown as Record<string, unknown>);
+  }
+
+  async metadataDescribe(params: MetadataDescribeParams): Promise<MetadataDescribeResult> {
+    await this.connect();
+    return this.send<MetadataDescribeResult>("metadata.describe", params as unknown as Record<string, unknown>);
+  async dlInspect(params: DlInspectParams): Promise<DlInspectResult> {
+    await this.connect();
+    return this.send<DlInspectResult>("dl.inspect", params as unknown as Record<string, unknown>);
+  async driveSyncPlan(params: DriveSyncPlanParams): Promise<DriveSyncPlanResult> {
+    await this.connect();
+    return this.send<DriveSyncPlanResult>("drive_sync.plan", params as unknown as Record<string, unknown>);
+  }
+
+  async mediaLoaderPlan(params: MediaPlanParams): Promise<MediaPlanResult> {
+    await this.connect();
+    return this.send<MediaPlanResult>("media_loader.plan", params as unknown as Record<string, unknown>);
+  async authStatus(params: AuthStatusParams): Promise<AuthStatusResult> {
+    await this.connect();
+    return this.send<AuthStatusResult>("auth.status", params as unknown as Record<string, unknown>);
   }
 
   async cloudOfferPrefill(params: PrefillParams): Promise<PrefillResult> {
@@ -235,6 +279,12 @@ export class HostClient {
     return this.send<SetManyResult>("settings.set_many", params as unknown as Record<string, unknown>);
   }
 
+  /** Settings window sections. Does not open the vault or change a password. */
+  async prefsDescribe(account: string): Promise<PrefsDescribeResult> {
+    await this.connect();
+    return this.send<PrefsDescribeResult>("prefs.describe", { account });
+  }
+
   async listLibraryImages(params: ListImagesParams = {}): Promise<ListImagesResult> {
     await this.connect();
     return this.send<ListImagesResult>("library.list_images", params as unknown as Record<string, unknown>);
@@ -248,6 +298,16 @@ export class HostClient {
   async listLibraryGroups(): Promise<ListGroupsResult> {
     await this.connect();
     return this.send<ListGroupsResult>("library.list_groups", {});
+  }
+
+  async reverseSearchEngines(): Promise<ReverseEnginesResult> {
+    await this.connect();
+    return this.send<ReverseEnginesResult>("reverse_search.engines", {});
+  }
+
+  async reverseSearch(params: ReverseSearchParams): Promise<ReverseSearchResult> {
+    await this.connect();
+    return this.send<ReverseSearchResult>("reverse_search.search", params as unknown as Record<string, unknown>);
   }
 
   async libraryAdminCatalog(): Promise<CatalogResult> {

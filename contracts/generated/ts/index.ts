@@ -1,13 +1,21 @@
-// GENERATED — contract hash 433f54d28ecf99f37f575931181333803a334374a1f830f64435073dd4be706b. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 5d09c62e96add841a446e510377b41502c35f696efd20917e72d8df65160033d. Do not edit; edit the schema and regenerate.
+export * from "./auth";
 export * from "./cloud_jobs";
 export * from "./cloud_offer";
+export * from "./cloud_setup";
 export * from "./convert";
+export * from "./desk";
+export * from "./dl";
+export * from "./drive_sync";
 export * from "./extractor";
 export * from "./jobs";
 export * from "./library";
 export * from "./library_admin";
 export * from "./library_preview";
+export * from "./media_loader";
 export * from "./merge";
+export * from "./prefs";
+export * from "./reverse_search";
 export * from "./scan";
 export * from "./settings";
 export * from "./similarity";

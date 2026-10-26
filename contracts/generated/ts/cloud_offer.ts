@@ -1,4 +1,4 @@
-// GENERATED — contract hash 433f54d28ecf99f37f575931181333803a334374a1f830f64435073dd4be706b. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 5d09c62e96add841a446e510377b41502c35f696efd20917e72d8df65160033d. Do not edit; edit the schema and regenerate.
 
 export interface PrefillParams {
   readonly owner: string;

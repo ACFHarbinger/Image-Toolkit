@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/prefs.json",
+  "title": "PrefsCapability",
+  "description": "Settings window description (#917). Does not open the vault or change credentials.",
+  "type": "object",
+  "$defs": {
+    "PrefsDescribeParams": {
+      "title": "PrefsDescribeParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["account"],
+      "properties": {
+        "account": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "PrefsDescribeResult": {
+      "title": "PrefsDescribeResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sections", "credentials_changed", "reason"],
+      "properties": {
+        "sections": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["appearance", "profiles", "shortcuts", "tab_config", "credentials", "reset"]
+          }
+        },
+        "credentials_changed": {
+          "const": false
+        },
+        "reason": {
+          "const": "credentials stay on the C++ vault session"
+        }
+      }
+    }
+  }
+}

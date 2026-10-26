@@ -1,4 +1,4 @@
-# GENERATED — contract hash 433f54d28ecf99f37f575931181333803a334374a1f830f64435073dd4be706b. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 5d09c62e96add841a446e510377b41502c35f696efd20917e72d8df65160033d. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -8,6 +8,18 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from typing import Any, Literal
+
+@dataclass(frozen=True)
+class AuthStatusParams:
+    account: str
+
+
+@dataclass(frozen=True)
+class AuthStatusResult:
+    unlocked: Literal[False]
+    account: str
+    reason: Literal["unlock stays on the C++ session"]
+
 
 @dataclass(frozen=True)
 class CloudSubmitParams:
@@ -222,6 +234,29 @@ class PrefillResult:
 
 
 @dataclass(frozen=True)
+class ProviderDescriptor:
+    provider_id: str
+    name: str
+    badge_text: str
+    badge_token: str
+    description: str
+    target_service: str
+    cpu_shapes: str
+    memory_tiers: str
+    gpu_options: str
+    cost_estimate: str
+    cold_start: str
+    regions: list[str]
+    is_poc_target: bool
+    config_file: str | None = None
+
+
+@dataclass(frozen=True)
+class ProvidersResult:
+    providers: list[ProviderDescriptor]
+
+
+@dataclass(frozen=True)
 class ConvertBatchParams:
     input_dir: str
     output_dir: str
@@ -254,6 +289,68 @@ class ConvertResult:
     size_bytes: int | None = None
     elapsed_seconds: float | None = None
     error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class LogsReadParams:
+    path: str
+    limit: int
+
+
+@dataclass(frozen=True)
+class LogsReadResult:
+    found: bool
+    path: str
+    lines: list[str]
+    error_count: int
+    reason: str
+
+
+@dataclass(frozen=True)
+class MetadataDescribeParams:
+    path: str
+
+
+@dataclass(frozen=True)
+class MetadataDescribeResult:
+    found: bool
+    path: str
+    name: str
+    size: int
+    suffix: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class DlInspectParams:
+    run_dir: str
+
+
+@dataclass(frozen=True)
+class DlInspectResult:
+    found: bool
+    run_dir: str
+    run_id: str
+    status: str
+    engine: str
+    model_id: str
+    event_count: int
+    started: Literal[False]
+    reason: str
+
+
+@dataclass(frozen=True)
+class DriveSyncPlanParams:
+    provider: str
+    paths: list[str]
+
+
+@dataclass(frozen=True)
+class DriveSyncPlanResult:
+    submitted: Literal[False]
+    provider: str
+    count: int
+    reason: str
 
 
 @dataclass(frozen=True)
@@ -541,6 +638,21 @@ class FrameResult:
 
 
 @dataclass(frozen=True)
+class MediaPlanParams:
+    url: str
+    destination: str
+
+
+@dataclass(frozen=True)
+class MediaPlanResult:
+    accepted: bool
+    downloaded: Literal[False]
+    url: str
+    destination: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class ConcatenateParams:
     paths: list[str]
     output_path: str
@@ -557,6 +669,18 @@ class ConcatenateResult:
     height: int
     preview_png_base64: str
     error: str
+
+
+@dataclass(frozen=True)
+class PrefsDescribeParams:
+    account: str
+
+
+@dataclass(frozen=True)
+class PrefsDescribeResult:
+    sections: list[str]
+    credentials_changed: Literal[False]
+    reason: Literal["credentials stay on the C++ vault session"]
 
 
 @dataclass(frozen=True)
@@ -586,6 +710,42 @@ class RpcErrorObject:
     code: int
     message: str
     data: BridgeError
+
+
+@dataclass(frozen=True)
+class EngineRecord:
+    id: str
+    label: str
+
+
+@dataclass(frozen=True)
+class EnginesResult:
+    engines: list[EngineRecord]
+
+
+@dataclass(frozen=True)
+class ReverseSearchResultItem:
+    url: str
+    engine: str
+    score: float
+    resolution: str | None = None
+    title: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class SearchParams:
+    engine: str
+    image_path: str
+    limit: int | None = None
+    roi: (list[int]) | None = None
+
+
+@dataclass(frozen=True)
+class SearchResult:
+    ok: bool
+    engine: str
+    results: list[ReverseSearchResultItem]
+    error: (str | None) | None = None
 
 
 @dataclass(frozen=True)
@@ -793,6 +953,9 @@ SpendParams = dict[str, Any]
 SummaryParams = dict[str, Any]
 
 
+CloudSetupEmptyParams = dict[str, Any]
+
+
 EmptyParams = dict[str, Any]
 
 
@@ -800,6 +963,9 @@ AdminEmptyParams = dict[str, Any]
 
 
 BridgeResponse = ResultResponse | ErrorResponse
+
+
+ReverseSearchEmptyParams = dict[str, Any]
 
 
 PingParams = dict[str, Any]

@@ -1,0 +1,22 @@
+// GENERATED — contract hash 5d09c62e96add841a446e510377b41502c35f696efd20917e72d8df65160033d. Do not edit; edit the schema and regenerate.
+
+export type CloudSetupEmptyParams = Record<string, unknown>;
+export interface ProviderDescriptor {
+  readonly provider_id: "gcd" | "cloudflare" | "oracle" | "aws";
+  readonly name: string;
+  readonly badge_text: string;
+  readonly badge_token: string;
+  readonly description: string;
+  readonly target_service: string;
+  readonly cpu_shapes: string;
+  readonly memory_tiers: string;
+  readonly gpu_options: string;
+  readonly cost_estimate: string;
+  readonly cold_start: string;
+  readonly regions: Array<string>;
+  readonly config_file?: string;
+  readonly is_poc_target: boolean;
+}
+export interface ProvidersResult {
+  readonly providers: Array<ProviderDescriptor>;
+}
