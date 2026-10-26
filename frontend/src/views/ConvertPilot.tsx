@@ -134,17 +134,9 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
       action,
       quality: 95,
       overwrite: true,
+      ...(action === "resample" ? { width: resampleWidth, height: resampleHeight, algorithm } : {}),
+      ...(action === "reencode" ? { video_codec: videoCodec, audio_codec: audioCodec, crf } : {}),
     };
-    if (action === "resample") {
-      params.width = resampleWidth;
-      params.height = resampleHeight;
-      params.algorithm = algorithm;
-    }
-    if (action === "reencode") {
-      params.video_codec = videoCodec;
-      params.audio_codec = audioCodec;
-      params.crf = crf;
-    }
     setStatus("batch");
     setProgress({ done: 0, total: chosen.length });
     try {
