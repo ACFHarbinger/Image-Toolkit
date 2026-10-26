@@ -351,3 +351,17 @@ def test_cloud_jobs_views_use_the_attached_projection() -> None:
     terminate = _request(server, "cloud_jobs.terminate", {"resource_id": "inst-1"})["result"]
     assert terminate["accepted"] is False
     assert "daemon command path" in terminate["reason"]
+
+
+def test_dispatch_preserves_none_results_and_reaches_late_routes(monkeypatch):
+    from middleware.src.sidecar import server as module
+
+    server = SidecarServer(stdout=io.StringIO())
+    called = []
+    monkeypatch.setattr(module, "handle_settings_get", lambda params: called.append("settings") or None)
+    monkeypatch.setattr(module, "handle_cloud_setup_providers", lambda: called.append("setup") or {"providers": []})
+    monkeypatch.setattr(module, "handle_media_plan", lambda params: called.append("media") or {"accepted": False})
+    assert server._dispatch("settings.get", {}) is None
+    assert server._dispatch("cloud_setup.providers", {}) == {"providers": []}
+    assert server._dispatch("media_loader.plan", {}) == {"accepted": False}
+    assert called == ["settings", "setup", "media"]

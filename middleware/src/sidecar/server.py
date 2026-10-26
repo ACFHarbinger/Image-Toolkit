@@ -234,9 +234,6 @@ class SidecarServer:
         tail = self._dispatch_tail(method, params)
         if tail is not _UNHANDLED:
             return tail
-        system_pages = self._dispatch_system_pages(method, params)
-        if system_pages is not _UNHANDLED:
-            return system_pages
         reverse = self._dispatch_reverse_search(method, params)
         if reverse is not _UNHANDLED:
             return reverse
