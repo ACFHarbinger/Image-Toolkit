@@ -482,7 +482,7 @@ pyside = [
     "submodules/CSG/gui/src/tabs/colorization_tab.py",
     "submodules/CSG/gui/src/tabs/reference_coloring_tab.py",
 ]
-tauri = []
+tauri = ["frontend/src/views/manga/MangaColorizationView.tsx"]
 service = "middleware/src/services/csg/service.py"
 contract = ""
 docs = "docs/modules/csg.md"
@@ -500,7 +500,7 @@ status = "pyside-only"
 routes = ["manga.animation"]
 route_map = {}
 pyside = ["submodules/CSG/gui/src/tabs/animation_tab.py"]
-tauri = []
+tauri = ["frontend/src/views/manga/MangaAnimationView.tsx"]
 service = "middleware/src/services/csg/service.py"
 contract = ""
 docs = "docs/modules/csg.md"
@@ -518,7 +518,7 @@ status = "pyside-only"
 routes = ["manga.puppeteering"]
 route_map = {}
 pyside = ["submodules/CSG/gui/src/tabs/puppeteering_tab.py"]
-tauri = []
+tauri = ["frontend/src/views/manga/MangaPuppeteeringView.tsx"]
 service = "middleware/src/services/csg/service.py"
 contract = ""
 docs = "docs/modules/csg.md"

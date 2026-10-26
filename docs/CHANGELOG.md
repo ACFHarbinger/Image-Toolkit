@@ -12,6 +12,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Submodule Frontends Consolidated into `frontend/`** (Tauri migration W0-03 Phase D, #867).
+  - Consolidated absorbed submodule frontend codebases (HIE, ASP, CSG) natively into `frontend/src/views/{editor,stitch,manga}/`.
+  - Removed local file dependency `"hie-frontend": "file:../submodules/HIE/frontend"` from `frontend/package.json`.
+  - Consolidated HIE editor view into `frontend/src/views/editor/HieEditorView.tsx` with shared host interface `host.ts` (re-exported by `frontend/src/tabs/editor/HieEditorTab.tsx`).
+  - Added ASP Image Stitching workspace component in `frontend/src/views/stitch/StitchWorkspaceView.tsx` supporting the 8 stitching routes on the shared canvas host.
+  - Added CSG Manga workspace views in `frontend/src/views/manga/` (`MangaWorkspaceView.tsx`, `MangaColorizationView.tsx`, `MangaAnimationView.tsx`, `MangaPuppeteeringView.tsx`).
+  - Updated `migration/features.toml` `tauri` entries for `stitch`, `editor.hybrid`, `manga.colorization`, `manga.animation`, and `manga.puppeteering`.
+
 - **Canonical Python Service Homes for Absorbed Submodules (ASP, HIE, CSG, CRE)** (Tauri migration W0-03 Phase C, #867):
   - **Service Packages:** Created canonical pure-Python services under `middleware/src/services/` implementing standard Command/Protocol architecture:
     - `middleware/src/services/asp/`: `StitchService` conforming to `StitchServiceProtocol`, wrapping `submodules/ASP/backend/src/` (`AnimeStitchPipeline`, alignment, photometric correction, compositing); unblocks Wave 8 #914 (E-01).

@@ -1,3 +1,4 @@
+import { HieEditorView, HieEditorViewProps } from "../../views/editor/HieEditorView";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Layers,
@@ -400,4 +401,8 @@ export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal, hostClien
   );
 };
 
+export type HieEditorTabProps = HieEditorViewProps;
+export const HieEditorTab = HieEditorView;
 export default HieEditorTab;
+
+export * from "../../views/editor/host";

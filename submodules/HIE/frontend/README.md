@@ -1,6 +1,10 @@
 # Hybrid Image Editor (HIE) — Tauri Frontend (`frontend/`)
 
-This directory contains the web-native **Tauri UI frontend** for the Hybrid Image Editor (HIE), plus the **embeddable React tab** consumed by Image-Toolkit.
+> [!NOTE]
+> **Consolidation Note (W0-03 Phase D #867):**
+> Following the submodule absorption and Tauri migration, HIE's frontend code has been consolidated natively into the main application under `frontend/src/views/editor/` (`HieEditorView.tsx` and `host.ts`). The `hie-frontend` file dependency in `frontend/package.json` has been retired.
+
+This directory contains the historical web-native **Tauri UI frontend** for the Hybrid Image Editor (HIE).
 
 ## Multi-Hosting Architecture
 
