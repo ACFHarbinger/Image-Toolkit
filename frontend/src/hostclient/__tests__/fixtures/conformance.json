@@ -35,7 +35,8 @@
               "reverse_search",
               "drive_sync",
               "media_loader",
-              "dl"
+              "dl",
+              "desk"
             ]
           }
         }

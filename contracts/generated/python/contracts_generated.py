@@ -1,4 +1,4 @@
-# GENERATED — contract hash cb09b3509952d4f2709405f0468eda7f1d4955df5dba0507d05db47f923732c0. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash e3ece40abeda17e5df8d079ddeb991acf09d8b6d21b5da6663083a66186f821d. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -266,6 +266,36 @@ class ConvertResult:
     size_bytes: int | None = None
     elapsed_seconds: float | None = None
     error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class LogsReadParams:
+    path: str
+    limit: int
+
+
+@dataclass(frozen=True)
+class LogsReadResult:
+    found: bool
+    path: str
+    lines: list[str]
+    error_count: int
+    reason: str
+
+
+@dataclass(frozen=True)
+class MetadataDescribeParams:
+    path: str
+
+
+@dataclass(frozen=True)
+class MetadataDescribeResult:
+    found: bool
+    path: str
+    name: str
+    size: int
+    suffix: str
+    reason: str
 
 
 @dataclass(frozen=True)

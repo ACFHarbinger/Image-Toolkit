@@ -41,6 +41,7 @@ from middleware.src.sidecar.handlers.cloud_jobs import (
 )
 from middleware.src.sidecar.handlers.cloud_offer import handle_prefill
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
+from middleware.src.sidecar.handlers.desk import handle_logs_read, handle_metadata_describe
 from middleware.src.sidecar.handlers.dl import handle_inspect
 from middleware.src.sidecar.handlers.drive_sync import handle_drive_plan
 from middleware.src.sidecar.handlers.extractor import handle_probe
@@ -307,6 +308,10 @@ class SidecarServer:
             return handle_compare(params)
         if method == "extractor.probe":
             return handle_probe(params)
+        if method == "logs.read":
+            return handle_logs_read(params)
+        if method == "metadata.describe":
+            return handle_metadata_describe(params)
         if method == "dl.inspect":
             return handle_inspect(params)
         if method == "auth.status":

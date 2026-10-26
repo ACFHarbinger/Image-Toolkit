@@ -564,24 +564,61 @@ scenarios = []
 os_checklist = []
 
 [[feature]]
+id = "developer.logs"
+kind = "page"
+title = "Logs"
+owner = "Grok"
+wave = "wave-9"
+issue = 919
+status = "pyside-only"
+routes = ["developer.logs"]
+route_map = { logs = "developer.logs" }
+pyside = ["gui/src/windows/logging"]
+tauri = ["frontend/src/views/windows/LogDeskView.tsx"]
+service = "middleware/src/services/desk/logs.py"
+contract = "desk"
+docs = "docs/modules/desk.md"
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "developer.metadata"
+kind = "page"
+title = "File Metadata"
+owner = "Grok"
+wave = "wave-9"
+issue = 919
+status = "pyside-only"
+routes = ["developer.metadata"]
+route_map = { metadata = "developer.metadata" }
+pyside = ["gui/src/windows/metadata"]
+tauri = ["frontend/src/views/windows/MetadataDeskView.tsx"]
+service = "middleware/src/services/desk/logs.py"
+contract = "desk"
+docs = "docs/modules/desk.md"
+scenarios = []
+os_checklist = []
+
+[[feature]]
 id = "window.logging"
 kind = "window"
 title = "Logging and metadata windows"
-owner = "unclaimed"
+owner = "Grok"
 wave = "wave-9"
 issue = 919
 status = "pyside-only"
 routes = []
 route_map = {}
 pyside = [
-    "gui/src/windows/logging",
-    "gui/src/windows/metadata",
     "gui/src/modules/pilots",
 ]
-tauri = []
-service = ""
-contract = ""
-docs = ""
+tauri = [
+    "frontend/src/views/windows/LogDeskView.tsx",
+    "frontend/src/views/windows/MetadataDeskView.tsx",
+]
+service = "middleware/src/services/desk/logs.py"
+contract = "desk"
+docs = "docs/modules/desk.md"
 scenarios = []
 os_checklist = []
 

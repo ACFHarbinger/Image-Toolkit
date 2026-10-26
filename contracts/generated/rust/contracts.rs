@@ -1,4 +1,4 @@
-// GENERATED — contract hash cb09b3509952d4f2709405f0468eda7f1d4955df5dba0507d05db47f923732c0. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash e3ece40abeda17e5df8d079ddeb991acf09d8b6d21b5da6663083a66186f821d. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -295,6 +295,36 @@ pub struct ConvertResult {
     pub elapsed_seconds: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct LogsReadParams {
+    pub path: String,
+    pub limit: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct LogsReadResult {
+    pub found: bool,
+    pub path: String,
+    pub lines: Vec<String>,
+    pub error_count: i64,
+    pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MetadataDescribeParams {
+    pub path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MetadataDescribeResult {
+    pub found: bool,
+    pub path: String,
+    pub name: String,
+    pub size: i64,
+    pub suffix: String,
+    pub reason: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

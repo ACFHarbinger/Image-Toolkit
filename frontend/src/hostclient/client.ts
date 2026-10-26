@@ -21,6 +21,10 @@ import type {
   AuthStatusResult,
   ProbeParams,
   ProbeResult,
+  LogsReadParams,
+  LogsReadResult,
+  MetadataDescribeParams,
+  MetadataDescribeResult,
   DlInspectParams,
   DlInspectResult,
   DriveSyncPlanParams,
@@ -201,6 +205,14 @@ export class HostClient {
     return this.send<ProbeResult>("extractor.probe", params as unknown as Record<string, unknown>);
   }
 
+  async logsRead(params: LogsReadParams): Promise<LogsReadResult> {
+    await this.connect();
+    return this.send<LogsReadResult>("logs.read", params as unknown as Record<string, unknown>);
+  }
+
+  async metadataDescribe(params: MetadataDescribeParams): Promise<MetadataDescribeResult> {
+    await this.connect();
+    return this.send<MetadataDescribeResult>("metadata.describe", params as unknown as Record<string, unknown>);
   async dlInspect(params: DlInspectParams): Promise<DlInspectResult> {
     await this.connect();
     return this.send<DlInspectResult>("dl.inspect", params as unknown as Record<string, unknown>);

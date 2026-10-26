@@ -329,6 +329,7 @@ modules = [
     "middleware.src.services.drive_sync",
     "middleware.src.services.media_loader",
     "middleware.src.services.cloud_offer",
+    "middleware.src.services.desk",
     "middleware.src.services.dl",
     "middleware.src.services.extractor",
     "middleware.src.services.library_admin",

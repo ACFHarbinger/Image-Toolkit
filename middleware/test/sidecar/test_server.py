@@ -50,6 +50,7 @@ def test_handshake_result_and_ping_validate() -> None:
         "merge",
         "similarity",
         "extractor",
+        "desk",
         "dl",
         "drive_sync",
         "media_loader",
