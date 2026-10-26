@@ -35,9 +35,7 @@ from middleware.src.stitching.rendering.rendering import (
 
 from conftest import make_frame, make_rotation_affine, make_translation_affine  # noqa: E402
 
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 # ---------------------------------------------------------------------------
@@ -73,12 +71,7 @@ def _ghosting_score(canvas: np.ndarray, valid_mask: np.ndarray) -> float:
     if not covered.any():
         return 0.0
     gray = canvas.mean(axis=2)
-    row_means = np.array(
-        [
-            gray[r, covered[r]].mean() if covered[r].any() else np.nan
-            for r in range(canvas.shape[0])
-        ]
-    )
+    row_means = np.array([gray[r, covered[r]].mean() if covered[r].any() else np.nan for r in range(canvas.shape[0])])
     valid_rows = ~np.isnan(row_means)
     if valid_rows.sum() < 2:
         return 0.0
@@ -93,9 +86,7 @@ def _ghosting_score(canvas: np.ndarray, valid_mask: np.ndarray) -> float:
 class TestRenderMedianOutputShape:
     def test_output_canvas_correct_shape(self):
         frames, affines, masks, H, W = _make_render_inputs(3)
-        canvas, valid_mask, warped_corr, warped_fgs = _render_median(
-            frames, affines, masks, H, W
-        )
+        canvas, valid_mask, warped_corr, warped_fgs = _render_median(frames, affines, masks, H, W)
         assert canvas.shape == (H, W, 3), f"Expected ({H},{W},3), got {canvas.shape}"
 
     def test_output_canvas_uint8(self):
@@ -131,9 +122,7 @@ class TestValidMask:
         """Single frame at ty=0 should mark its rows as valid in the mask."""
         frames, affines, masks, H, W = _make_render_inputs(1, frame_h=50, dy=0.0)
         _, valid_mask, _, _ = _render_median(frames, affines, masks, H, W)
-        assert valid_mask[:50, :].max() > 0, (
-            "Single frame's rows should be marked valid"
-        )
+        assert valid_mask[:50, :].max() > 0, "Single frame's rows should be marked valid"
 
     def test_valid_mask_marks_all_covered_rows(self):
         """For n frames with full coverage, all canvas rows should be valid."""
@@ -143,9 +132,7 @@ class TestValidMask:
         frames, affines, masks, H, W = _make_render_inputs(N, frame_h=frame_h, dy=dy)
         _, valid_mask, _, _ = _render_median(frames, affines, masks, H, W)
         mid_row = H // 2
-        assert valid_mask[mid_row, :].max() > 0, (
-            f"Middle row {mid_row} should be valid with {N} overlapping frames"
-        )
+        assert valid_mask[mid_row, :].max() > 0, f"Middle row {mid_row} should be valid with {N} overlapping frames"
 
 
 # ---------------------------------------------------------------------------
@@ -161,25 +148,20 @@ class TestMedianCorrectness:
         """
         brightness = 150
         N = 5
-        frames, affines, masks, H, W = _make_render_inputs(
-            N, frame_h=80, dy=60.0, brightness=brightness
-        )
+        frames, affines, masks, H, W = _make_render_inputs(N, frame_h=80, dy=60.0, brightness=brightness)
         canvas, valid_mask, _, _ = _render_median(frames, affines, masks, H, W)
         covered = valid_mask > 0
         if covered.any():
             values = canvas[covered]
             mean_brightness = float(values.mean())
             assert abs(mean_brightness - brightness) < 10, (
-                f"Identical frames: expected brightness ≈{brightness}, "
-                f"got mean={mean_brightness:.1f}"
+                f"Identical frames: expected brightness ≈{brightness}, got mean={mean_brightness:.1f}"
             )
 
     def test_single_frame_canvas_equals_frame(self):
         """Single frame → canvas pixels in frame region equal the frame."""
         brightness = 180
-        frames, affines, masks, H, W = _make_render_inputs(
-            1, frame_h=60, dy=0.0, brightness=brightness
-        )
+        frames, affines, masks, H, W = _make_render_inputs(1, frame_h=60, dy=0.0, brightness=brightness)
         canvas, valid_mask, _, _ = _render_median(frames, affines, masks, H, W)
         covered = valid_mask > 0
         if covered.any():
@@ -201,14 +183,10 @@ class TestGhostingDetection:
         N = 5
         frame_h = 100
         dy = 95.0
-        frames, affines, masks, H, W = _make_render_inputs(
-            N, frame_h=frame_h, dy=dy, brightness=150
-        )
+        frames, affines, masks, H, W = _make_render_inputs(N, frame_h=frame_h, dy=dy, brightness=150)
         canvas, valid_mask, _, _ = _render_median(frames, affines, masks, H, W)
         score = _ghosting_score(canvas, valid_mask)
-        assert score < 30.0, (
-            f"Expected low ghosting score for clean affines, got score={score:.1f}"
-        )
+        assert score < 30.0, f"Expected low ghosting score for clean affines, got score={score:.1f}"
 
     def test_frame_clustering_produces_small_canvas(self):
         """
@@ -223,9 +201,7 @@ class TestGhostingDetection:
         affines = [make_translation_affine(ty=0.0) for _ in range(N)]
         canvas_h = frame_h
         bg_masks = [None] * N
-        canvas, valid_mask, _, _ = _render_median(
-            frames, affines, bg_masks, canvas_h, W
-        )
+        canvas, valid_mask, _, _ = _render_median(frames, affines, bg_masks, canvas_h, W)
         assert canvas.shape == (canvas_h, W, 3)
 
     def test_rotation_in_affine_causes_coverage_gaps(self):
@@ -237,20 +213,13 @@ class TestGhostingDetection:
         N = 4
         frame_h, W = 100, 120
         frames = [make_frame(frame_h, W) for _ in range(N)]
-        affines = [
-            make_rotation_affine(tx=0.0, ty=float(i * 90), angle_deg=15.0)
-            for i in range(N)
-        ]
+        affines = [make_rotation_affine(tx=0.0, ty=float(i * 90), angle_deg=15.0) for i in range(N)]
         canvas_h = (N - 1) * 90 + frame_h
         bg_masks = [None] * N
-        canvas, valid_mask, _, _ = _render_median(
-            frames, affines, bg_masks, canvas_h, W
-        )
+        canvas, valid_mask, _, _ = _render_median(frames, affines, bg_masks, canvas_h, W)
         assert canvas.shape == (canvas_h, W, 3)
         uncovered_fraction = float((valid_mask == 0).mean())
-        assert uncovered_fraction > 0.0, (
-            "Rotated affines should leave some canvas pixels uncovered"
-        )
+        assert uncovered_fraction > 0.0, "Rotated affines should leave some canvas pixels uncovered"
 
 
 # ---------------------------------------------------------------------------
@@ -315,27 +284,20 @@ class TestBaselines:
         boosted during rendering.
         """
         brightness = 100
-        frames, affines, masks, H, W = _make_render_inputs(
-            2, frame_h=60, dy=55.0, brightness=brightness
-        )
+        frames, affines, masks, H, W = _make_render_inputs(2, frame_h=60, dy=55.0, brightness=brightness)
         baselines = [0.7, 0.95]
-        canvas, valid_mask, _, _ = _render_median(
-            frames, affines, masks, H, W, _baselines=baselines
-        )
+        canvas, valid_mask, _, _ = _render_median(frames, affines, masks, H, W, _baselines=baselines)
         covered = valid_mask[:60, :] > 0
         if covered.any():
             boosted_mean = float(canvas[:60, :][covered, :].mean())
             assert boosted_mean > brightness, (
-                f"baseline=0.7 frame should be boosted above {brightness}; "
-                f"got mean={boosted_mean:.1f}"
+                f"baseline=0.7 frame should be boosted above {brightness}; got mean={boosted_mean:.1f}"
             )
 
     def test_baselines_none_no_error(self):
         """None baselines should produce the same result as not providing them."""
         frames, affines, masks, H, W = _make_render_inputs(3)
-        canvas_no_base, vm, _, _ = _render_median(
-            frames, affines, masks, H, W, _baselines=None
-        )
+        canvas_no_base, vm, _, _ = _render_median(frames, affines, masks, H, W, _baselines=None)
         assert canvas_no_base is not None
 
 
@@ -560,9 +522,7 @@ class TestRenderMedianBatchFastPath:
         monkeypatch.setattr(_rendering_mod._native, "_BATCH_RENDER", True)
         cpp_canvas, cpp_mask, _, _ = _render_median(frames, affines, bg_masks, H, W)
         assert np.array_equal(ref_mask, cpp_mask), "valid_mask mismatch"
-        assert np.abs(ref_canvas.astype(int) - cpp_canvas.astype(int)).max() <= 2, (
-            "canvas pixel difference > 2"
-        )
+        assert np.abs(ref_canvas.astype(int) - cpp_canvas.astype(int)).max() <= 2, "canvas pixel difference > 2"
 
     @_skip_no_batch_rm
     def test_fast_path_skips_when_fg_excluded(self, monkeypatch):
@@ -580,7 +540,6 @@ class TestRenderMedianBatchFastPath:
 # ---------------------------------------------------------------------------
 # Phase 5f — _render_laplacian C++ parallel warp wiring
 # ---------------------------------------------------------------------------
-
 
 
 def _has_batch_laplacian_warp():

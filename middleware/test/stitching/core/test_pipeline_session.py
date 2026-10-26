@@ -97,9 +97,7 @@ class TestPipelineSession:
         session.finish(success=True, identity=ResultIdentity.SCANS)
         assert session.identity == "scans"
         assert session.fallbacks[0]["reason"] == "no_valid_edges"
-        assert session.digest() != PipelineSession.create(
-            ["a.png", "b.png"], "out.png", config={}
-        ).digest()
+        assert session.digest() != PipelineSession.create(["a.png", "b.png"], "out.png", config={}).digest()
 
     def test_safe_fallback_keeps_algorithm_out_of_result_identity(self):
         session = PipelineSession.create(["a.png", "b.png"], "out.png", config={})
@@ -117,9 +115,7 @@ class TestPipelineSession:
         assert "safe_asp_path" in session.artifacts
 
     def test_mark_dropped_paths_sets_reason(self):
-        session = PipelineSession.create(
-            ["a.png", "b.png", "c.png"], "out.png", config={}
-        )
+        session = PipelineSession.create(["a.png", "b.png", "c.png"], "out.png", config={})
         session.init_frame_provenance(["a.png", "b.png", "c.png"])
         session.mark_dropped_paths(["a.png", "c.png"], "near_static")
         by_path = {row["path"]: row for row in session.frame_provenance}
@@ -132,16 +128,10 @@ class TestPipelineSession:
     def test_finish_publishes_m2_observability_envelope(self):
         session = PipelineSession.create(["a.png", "b.png"], "out.png", config={})
         session.note_geometry(PipelineStage.NORMALISE, width=64, height=48, n_frames=2)
-        session.note_frame_provenance(
-            [{"index": 0, "path": "a.png", "kept": True, "drop_reason": None}]
-        )
-        session.note_pose_provenance(
-            [{"frame": 0, "tx": 0.0, "ty": 10.0, "source": "bundle_adjust"}]
-        )
+        session.note_frame_provenance([{"index": 0, "path": "a.png", "kept": True, "drop_reason": None}])
+        session.note_pose_provenance([{"frame": 0, "tx": 0.0, "ty": 10.0, "source": "bundle_adjust"}])
         session.note_gain_telemetry({"n_clamped": 1, "mean_residual": 0.12})
-        session.note_seam_feasibility(
-            {"attempted": True, "feasible": True, "seam_crops": "drop-me"}
-        )
+        session.note_seam_feasibility({"attempted": True, "feasible": True, "seam_crops": "drop-me"})
         session.record_artifact(
             "edge_stage_counts",
             {"matched_before_spatial_dedup": 12, "filter_output": 3},
@@ -201,9 +191,7 @@ class TestPipelineSession:
             seen.append((event, data))
             return {"frame_override": ["b.png"]}
 
-        session = PipelineSession.create(
-            ["a.png", "b.png"], "out.png", config={}, pause_hook=hook
-        )
+        session = PipelineSession.create(["a.png", "b.png"], "out.png", config={}, pause_hook=hook)
         override = session.pause(HitlCheckpoint.FRAMES, {"paths": ["a.png", "b.png"]})
         assert override == {"frame_override": ["b.png"]}
         assert seen[0][0] == "frames"

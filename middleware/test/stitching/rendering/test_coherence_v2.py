@@ -160,9 +160,7 @@ def test_composite_returns_ownership_metadata():
     a[1:4, 1:6] = 10
     b[1:4, 4:10] = 20
     canvas = np.zeros((h, w, 3), dtype=np.uint8)
-    out, claimed, claimed_meta = composite_coherence_v2(
-        [a, b], [a.max(axis=2) > 0, b.max(axis=2) > 0], canvas
-    )
+    out, claimed, claimed_meta = composite_coherence_v2([a, b], [a.max(axis=2) > 0, b.max(axis=2) > 0], canvas)
     assert "pairs" in claimed_meta
     assert len(claimed_meta["pairs"]) == 1
     assert claimed_meta["pairs"][0]["pair"] == [0, 1]
@@ -230,7 +228,14 @@ def test_multi_phase_plate_skip_falls_through_to_legacy_candidates(monkeypatch):
     meta: dict = {}
 
     _composite_foreground(
-        [], [], canvas, h, w, [a, b], [eye, ty], [None, None],
+        [],
+        [],
+        canvas,
+        h,
+        w,
+        [a, b],
+        [eye, ty],
+        [None, None],
         seam_meta_out=meta,
         phase_ids=[0, 1],
         source_has_multiple_phases=True,
@@ -257,7 +262,14 @@ def test_multi_phase_plate_skip_booleanizes_ternary_masks_for_legacy(monkeypatch
     meta: dict = {}
 
     out = _composite_foreground(
-        [], [], canvas, h + 2, w, [a, b], [eye, ty], [ternary, ternary],
+        [],
+        [],
+        canvas,
+        h + 2,
+        w,
+        [a, b],
+        [eye, ty],
+        [ternary, ternary],
         seam_meta_out=meta,
         phase_ids=[0, 1],
         source_has_multiple_phases=True,

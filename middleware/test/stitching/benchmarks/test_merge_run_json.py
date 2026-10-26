@@ -6,12 +6,7 @@ import importlib.util
 import json
 from pathlib import Path
 
-_SRC = (
-    Path(__file__).resolve().parents[3]
-    / "backend"
-    / "benchmark"
-    / "merge_run_json.py"
-)
+_SRC = Path(__file__).resolve().parents[3] / "benchmark" / "asp" / "merge_run_json.py"
 _spec = importlib.util.spec_from_file_location("merge_run_json", _SRC)
 assert _spec and _spec.loader
 merge = importlib.util.module_from_spec(_spec)

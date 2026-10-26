@@ -5,16 +5,12 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-_SUBSET_PATH = (
-    Path(__file__).resolve().parents[3]
-    / "backend"
-    / "benchmark"
-    / "subset_selection.py"
-)
+_SUBSET_PATH = Path(__file__).resolve().parents[3] / "benchmark" / "asp" / "subset_selection.py"
 
 
 def _load_mod():
     import sys
+
     spec = importlib.util.spec_from_file_location("subset_selection", _SUBSET_PATH)
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
@@ -36,24 +32,26 @@ def test_extract_features_and_select_k_medoids():
     labels = {}
     for i in range(15):
         name = f"asp_test{i:02d}"
-        datasets.append({
-            "name": name,
-            "used_fallback": i % 3 == 0,
-            "metrics_asp": {
-                "seam_visibility": 2.0 + i,
-                "seam_gradient": 1.0 + (i % 4),
-                "sharpness": 10.0 + i * 2,
-                "ghosting_siqe": 15.0 + i,
-                "coverage": 0.8 + (i * 0.01),
-            },
-            "metrics_simple": {
-                "seam_visibility": 3.0,
-                "seam_gradient": 2.0,
-                "sharpness": 10.0,
-                "ghosting_siqe": 12.0,
-                "coverage": 0.9,
-            },
-        })
+        datasets.append(
+            {
+                "name": name,
+                "used_fallback": i % 3 == 0,
+                "metrics_asp": {
+                    "seam_visibility": 2.0 + i,
+                    "seam_gradient": 1.0 + (i % 4),
+                    "sharpness": 10.0 + i * 2,
+                    "ghosting_siqe": 15.0 + i,
+                    "coverage": 0.8 + (i * 0.01),
+                },
+                "metrics_simple": {
+                    "seam_visibility": 3.0,
+                    "seam_gradient": 2.0,
+                    "sharpness": 10.0,
+                    "ghosting_siqe": 12.0,
+                    "coverage": 0.9,
+                },
+            }
+        )
         labels[name] = {
             "reviewed": True,
             "asp": (i % 5),

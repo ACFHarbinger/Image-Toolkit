@@ -7,12 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-_SRC = (
-    Path(__file__).resolve().parents[3]
-    / "backend"
-    / "benchmark"
-    / "screen_coherence_v2.py"
-)
+_SRC = Path(__file__).resolve().parents[3] / "benchmark" / "asp" / "screen_coherence_v2.py"
 _spec = importlib.util.spec_from_file_location("screen_coherence_v2", _SRC)
 assert _spec and _spec.loader
 mod = importlib.util.module_from_spec(_spec)

@@ -36,10 +36,8 @@ import pytest
 
 try:
     import backend as batch
-    if (
-        getattr(batch, "__file__", None) is None
-        or not hasattr(batch, "bundle_adjust")
-    ):
+
+    if getattr(batch, "__file__", None) is None or not hasattr(batch, "bundle_adjust"):
         raise ImportError("compiled base ASP extension not available")
     HAS_BATCH = True
 except ImportError:
@@ -93,7 +91,7 @@ class TestSeamCutVsPython:
         fa = _rand_bgr(H, W, 0)
         fb = _rand_bgr(H, W, 1)
 
-        path_py  = np.array(_seam_cut_python(fa, fb), dtype=np.int32)
+        path_py = np.array(_seam_cut_python(fa, fb), dtype=np.int32)
         path_cpp = np.array(batch.seam.seam_cut(fa, fb), dtype=np.int32)
 
         assert len(path_py) == W
@@ -109,7 +107,7 @@ class TestSeamCutVsPython:
         fa = _rand_bgr(H, W, 42)
         fb = _rand_bgr(H, W, 43)
 
-        path_py  = np.array(_seam_cut_python(fa, fb), dtype=np.int32)
+        path_py = np.array(_seam_cut_python(fa, fb), dtype=np.int32)
         path_cpp = np.array(batch.seam.seam_cut(fa, fb), dtype=np.int32)
 
         max_diff = np.abs(path_py - path_cpp).max()
@@ -129,7 +127,7 @@ class TestSeamCutVsPython:
         fa = _rand_bgr(H, W, seed)
         fb = _rand_bgr(H, W, seed + 1000)
 
-        path_py  = np.array(_seam_cut_python(fa, fb), dtype=np.int32)
+        path_py = np.array(_seam_cut_python(fa, fb), dtype=np.int32)
         path_cpp = np.array(batch.seam.seam_cut(fa, fb), dtype=np.int32)
 
         assert np.abs(path_py - path_cpp).max() <= 1
@@ -138,9 +136,6 @@ class TestSeamCutVsPython:
 # ---------------------------------------------------------------------------
 # §batch.compositing zone functions  vs  Python references
 # ---------------------------------------------------------------------------
-
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -159,21 +154,24 @@ class TestBundleAdjustVsPython:
             M = np.eye(2, 3, dtype=np.float32)
             M[0, 2] = dx
             M[1, 2] = dy
-            edges.append({
-                "i": i,
-                "j": i + 1,
-                "dx": dx,
-                "dy": dy,
-                "M": M,
-                "weight": 0.95,
-                "type": "adjacent",
-                "pts_i": np.zeros((1, 2), dtype=np.float32),
-                "pts_j": np.array([[dx, dy]], dtype=np.float32),
-            })
+            edges.append(
+                {
+                    "i": i,
+                    "j": i + 1,
+                    "dx": dx,
+                    "dy": dy,
+                    "M": M,
+                    "weight": 0.95,
+                    "type": "adjacent",
+                    "pts_i": np.zeros((1, 2), dtype=np.float32),
+                    "pts_j": np.array([[dx, dy]], dtype=np.float32),
+                }
+            )
         return edges
 
     def _run_bundle_adjust_python(self, edges, N):
         import middleware.src.stitching.alignment.bundle_adjust as ba
+
         orig_avail = ba.BATCH_AVAILABLE
         try:
             ba.BATCH_AVAILABLE = False
@@ -186,7 +184,7 @@ class TestBundleAdjustVsPython:
         N = 6
         edges = self._make_chain(N, step_px=120.0, seed=99)
 
-        affines_py  = self._run_bundle_adjust_python(edges, N)
+        affines_py = self._run_bundle_adjust_python(edges, N)
         affines_cpp = batch.bundle_adjust.bundle_adjust_affine(edges, N)
 
         assert len(affines_cpp) == N
@@ -198,15 +196,18 @@ class TestBundleAdjustVsPython:
                     f"cpp={affines_cpp[i][key]:.3f} diff={diff:.3f} > 0.5 px"
                 )
 
-    @pytest.mark.parametrize("N,step_px,seed", [
-        (4,  80.0,  0),
-        (6, 100.0,  7),
-        (8, 120.0, 42),
-        (10, 60.0, 99),
-    ])
+    @pytest.mark.parametrize(
+        "N,step_px,seed",
+        [
+            (4, 80.0, 0),
+            (6, 100.0, 7),
+            (8, 120.0, 42),
+            (10, 60.0, 99),
+        ],
+    )
     def test_agreement_multiple_chain_configs(self, N: int, step_px: float, seed: int):
         edges = self._make_chain(N, step_px, seed)
-        affines_py  = self._run_bundle_adjust_python(edges, N)
+        affines_py = self._run_bundle_adjust_python(edges, N)
         affines_cpp = batch.bundle_adjust.bundle_adjust_affine(edges, N)
 
         for i in range(N):
@@ -234,9 +235,7 @@ def _make_m_edge(i: int, j: int, dx: float, dy: float, weight: float = 0.8) -> d
 
 
 _HAS_BATCH_MATCHING = HAS_BATCH and hasattr(batch if HAS_BATCH else None, "matching")
-_skip_no_matching = pytest.mark.skipif(
-    not _HAS_BATCH_MATCHING, reason="batch.matching not built"
-)
+_skip_no_matching = pytest.mark.skipif(not _HAS_BATCH_MATCHING, reason="batch.matching not built")
 
 
 @_skip_no_matching
@@ -277,20 +276,22 @@ class TestFilterEdgeGraph:
         """§2.14: weakest edge in inconsistent triangle gets weight × 0.5."""
         # Triangle (0→1, 1→2, 0→2). pred 0→2 = 50+50=100; obs 0→2 = 200 → residual=100>50
         edges = [
-            _make_m_edge(0, 1, 0.0, 50.0,  weight=0.9),  # strongest
-            _make_m_edge(1, 2, 0.0, 50.0,  weight=0.8),
+            _make_m_edge(0, 1, 0.0, 50.0, weight=0.9),  # strongest
+            _make_m_edge(1, 2, 0.0, 50.0, weight=0.8),
             _make_m_edge(0, 2, 0.0, 200.0, weight=0.3),  # weakest → penalized
         ]
-        result = list(batch.matching.filter_edge_graph(
-            edges, min_step_px=10.0, consistency_tol_px=150.0, max_tri_residual_px=50.0
-        ))
+        result = list(
+            batch.matching.filter_edge_graph(
+                edges, min_step_px=10.0, consistency_tol_px=150.0, max_tri_residual_px=50.0
+            )
+        )
         skip_e = next(e for e in result if e["j"] - e["i"] > 1)
         assert abs(float(skip_e["weight"]) - 0.15) < 1e-4  # 0.3 × 0.5 = 0.15
 
     def test_min_step_guard_drops_near_zero_adj(self):
         """Adjacent edge with |dy| < min_step_px is dropped."""
         edges = [
-            _make_m_edge(0, 1, 0.0, 3.0),   # near-zero vertical step → dropped
+            _make_m_edge(0, 1, 0.0, 3.0),  # near-zero vertical step → dropped
             _make_m_edge(1, 2, 0.0, 60.0),  # OK
         ]
         result = list(batch.matching.filter_edge_graph(edges, min_step_px=10.0))
@@ -303,9 +304,7 @@ class TestFilterEdgeGraph:
 # ---------------------------------------------------------------------------
 
 _HAS_BATCH_COMP = HAS_BATCH and hasattr(batch if HAS_BATCH else None, "compositing")
-_skip_no_compositing = pytest.mark.skipif(
-    not _HAS_BATCH_COMP, reason="batch.compositing not built"
-)
+_skip_no_compositing = pytest.mark.skipif(not _HAS_BATCH_COMP, reason="batch.compositing not built")
 
 
 @_skip_no_compositing
@@ -315,25 +314,23 @@ class TestBlocksGainCompensateVsPython:
     def test_identical_zones_no_change(self):
         """Identical fa/fb → gain=1.0 everywhere → output == fb."""
         from middleware.src.stitching.rendering.compositing import _blocks_gain_compensate
+
         H, W = 64, 80
         zone = _rand_bgr(H, W, 0)
-        out_py  = _blocks_gain_compensate(zone, zone.copy(), block_size=32)
-        out_cpp = np.asarray(
-            batch.compositing.blocks_gain_compensate_pair(zone, zone.copy(), 32)
-        )
+        out_py = _blocks_gain_compensate(zone, zone.copy(), block_size=32)
+        out_cpp = np.asarray(batch.compositing.blocks_gain_compensate_pair(zone, zone.copy(), 32))
         assert out_cpp.shape == (H, W, 3)
         assert np.abs(out_py.astype(np.int32) - out_cpp.astype(np.int32)).max() <= 2
 
     def test_brighter_fa_brightens_fb(self):
         """fa brighter than fb → gain > 1 → output brighter than fb."""
         from middleware.src.stitching.rendering.compositing import _blocks_gain_compensate
+
         H, W = 64, 80
         fa = np.full((H, W, 3), 180, dtype=np.uint8)
         fb = np.full((H, W, 3), 90, dtype=np.uint8)
-        out_py  = _blocks_gain_compensate(fa, fb, block_size=32)
-        out_cpp = np.asarray(
-            batch.compositing.blocks_gain_compensate_pair(fa, fb, 32)
-        )
+        out_py = _blocks_gain_compensate(fa, fb, block_size=32)
+        out_cpp = np.asarray(batch.compositing.blocks_gain_compensate_pair(fa, fb, 32))
         assert out_cpp.mean() > 90
         assert np.abs(out_py.astype(np.int32) - out_cpp.astype(np.int32)).max() <= 2
 
@@ -342,9 +339,7 @@ class TestBlocksGainCompensateVsPython:
         H, W = 32, 32
         fa = np.full((H, W, 3), 100, dtype=np.uint8)
         fb = np.zeros((H, W, 3), dtype=np.uint8)  # fully black
-        out_cpp = np.asarray(
-            batch.compositing.blocks_gain_compensate_pair(fa, fb, 32)
-        )
+        out_cpp = np.asarray(batch.compositing.blocks_gain_compensate_pair(fa, fb, 32))
         assert out_cpp.shape == (H, W, 3)
         # gain=1.0 applied to zeros → still zeros
         assert out_cpp.max() == 0
@@ -362,9 +357,7 @@ class TestBlocksGainCompensateVsPython:
         H, W = 32, 32
         fa = np.full((H, W, 3), 250, dtype=np.uint8)
         fb = np.full((H, W, 3), 10, dtype=np.uint8)
-        out_cpp = np.asarray(
-            batch.compositing.blocks_gain_compensate_pair(fa, fb, 32)
-        )
+        out_cpp = np.asarray(batch.compositing.blocks_gain_compensate_pair(fa, fb, 32))
         # max gain=2.0 → max output ≤ 20+2 (rounding) = 22
         assert int(out_cpp.max()) <= 22
 
@@ -375,23 +368,21 @@ class TestBlocksLumCompensateVsPython:
 
     def test_identical_zones_no_change(self):
         from middleware.src.stitching.rendering.compositing import _blocks_lum_compensate
+
         H, W = 64, 80
         zone = _rand_bgr(H, W, 3)
-        out_py  = _blocks_lum_compensate(zone, zone.copy(), block_size=32)
-        out_cpp = np.asarray(
-            batch.compositing.blocks_lum_compensate_pair(zone, zone.copy(), 32)
-        )
+        out_py = _blocks_lum_compensate(zone, zone.copy(), block_size=32)
+        out_cpp = np.asarray(batch.compositing.blocks_lum_compensate_pair(zone, zone.copy(), 32))
         assert np.abs(out_py.astype(np.int32) - out_cpp.astype(np.int32)).max() <= 2
 
     def test_brighter_fa_brightens_fb(self):
         from middleware.src.stitching.rendering.compositing import _blocks_lum_compensate
+
         H, W = 64, 80
         fa = np.full((H, W, 3), 180, dtype=np.uint8)
         fb = np.full((H, W, 3), 90, dtype=np.uint8)
-        out_py  = _blocks_lum_compensate(fa, fb, block_size=32)
-        out_cpp = np.asarray(
-            batch.compositing.blocks_lum_compensate_pair(fa, fb, 32)
-        )
+        out_py = _blocks_lum_compensate(fa, fb, block_size=32)
+        out_cpp = np.asarray(batch.compositing.blocks_lum_compensate_pair(fa, fb, 32))
         assert out_cpp.mean() > 90
         assert np.abs(out_py.astype(np.int32) - out_cpp.astype(np.int32)).max() <= 2
 
@@ -423,9 +414,7 @@ class TestBlocksLumCompensateVsPython:
 # ---------------------------------------------------------------------------
 
 _HAS_BATCH_EXPOSURE = HAS_BATCH and hasattr(batch if HAS_BATCH else None, "exposure")
-_skip_no_exposure = pytest.mark.skipif(
-    not _HAS_BATCH_EXPOSURE, reason="batch.exposure not built"
-)
+_skip_no_exposure = pytest.mark.skipif(not _HAS_BATCH_EXPOSURE, reason="batch.exposure not built")
 
 
 @_skip_no_exposure
@@ -443,8 +432,8 @@ class TestCorrectVignettingVsPython:
     def test_unit_gain_identity(self):
         H, W = 40, 60
         frame = np.full((H, W, 3), 128, dtype=np.uint8)
-        gain  = np.ones((H, W), dtype=np.float32)
-        out_py  = self._py_correct(frame, gain)
+        gain = np.ones((H, W), dtype=np.float32)
+        out_py = self._py_correct(frame, gain)
         out_cpp = np.asarray(batch.exposure.correct_vignetting(frame, gain))
         assert out_cpp.shape == (H, W, 3)
         assert np.abs(out_py.astype(np.int32) - out_cpp.astype(np.int32)).max() <= 1
@@ -455,9 +444,9 @@ class TestCorrectVignettingVsPython:
         frame = rng.integers(50, 200, (H, W, 3), dtype=np.uint8)
         cy, cx = H / 2, W / 2
         yy, xx = np.mgrid[:H, :W]
-        rr = np.sqrt((xx - cx)**2 + (yy - cy)**2) / np.sqrt(cx**2 + cy**2)
+        rr = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2) / np.sqrt(cx**2 + cy**2)
         gain = (1.0 + 0.3 * rr**2).astype(np.float32)
-        out_py  = self._py_correct(frame, gain)
+        out_py = self._py_correct(frame, gain)
         out_cpp = np.asarray(batch.exposure.correct_vignetting(frame, gain))
         max_diff = np.abs(out_py.astype(np.int32) - out_cpp.astype(np.int32)).max()
         assert max_diff <= 2
@@ -465,7 +454,7 @@ class TestCorrectVignettingVsPython:
     def test_output_dtype_uint8(self):
         H, W = 40, 60
         frame = _rand_bgr(H, W, 5)
-        gain  = np.ones((H, W), dtype=np.float32) * 1.2
+        gain = np.ones((H, W), dtype=np.float32) * 1.2
         out = np.asarray(batch.exposure.correct_vignetting(frame, gain))
         assert out.dtype == np.uint8
         assert out.shape == (H, W, 3)
@@ -473,14 +462,14 @@ class TestCorrectVignettingVsPython:
     def test_gain_above_one_brightens(self):
         H, W = 40, 60
         frame = np.full((H, W, 3), 100, dtype=np.uint8)
-        gain  = np.full((H, W), 1.5, dtype=np.float32)
+        gain = np.full((H, W), 1.5, dtype=np.float32)
         out = np.asarray(batch.exposure.correct_vignetting(frame, gain))
         assert float(out.mean()) > float(frame.mean())
 
     def test_values_clipped_to_255(self):
         H, W = 32, 32
         frame = np.full((H, W, 3), 200, dtype=np.uint8)
-        gain  = np.full((H, W), 3.0, dtype=np.float32)  # would give 600 without clip
+        gain = np.full((H, W), 3.0, dtype=np.float32)  # would give 600 without clip
         out = np.asarray(batch.exposure.correct_vignetting(frame, gain))
         assert out.max() <= 255
 
@@ -488,6 +477,7 @@ class TestCorrectVignettingVsPython:
 class TestBuildSeamCostMapVsPython:
     def _run_build_seam_cost_map_python(self, canvas_zone, mask_a, mask_b):
         import middleware.src.stitching.rendering.compositing as comp
+
         orig_avail = comp.BATCH_AVAILABLE
         try:
             comp.BATCH_AVAILABLE = False
@@ -497,11 +487,11 @@ class TestBuildSeamCostMapVsPython:
 
     def test_cost_map_agreement(self):
         H, W = 50, 80
-        fa     = _rand_bgr(H, W, 0)
+        fa = _rand_bgr(H, W, 0)
         mask_a = _rand_mask(H, W, 0)
         mask_b = _rand_mask(H, W, 1)
 
-        cost_py  = self._run_build_seam_cost_map_python(fa, mask_a, mask_b)
+        cost_py = self._run_build_seam_cost_map_python(fa, mask_a, mask_b)
         cost_cpp = batch.seam.build_seam_cost_map(fa, mask_a, mask_b, cost_map_norm=False)
 
         assert cost_cpp.shape == (H, W)
@@ -559,32 +549,42 @@ _skip_ci_float_parity = pytest.mark.skipif(
 )
 
 
-def _py_find_optimal_boundaries(warped_list, order, init_bounds, H, W,
-                                 search_range=250, search_slab=20,
-                                 bg_masks=None, affines=None):
+def _py_find_optimal_boundaries(
+    warped_list, order, init_bounds, H, W, search_range=250, search_slab=20, bg_masks=None, affines=None
+):
     """Python reference: calls the wired _find_optimal_boundaries dispatcher."""
     import middleware.src.stitching.rendering.compositing as comp
     from middleware.src.stitching.rendering.compositing import _find_optimal_boundaries
+
     orig_avail = comp.BATCH_AVAILABLE
     try:
         comp.BATCH_AVAILABLE = False
         return _find_optimal_boundaries(
-            warped_list, np.asarray(order), np.asarray(init_bounds, dtype=np.float64),
-            H, W, bg_masks=bg_masks, affines=affines,
+            warped_list,
+            np.asarray(order),
+            np.asarray(init_bounds, dtype=np.float64),
+            H,
+            W,
+            bg_masks=bg_masks,
+            affines=affines,
         )
     finally:
         comp.BATCH_AVAILABLE = orig_avail
 
 
-def _cpp_find_optimal_boundaries(warped_list, order, init_bounds, H, W,
-                                  search_range=250, search_slab=20,
-                                  bg_masks=None, affines=None):
+def _cpp_find_optimal_boundaries(
+    warped_list, order, init_bounds, H, W, search_range=250, search_slab=20, bg_masks=None, affines=None
+):
     return batch.compositing.find_optimal_boundaries(
         [np.ascontiguousarray(f) for f in warped_list],
         np.asarray(order, dtype=np.int64),
         np.asarray(init_bounds, dtype=np.float64),
-        H, W, search_range, search_slab,
-        bg_masks, affines,
+        H,
+        W,
+        search_range,
+        search_slab,
+        bg_masks,
+        affines,
     )
 
 
@@ -609,7 +609,7 @@ class TestFindOptimalBoundariesVsPython:
         f1 = rng.integers(100, 200, (H, W, 3), dtype=np.uint8)
         order = np.array([0, 1])
         init_bounds = np.array([H // 2], dtype=float)
-        b_py,  _ = _py_find_optimal_boundaries([f0, f1], order, init_bounds, H, W)
+        b_py, _ = _py_find_optimal_boundaries([f0, f1], order, init_bounds, H, W)
         b_cpp, _ = _cpp_find_optimal_boundaries([f0, f1], order, init_bounds, H, W)
         assert abs(float(b_cpp[0]) - float(b_py[0])) <= 1.0
 
@@ -620,7 +620,7 @@ class TestFindOptimalBoundariesVsPython:
         f1 = rng.integers(80, 220, (H, W, 3), dtype=np.uint8)
         order = np.array([0, 1])
         init_bounds = np.array([H // 2], dtype=float)
-        _, d_py  = _py_find_optimal_boundaries([f0, f1], order, init_bounds, H, W)
+        _, d_py = _py_find_optimal_boundaries([f0, f1], order, init_bounds, H, W)
         _, d_cpp = _cpp_find_optimal_boundaries([f0, f1], order, init_bounds, H, W)
         assert abs(float(d_cpp[0]) - float(d_py[0])) <= 2.0
 
@@ -651,8 +651,7 @@ class TestFindOptimalBoundariesVsPython:
         frames = [f0, f1, f2, f3]
         order = np.array([0, 1, 2, 3])
         init_bounds = np.array([H // 4, H // 2, 3 * H // 4], dtype=float)
-        b_py,  d_py  = _py_find_optimal_boundaries(frames, order, init_bounds, H, W)
+        b_py, d_py = _py_find_optimal_boundaries(frames, order, init_bounds, H, W)
         b_cpp, d_cpp = _cpp_find_optimal_boundaries(frames, order, init_bounds, H, W)
         assert np.all(np.abs(b_cpp - b_py) <= 2.0)
         assert np.all(np.abs(d_cpp - d_py) <= 3.0)
-

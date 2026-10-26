@@ -73,9 +73,7 @@ def test_apply_residual_warp_to_frame_background_only():
     flow = np.zeros((H, W, 2), dtype=np.float32)
     flow[..., 0] = 4.0
 
-    warped, bg_presence = apply_residual_warp_to_frame(
-        frame, bg_mask, affine_id, flow, H, W, blend_margin_px=4
-    )
+    warped, bg_presence = apply_residual_warp_to_frame(frame, bg_mask, affine_id, flow, H, W, blend_margin_px=4)
     assert warped.shape == (H, W, 3)
     assert bg_presence.shape == (H, W)
     # Output should have non-zero pixels

@@ -40,9 +40,7 @@ def _make_proxy_frames(n: int, h: int = 32, w: int = 64):
     return frames
 
 
-def _write_test_video(
-    path: str, n_frames: int = 10, fps: int = 24, w: int = 64, h: int = 64
-) -> str:
+def _write_test_video(path: str, n_frames: int = 10, fps: int = 24, w: int = 64, h: int = 64) -> str:
     """Write a tiny MP4 with n_frames of distinct colour using OpenCV VideoWriter."""
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     out = cv2.VideoWriter(path, fourcc, fps, (w, h))
@@ -208,9 +206,7 @@ class TestSmartSelectDoesNotSilentlyFallBack:
     def _stream(self, tmp_path, n_frames=3):
         dummy = tmp_path / "fake.mp4"
         dummy.write_bytes(b"not-a-real-video")
-        stream = VideoIngestionStream(
-            str(dummy), n_frames=n_frames, mode="smart", telecine=False
-        )
+        stream = VideoIngestionStream(str(dummy), n_frames=n_frames, mode="smart", telecine=False)
         stream._proxy_frames = _make_proxy_frames(8)
         return stream
 
@@ -241,24 +237,18 @@ class TestSmartSelectDoesNotSilentlyFallBack:
         assert seen["paths"], "smart_select_frames was not called"
         assert chosen == [0, 1, 2]
 
-    def test_smart_mode_typeerror_does_not_fall_back_to_uniform(
-        self, tmp_path, monkeypatch
-    ):
+    def test_smart_mode_typeerror_does_not_fall_back_to_uniform(self, tmp_path, monkeypatch):
         import middleware.src.stitching.ingestion.video_ingestion as vi
 
         def fake_smart(*_args, **_kwargs):
-            raise TypeError(
-                "smart_select_frames() got an unexpected keyword argument 'target_n'"
-            )
+            raise TypeError("smart_select_frames() got an unexpected keyword argument 'target_n'")
 
         monkeypatch.setattr(vi, "smart_select_frames", fake_smart)
         stream = self._stream(tmp_path, n_frames=3)
         with pytest.raises(TypeError, match="cannot silently fall back"):
             stream._select(list(range(8)))
 
-    def test_smart_mode_empty_selection_does_not_fall_back(
-        self, tmp_path, monkeypatch
-    ):
+    def test_smart_mode_empty_selection_does_not_fall_back(self, tmp_path, monkeypatch):
         import middleware.src.stitching.ingestion.video_ingestion as vi
 
         monkeypatch.setattr(vi, "smart_select_frames", lambda *a, **k: [])

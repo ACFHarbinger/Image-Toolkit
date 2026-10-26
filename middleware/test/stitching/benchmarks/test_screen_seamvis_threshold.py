@@ -5,12 +5,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-_SRC = (
-    Path(__file__).resolve().parents[3]
-    / "backend"
-    / "benchmark"
-    / "screen_seamvis_threshold.py"
-)
+_SRC = Path(__file__).resolve().parents[3] / "benchmark" / "asp" / "screen_seamvis_threshold.py"
 _spec = importlib.util.spec_from_file_location("screen_seamvis_threshold", _SRC)
 assert _spec and _spec.loader
 mod = importlib.util.module_from_spec(_spec)

@@ -3,12 +3,7 @@
 import importlib.util
 from pathlib import Path
 
-_BENCH = (
-    Path(__file__).resolve().parents[3]
-    / "backend"
-    / "benchmark"
-    / "bench_anime_stitch.py"
-)
+_BENCH = Path(__file__).resolve().parents[3] / "benchmark" / "asp" / "bench_anime_stitch.py"
 
 
 def _bench_module():

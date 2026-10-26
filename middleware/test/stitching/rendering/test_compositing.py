@@ -28,9 +28,7 @@ from middleware.src.stitching.rendering.compositing import (  # noqa: E402
     _overlap_graph_connected,
 )
 
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 from middleware.src.stitching.rendering.compositing import (  # noqa: E402
@@ -71,6 +69,7 @@ class TestJointGainSafety:
 
     def test_single_frame_overlap_graph_is_safe(self):
         assert _overlap_graph_connected([], 1)
+
 
 # ---------------------------------------------------------------------------
 # 1. _diff_to_feather lookup table (Bug 1 regression)
@@ -121,8 +120,7 @@ class TestDiffToFeather:
         feathers = [_diff_to_feather(d) for d in diffs]
         for i in range(len(feathers) - 1):
             assert feathers[i] >= feathers[i + 1], (
-                f"Feather table not monotone at diff={diffs[i + 1]}: "
-                f"{feathers[i]} → {feathers[i + 1]}"
+                f"Feather table not monotone at diff={diffs[i + 1]}: {feathers[i]} → {feathers[i + 1]}"
             )
 
 
@@ -135,13 +133,8 @@ class TestDiffToFeather:
 class TestCompositeForeground:
     def _run_composite(self, n: int, H: int, W: int):
         frame_h = H // 2
-        frames = [
-            make_frame(frame_h, W, color=(int(c), int(c), int(c)))
-            for c in np.linspace(60, 200, n, dtype=int)
-        ]
-        affines = [
-            make_translation_affine(ty=i * float(frame_h) * 0.8) for i in range(n)
-        ]
+        frames = [make_frame(frame_h, W, color=(int(c), int(c), int(c))) for c in np.linspace(60, 200, n, dtype=int)]
+        affines = [make_translation_affine(ty=i * float(frame_h) * 0.8) for i in range(n)]
         canvas_h = int((n - 1) * frame_h * 0.8 + frame_h)
         canvas = np.zeros((canvas_h, W, 3), dtype=np.uint8)
         for _i, (f, aff) in enumerate(zip(frames, affines, strict=False)):
@@ -156,9 +149,7 @@ class TestCompositeForeground:
             mask = wf.max(axis=2) > 0
             canvas[mask] = wf[mask]
         bg_masks = [None] * n
-        return _composite_foreground(
-            [], [], canvas, canvas_h, W, frames, affines, bg_masks
-        )
+        return _composite_foreground([], [], canvas, canvas_h, W, frames, affines, bg_masks)
 
     def test_output_shape_preserved(self):
         """Output canvas must retain its spatial dimensions and channel count."""
@@ -210,13 +201,9 @@ class TestCompositeForeground:
                 borderValue=0,
             )
             row_start = frame_h * i
-            canvas[row_start : row_start + frame_h] = wf[
-                row_start : row_start + frame_h
-            ]
+            canvas[row_start : row_start + frame_h] = wf[row_start : row_start + frame_h]
         bg_masks = [None, None]
-        result = _composite_foreground(
-            [], [], canvas, canvas_h, W, frames, affines, bg_masks
-        )
+        result = _composite_foreground([], [], canvas, canvas_h, W, frames, affines, bg_masks)
         assert result is not None
 
 
@@ -234,9 +221,7 @@ class TestSeamCutDP:
     def _make_zone(self, h: int, W: int, base: int, noise: int = 10) -> np.ndarray:
         rng = np.random.default_rng(42)
         z = np.full((h, W, 3), base, dtype=np.uint8)
-        z = np.clip(
-            z.astype(np.int32) + rng.integers(-noise, noise + 1, z.shape), 0, 255
-        )
+        z = np.clip(z.astype(np.int32) + rng.integers(-noise, noise + 1, z.shape), 0, 255)
         return z.astype(np.uint8)
 
     def test_output_shape_is_width(self):
@@ -244,6 +229,7 @@ class TestSeamCutDP:
         fa = self._make_zone(h, W, 100)
         fb = self._make_zone(h, W, 150)
         import sys
+
         print("DEBUG: sys.path =", sys.path)
         print("DEBUG: BATCH_AVAILABLE =", compositing.BATCH_AVAILABLE)
         print("DEBUG: batch module =", compositing.batch)
@@ -290,9 +276,7 @@ class TestSeamCutDP:
         fb = self._make_zone(h, W, 200)
         path = _seam_cut(fa, fb)
         diffs = np.abs(np.diff(path.astype(np.int32)))
-        assert int(diffs.max()) <= 1, (
-            f"Path not 3-connected: max step={int(diffs.max())}"
-        )
+        assert int(diffs.max()) <= 1, f"Path not 3-connected: max step={int(diffs.max())}"
 
 
 # ---------------------------------------------------------------------------
@@ -310,9 +294,7 @@ class TestSeamCutWaypoints:
     def _make_zone(self, h: int, W: int, base: int, noise: int = 5) -> np.ndarray:
         rng = np.random.default_rng(99)
         z = np.full((h, W, 3), base, dtype=np.uint8)
-        z = np.clip(
-            z.astype(np.int32) + rng.integers(-noise, noise + 1, z.shape), 0, 255
-        )
+        z = np.clip(z.astype(np.int32) + rng.integers(-noise, noise + 1, z.shape), 0, 255)
         return z.astype(np.uint8)
 
     def test_single_waypoint_respected(self):
@@ -322,9 +304,7 @@ class TestSeamCutWaypoints:
         fb = self._make_zone(h, W, 150)
         x_wp, y_wp = 40, 10  # force through top-third row at mid-column
         path = _seam_cut(fa, fb, waypoints=[(x_wp, y_wp)])
-        assert path[x_wp] == y_wp, (
-            f"Seam did not pass through waypoint ({x_wp}, {y_wp}); got path[{x_wp}]={path[x_wp]}"
-        )
+        assert path[x_wp] == y_wp, f"Seam did not pass through waypoint ({x_wp}, {y_wp}); got path[{x_wp}]={path[x_wp]}"
 
     def test_multiple_waypoints_all_respected(self):
         """All waypoints must be honoured simultaneously."""
@@ -334,9 +314,7 @@ class TestSeamCutWaypoints:
         waypoints = [(20, 5), (50, 30), (80, 55)]
         path = _seam_cut(fa, fb, waypoints=waypoints)
         for x_wp, y_wp in waypoints:
-            assert path[x_wp] == y_wp, (
-                f"Waypoint ({x_wp}, {y_wp}) not respected; path[{x_wp}]={path[x_wp]}"
-            )
+            assert path[x_wp] == y_wp, f"Waypoint ({x_wp}, {y_wp}) not respected; path[{x_wp}]={path[x_wp]}"
 
     def test_waypoint_preserves_3connectivity(self):
         """Path with waypoints must still be 3-connected (|Δy| ≤ 1 per column)."""
@@ -346,9 +324,7 @@ class TestSeamCutWaypoints:
         waypoints = [(10, 5), (80, 40)]
         path = _seam_cut(fa, fb, waypoints=waypoints)
         diffs = np.abs(np.diff(path.astype(np.int32)))
-        assert int(diffs.max()) <= 1, (
-            f"3-connectivity broken with waypoints: max step={int(diffs.max())}"
-        )
+        assert int(diffs.max()) <= 1, f"3-connectivity broken with waypoints: max step={int(diffs.max())}"
 
     def test_out_of_bounds_waypoint_ignored(self):
         """Waypoints with coordinates outside the zone must not crash and must be silently ignored."""
@@ -387,13 +363,8 @@ class TestParallelSeamPrecompute:
 
     def _run_composite_n(self, n: int, H: int = 500, W: int = 120) -> np.ndarray:
         frame_h = H // n
-        frames = [
-            make_frame(frame_h, W, color=(int(c), int(c), int(c)))
-            for c in np.linspace(60, 200, n, dtype=int)
-        ]
-        affines = [
-            make_translation_affine(ty=i * float(frame_h) * 0.9) for i in range(n)
-        ]
+        frames = [make_frame(frame_h, W, color=(int(c), int(c), int(c))) for c in np.linspace(60, 200, n, dtype=int)]
+        affines = [make_translation_affine(ty=i * float(frame_h) * 0.9) for i in range(n)]
         canvas_h = int((n - 1) * frame_h * 0.9 + frame_h)
         canvas = np.zeros((canvas_h, W, 3), dtype=np.uint8)
         for _i, (f, aff) in enumerate(zip(frames, affines, strict=False)):
@@ -407,9 +378,7 @@ class TestParallelSeamPrecompute:
             )
             mask = wf.max(axis=2) > 0
             canvas[mask] = wf[mask]
-        return _composite_foreground(
-            [], [], canvas, canvas_h, W, frames, affines, [None] * n
-        )
+        return _composite_foreground([], [], canvas, canvas_h, W, frames, affines, [None] * n)
 
     def test_five_frames_parallel_path_completes(self):
         """5 frames → 4 boundaries → parallel ThreadPoolExecutor path; must not raise."""
@@ -423,14 +392,10 @@ class TestParallelSeamPrecompute:
         H, W, n = 600, 100, 6
         frame_h = H // n
         frames = [make_frame(frame_h, W, color=(100, 100, 100))] * n
-        affines = [
-            make_translation_affine(ty=i * float(frame_h) * 0.9) for i in range(n)
-        ]
+        affines = [make_translation_affine(ty=i * float(frame_h) * 0.9) for i in range(n)]
         canvas_h = int((n - 1) * frame_h * 0.9 + frame_h)
         canvas = np.zeros((canvas_h, W, 3), dtype=np.uint8)
-        result = _composite_foreground(
-            [], [], canvas, canvas_h, W, frames, affines, [None] * n
-        )
+        result = _composite_foreground([], [], canvas, canvas_h, W, frames, affines, [None] * n)
         assert result.shape[1] == W
         assert result.shape[2] == 3
 
@@ -513,9 +478,7 @@ class TestSinglePoseSoftEdge:
         for r in range(seam_y - soft_px + 1, seam_y + soft_px):
             if 0 <= r < H:
                 val = int(out[r, 0, 0])
-                assert dom_lum <= val <= oth_lum, (
-                    f"Row {r}: expected [{dom_lum}, {oth_lum}], got {val}"
-                )
+                assert dom_lum <= val <= oth_lum, f"Row {r}: expected [{dom_lum}, {oth_lum}], got {val}"
 
     def test_no_modification_where_apply_mask_is_false(self):
         """Pixels where apply_mask is False must not be modified."""
@@ -584,9 +547,7 @@ class TestSeamColorMatch:
         # In the band, oth mean (200) shifts to dom mean (100) → delta=-100.
         # Resulting band pixels should be clipped to dom_lum (or close).
         seam_row = out[seam_y, 0, 0]
-        assert int(seam_row) == dom_lum, (
-            f"Band pixel should equal dom_lum={dom_lum}, got {seam_row}"
-        )
+        assert int(seam_row) == dom_lum, f"Band pixel should equal dom_lum={dom_lum}, got {seam_row}"
 
     def test_outside_band_pixels_are_unchanged(self):
         """Rows beyond band_px from the seam must not be modified."""
@@ -630,15 +591,9 @@ class TestSeamColorMatch:
         # delta per channel: B=50-200=-150, G=100-200=-100, R=150-200=-50
         # band pixel after shift: B=clip(200-150,0,255)=50, G=100, R=150
         band_px_val = out[seam_y, 0]
-        assert int(band_px_val[0]) == 50, (
-            f"B channel: expected 50, got {band_px_val[0]}"
-        )
-        assert int(band_px_val[1]) == 100, (
-            f"G channel: expected 100, got {band_px_val[1]}"
-        )
-        assert int(band_px_val[2]) == 150, (
-            f"R channel: expected 150, got {band_px_val[2]}"
-        )
+        assert int(band_px_val[0]) == 50, f"B channel: expected 50, got {band_px_val[0]}"
+        assert int(band_px_val[1]) == 100, f"G channel: expected 100, got {band_px_val[1]}"
+        assert int(band_px_val[2]) == 150, f"R channel: expected 150, got {band_px_val[2]}"
 
 
 # ---------------------------------------------------------------------------
@@ -700,9 +655,7 @@ class TestSoftSeamWeight:
         path = self._path(W, seam_y)
         out = _soft_seam_weight(fa, fb, path, H, W)
         # Row 0 is far above seam_y=50 → weight should be 1.0
-        assert float(out[0].mean()) > 0.95, (
-            f"Top row weight: {float(out[0].mean()):.3f}"
-        )
+        assert float(out[0].mean()) > 0.95, f"Top row weight: {float(out[0].mean()):.3f}"
 
     def test_weight_zero_far_below_seam(self):
         """Far below the seam, weight should be ~0.0 (all fb)."""
@@ -712,9 +665,7 @@ class TestSoftSeamWeight:
         path = self._path(W, seam_y)
         out = _soft_seam_weight(fa, fb, path, H, W)
         # Last row is far below seam_y=50 → weight should be ~0.0
-        assert float(out[-1].mean()) < 0.05, (
-            f"Bottom row weight: {float(out[-1].mean()):.3f}"
-        )
+        assert float(out[-1].mean()) < 0.05, f"Bottom row weight: {float(out[-1].mean()):.3f}"
 
     def test_high_similarity_gives_wider_blend_than_low(self):
         """Identical frames (high sim) must produce a wider blend than very different frames (low sim)."""
@@ -748,9 +699,7 @@ class TestSoftSeamWeight:
 
         bg_all_fg = np.zeros((H, W), dtype=bool)  # all pixels = foreground (bg=False)
         out_no_mask = _soft_seam_weight(fa, fb, path, H, W)
-        out_fg_mask = _soft_seam_weight(
-            fa, fb, path, H, W, bg_mask_a=bg_all_fg, bg_mask_b=bg_all_fg
-        )
+        out_fg_mask = _soft_seam_weight(fa, fb, path, H, W, bg_mask_a=bg_all_fg, bg_mask_b=bg_all_fg)
 
         trans_no = int(((out_no_mask > 0.05) & (out_no_mask < 0.95)).all(axis=1).sum())
         trans_fg = int(((out_fg_mask > 0.05) & (out_fg_mask < 0.95)).all(axis=1).sum())
@@ -982,9 +931,7 @@ class TestSeamCostColumnFilter:
         bm = self._fg_cols_mask(H, W, fg_cols=10)
         cost = _build_seam_cost_map(self._canvas(H, W), bm, None, dilate_px=0)
         # All-fg columns should now be at 2.0 (barrier level).
-        assert float(cost[:, :10].min()) == pytest.approx(2.0, abs=0.01), (
-            "fg-dominated columns should be raised to 2.0"
-        )
+        assert float(cost[:, :10].min()) == pytest.approx(2.0, abs=0.01), "fg-dominated columns should be raised to 2.0"
 
     def test_bg_corridor_unchanged_after_column_filter(self):
         """Background-corridor columns stay at 0.0 after the column barrier fires."""
@@ -1182,13 +1129,9 @@ class TestSeamPathCache:
 # ---------------------------------------------------------------------------
 
 
-
-
 # ---------------------------------------------------------------------------
 # §1.4E — _bg_histogram_lut (S49)
 # ---------------------------------------------------------------------------
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -1196,13 +1139,9 @@ class TestSeamPathCache:
 # ---------------------------------------------------------------------------
 
 
-
-
 # ---------------------------------------------------------------------------
 # §1.14B — _seam_color_similarity and _check_seam_color_gate
 # ---------------------------------------------------------------------------
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -1210,32 +1149,14 @@ class TestSeamPathCache:
 # ---------------------------------------------------------------------------
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # ---------------------------------------------------------------------------
 # §1.25 — TestSmoothSeamPath
 # ---------------------------------------------------------------------------
 
 
-
-
 # ---------------------------------------------------------------------------
 # §1.26 — TestClampSeamPath
 # ---------------------------------------------------------------------------
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -1278,16 +1199,10 @@ class TestHasSufficientBg:
 # ---------------------------------------------------------------------------
 
 
-
-
 # ── TestZoneIsDegenerate — §1.30 minimum zone height guard (S74) ─────────────
 
 
-
-
 # ── TestSeamFgPenetration — §1.31 seam fg penetration metric (S75) ───────────
-
-
 
 
 # ── TestExclusionMasks — Issue 10A3 NL seam routing ──────────────────────────
@@ -1307,9 +1222,7 @@ class TestExclusionMasks:
     def test_no_exclusion_baseline(self):
         """Without exclusion_masks, cost stays in [0, 2] range."""
         H, W = 32, 32
-        cost = _build_seam_cost_map(
-            self._canvas(H, W), self._bg_mask(H, W), None, dilate_px=0
-        )
+        cost = _build_seam_cost_map(self._canvas(H, W), self._bg_mask(H, W), None, dilate_px=0)
         assert cost.max() <= 2.01  # tier-2 column barrier at most 2.0
 
     def test_exclusion_mask_raises_cost_to_barrier(self):
@@ -1635,8 +1548,6 @@ class TestPaintMask:
 # ---------------------------------------------------------------------------
 
 
-
-
 # ── TestSeamMetaOut ─────────────────────────────────────────────────────────
 
 
@@ -1675,13 +1586,9 @@ class TestSeamMetaOut:
         )
         assert "boundaries" in meta, "seam_meta_out must contain 'boundaries'"
         assert "seam_post_diffs" in meta, "seam_meta_out must contain 'seam_post_diffs'"
-        assert "seam_single_pose" in meta, (
-            "seam_meta_out must contain 'seam_single_pose'"
-        )
+        assert "seam_single_pose" in meta, "seam_meta_out must contain 'seam_single_pose'"
         # Two frames produce exactly one boundary
-        assert len(meta["boundaries"]) == 1, (
-            f"expected 1 boundary, got {len(meta['boundaries'])}"
-        )
+        assert len(meta["boundaries"]) == 1, f"expected 1 boundary, got {len(meta['boundaries'])}"
 
     def test_seam_meta_out_single_frame_empty_boundaries(self):
         """With only one frame no seams are created; boundaries list is empty."""
@@ -1703,9 +1610,7 @@ class TestSeamMetaOut:
             [None],
             seam_meta_out=meta,
         )
-        assert meta.get("boundaries", []) == [], (
-            "single-frame composite should produce no seam boundaries"
-        )
+        assert meta.get("boundaries", []) == [], "single-frame composite should produce no seam boundaries"
 
     def _bg_mask(self, h: int, w: int) -> np.ndarray:
         """All-background uint8 mask (255 = background, so wm > 127 = all-True)."""
@@ -1736,12 +1641,8 @@ class TestSeamMetaOut:
             seam_meta_out=meta,
             seam_overrides=overrides,
         )
-        assert 0 in meta.get("seam_single_pose", {}), (
-            "force_single_pose override must escalate seam 0 to single-pose"
-        )
-        assert meta["seam_post_diffs"].get(0) == 99.0, (
-            "force_single_pose sentinel diff must be 99.0"
-        )
+        assert 0 in meta.get("seam_single_pose", {}), "force_single_pose override must escalate seam 0 to single-pose"
+        assert meta["seam_post_diffs"].get(0) == 99.0, "force_single_pose sentinel diff must be 99.0"
 
     def test_force_blend_override_removes_seam_from_single_pose(self):
         """force_blend override must remove seam k from seam_single_pose even if escalated.
@@ -1785,9 +1686,7 @@ class TestSeamMetaOut:
             seam_meta_out=meta1,
             seam_overrides={0: {"force_single_pose": True}},
         )
-        assert 0 in meta1.get("seam_single_pose", {}), (
-            "setup: seam 0 should be escalated"
-        )
+        assert 0 in meta1.get("seam_single_pose", {}), "setup: seam 0 should be escalated"
         # Second run: force_blend — seam 0 must NOT appear in seam_single_pose.
         # With zero-value frames the degenerate-zone, instability, and FG-penetration
         # blend-loop guards all remain inactive, so force_blend's removal is definitive.
@@ -1884,9 +1783,7 @@ class TestSeamCropExtraction:
         affines = [a0, a1]
         canvas = np.zeros((H * 2, W, 3), dtype=np.uint8)
         meta: dict = {}
-        _composite_foreground(
-            [], [], canvas, H * 2, W, frames, affines, [None, None], seam_meta_out=meta
-        )
+        _composite_foreground([], [], canvas, H * 2, W, frames, affines, [None, None], seam_meta_out=meta)
         assert "seam_crops" in meta, "seam_crops key must be in seam_meta_out"
         assert isinstance(meta["seam_crops"], dict)
         assert 0 in meta["seam_crops"], "seam 0 crop must be present"
@@ -1899,13 +1796,9 @@ class TestSeamCropExtraction:
 # ---------------------------------------------------------------------------
 
 
-
-
 # ---------------------------------------------------------------------------
 # §3.17 — High-frequency column seam cost
 # ---------------------------------------------------------------------------
-
-
 
 
 # ===========================================================================
@@ -1913,13 +1806,9 @@ class TestSeamCropExtraction:
 # ===========================================================================
 
 
-
-
 # ---------------------------------------------------------------------------
 # §1.92 — Gaussian feather smoothing
 # ---------------------------------------------------------------------------
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -1927,13 +1816,9 @@ class TestSeamCropExtraction:
 # ---------------------------------------------------------------------------
 
 
-
-
 # ---------------------------------------------------------------------------
 # §1.94 — Background plate consistency score
 # ---------------------------------------------------------------------------
-
-
 
 
 # ===========================================================================
@@ -1941,13 +1826,9 @@ class TestSeamCropExtraction:
 # ===========================================================================
 
 
-
-
 # ---------------------------------------------------------------------------
 # §3.19 — Per-zone pre-blend chroma alignment
 # ---------------------------------------------------------------------------
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -1955,13 +1836,9 @@ class TestSeamCropExtraction:
 # ---------------------------------------------------------------------------
 
 
-
-
 # ===========================================================================
 # Merged from test_compositing_s150.py
 # ===========================================================================
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -1969,13 +1846,9 @@ class TestSeamCropExtraction:
 # ---------------------------------------------------------------------------
 
 
-
-
 # ---------------------------------------------------------------------------
 # §1.99 — Seam endpoint bg-preference
 # ---------------------------------------------------------------------------
-
-
 
 
 # ===========================================================================
@@ -1983,13 +1856,9 @@ class TestSeamCropExtraction:
 # ===========================================================================
 
 
-
-
 # ---------------------------------------------------------------------------
 # §1.102 — Warp residual momentum damping
 # ---------------------------------------------------------------------------
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -1997,20 +1866,14 @@ class TestSeamCropExtraction:
 # ---------------------------------------------------------------------------
 
 
-
-
 # ===========================================================================
 # Merged from test_compositing_s152.py
 # ===========================================================================
 
 
-
-
 # ---------------------------------------------------------------------------
 # §1.105 — Fg-overlap blend weight cap
 # ---------------------------------------------------------------------------
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -2062,8 +1925,6 @@ class TestAuditSeamLumSteps:
 # ---------------------------------------------------------------------------
 # §1.127 — Zone hue equalization
 # ---------------------------------------------------------------------------
-
-
 
 
 # ===========================================================================
@@ -2213,9 +2074,9 @@ class TestBlocksLumCompensateBatchWiring:
         # Uniform color zone: lum gain should preserve hue (all channels scaled equally)
         fa = np.full((32, 32, 3), 160, dtype=np.uint8)
         fb_arr = np.zeros((32, 32, 3), dtype=np.uint8)
-        fb_arr[:, :, 0] = 80   # B
-        fb_arr[:, :, 1] = 40   # G
-        fb_arr[:, :, 2] = 20   # R
+        fb_arr[:, :, 0] = 80  # B
+        fb_arr[:, :, 1] = 40  # G
+        fb_arr[:, :, 2] = 20  # R
         result = _blocks_lum_compensate(fa, fb_arr, block_size=32)
         # All channels scaled by same scalar → ratios preserved (within rounding)
         r_b = float(result[:, :, 0].mean())
@@ -2233,6 +2094,7 @@ class TestBlocksLumCompensateBatchWiring:
 def _call_find_optimal_boundaries_cpp(warped_list, order, init_bounds, H, W, **kw):
     """Call batch.compositing.find_optimal_boundaries; skip if stub or not compiled."""
     from middleware.src.stitching.rendering import compositing as comp_mod
+
     if not comp_mod.BATCH_AVAILABLE:
         pytest.skip("batch not available")
     if not hasattr(comp_mod.batch.compositing, "find_optimal_boundaries"):
@@ -2242,7 +2104,8 @@ def _call_find_optimal_boundaries_cpp(warped_list, order, init_bounds, H, W, **k
             [np.ascontiguousarray(f) for f in warped_list],
             np.asarray(order, dtype=np.int64),
             np.asarray(init_bounds, dtype=np.float64),
-            H, W,
+            H,
+            W,
             kw.get("search_range", 250),
             kw.get("search_slab", 20),
             kw.get("bg_masks"),
@@ -2266,9 +2129,7 @@ class TestFindOptimalBoundariesBatchWiring:
         frames = [_make_canvas_frame(H, W, v) for v in [80, 120, 160]]
         order = np.array([0, 1, 2], dtype=np.int64)
         init_bounds = np.array([H // 3, 2 * H // 3], dtype=np.float64)
-        bounds, diffs = _call_find_optimal_boundaries_cpp(
-            frames, order, init_bounds, H, W
-        )
+        bounds, diffs = _call_find_optimal_boundaries_cpp(frames, order, init_bounds, H, W)
         assert bounds.shape == (2,)
         assert diffs.shape == (2,)
 
@@ -2278,9 +2139,7 @@ class TestFindOptimalBoundariesBatchWiring:
         f1 = _make_canvas_frame(H, W, 140)
         order = np.array([0, 1], dtype=np.int64)
         init_bounds = np.array([H // 2], dtype=np.float64)
-        bounds, _ = _call_find_optimal_boundaries_cpp(
-            [f0, f1], order, init_bounds, H, W
-        )
+        bounds, _ = _call_find_optimal_boundaries_cpp([f0, f1], order, init_bounds, H, W)
         assert 0 <= float(bounds[0]) <= H
 
     def test_identical_frames_returns_a_finite_diff(self):
@@ -2288,9 +2147,7 @@ class TestFindOptimalBoundariesBatchWiring:
         f = _make_canvas_frame(H, W, 128)
         order = np.array([0, 1], dtype=np.int64)
         init_bounds = np.array([H // 2], dtype=np.float64)
-        bounds, diffs = _call_find_optimal_boundaries_cpp(
-            [f.copy(), f.copy()], order, init_bounds, H, W
-        )
+        bounds, diffs = _call_find_optimal_boundaries_cpp([f.copy(), f.copy()], order, init_bounds, H, W)
         assert np.isfinite(diffs[0])
         assert diffs[0] == pytest.approx(0.0, abs=1.0)
 
@@ -2305,9 +2162,7 @@ class TestFindOptimalBoundariesBatchWiring:
         order = np.array([0, 1], dtype=np.int64)
         # Start boundary in the bright region (top third) — C++ should move it down
         init_bounds = np.array([H // 3], dtype=np.float64)
-        bounds, diffs = _call_find_optimal_boundaries_cpp(
-            [f0, f1], order, init_bounds, H, W, search_range=250
-        )
+        bounds, diffs = _call_find_optimal_boundaries_cpp([f0, f1], order, init_bounds, H, W, search_range=250)
         # Optimal is in the dark bottom half of f0 (low diff with f1)
         assert float(bounds[0]) > H // 3
 
@@ -2317,9 +2172,7 @@ class TestFindOptimalBoundariesBatchWiring:
         f1 = _make_canvas_frame(H, W, 150)
         order = np.array([0, 1], dtype=np.int64)
         init_bounds = np.array([H // 2], dtype=np.float64)
-        bounds, _ = _call_find_optimal_boundaries_cpp(
-            [f0, f1], order, init_bounds, H, W, search_range=0
-        )
+        bounds, _ = _call_find_optimal_boundaries_cpp([f0, f1], order, init_bounds, H, W, search_range=0)
         # With 0 search range the loop finds no candidates → returns initial position
         assert float(bounds[0]) == pytest.approx(float(init_bounds[0]), abs=20)
 
@@ -2331,8 +2184,6 @@ class TestFindOptimalBoundariesBatchWiring:
 
 def _solid_frame(h: int, w: int, val: int) -> np.ndarray:
     return np.full((h, w, 3), val, dtype=np.uint8)
-
-
 
 
 # ===========================================================================
@@ -2438,6 +2289,3 @@ class TestEqualizeWarpedGains:
 
     def test_global_gain_comp_flag_is_bool(self):
         assert isinstance(_GLOBAL_GAIN_COMP, bool)
-
-
-

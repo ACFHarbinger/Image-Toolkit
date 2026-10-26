@@ -15,9 +15,7 @@ import cv2
 import numpy as np
 import pytest
 
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 from middleware.src.stitching.alignment.canvas import (  # noqa: E402
@@ -80,8 +78,7 @@ class TestComputeCanvas:
         ch, cw, _ = _compute_canvas(frames, affines)
         expected_min = (N - 1) * dy + H
         assert ch >= expected_min - 2, (
-            f"canvas_h={ch} too small for {N} frames at dy={dy}; "
-            f"expected at least {expected_min:.0f}"
+            f"canvas_h={ch} too small for {N} frames at dy={dy}; expected at least {expected_min:.0f}"
         )
 
     def test_T_global_makes_corners_non_negative(self):
@@ -98,18 +95,14 @@ class TestComputeCanvas:
             corners = np.array([[0, 0], [w, 0], [w, h], [0, h]], np.float32)
             warped = (aff[:2, :2] @ corners.T + aff[:2, 2:3]).T
             shifted = warped + T
-            assert shifted.min() >= -1.0, (
-                f"frame{i}: shifted corner {shifted.min():.2f} is negative after T_global"
-            )
+            assert shifted.min() >= -1.0, f"frame{i}: shifted corner {shifted.min():.2f} is negative after T_global"
 
     def test_canvas_width_equals_frame_width_for_pure_vertical(self):
         """Pure vertical scroll (tx=0) → canvas width equals frame width."""
         H, W = 200, 300
         frames, affines = _make_stack(4, h=H, w=W, dy=150.0)
         ch, cw, T = _compute_canvas(frames, affines)
-        assert cw == W, (
-            f"canvas_w={cw} should equal frame_w={W} for pure vertical scroll"
-        )
+        assert cw == W, f"canvas_w={cw} should equal frame_w={W} for pure vertical scroll"
 
     def test_canvas_wider_for_horizontal_offset(self):
         """Frames with tx offset → canvas wider than single frame."""
@@ -120,9 +113,7 @@ class TestComputeCanvas:
             make_translation_affine(tx=float(tx), ty=0.0),
         ]
         ch, cw, _ = _compute_canvas(frames, affines)
-        assert cw > W, (
-            f"canvas_w={cw} should exceed single frame width {W} with tx={tx}"
-        )
+        assert cw > W, f"canvas_w={cw} should exceed single frame width {W} with tx={tx}"
 
     def test_canvas_max_dim_clamped(self):
         """Pathological affines producing a huge canvas are clamped to _CANVAS_MAX_DIM."""
@@ -132,9 +123,7 @@ class TestComputeCanvas:
             make_translation_affine(ty=float(_CANVAS_MAX_DIM + 5000)),
         ]
         ch, cw, _ = _compute_canvas(frames, affines)
-        assert ch <= _CANVAS_MAX_DIM, (
-            f"canvas_h={ch} exceeds _CANVAS_MAX_DIM={_CANVAS_MAX_DIM}"
-        )
+        assert ch <= _CANVAS_MAX_DIM, f"canvas_h={ch} exceeds _CANVAS_MAX_DIM={_CANVAS_MAX_DIM}"
 
 
 # ---------------------------------------------------------------------------
@@ -165,9 +154,7 @@ class TestCropToValid:
         r0, r1, c0, c1 = 20, 80, 30, 200
         valid[r0:r1, c0:c1] = 255
         result = _crop_to_valid(canvas, valid)
-        assert result.shape == (r1 - r0, c1 - c0, 3), (
-            f"Expected shape ({r1 - r0}, {c1 - c0}, 3), got {result.shape}"
-        )
+        assert result.shape == (r1 - r0, c1 - c0, 3), f"Expected shape ({r1 - r0}, {c1 - c0}, 3), got {result.shape}"
 
     def test_single_row_valid(self):
         """Only one row valid → crop to that single row."""
@@ -199,8 +186,7 @@ class TestCropToValid:
         valid = _full_valid_mask(H, W)
         result = _crop_to_valid(canvas, valid)
         assert result.shape[0] == H, (
-            f"crop_to_valid removed rows when all rows are valid: "
-            f"input_h={H}, output_h={result.shape[0]}"
+            f"crop_to_valid removed rows when all rows are valid: input_h={H}, output_h={result.shape[0]}"
         )
 
     def test_sparse_bottom_rows_not_overcropped(self):
@@ -218,8 +204,7 @@ class TestCropToValid:
             valid[r, W // 2] = 255
         result = _crop_to_valid(canvas, valid)
         assert result.shape[0] == H, (
-            f"Bottom rows with sparse valid pixels were cropped: "
-            f"expected H={H}, got {result.shape[0]}"
+            f"Bottom rows with sparse valid pixels were cropped: expected H={H}, got {result.shape[0]}"
         )
 
 
@@ -240,22 +225,15 @@ class TestScrollAxisDetection:
     def test_pure_horizontal_scroll_test20_pattern(self):
         """test20 pattern: ty≈0 for all frames, tx ranges 0→1857px."""
         txs = [1857, 1482, 1130, 942, 688, 315, 0]
-        affines = [
-            make_translation_affine(tx=float(tx), ty=float(i % 4))
-            for i, tx in enumerate(txs)
-        ]
+        affines = [make_translation_affine(tx=float(tx), ty=float(i % 4)) for i, tx in enumerate(txs)]
         result = _detect_scroll_axis(affines)
-        assert result == "horizontal", (
-            f"Expected 'horizontal' for pure tx scroll, got '{result}'"
-        )
+        assert result == "horizontal", f"Expected 'horizontal' for pure tx scroll, got '{result}'"
 
     def test_diagonal_scroll_test7_pattern(self):
         """test7 pattern: significant both ty and tx components."""
         affines = [make_translation_affine(tx=i * 50.0, ty=i * 150.0) for i in range(6)]
         result = _detect_scroll_axis(affines)
-        assert result in ("diagonal", "vertical"), (
-            f"Expected 'diagonal' or 'vertical' for ty+tx drift, got '{result}'"
-        )
+        assert result in ("diagonal", "vertical"), f"Expected 'diagonal' or 'vertical' for ty+tx drift, got '{result}'"
 
     def test_colocated_frames_test21_pattern(self):
         """test21 pattern: 3 frames at identical positions."""
@@ -267,16 +245,11 @@ class TestScrollAxisDetection:
         ]
         tys = sorted([float(a[1, 2]) for a in affines])
         min_gap = float(np.diff(tys).min())
-        assert min_gap == pytest.approx(0.0, abs=1.0), (
-            f"Expected min_gap≈0 for co-located frames, got {min_gap}"
-        )
+        assert min_gap == pytest.approx(0.0, abs=1.0), f"Expected min_gap≈0 for co-located frames, got {min_gap}"
 
     def test_ty_range_dominates_vertical_classification(self):
         """Slight tx drift (test15: tx_range=22px) should still classify as vertical."""
-        affines = [
-            make_translation_affine(tx=float(i * 4), ty=float(i * 400))
-            for i in range(7)
-        ]
+        affines = [make_translation_affine(tx=float(i * 4), ty=float(i * 400)) for i in range(7)]
         assert _detect_scroll_axis(affines) == "vertical"
 
 
@@ -302,10 +275,7 @@ class TestDetectScrollAxisModule:
 
     def test_diagonal_returns_diagonal(self):
         """tx_range > 0.3 × ty_range → 'diagonal' (test7 pattern)."""
-        affines = [
-            make_translation_affine(tx=float(i * 80), ty=float(i * 200))
-            for i in range(6)
-        ]
+        affines = [make_translation_affine(tx=float(i * 80), ty=float(i * 200)) for i in range(6)]
         result = _detect_scroll_axis(affines)
         assert result == "diagonal", f"Expected 'diagonal', got '{result}'"
 
@@ -316,10 +286,7 @@ class TestDetectScrollAxisModule:
 
     def test_small_tx_drift_still_vertical(self):
         """tx_range=20px vs ty_range=1000px: ratio 0.02 << 0.3 → 'vertical'."""
-        affines = [
-            make_translation_affine(tx=float(i * 4), ty=float(i * 250))
-            for i in range(5)
-        ]
+        affines = [make_translation_affine(tx=float(i * 4), ty=float(i * 250)) for i in range(5)]
         assert _detect_scroll_axis(affines) == "vertical"
 
 
@@ -347,9 +314,7 @@ class TestComputeRowCoverage:
         frame_h, canvas_h = 100, 100
         frames = [make_frame(frame_h, 80)] * 2
         affines = [make_translation_affine(ty=0.0)] * 2
-        row_cov, pct_multi, median_cov = _compute_row_coverage(
-            affines, frames, canvas_h
-        )
+        row_cov, pct_multi, median_cov = _compute_row_coverage(affines, frames, canvas_h)
         assert row_cov.shape == (canvas_h,)
         assert int(row_cov.min()) == 2
         assert pct_multi == pytest.approx(1.0)
@@ -364,9 +329,7 @@ class TestComputeRowCoverage:
             make_translation_affine(ty=0.0),
             make_translation_affine(ty=float(frame_h)),
         ]
-        row_cov, pct_multi, median_cov = _compute_row_coverage(
-            affines, frames, canvas_h
-        )
+        row_cov, pct_multi, median_cov = _compute_row_coverage(affines, frames, canvas_h)
         assert int(row_cov[0]) == 1
         assert int(row_cov[frame_h]) == 1
         assert pct_multi == pytest.approx(0.0)
@@ -416,6 +379,7 @@ class TestPanoramaStitchFallback:
     @pytest.fixture(autouse=True)
     def mock_batch_canvas(self):
         from unittest.mock import patch
+
         with patch("middleware.src.stitching.alignment.canvas._BATCH_CANVAS", False):
             yield
 
@@ -447,10 +411,11 @@ class TestPanoramaStitchFallback:
         mock_stitcher = MagicMock()
         mock_stitcher.stitch.return_value = (cv2.Stitcher_ERR_NEED_MORE_IMGS, None)
 
-        with patch("cv2.Stitcher_create", return_value=mock_stitcher), pytest.raises(CanvasError, match="PANORAMA stitcher failed"):
-            _panorama_stitch_fallback(
-                [self._solid_bgr()], str(tmp_path / "out.png")
-            )
+        with (
+            patch("cv2.Stitcher_create", return_value=mock_stitcher),
+            pytest.raises(CanvasError, match="PANORAMA stitcher failed"),
+        ):
+            _panorama_stitch_fallback([self._solid_bgr()], str(tmp_path / "out.png"))
 
     def test_saves_file_on_success(self, tmp_path):
         """Successful stitch → output file written to output_path."""
@@ -492,9 +457,7 @@ class TestPanoramaStitchFallback:
         mock_stitcher.stitch.return_value = (cv2.Stitcher_OK, fake_pano)
 
         with patch("cv2.Stitcher_create", return_value=mock_stitcher):
-            result = _panorama_stitch_fallback(
-                [self._solid_bgr()], str(tmp_path / "out.png")
-            )
+            result = _panorama_stitch_fallback([self._solid_bgr()], str(tmp_path / "out.png"))
 
         assert isinstance(result, PILImage.Image)
         assert result.width > 0 and result.height > 0
@@ -613,18 +576,10 @@ class TestBatchCanvasWiring:
 # ===========================================================================
 
 
-
-
 # ── TestCorrectSeamLumSteps — §5.1 Post-composite seam luminance step correction (S166) ──
 
 
-
-
-
-
-
 # ── TestCorrectSeamLumStepsListBandPx — §5.20 per-seam list band_px API ──────
-
 
 
 # ===========================================================================
@@ -632,19 +587,8 @@ class TestBatchCanvasWiring:
 # ===========================================================================
 
 
-
 # _canvas_valid_area_ratio (§5.39)
 # ---------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
 
 
 # ===========================================================================
@@ -652,75 +596,11 @@ class TestBatchCanvasWiring:
 # ===========================================================================
 
 
-
-
 # ===========================================================================
 # §5.50: _strip_sharpness_cv
 # ===========================================================================
 
 
-
-
 # ===========================================================================
 # §5.53: _strip_contrast_cv
 # ===========================================================================
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

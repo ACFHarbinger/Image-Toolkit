@@ -80,10 +80,10 @@ class TestWallpaperPipeline:
         fast = estimate_wallpaper_time(n_frames=40, quality="fast")
         assert fast["total_s"] < est["total_s"]
         # Stage sum equals total.
-        assert abs(
-            est["hero_select_s"] + est["plate_s"] + est["composite_s"] + est["aspect_frame_s"]
-            - est["total_s"]
-        ) < 1e-6
+        assert (
+            abs(est["hero_select_s"] + est["plate_s"] + est["composite_s"] + est["aspect_frame_s"] - est["total_s"])
+            < 1e-6
+        )
 
     def test_missing_clip_raises(self, tmp_path):
         with pytest.raises((FileNotFoundError, OSError, RuntimeError, ValueError)):

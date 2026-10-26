@@ -199,9 +199,7 @@ class TestRunCanonicalAsp:
         assert raw is not None and published is not None
         assert int(raw.mean()) == int(published.mean())
 
-    def test_ungated_ignores_inherited_gate_env_for_counterfactual(
-        self, tmp_path, monkeypatch
-    ):
+    def test_ungated_ignores_inherited_gate_env_for_counterfactual(self, tmp_path, monkeypatch):
         monkeypatch.setenv("ASP_BENCH_UNGATED", "1")
         monkeypatch.setenv("ASP_GATE_SC", "5")
         monkeypatch.setenv("ASP_ALIGN_GATE_DX", "50")

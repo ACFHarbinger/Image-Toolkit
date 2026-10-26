@@ -74,9 +74,7 @@ def test_build_bridge_proposals_high_overlap_skip():
     # 5 strips spaced 30px apart horizontally (heavy overlap at W=192), all in
     # one reliable chain -> high-overlap skip beyond the temporal backbone.
     positions = [(i * 30.0, 0.0) for i in range(5)]
-    extra, telemetry = build_overlap_bridge_proposals(
-        5, positions, W=192, H=128, range_width=3, min_overlap=0.3
-    )
+    extra, telemetry = build_overlap_bridge_proposals(5, positions, W=192, H=128, range_width=3, min_overlap=0.3)
     assert telemetry["stopped_reason"] is None
     reasons = [p.reason for p in extra]
     assert "overlap_bridge" in reasons
@@ -88,18 +86,14 @@ def test_build_bridge_proposals_connects_two_components():
     # Two reliable chains that geometrically overlap at the boundary: strips
     # 0..2 at 0/40/80 (chain), strip 3 unknown (chain gap), strip 4 at 100.
     positions = [(0.0, 0.0), (40.0, 0.0), (80.0, 0.0), None, (100.0, 0.0)]
-    extra, telemetry = build_overlap_bridge_proposals(
-        5, positions, W=192, H=128, range_width=3, min_overlap=0.1
-    )
+    extra, telemetry = build_overlap_bridge_proposals(5, positions, W=192, H=128, range_width=3, min_overlap=0.1)
     assert telemetry["components"] == 2
     assert any(p.reason == "component_bridge" for p in extra)
 
 
 def test_sparse_anchors_stop_without_proposals():
     positions = [(0.0, 0.0), None, None, (500.0, 0.0), None]
-    extra, telemetry = build_overlap_bridge_proposals(
-        5, positions, W=192, H=128
-    )
+    extra, telemetry = build_overlap_bridge_proposals(5, positions, W=192, H=128)
     assert telemetry["stopped_reason"] == "anchors_too_sparse"
     assert extra == []
 
@@ -130,7 +124,10 @@ def test_pairwise_match_appends_extra_proposals_deduplicated():
     try:
         telemetry: dict = {}
         _pairwise_match(
-            frames, [None] * 5, use_loftr=False, proposal_telemetry=telemetry,
+            frames,
+            [None] * 5,
+            use_loftr=False,
+            proposal_telemetry=telemetry,
             extra_proposals=extra,
         )
     finally:

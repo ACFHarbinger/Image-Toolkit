@@ -29,9 +29,7 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 pytest.importorskip("PySide6", reason="the inspector needs PySide6")
@@ -71,7 +69,7 @@ def qapp():
 
 def _image(h=400, w=300, value=90) -> np.ndarray:
     img = np.full((h, w, 3), value, dtype=np.uint8)
-    img[h // 2:, :] = value + 60  # a horizontal seam to look at
+    img[h // 2 :, :] = value + 60  # a horizontal seam to look at
     return img
 
 
@@ -269,7 +267,9 @@ def _mouse_event(kind, pos, panel, buttons=None):
     button = Qt.MouseButton.LeftButton if kind != QMouseEvent.Type.MouseMove else Qt.MouseButton.NoButton
     if buttons is None:
         buttons = Qt.MouseButton.LeftButton if kind != QMouseEvent.Type.MouseButtonRelease else Qt.MouseButton.NoButton
-    return QMouseEvent(kind, QPointF(pos), QPointF(panel.mapToGlobal(pos)), button, buttons, Qt.KeyboardModifier.NoModifier)
+    return QMouseEvent(
+        kind, QPointF(pos), QPointF(panel.mapToGlobal(pos)), button, buttons, Qt.KeyboardModifier.NoModifier
+    )
 
 
 def _click(panel, pos):
@@ -420,10 +420,12 @@ def test_overlay_renders_a_pending_chain_across_panels(qapp):
     overlay = EdgeOverlay()
     overlay.register_panels({"asp": a, "simple": b})
     overlay.resize(200, 200)
-    overlay.set_pending([
-        EdgePoint(image="asp", x=0.1, y=0.1),
-        EdgePoint(image="simple", x=0.2, y=0.2, w=0.1, h=0.1),
-    ])
+    overlay.set_pending(
+        [
+            EdgePoint(image="asp", x=0.1, y=0.1),
+            EdgePoint(image="simple", x=0.2, y=0.2, w=0.1, h=0.1),
+        ]
+    )
     overlay.grab()  # must not raise
     a.close()
     b.close()
@@ -467,10 +469,14 @@ def test_a_panel_with_no_image_is_inert(qapp):
 def grid(qapp):
     widget = PanelGrid()
     widget.resize(1200, 400)
-    widget.set_images({
-        "asp": _image(), "simple": _image(420, 320, 100),
-        "overmix": _image(500, 380, 110), "ground_truth": _image(440, 300, 120),
-    })
+    widget.set_images(
+        {
+            "asp": _image(),
+            "simple": _image(420, 320, 100),
+            "overmix": _image(500, 380, 110),
+            "ground_truth": _image(440, 300, 120),
+        }
+    )
     return widget
 
 

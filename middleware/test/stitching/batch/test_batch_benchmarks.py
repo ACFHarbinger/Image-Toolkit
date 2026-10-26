@@ -30,10 +30,8 @@ import pytest
 
 try:
     import backend as batch
-    if (
-        getattr(batch, "__file__", None) is None
-        or not hasattr(batch, "bundle_adjust")
-    ):
+
+    if getattr(batch, "__file__", None) is None or not hasattr(batch, "bundle_adjust"):
         raise ImportError("compiled base ASP extension not available")
     HAS_BATCH = True
 except ImportError:
@@ -71,7 +69,8 @@ class TestBundleAdjustSpeedup:
         rng = np.random.default_rng(0)
         return [
             {
-                "i": i, "j": i + 1,
+                "i": i,
+                "j": i + 1,
                 "dx": float(rng.normal(0, 1)),
                 "dy": float(step_px + rng.normal(0, 2)),
                 "weight": 0.9,
@@ -96,14 +95,9 @@ class TestBundleAdjustSpeedup:
         N = 14
         edges = self._chain_edges(N)
 
-        py_time  = _mean_wall_time(_bundle_adjust_affine_python, edges, N, n=20)
+        py_time = _mean_wall_time(_bundle_adjust_affine_python, edges, N, n=20)
         cpp_time = _mean_wall_time(batch.bundle_adjust.bundle_adjust_affine, edges, N, n=20)
-        speedup  = py_time / max(cpp_time, 1e-9)
+        speedup = py_time / max(cpp_time, 1e-9)
 
-        print(
-            f"\nbundle_adjust: py={py_time*1000:.2f}ms  "
-            f"cpp={cpp_time*1000:.2f}ms  speedup={speedup:.1f}×"
-        )
-        assert speedup >= MIN_SPEEDUP, (
-            f"bundle_adjust speedup {speedup:.1f}× < {MIN_SPEEDUP}×."
-        )
+        print(f"\nbundle_adjust: py={py_time * 1000:.2f}ms  cpp={cpp_time * 1000:.2f}ms  speedup={speedup:.1f}×")
+        assert speedup >= MIN_SPEEDUP, f"bundle_adjust speedup {speedup:.1f}× < {MIN_SPEEDUP}×."

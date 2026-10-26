@@ -79,9 +79,7 @@ def test_composite_plate_single_pose_one_character():
     bg1[35:55, 35:55] = False
 
     canvas = bg_base.copy()
-    result, claimed, meta = composite_plate_single_pose(
-        [f0, f1], [bg0, bg1], canvas, soft_edge_px=0
-    )
+    result, claimed, meta = composite_plate_single_pose([f0, f1], [bg0, bg1], canvas, soft_edge_px=0)
 
     assert meta["n_claimed_pixels"] > 0
     assert len(meta["zones"]) == 1
@@ -100,9 +98,7 @@ def test_composite_preserves_canvas_where_warp_padding_has_no_content():
     valid = np.zeros((H, W), dtype=bool)
     valid[20:60, 20:60] = True
 
-    result, _claimed, _meta = composite_plate_single_pose(
-        [frame], [bg], canvas, warped_valid=[valid]
-    )
+    result, _claimed, _meta = composite_plate_single_pose([frame], [bg], canvas, warped_valid=[valid])
 
     assert np.all(result[:20] == 41)
     assert np.all(result[20:60, 20:60] == 120)
@@ -115,9 +111,7 @@ def test_build_aligned_background_plate_single_source_respects_warped_valid():
     valid = np.ones((H, W), dtype=bool)
     valid[:9] = False
 
-    _plate, plate_valid = _build_aligned_background_plate(
-        [frame], [None], H, W, warped_valid=[valid]
-    )
+    _plate, plate_valid = _build_aligned_background_plate([frame], [None], H, W, warped_valid=[valid])
 
     assert not plate_valid[:9].any()
     assert plate_valid[9:].all()
@@ -135,7 +129,10 @@ def test_composite_uses_canvas_for_single_sample_background():
     valid1[10:30, :] = False
 
     result, _claimed, _meta = composite_plate_single_pose(
-        [frame0, frame1], [bg0, bg1], canvas, warped_valid=[np.ones((H, W), bool), valid1],
+        [frame0, frame1],
+        [bg0, bg1],
+        canvas,
+        warped_valid=[np.ones((H, W), bool), valid1],
         soft_edge_px=0,
     )
 
@@ -224,9 +221,7 @@ def test_laplacian_blend_matches_flat_color_feather_and_handles_one_row():
     alpha = np.full(left.shape[:2], 0.5, dtype=np.float32)
 
     blended = _laplacian_blend(left, right, alpha)
-    expected = np.rint(
-        left * alpha[:, :, None] + right * (1.0 - alpha[:, :, None])
-    ).astype(np.uint8)
+    expected = np.rint(left * alpha[:, :, None] + right * (1.0 - alpha[:, :, None])).astype(np.uint8)
 
     assert np.allclose(blended, expected, atol=1)
 
@@ -302,9 +297,7 @@ def test_blend_phase_plates_narrow_overlap_has_no_luminance_step():
     right_valid[31:] = True
     unclaimed = np.full((H, W), -1, dtype=np.int32)
 
-    result, _claimed = _blend_phase_plates(
-        left, unclaimed, left_valid, right, unclaimed, right_valid, seam_y=40
-    )
+    result, _claimed = _blend_phase_plates(left, unclaimed, left_valid, right, unclaimed, right_valid, seam_y=40)
 
     values = result[30:52, W // 2, 0].astype(np.int16)
     # Bound is generous: this 100-unit flat gap is a pathological probe, ~12x a
@@ -333,7 +326,7 @@ def _phase_join_inputs(*, overlap, gain_drift, seed=0):
     right_valid = np.zeros((H, W), dtype=bool)
     a_end = 720
     left_valid[:a_end] = True
-    right_valid[a_end - overlap:] = True
+    right_valid[a_end - overlap :] = True
     left[~left_valid] = 0
     right[~right_valid] = 0
     seam_y = a_end - overlap // 2
@@ -401,7 +394,10 @@ def test_composite_plate_multiphase_three_close_phases_no_compounded_seam():
     assert (valid[0] | valid[1] | valid[2]).all()  # contiguous, no canvas gap
 
     result, _claimed, _meta = composite_plate_multiphase(
-        frames, bg, canvas, valid,
+        frames,
+        bg,
+        canvas,
+        valid,
         spans=[(0, 0, 0), (1, 1, 1), (2, 2, 2)],
         physical_phase_order=[0, 1, 2],
         edge_preserve=False,
@@ -465,8 +461,16 @@ def _multiphase_inputs(n_frames=4):
 
 def _run_multiphase(canvas, frames, masks, affines, H, W, phase_ids, meta):
     return _composite_foreground(
-        frames, masks, canvas, H, W, frames, affines, masks,
-        phase_ids=phase_ids, seam_meta_out=meta,
+        frames,
+        masks,
+        canvas,
+        H,
+        W,
+        frames,
+        affines,
+        masks,
+        phase_ids=phase_ids,
+        seam_meta_out=meta,
     )
 
 
@@ -542,9 +546,7 @@ def test_plate_multiphase_one_phase_is_single_pose_byte_identical(monkeypatch):
 def test_composite_plate_multiphase_single_span_matches_single_pose():
     """The direct one-span multiphase path remains byte-identical to P1."""
     canvas, frames, masks, affines, H, W = _multiphase_inputs()
-    warped_frames, warped_bg, warped_valid = _warp_inputs(
-        frames, affines, masks, H, W, len(frames), include_valid=True
-    )
+    warped_frames, warped_bg, warped_valid = _warp_inputs(frames, affines, masks, H, W, len(frames), include_valid=True)
 
     single, _single_claimed, _single_meta = composite_plate_single_pose(
         warped_frames, warped_bg, canvas, warped_valid=warped_valid

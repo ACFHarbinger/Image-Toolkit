@@ -12,9 +12,7 @@ from middleware.src.stitching.core.pipeline.manager import AnimeStitchPipeline
 from middleware.src.stitching.core.pipeline.safety_policy import SafeAspPolicy
 from asp_gui.helpers._progress_pipeline import _ProgressPipeline
 
-_SAMPLES = (
-    Path(__file__).resolve().parents[3] / "data" / "samples" / "test_scroll_gradient"
-)
+_SAMPLES = Path(__file__).resolve().parents[4] / "data" / "asp" / "samples" / "test_scroll_gradient"
 
 
 def _kwargs() -> dict:

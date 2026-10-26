@@ -22,9 +22,7 @@ import sys
 import numpy as np
 import pytest
 
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 import matplotlib  # noqa: E402
@@ -144,17 +142,20 @@ def test_small_rasters_are_left_alone():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("builder", [
-    vb.color_channel_figure,
-    vb.cumulative_histogram_figure,
-    vb.scatter_2d_figure,
-    vb.scatter_3d_figure,
-    vb.spatial_scatter_figure,
-    vb.intensity_heatmap_figure,
-    vb.gradient_heatmap_figure,
-    vb.fft_magnitude_figure,
-    vb.row_luminance_profile_figure,
-])
+@pytest.mark.parametrize(
+    "builder",
+    [
+        vb.color_channel_figure,
+        vb.cumulative_histogram_figure,
+        vb.scatter_2d_figure,
+        vb.scatter_3d_figure,
+        vb.spatial_scatter_figure,
+        vb.intensity_heatmap_figure,
+        vb.gradient_heatmap_figure,
+        vb.fft_magnitude_figure,
+        vb.row_luminance_profile_figure,
+    ],
+)
 def test_single_image_figures_build(builder):
     assert builder(_sharp(120, 100)) is not None
 

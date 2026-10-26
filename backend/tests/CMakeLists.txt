@@ -45,15 +45,15 @@ endif()
 add_library(base_impl STATIC
     # Animation / Anime Stitch Pipeline sources — live in the
     # ASP submodule, compiled here for the test binary.
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/matching.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/bundle_adjust.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/validation.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/canvas.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/seam.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/compositing.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/exposure.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/frame_selection.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/fg_register.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/src/asp/matching.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/src/asp/bundle_adjust.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/src/asp/validation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/src/asp/canvas.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/src/asp/seam.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/src/asp/compositing.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/src/asp/exposure.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/src/asp/frame_selection.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/src/asp/fg_register.cpp
 
     # Image I/O + filesystem (Phase 2)
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/image/image_batch.cpp

@@ -31,7 +31,7 @@ from middleware.src.stitching.core.pipeline.telemetry import (
     sink_from_env,
 )
 
-_SRC = Path(__file__).resolve().parents[2] / "src" / "core" / "pipeline"
+_SRC = Path(__file__).resolve().parents[3] / "src" / "stitching" / "core" / "pipeline"
 
 
 def _session(tmp_paths: list[str] | None = None, **kwargs) -> PipelineSession:

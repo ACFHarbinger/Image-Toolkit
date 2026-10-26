@@ -24,9 +24,7 @@ from middleware.src.stitching.alignment.matching._pairwise import _pairwise_matc
 from middleware.src.stitching.models.wrappers import aliked_lg_wrapper as _aliked_module
 from middleware.src.stitching.models.wrappers.efficient_loftr_wrapper import EfficientLoFTRWrapper
 
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 # ---------------------------------------------------------------------------
@@ -50,9 +48,7 @@ class TestExtractSimilarity:
         M[1, 2] = ty
         return M
 
-    def _rotation_affine(
-        self, theta_deg: float, tx: float = 0.0, ty: float = 0.0
-    ) -> np.ndarray:
+    def _rotation_affine(self, theta_deg: float, tx: float = 0.0, ty: float = 0.0) -> np.ndarray:
         theta = math.radians(theta_deg)
         M = np.array(
             [
@@ -63,9 +59,7 @@ class TestExtractSimilarity:
         )
         return M
 
-    def _scale_translation(
-        self, scale: float, tx: float = 0.0, ty: float = 0.0
-    ) -> np.ndarray:
+    def _scale_translation(self, scale: float, tx: float = 0.0, ty: float = 0.0) -> np.ndarray:
         M = np.array(
             [
                 [scale, 0.0, tx],
@@ -136,12 +130,8 @@ class TestExtractSimilarity:
         for _ in range(20):
             M = rng.standard_normal((2, 3)).astype(np.float32)
             out = _extract_similarity(M)
-            assert out[1, 0] == pytest.approx(-out[0, 1], abs=1e-5), (
-                "Similarity constraint -b == c violated"
-            )
-            assert out[1, 1] == pytest.approx(out[0, 0], abs=1e-5), (
-                "Similarity constraint a == d violated"
-            )
+            assert out[1, 0] == pytest.approx(-out[0, 1], abs=1e-5), "Similarity constraint -b == c violated"
+            assert out[1, 1] == pytest.approx(out[0, 0], abs=1e-5), "Similarity constraint a == d violated"
 
 
 # ---------------------------------------------------------------------------
@@ -205,15 +195,11 @@ class TestComputeBgMatchRatio:
 
     def test_all_background_returns_one(self):
         """When every LoFTR match is on background, ratio must be 1.0."""
-        assert _compute_bg_match_ratio(n_bg_pts=200, n_total_pts=200) == pytest.approx(
-            1.0
-        )
+        assert _compute_bg_match_ratio(n_bg_pts=200, n_total_pts=200) == pytest.approx(1.0)
 
     def test_no_background_returns_zero(self):
         """When no LoFTR matches survive bg filtering, ratio is 0.0."""
-        assert _compute_bg_match_ratio(n_bg_pts=0, n_total_pts=150) == pytest.approx(
-            0.0
-        )
+        assert _compute_bg_match_ratio(n_bg_pts=0, n_total_pts=150) == pytest.approx(0.0)
 
     def test_known_ratio_computed_correctly(self):
         """20 bg pts out of 100 total → ratio 0.20."""
@@ -226,9 +212,7 @@ class TestComputeBgMatchRatio:
 
     def test_half_bg_half_fg_returns_point_five(self):
         """Exactly half the matches on background → ratio 0.5."""
-        assert _compute_bg_match_ratio(n_bg_pts=50, n_total_pts=100) == pytest.approx(
-            0.5, abs=1e-6
-        )
+        assert _compute_bg_match_ratio(n_bg_pts=50, n_total_pts=100) == pytest.approx(0.5, abs=1e-6)
 
 
 class TestPairwiseMatcherProgress:

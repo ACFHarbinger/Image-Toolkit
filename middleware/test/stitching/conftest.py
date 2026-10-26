@@ -32,9 +32,7 @@ def _load_package(alias: str, src_dir: Path) -> None:
     init_file = src_dir / "__init__.py"
     if not init_file.is_file():
         return
-    spec = importlib.util.spec_from_file_location(
-        alias, init_file, submodule_search_locations=[str(src_dir)]
-    )
+    spec = importlib.util.spec_from_file_location(alias, init_file, submodule_search_locations=[str(src_dir)])
     if spec is None or spec.loader is None:
         return
     module = importlib.util.module_from_spec(spec)
@@ -49,8 +47,6 @@ _load_package("middleware.src.stitching_benchmark", _REPO_ROOT / "middleware" / 
 _load_package("middleware.src.stitching_evaluation", _REPO_ROOT / "middleware" / "benchmark" / "asp" / "evaluation")
 _load_package("asp_backend_benchmark", _REPO_ROOT / "middleware" / "benchmark" / "asp")
 _load_package("asp_backend_evaluation", _REPO_ROOT / "middleware" / "benchmark" / "asp" / "evaluation")
-
-
 
 
 # ----------------------------------------------------------------------

@@ -15,9 +15,7 @@ import cv2
 import numpy as np
 import pytest
 
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 from middleware.src.stitching.alignment.fg_register import (  # noqa: E402
@@ -96,9 +94,7 @@ class TestForegroundRegistration:
         b, fb = _make_scene(150)
 
         seam = 200  # horizontal seam mid-canvas
-        adj_a, adj_b, info = register_foreground_at_seam(
-            a, b, fa, fb, seam_pos=seam, axis=0
-        )
+        adj_a, adj_b, info = register_foreground_at_seam(a, b, fa, fb, seam_pos=seam, axis=0)
 
         assert info["warped"] is True, info
 
@@ -113,18 +109,14 @@ class TestForegroundRegistration:
         # A single tapered midpoint warp should measurably reduce the seam gap.
         # With RAFT+ARAP the reduction is ~15-40% depending on scene texture;
         # require at least 10% so the test survives different flow backends.
-        assert new_gap < orig_gap * 0.90, (
-            f"seam gap not reduced enough: {orig_gap} -> {new_gap:.1f}"
-        )
+        assert new_gap < orig_gap * 0.90, f"seam gap not reduced enough: {orig_gap} -> {new_gap:.1f}"
         assert new_gap < orig_gap, "warp must not increase the gap"
 
     def test_background_untouched(self):
         """The aligned background outside the foreground must be unchanged."""
         a, fa = _make_scene(120)
         b, fb = _make_scene(150)
-        adj_a, adj_b, info = register_foreground_at_seam(
-            a, b, fa, fb, seam_pos=200, axis=0
-        )
+        adj_a, adj_b, info = register_foreground_at_seam(a, b, fa, fb, seam_pos=200, axis=0)
         # A region far from any foreground (top-left corner) must be identical.
         assert np.array_equal(adj_a[0:80, 0:80], a[0:80, 0:80])
         assert np.array_equal(adj_b[0:80, 0:80], b[0:80, 0:80])
@@ -136,9 +128,7 @@ class TestForegroundRegistration:
         a = rng.integers(40, 80, size=(h, w, 3)).astype(np.uint8)
         b = rng.integers(40, 80, size=(h, w, 3)).astype(np.uint8)
         empty = np.zeros((h, w), dtype=bool)
-        adj_a, adj_b, info = register_foreground_at_seam(
-            a, b, empty, empty, seam_pos=200, axis=0
-        )
+        adj_a, adj_b, info = register_foreground_at_seam(a, b, empty, empty, seam_pos=200, axis=0)
         assert info["warped"] is False
         assert info["fg_pixels"] == 0
         assert np.array_equal(adj_a, a)
@@ -152,9 +142,7 @@ class TestForegroundRegistration:
         """
         a, fa = _make_scene(80, limb_w=150)
         b, fb = _make_scene(180, limb_w=150)  # overlap 180..230, shift 100px
-        adj_a, adj_b, info = register_foreground_at_seam(
-            a, b, fa, fb, seam_pos=200, axis=0, max_residual=40.0
-        )
+        adj_a, adj_b, info = register_foreground_at_seam(a, b, fa, fb, seam_pos=200, axis=0, max_residual=40.0)
         assert info["warped"] is False, info
         # A6: the fallback flag must be set and a dominant frame identified so the
         # compositor can take the seam foreground from one pose only.
@@ -168,9 +156,7 @@ class TestForegroundRegistration:
         # Frame a has a wide limb (more fg); b has a thin one.
         a, fa = _make_scene(120, limb_w=120)
         b, fb = _make_scene(150, limb_w=20)
-        _, _, info = register_foreground_at_seam(
-            a, b, fa, fb, seam_pos=200, axis=0, max_residual=5.0
-        )
+        _, _, info = register_foreground_at_seam(a, b, fa, fb, seam_pos=200, axis=0, max_residual=5.0)
         assert info["dominant"] == "a", info
 
 
@@ -271,12 +257,8 @@ class TestARAPPush:
         # Background cells (top-left corner has no fg) keep the initial flow
         bg_dx = pushed[0:16, 0:16, 0]
         bg_dy = pushed[0:16, 0:16, 1]
-        np.testing.assert_allclose(
-            bg_dx, 3.0, atol=0.1, err_msg="bg cells must keep initial flow"
-        )
-        np.testing.assert_allclose(
-            bg_dy, 3.0, atol=0.1, err_msg="bg cells must keep initial flow"
-        )
+        np.testing.assert_allclose(bg_dx, 3.0, atol=0.1, err_msg="bg cells must keep initial flow")
+        np.testing.assert_allclose(bg_dy, 3.0, atol=0.1, err_msg="bg cells must keep initial flow")
 
 
 # ---------------------------------------------------------------------------
@@ -336,9 +318,7 @@ class TestLSDCollinearity:
         # Full-canvas flow with non-zero values in the crop region
         rng = np.random.default_rng(11)
         flow = np.zeros((canvas_H, canvas_W, 2), dtype=np.float32)
-        flow[y_offset:, :] = rng.uniform(-5, 5, (crop_H, canvas_W, 2)).astype(
-            np.float32
-        )
+        flow[y_offset:, :] = rng.uniform(-5, 5, (crop_H, canvas_W, 2)).astype(np.float32)
 
         fg_mask = np.zeros((canvas_H, canvas_W), dtype=bool)
         fg_mask[y_offset:, :] = True  # fg is only in the crop region
@@ -401,10 +381,7 @@ class TestLSDCollinearity:
         # should share the same (or very similar) x-translation.
         # Extract x-translations from the middle row (where the line is).
         mid_row = H // 2
-        tx_vals = [
-            result[mid_row, col + cell_size // 2, 0]
-            for col in range(0, W - cell_size, cell_size)
-        ]
+        tx_vals = [result[mid_row, col + cell_size // 2, 0] for col in range(0, W - cell_size, cell_size)]
         tx_std = float(np.std(tx_vals))
         # Without LSD constraint, std would be ~6px (random per-cell);
         # with LSD constraint, all constrained cells should be closer.
@@ -420,10 +397,8 @@ class TestLSDCollinearity:
 
 try:
     import backend as _batch_fgreg_test  # noqa: F401
-    if (
-        getattr(_batch_fgreg_test, "__file__", None) is None
-        or not hasattr(_batch_fgreg_test, "fg_register")
-    ):
+
+    if getattr(_batch_fgreg_test, "__file__", None) is None or not hasattr(_batch_fgreg_test, "fg_register"):
         raise ImportError("compiled base.fg_register extension not available")
     _HAS_BATCH_FGREG = True
 except ImportError:

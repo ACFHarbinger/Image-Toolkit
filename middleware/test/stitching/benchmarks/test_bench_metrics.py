@@ -20,9 +20,7 @@ import sys
 import numpy as np
 import pytest
 
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 try:
@@ -68,9 +66,7 @@ class TestSeamVisibilityScore:
         assert _seam_visibility_score(img) > 50.0
 
     def test_soft_gradient_scores_low(self):
-        ramp = np.tile(
-            np.linspace(40, 200, 100).astype(np.uint8)[:, None, None], (1, 120, 3)
-        )
+        ramp = np.tile(np.linspace(40, 200, 100).astype(np.uint8)[:, None, None], (1, 120, 3))
         assert _seam_visibility_score(ramp) < 5.0
 
 
@@ -79,9 +75,7 @@ class TestSeamCoherence:
         assert _seam_coherence(_solid(100, 120, 128)) < 1.0
 
     def test_banded_image_is_incoherent(self):
-        bands = np.concatenate(
-            [_solid(25, 120, v) for v in (40, 200, 40, 200)], axis=0
-        )
+        bands = np.concatenate([_solid(25, 120, v) for v in (40, 200, 40, 200)], axis=0)
         assert _seam_coherence(bands) > _seam_coherence(_solid(100, 120, 128))
 
 
@@ -102,10 +96,20 @@ class TestGhostingSiqe:
 
 class TestComputeAllMetrics:
     CORE_KEYS = {
-        "sharpness", "coverage", "seam_gradient", "color_entropy",
-        "edge_energy_score", "ghosting_siqe", "seam_coherence",
-        "seam_visibility", "strip_banding_score", "ghost_seam_scores",
-        "ghost_seam_max", "width", "height", "cqas_v1_legacy",
+        "sharpness",
+        "coverage",
+        "seam_gradient",
+        "color_entropy",
+        "edge_energy_score",
+        "ghosting_siqe",
+        "seam_coherence",
+        "seam_visibility",
+        "strip_banding_score",
+        "ghost_seam_scores",
+        "ghost_seam_max",
+        "width",
+        "height",
+        "cqas_v1_legacy",
     }
 
     def test_core_keys_present(self):
@@ -115,9 +119,13 @@ class TestComputeAllMetrics:
     def test_removed_metric_zoo_keys_absent(self):
         m = _compute_all_metrics(_stacked(60, 180), n_strips=2)
         for stale in (
-            "ghosting_score", "rlhf_score",
-            "composite_quality", "canvas_gain_uniformity", "strip_self_ssim",
-            "mllm_overall", "seam_ownership_entropy",
+            "ghosting_score",
+            "rlhf_score",
+            "composite_quality",
+            "canvas_gain_uniformity",
+            "strip_self_ssim",
+            "mllm_overall",
+            "seam_ownership_entropy",
         ):
             assert stale not in m, f"stale metric key {stale!r} still emitted"
 

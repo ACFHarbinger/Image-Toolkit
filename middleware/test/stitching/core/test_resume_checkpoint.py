@@ -6,7 +6,7 @@ import importlib.util
 import json
 from pathlib import Path
 
-_BENCH = Path(__file__).resolve().parents[2] / "benchmark" / "bench_anime_stitch.py"
+_BENCH = Path(__file__).resolve().parents[3] / "benchmark" / "asp" / "bench_anime_stitch.py"
 _SPEC = importlib.util.spec_from_file_location("bench_anime_stitch", _BENCH)
 assert _SPEC and _SPEC.loader
 bench = importlib.util.module_from_spec(_SPEC)

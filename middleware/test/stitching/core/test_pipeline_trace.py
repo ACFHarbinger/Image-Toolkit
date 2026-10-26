@@ -27,13 +27,15 @@ def test_trace_failure_recording_schema():
 
     # Simulate recording stage failure
     err = ValueError("Alignment failed due to insufficient inliers")
-    trace["failures"].append({
-        "stage": 6,
-        "label": _STAGE_LABELS[5],
-        "exception_type": type(err).__name__,
-        "message": str(err),
-        "fallback_used": "SCANS",
-    })
+    trace["failures"].append(
+        {
+            "stage": 6,
+            "label": _STAGE_LABELS[5],
+            "exception_type": type(err).__name__,
+            "message": str(err),
+            "fallback_used": "SCANS",
+        }
+    )
 
     assert len(trace["failures"]) == 1
     f = trace["failures"][0]

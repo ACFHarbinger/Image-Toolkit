@@ -3,6 +3,7 @@ backend/test/animation/rendering/test_photometric.py
 =====================================================
 Tests for photometric correction: vignetting + BaSiC flat-field.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -94,9 +95,7 @@ def _call_vignetting_cpp(frame, gain_map):
     if not photo_mod._BATCH_PHOTO:
         pytest.skip("batch.exposure not available")
     try:
-        return np.asarray(
-            photo_mod._batch_photo.exposure.correct_vignetting(frame, gain_map)
-        )
+        return np.asarray(photo_mod._batch_photo.exposure.correct_vignetting(frame, gain_map))
     except RuntimeError:
         pytest.skip("batch.exposure.correct_vignetting is still a stub — rebuild needed")
 

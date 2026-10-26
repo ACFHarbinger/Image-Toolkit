@@ -8,12 +8,7 @@ from pathlib import Path
 import numpy as np
 from middleware.src.stitching.core.pipeline.safety_metrics import strip_banding_score
 
-_BENCH = (
-    Path(__file__).resolve().parents[3]
-    / "backend"
-    / "benchmark"
-    / "bench_anime_stitch.py"
-)
+_BENCH = Path(__file__).resolve().parents[3] / "backend" / "benchmark" / "bench_anime_stitch.py"
 
 
 def _stacked(top: int, bot: int, h: int = 100, w: int = 80) -> np.ndarray:
@@ -46,7 +41,5 @@ def test_compute_all_metrics_emits_strip_banding():
     affines = [_affine(0.0), _affine(50.0)]
     metrics = mod._compute_all_metrics(img, affines)
     assert "strip_banding_score" in metrics
-    assert metrics["strip_banding_score"] == round(
-        strip_banding_score(img, affines), 2
-    )
+    assert metrics["strip_banding_score"] == round(strip_banding_score(img, affines), 2)
     assert mod._compute_all_metrics(img)["strip_banding_score"] == 0.0

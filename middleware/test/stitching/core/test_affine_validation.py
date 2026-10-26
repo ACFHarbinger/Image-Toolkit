@@ -15,9 +15,7 @@ import sys
 import numpy as np
 import pytest
 
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 from middleware.src.stitching.core.validation import (  # noqa: E402
@@ -40,6 +38,7 @@ def test_affine_gap_stats_reports_full_gap_distribution():
         "median_gap": 30.0,
         "max_gap": 100.0,
     }
+
 
 # ---------------------------------------------------------------------------
 # 1. Clean affines — should pass
@@ -74,9 +73,7 @@ class TestGoodAffinesPass:
         tys = [0, 173, 400, 600, 780, 1280]
         affines = [make_translation_affine(ty=float(ty)) for ty in tys]
         h = _validate_affines(affines, min_step=50.0, max_ratio=3.0)
-        assert h.valid, (
-            f"Borderline ratio with large min_gap should be valid: {h.reason}"
-        )
+        assert h.valid, f"Borderline ratio with large min_gap should be valid: {h.reason}"
         assert h.min_gap >= 173.0
 
 
@@ -158,14 +155,9 @@ class TestRotationScaleMismatch:
         test18 pattern: ty/tx look healthy but affine matrices contain significant
         rotation components → canvas placement will misalign warped frames.
         """
-        affines = [
-            make_rotation_affine(tx=0.0, ty=float(i * 300), angle_deg=8.0)
-            for i in range(5)
-        ]
+        affines = [make_rotation_affine(tx=0.0, ty=float(i * 300), angle_deg=8.0) for i in range(5)]
         h = _validate_affines(affines, max_rotation=0.1)
-        assert not h.valid, (
-            f"8° rotation should be flagged; max_rotation={h.max_rotation:.3f}"
-        )
+        assert not h.valid, f"8° rotation should be flagged; max_rotation={h.max_rotation:.3f}"
         assert h.max_rotation > 0.05
 
     def test_pure_translation_no_rotation_warning(self):
@@ -176,20 +168,14 @@ class TestRotationScaleMismatch:
 
     def test_scale_deviation_detected(self):
         """Scale drift (a[0][0] != 1.0) should be flagged."""
-        affines = [
-            np.array([[1.2, 0.0, 0.0], [0.0, 1.2, float(i * 300)]], dtype=np.float32)
-            for i in range(4)
-        ]
+        affines = [np.array([[1.2, 0.0, 0.0], [0.0, 1.2, float(i * 300)]], dtype=np.float32) for i in range(4)]
         h = _validate_affines(affines, max_scale_dev=0.1)
         assert not h.valid
         assert h.max_scale_dev > 0.1
 
     def test_tiny_rotation_within_tolerance(self):
         """Sub-pixel rotation (< 0.5°) should not trigger the rotation check."""
-        affines = [
-            make_rotation_affine(tx=0.0, ty=float(i * 300), angle_deg=0.3)
-            for i in range(5)
-        ]
+        affines = [make_rotation_affine(tx=0.0, ty=float(i * 300), angle_deg=0.3) for i in range(5)]
         h = _validate_affines(affines, max_rotation=0.1)
         assert h.max_rotation < 0.1
 
@@ -289,9 +275,7 @@ class TestAdaptiveMinGap:
 
     def test_slow_scroll_returns_floor(self):
         """Canvas span 200 px / (10 × 3) = 6.7 → floor 20.0 returned."""
-        affines = [
-            self._aff(ty=float(i * 20)) for i in range(11)
-        ]  # 11 frames, span=200
+        affines = [self._aff(ty=float(i * 20)) for i in range(11)]  # 11 frames, span=200
         result = _compute_adaptive_min_gap(affines)
         assert result == pytest.approx(20.0)
 
@@ -332,9 +316,7 @@ class TestAdaptiveMinGap:
         tys[6] = tys[5] + 30.0  # near-duplicate pair
         affines = [self._aff(ty=ty) for ty in tys]
         adaptive = _compute_adaptive_min_gap(affines)
-        assert adaptive > 25.0, (
-            "adaptive threshold should exceed fixed default for fast scroll"
-        )
+        assert adaptive > 25.0, "adaptive threshold should exceed fixed default for fast scroll"
         health = _validate_affines(affines, min_step=adaptive)
         # The 30 px gap is below the adaptive threshold → validation fails
         assert not health.valid
@@ -374,39 +356,27 @@ class TestAdaptiveRotScale:
         """All frames with near-identical rotation → σ≈0 → loose threshold 0.15 returned."""
         affines = [self._rot_affine(rot=0.111, ty=float(i * 200)) for i in range(6)]
         max_rot, max_sc = _compute_adaptive_rot_scale(affines)
-        assert max_rot == pytest.approx(0.15), (
-            "Consistent rotation should yield loose threshold 0.15"
-        )
+        assert max_rot == pytest.approx(0.15), "Consistent rotation should yield loose threshold 0.15"
 
     def test_inconsistent_rotation_returns_tight_threshold(self):
         """Varying per-frame rotation (σ > 0.02) → tight threshold 0.10 returned."""
         rots = [0.0, 0.05, 0.0, 0.10, 0.0, 0.08]  # std ≈ 0.04
-        affines = [
-            self._rot_affine(rot=r, ty=float(i * 200)) for i, r in enumerate(rots)
-        ]
+        affines = [self._rot_affine(rot=r, ty=float(i * 200)) for i, r in enumerate(rots)]
         max_rot, _ = _compute_adaptive_rot_scale(affines)
-        assert max_rot == pytest.approx(0.10), (
-            "Inconsistent rotation should yield tight threshold 0.10"
-        )
+        assert max_rot == pytest.approx(0.10), "Inconsistent rotation should yield tight threshold 0.10"
 
     def test_consistent_scale_returns_loose_threshold(self):
         """All frames with near-identical scale deviation → loose threshold 0.15 returned."""
         affines = [self._sc_affine(scale_dev=0.12, ty=float(i * 200)) for i in range(6)]
         _, max_sc = _compute_adaptive_rot_scale(affines)
-        assert max_sc == pytest.approx(0.15), (
-            "Consistent scale should yield loose threshold 0.15"
-        )
+        assert max_sc == pytest.approx(0.15), "Consistent scale should yield loose threshold 0.15"
 
     def test_inconsistent_scale_returns_tight_threshold(self):
         """Varying per-frame scale deviation (σ > 0.02) → tight threshold 0.10 returned."""
         devs = [0.0, 0.05, 0.0, 0.10, 0.0, 0.08]  # std ≈ 0.04
-        affines = [
-            self._sc_affine(scale_dev=d, ty=float(i * 200)) for i, d in enumerate(devs)
-        ]
+        affines = [self._sc_affine(scale_dev=d, ty=float(i * 200)) for i, d in enumerate(devs)]
         _, max_sc = _compute_adaptive_rot_scale(affines)
-        assert max_sc == pytest.approx(0.10), (
-            "Inconsistent scale should yield tight threshold 0.10"
-        )
+        assert max_sc == pytest.approx(0.10), "Inconsistent scale should yield tight threshold 0.10"
 
     def test_single_frame_returns_tight_defaults(self):
         """N=1 edge case: cannot compute std → return tight defaults (0.10, 0.10)."""

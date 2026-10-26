@@ -12,8 +12,9 @@ from middleware.src.stitching.core.pipeline._wave_correction import wave_correct
 
 
 def _affines(tx, ty):
-    return [np.array([[1.0, 0.0, float(x)], [0.0, 1.0, float(y)]], dtype=np.float32)
-            for x, y in zip(tx, ty, strict=True)]
+    return [
+        np.array([[1.0, 0.0, float(x)], [0.0, 1.0, float(y)]], dtype=np.float32) for x, y in zip(tx, ty, strict=True)
+    ]
 
 
 def test_straight_trajectory_is_unchanged():
@@ -81,12 +82,11 @@ def test_along_axis_spacing_preserved_for_diagonal():
 
 
 def test_handles_dict_affines():
-    aff = [{"frame": i, "tx": float(i) * 100.0, "ty": (20.0 if i in (2, 3) else 0.0),
-            "a": 1.0, "b": 0.0} for i in range(5)]
+    aff = [
+        {"frame": i, "tx": float(i) * 100.0, "ty": (20.0 if i in (2, 3) else 0.0), "a": 1.0, "b": 0.0} for i in range(5)
+    ]
     out = wave_correct_affines(aff, kind="auto")
-    across = _collinearity_residual(
-        [np.array([[1, 0, a["tx"]], [0, 1, a["ty"]]], dtype=np.float32) for a in out]
-    )
+    across = _collinearity_residual([np.array([[1, 0, a["tx"]], [0, 1, a["ty"]]], dtype=np.float32) for a in out])
     assert np.max(np.abs(across - across[0])) < 1e-3, across
 
 

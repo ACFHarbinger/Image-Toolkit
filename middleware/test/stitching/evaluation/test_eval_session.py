@@ -23,9 +23,7 @@ import sys
 
 import pytest
 
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 from middleware.src.stitching_evaluation.other.schema import (  # noqa: E402
@@ -153,14 +151,17 @@ def test_a_visited_test_is_still_queued_next_session(out_path):
     assert second.is_rated("asp_test02") is False
 
 
-@pytest.mark.parametrize("mutate,expected_key", [
-    (lambda e: e.set_score("asp", "coherence", 2), "asp"),
-    (lambda e: setattr(e, "notes", "a note"), "notes"),
-    (lambda e: setattr(e, "defects", ["banding"]), "defects"),
-    (lambda e: setattr(e, "preference", "simple"), "preference"),
-    (lambda e: setattr(e, "skipped", True), "skipped"),
-    (lambda e: e.bboxes.append(BoundingBox(image="asp", x=0, y=0, w=0.1, h=0.1)), "bboxes"),
-])
+@pytest.mark.parametrize(
+    "mutate,expected_key",
+    [
+        (lambda e: e.set_score("asp", "coherence", 2), "asp"),
+        (lambda e: setattr(e, "notes", "a note"), "notes"),
+        (lambda e: setattr(e, "defects", ["banding"]), "defects"),
+        (lambda e: setattr(e, "preference", "simple"), "preference"),
+        (lambda e: setattr(e, "skipped", True), "skipped"),
+        (lambda e: e.bboxes.append(BoundingBox(image="asp", x=0, y=0, w=0.1, h=0.1)), "bboxes"),
+    ],
+)
 def test_any_real_input_is_persisted(out_path, mutate, expected_key):
     """The flip side of the above: an entry with *anything* in it is user input
     and must survive, or the tool loses work."""

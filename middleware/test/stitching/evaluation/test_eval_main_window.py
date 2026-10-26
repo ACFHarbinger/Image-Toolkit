@@ -27,9 +27,7 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 pytest.importorskip("PySide6", reason="the inspector needs PySide6")
@@ -159,4 +157,3 @@ def test_image_panel_size_hints_bounded(qapp):
     assert min_hint.width() <= 300
     assert min_hint.height() <= 200
     panel.deleteLater()
-

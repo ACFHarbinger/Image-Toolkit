@@ -9,18 +9,11 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-_AUDIT_PATH = (
-    Path(__file__).resolve().parents[3]
-    / "backend"
-    / "benchmark"
-    / "audit_gate_correlation.py"
-)
+_AUDIT_PATH = Path(__file__).resolve().parents[3] / "benchmark" / "asp" / "audit_gate_correlation.py"
 
 
 def _audit_mod():
-    spec = importlib.util.spec_from_file_location(
-        "audit_gate_correlation", _AUDIT_PATH
-    )
+    spec = importlib.util.spec_from_file_location("audit_gate_correlation", _AUDIT_PATH)
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

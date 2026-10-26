@@ -16,9 +16,7 @@ import numpy as np
 import pytest
 
 # Repo root is 4 dirname() calls up from backend/test/animation/test_*.py
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 from middleware.src.stitching.alignment.bundle_adjust import (  # noqa: E402
@@ -112,9 +110,7 @@ class TestAnchorFrame:
     def test_frame0_ty_near_zero(self):
         edges = [make_edge(i, i + 1, dy=300.0) for i in range(3)]
         affines = _bundle_adjust_affine(edges, 4, use_affine=False)
-        assert abs(float(affines[0][1, 2])) < 5.0, (
-            f"frame0 ty={affines[0][1, 2]:.2f} should be near 0"
-        )
+        assert abs(float(affines[0][1, 2])) < 5.0, f"frame0 ty={affines[0][1, 2]:.2f} should be near 0"
 
     def test_frame0_tx_near_zero_translation_mode(self):
         edges = [make_edge(i, i + 1, dx=5.0, dy=300.0) for i in range(3)]
@@ -147,9 +143,7 @@ class TestTranslationScaleMode:
     def test_scale_mode_returns_scaled_matrices(self):
         edges = [make_edge(0, 1, dy=300.0), make_edge(1, 2, dy=300.0)]
         try:
-            affines = _bundle_adjust_affine(
-                edges, 3, use_affine=False, motion_model="translation_scale"
-            )
+            affines = _bundle_adjust_affine(edges, 3, use_affine=False, motion_model="translation_scale")
         except RuntimeError as exc:
             pytest.skip(str(exc))
         assert len(affines) == 3
@@ -224,8 +218,7 @@ class TestFrameClusteringPattern:
         # The 300px edge is pruned, leaving only near-zero edges.
         # The ratio of max (8) to median (6) is < 3.0.
         assert ratio < 3.0, (
-            f"Expected the normal edge to be pruned as an outlier (ratio < 3), "
-            f"but got ratio={ratio:.1f}."
+            f"Expected the normal edge to be pruned as an outlier (ratio < 3), but got ratio={ratio:.1f}."
         )
 
     def test_all_near_zero_edges_degenerate_output(self):
@@ -235,8 +228,7 @@ class TestFrameClusteringPattern:
         tys = _tys(affines)
         canvas_extent = float(max(tys) - min(tys))
         assert canvas_extent < 50.0, (
-            f"All near-zero dy edges should produce a tiny canvas extent, "
-            f"got {canvas_extent:.1f}px"
+            f"All near-zero dy edges should produce a tiny canvas extent, got {canvas_extent:.1f}px"
         )
 
     def test_single_outlier_edge_rejected_by_ba(self):
@@ -291,10 +283,7 @@ class TestNonMonotonicFrameOrder:
 
     def test_compute_ty_gap_ratio(self):
         """Utility: compute alignment health ratio from affine list."""
-        affines = [
-            np.array([[1, 0, 0], [0, 1, ty]], dtype=np.float32)
-            for ty in [0, 300, 600, 900]
-        ]
+        affines = [np.array([[1, 0, 0], [0, 1, ty]], dtype=np.float32) for ty in [0, 300, 600, 900]]
         gaps = compute_ty_gaps(affines)
         assert gaps.max() / np.median(gaps) == pytest.approx(1.0, abs=0.01)
 
@@ -328,9 +317,7 @@ class TestEdgeCases:
         affines = _bundle_adjust_affine(edges, 3, use_affine=False)
         txs = [float(a[0, 2]) for a in affines]
         tx_range = max(txs) - min(txs)
-        assert tx_range > 10.0, (
-            f"Expected non-zero tx range for dx=50 edges, got tx_range={tx_range:.1f}"
-        )
+        assert tx_range > 10.0, f"Expected non-zero tx range for dx=50 edges, got tx_range={tx_range:.1f}"
 
 
 # ---------------------------------------------------------------------------
@@ -354,9 +341,7 @@ class TestGNCRobustLoss:
         affines = _bundle_adjust_affine(edges, N, use_affine=False)
         gaps = compute_ty_gaps(affines)
         # GNC should not distort good edges; gaps should stay near dy
-        assert np.allclose(gaps, dy, atol=15.0), (
-            f"GNC distorted clean chain: gaps={gaps}, expected ≈{dy}px"
-        )
+        assert np.allclose(gaps, dy, atol=15.0), f"GNC distorted clean chain: gaps={gaps}, expected ≈{dy}px"
 
     def test_extreme_outlier_absorbed_by_gnc(self):
         """
@@ -375,8 +360,7 @@ class TestGNCRobustLoss:
         # Even with the outlier, at least 3 of 5 gaps should be near the inlier dy
         near_inlier = int(np.sum(np.abs(gaps - inlier_dy) < inlier_dy * 0.5))
         assert near_inlier >= 3, (
-            f"GNC should protect most inlier gaps; only {near_inlier}/5 were "
-            f"near {inlier_dy}px: gaps={gaps}"
+            f"GNC should protect most inlier gaps; only {near_inlier}/5 were near {inlier_dy}px: gaps={gaps}"
         )
 
     def test_gnc_f_scale_env_var_overridden(self):
@@ -540,9 +524,7 @@ class TestSpanningTreeInlierFilter:
         result = _spanning_tree_inlier_filter(edges, N, inlier_threshold=50.0)
         # Only 2 unique consistent edges should survive (the correct 0→1 and 1→2)
         # The low-weight wrong 0→1 (dy=200) should be removed
-        result_dy = [
-            abs(float(e["M"][1, 2])) for e in result if e["i"] == 0 and e["j"] == 1
-        ]
+        result_dy = [abs(float(e["M"][1, 2])) for e in result if e["i"] == 0 and e["j"] == 1]
         assert all(d == pytest.approx(300.0, abs=1.0) for d in result_dy)
 
 

@@ -16,9 +16,7 @@ import sys
 
 import pytest
 
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 from middleware.src.stitching.core.pipeline import (  # noqa: E402
@@ -74,9 +72,7 @@ class TestCleanEdgesPreserved:
 
         result = pipeline._filter_edges(edges, paths, 480, 640, frames, masks)
         adj_result = _adj_edges(result)
-        assert len(adj_result) == N - 1, (
-            f"All clean adjacent edges should be preserved; kept {len(adj_result)}/{N - 1}"
-        )
+        assert len(adj_result) == N - 1, f"All clean adjacent edges should be preserved; kept {len(adj_result)}/{N - 1}"
 
     def test_slightly_varying_dy_all_kept(self):
         """Edges within ±15% of median should not be flagged as outliers."""
@@ -190,9 +186,7 @@ class TestGrossOutlierDetection:
         edge_2_3 = next((e for e in adj if e["i"] == 2 and e["j"] == 3), None)
         assert edge_2_3 is not None
         corrected_dy = abs(float(edge_2_3["M"][1, 2]))
-        assert corrected_dy < 1000.0, (
-            f"Gross outlier edge dy={corrected_dy:.1f} should be corrected closer to median"
-        )
+        assert corrected_dy < 1000.0, f"Gross outlier edge dy={corrected_dy:.1f} should be corrected closer to median"
 
     def test_gross_outlier_threshold_2x_median_plus_200(self):
         """
@@ -263,9 +257,7 @@ class TestGeometricConsistency:
         ]
         result = pipeline._filter_edges(edges, paths, 480, 640, frames, masks)
         skip_edges = [e for e in result if e["i"] == 0 and e["j"] == 2]
-        assert len(skip_edges) == 0, (
-            f"Inconsistent skip-pair edge should be removed; kept {len(skip_edges)}"
-        )
+        assert len(skip_edges) == 0, f"Inconsistent skip-pair edge should be removed; kept {len(skip_edges)}"
 
     def test_skip_pair_without_adj_path_kept(self):
         """
@@ -285,9 +277,7 @@ class TestGeometricConsistency:
         ]
         result = pipeline._filter_edges(edges, paths, 480, 640, frames, masks)
         skip_edges = [e for e in result if e["i"] == 0 and e["j"] == 2]
-        assert len(skip_edges) == 1, (
-            "Unverifiable skip-pair edge should be kept by default"
-        )
+        assert len(skip_edges) == 1, "Unverifiable skip-pair edge should be kept by default"
 
 
 # ---------------------------------------------------------------------------
@@ -321,10 +311,7 @@ class TestNearZeroDyPattern:
         edges = [make_edge(i, i + 1, dy=float(3 + i)) for i in range(N - 1)]
         result = pipeline._filter_edges(edges, paths, 480, 640, frames, masks)
         adj = _adj_edges(result)
-        assert len(adj) == 0, (
-            f"All near-zero edges should be rejected by min-step guard; "
-            f"kept {len(adj)}/{N - 1}"
-        )
+        assert len(adj) == 0, f"All near-zero edges should be rejected by min-step guard; kept {len(adj)}/{N - 1}"
 
     def test_mixed_near_zero_and_normal_preserves_normal(self):
         """
@@ -436,13 +423,9 @@ class TestComputeAdaptiveMinDisp:
     def test_no_adjacent_edges_returns_floor(self):
         """Skip edges (j != i+1) are ignored; no adjacent pairs → floor."""
         edges = [make_edge(0, 3, dy=1000.0), make_edge(1, 4, dy=1000.0)]
-        assert _compute_adaptive_min_disp(edges) == pytest.approx(
-            STATIC_EDGE_MIN_DISP_PX
-        )
+        assert _compute_adaptive_min_disp(edges) == pytest.approx(STATIC_EDGE_MIN_DISP_PX)
 
 
 # ---------------------------------------------------------------------------
 # _triangular_consistency_filter — §2.14 triangular consistency filter (S93)
 # ---------------------------------------------------------------------------
-
-

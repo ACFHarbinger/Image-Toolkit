@@ -22,9 +22,7 @@ import sys
 
 import pytest
 
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 from middleware.src.stitching_evaluation.constants.schema import (  # noqa: E402
@@ -49,11 +47,13 @@ LEGACY_DOC = {
         "simple": 2,
         "notes": "seam at 40%",
         "bboxes": [{"image": "asp", "x": 0.1, "y": 0.2, "w": 0.3, "h": 0.1, "label": "tear"}],
-        "edges": [{
-            "a": {"image": "asp", "x": 0.1, "y": 0.2},
-            "b": {"image": "ground_truth", "x": 0.11, "y": 0.2},
-            "label": "off by 8px",
-        }],
+        "edges": [
+            {
+                "a": {"image": "asp", "x": 0.1, "y": 0.2},
+                "b": {"image": "ground_truth", "x": 0.11, "y": 0.2},
+                "label": "off by 8px",
+            }
+        ],
     },
     # Exactly what the old tool wrote for a test that was opened but not rated.
     "asp_test02": {"asp": None, "simple": None, "notes": "", "bboxes": [], "edges": []},
@@ -180,9 +180,11 @@ def test_out_of_range_scores_clamp_to_none_instead_of_crashing(bad):
 
 
 def test_unknown_images_and_dimensions_are_dropped_on_load():
-    entry = RatingEntry.from_dict({
-        "dimensions": {"not_an_image": {"coherence": 3}, "asp": {"nope": 2, "sharpness": 1}},
-    })
+    entry = RatingEntry.from_dict(
+        {
+            "dimensions": {"not_an_image": {"coherence": 3}, "asp": {"nope": 2, "sharpness": 1}},
+        }
+    )
     assert "not_an_image" not in entry.dimensions
     assert entry.dimensions["asp"] == {"sharpness": 1}
 
@@ -201,10 +203,20 @@ def test_every_scorable_image_and_dimension_is_addressable():
 
 
 def test_bbox_defect_and_severity_round_trip(tmp_path):
-    entry = RatingEntry(bboxes=[BoundingBox(
-        image="asp", x=0.1, y=0.2, w=0.3, h=0.4,
-        label="tear", defect="torn_anatomy", severity=3,
-    )])
+    entry = RatingEntry(
+        bboxes=[
+            BoundingBox(
+                image="asp",
+                x=0.1,
+                y=0.2,
+                w=0.3,
+                h=0.4,
+                label="tear",
+                defect="torn_anatomy",
+                severity=3,
+            )
+        ]
+    )
     out = str(tmp_path / "out.json")
     save_evaluations(out, {"t": entry})
     box = load_evaluations(out)["t"].bboxes[0]
@@ -233,11 +245,14 @@ def test_per_output_defect_severity_round_trips_and_projects_to_legacy_tags(tmp_
     assert restored.severity("simple", "seam_line") == 0
 
 
-@pytest.mark.parametrize("image,defect,severity", [
-    ("unknown", "color_shift", 1),
-    ("asp", "unknown", 1),
-    ("asp", "color_shift", 4),
-])
+@pytest.mark.parametrize(
+    "image,defect,severity",
+    [
+        ("unknown", "color_shift", 1),
+        ("asp", "unknown", 1),
+        ("asp", "color_shift", 4),
+    ],
+)
 def test_per_output_defect_severity_rejects_invalid_values(image, defect, severity):
     with pytest.raises(ValueError):
         RatingEntry().set_severity(image, defect, severity)
@@ -254,13 +269,17 @@ def test_clearing_one_output_keeps_the_binary_tag_until_all_outputs_clear():
 
 
 def test_edge_round_trip(tmp_path):
-    entry = RatingEntry(edges=[Edge(
-        points=[
-            EdgePoint(image="asp", x=0.2, y=0.3),
-            EdgePoint(image="simple", x=0.25, y=0.3),
-        ],
-        label="shifted right",
-    )])
+    entry = RatingEntry(
+        edges=[
+            Edge(
+                points=[
+                    EdgePoint(image="asp", x=0.2, y=0.3),
+                    EdgePoint(image="simple", x=0.25, y=0.3),
+                ],
+                label="shifted right",
+            )
+        ]
+    )
     out = str(tmp_path / "out.json")
     save_evaluations(out, {"t": entry})
     edge = load_evaluations(out)["t"].edges[0]
@@ -271,14 +290,18 @@ def test_edge_round_trip(tmp_path):
 def test_edge_chain_of_three_or_more_endpoints_round_trips(tmp_path):
     """The concrete case the followup feedback asked for: a link spanning
     more than two images (e.g. ASP, Overmix, and ground truth)."""
-    entry = RatingEntry(edges=[Edge(
-        points=[
-            EdgePoint(image="asp", x=0.2, y=0.3),
-            EdgePoint(image="overmix", x=0.22, y=0.31),
-            EdgePoint(image="ground_truth", x=0.19, y=0.29),
-        ],
-        label="same seam, three ways",
-    )])
+    entry = RatingEntry(
+        edges=[
+            Edge(
+                points=[
+                    EdgePoint(image="asp", x=0.2, y=0.3),
+                    EdgePoint(image="overmix", x=0.22, y=0.31),
+                    EdgePoint(image="ground_truth", x=0.19, y=0.29),
+                ],
+                label="same seam, three ways",
+            )
+        ]
+    )
     out = str(tmp_path / "out.json")
     save_evaluations(out, {"t": entry})
     edge = load_evaluations(out)["t"].edges[0]
@@ -286,13 +309,17 @@ def test_edge_chain_of_three_or_more_endpoints_round_trips(tmp_path):
 
 
 def test_edge_region_endpoint_round_trips(tmp_path):
-    entry = RatingEntry(edges=[Edge(
-        points=[
-            EdgePoint(image="asp", x=0.1, y=0.1, w=0.2, h=0.15),
-            EdgePoint(image="simple", x=0.12, y=0.1),
-        ],
-        label="torn region vs clean point",
-    )])
+    entry = RatingEntry(
+        edges=[
+            Edge(
+                points=[
+                    EdgePoint(image="asp", x=0.1, y=0.1, w=0.2, h=0.15),
+                    EdgePoint(image="simple", x=0.12, y=0.1),
+                ],
+                label="torn region vs clean point",
+            )
+        ]
+    )
     out = str(tmp_path / "out.json")
     save_evaluations(out, {"t": entry})
     edge = load_evaluations(out)["t"].edges[0]
@@ -304,16 +331,24 @@ def test_legacy_two_point_edge_shape_still_loads(tmp_path):
     """Pre-2026-07-30 files store {"a": ..., "b": ...} instead of "points"."""
     path = str(tmp_path / "legacy_edge.json")
     with open(path, "w") as fh:
-        json.dump({
-            "t": {
-                "asp": None, "simple": None, "notes": "", "bboxes": [],
-                "edges": [{
-                    "a": {"image": "asp", "x": 0.2, "y": 0.3},
-                    "b": {"image": "simple", "x": 0.25, "y": 0.3},
-                    "label": "shifted right",
-                }],
+        json.dump(
+            {
+                "t": {
+                    "asp": None,
+                    "simple": None,
+                    "notes": "",
+                    "bboxes": [],
+                    "edges": [
+                        {
+                            "a": {"image": "asp", "x": 0.2, "y": 0.3},
+                            "b": {"image": "simple", "x": 0.25, "y": 0.3},
+                            "label": "shifted right",
+                        }
+                    ],
+                },
             },
-        }, fh)
+            fh,
+        )
     edge = load_evaluations(path)["t"].edges[0]
     assert [p.image for p in edge.points] == ["asp", "simple"]
     assert edge.label == "shifted right"

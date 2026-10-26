@@ -103,11 +103,17 @@ class TestPipelineRouting:
             stitch = frames[0].copy()
             valid = np.any(stitch > 0, axis=2)
             framed = frame_wallpaper(
-                stitch, valid, (0, 0, w, h), aspect=target_aspect,
+                stitch,
+                valid,
+                (0, 0, w, h),
+                aspect=target_aspect,
             )
             return HuginRouteResult(
-                framed=framed, stitch=stitch, composite=None,
-                composite_mask=None, hero_bbox_canvas=(0, 0, w, h),
+                framed=framed,
+                stitch=stitch,
+                composite=None,
+                composite_mask=None,
+                hero_bbox_canvas=(0, 0, w, h),
                 n_normalized_frames=len(frames),
             )
 

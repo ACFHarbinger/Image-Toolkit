@@ -47,9 +47,7 @@ from middleware.src.stitching.ingestion.frame_selection import (
     _temporal_variance_filter,
 )
 
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 
@@ -71,27 +69,21 @@ def _make_fg_mask(h: int = 144, w: int = 256, region: str = "center") -> np.ndar
 class TestShotBoundaryFilter:
     def test_zero_threshold_keeps_all_frames(self):
         thumbs = [_make_thumb(fill=value) for value in (0.1, 0.1, 0.9, 0.9)]
-        kept, paths, dropped = _filter_shot_boundaries(
-            thumbs, ["a", "b", "c", "d"], threshold=0.0
-        )
+        kept, paths, dropped = _filter_shot_boundaries(thumbs, ["a", "b", "c", "d"], threshold=0.0)
         assert len(kept) == 4
         assert paths == ["a", "b", "c", "d"]
         assert dropped == 0
 
     def test_keeps_longest_contiguous_shot(self):
         thumbs = [_make_thumb(fill=value) for value in (0.1, 0.1, 0.8, 0.8, 0.8)]
-        kept, paths, dropped = _filter_shot_boundaries(
-            thumbs, ["a", "b", "c", "d", "e"], threshold=0.5
-        )
+        kept, paths, dropped = _filter_shot_boundaries(thumbs, ["a", "b", "c", "d", "e"], threshold=0.5)
         assert len(kept) == 3
         assert paths == ["c", "d", "e"]
         assert dropped == 2
 
     def test_equal_length_shots_keep_earlier_segment(self):
         thumbs = [_make_thumb(fill=value) for value in (0.1, 0.1, 0.8, 0.8)]
-        _, paths, dropped = _filter_shot_boundaries(
-            thumbs, ["a", "b", "c", "d"], threshold=0.5
-        )
+        _, paths, dropped = _filter_shot_boundaries(thumbs, ["a", "b", "c", "d"], threshold=0.5)
         assert paths == ["a", "b"]
         assert dropped == 2
 
@@ -106,17 +98,13 @@ class TestFgCenterDiffNearZeroForIdentical:
 
     def test_different_gain_same_pose(self):
         """Score should be near zero when fg is identical but scaled (gain normalisation)."""
-        thumb_a = (
-            np.random.RandomState(7).uniform(0.2, 0.8, (144, 256)).astype(np.float32)
-        )
+        thumb_a = np.random.RandomState(7).uniform(0.2, 0.8, (144, 256)).astype(np.float32)
         # Simulate a different gain (10% brighter)
         thumb_b = np.clip(thumb_a * 1.10, 0.0, 1.0)
         mask = _make_fg_mask()
         score = _fg_center_diff(thumb_a, thumb_b, fg_mask=mask)
         # After per-frame normalisation the gain offset is removed; score should be small
-        assert score < 0.05, (
-            f"Same pose, different gain should score ~0, got {score:.4f}"
-        )
+        assert score < 0.05, f"Same pose, different gain should score ~0, got {score:.4f}"
 
 
 class TestFgCenterDiffHighScoreForDifferentPose:
@@ -146,8 +134,7 @@ class TestFgCenterDiffHighScoreForDifferentPose:
         score_same = _fg_center_diff(thumb_a, thumb_b_same, fg_mask=mask)
         score_diff = _fg_center_diff(thumb_a, thumb_b_diff, fg_mask=mask)
         assert score_diff > score_same * 2, (
-            f"Different pose ({score_diff:.3f}) should score much higher than "
-            f"same pose ({score_same:.3f})"
+            f"Different pose ({score_diff:.3f}) should score much higher than same pose ({score_same:.3f})"
         )
 
 
@@ -168,9 +155,7 @@ class TestFgCenterDiffBackgroundInvariant:
         thumb_b[:, 192:] = rng.uniform(0, 1, (144, 64)).astype(np.float32)
 
         score = _fg_center_diff(thumb_a, thumb_b, fg_mask=mask)
-        assert score < 0.01, (
-            f"Background-only changes should not affect fg score, got {score:.4f}"
-        )
+        assert score < 0.01, f"Background-only changes should not affect fg score, got {score:.4f}"
 
 
 class TestFgCenterDiffFallback:
@@ -203,8 +188,7 @@ class TestFgCenterDiffFallback:
         score_no_mask = _fg_center_diff(a, b, fg_mask=None)
         score_sparse = _fg_center_diff(a, b, fg_mask=sparse_mask)
         assert abs(score_no_mask - score_sparse) < 1e-6, (
-            f"Sparse mask should fall back to same path as no-mask: "
-            f"{score_no_mask:.5f} vs {score_sparse:.5f}"
+            f"Sparse mask should fall back to same path as no-mask: {score_no_mask:.5f} vs {score_sparse:.5f}"
         )
 
 
@@ -261,9 +245,7 @@ class TestDetectHoldBlocks:
         t_a = np.zeros((64, 64), dtype=np.float32)
         t_b = np.full((64, 64), 0.03, dtype=np.float32)  # MAD=0.03 > 0.025
         blocks = _detect_hold_blocks([t_a, t_b], hold_threshold=0.025)
-        assert blocks == [0, 1], (
-            f"MAD=0.03 > threshold=0.025 → two blocks, got {blocks}"
-        )
+        assert blocks == [0, 1], f"MAD=0.03 > threshold=0.025 → two blocks, got {blocks}"
 
     def test_hold_boundary_below_threshold(self):
         """MAD exactly below threshold → same block."""
@@ -277,16 +259,9 @@ class TestDetectHoldBlocks:
         rng = np.random.RandomState(7)
         base = np.full((64, 64), 0.5, dtype=np.float32)
         # Add tiny noise (< 0.01 MAD → within-hold compression artefact)
-        thumbs = [
-            np.clip(
-                base + rng.uniform(-0.005, 0.005, (64, 64)).astype(np.float32), 0, 1
-            )
-            for _ in range(6)
-        ]
+        thumbs = [np.clip(base + rng.uniform(-0.005, 0.005, (64, 64)).astype(np.float32), 0, 1) for _ in range(6)]
         blocks = _detect_hold_blocks(thumbs, hold_threshold=0.025)
-        assert blocks == [0], (
-            f"Small noise within hold should not create extra blocks, got {blocks}"
-        )
+        assert blocks == [0], f"Small noise within hold should not create extra blocks, got {blocks}"
 
 
 @pytest.mark.gpu
@@ -308,9 +283,7 @@ class TestDINOv2Features:
         """Write a uint8 array as a PNG to tmp_path and return its str path."""
         import uuid
 
-        img = (
-            (arr * 255).clip(0, 255).astype(np.uint8) if arr.dtype != np.uint8 else arr
-        )
+        img = (arr * 255).clip(0, 255).astype(np.uint8) if arr.dtype != np.uint8 else arr
         if img.ndim == 2:
             img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         path = str(tmp_path / f"{uuid.uuid4().hex}.png")
@@ -328,12 +301,7 @@ class TestDINOv2Features:
         fs_mod._DINOV2_CACHE[device] = None
         try:
             rng = np.random.RandomState(42)
-            paths = [
-                self._write_png(
-                    tmp_path, rng.randint(0, 256, (64, 64, 3), dtype=np.uint8)
-                )
-                for _ in range(3)
-            ]
+            paths = [self._write_png(tmp_path, rng.randint(0, 256, (64, 64, 3), dtype=np.uint8)) for _ in range(3)]
             result = _compute_dinov2_features(paths)
             assert result is None, "Should return None when cached model is None"
         finally:
@@ -353,9 +321,7 @@ class TestDINOv2Features:
             pytest.skip("DINOv2 not available in this environment")
         assert feats.shape == (2, 384), f"Expected (2, 384), got {feats.shape}"
         dist = 1.0 - float(np.dot(feats[0], feats[1]))
-        assert dist < 0.05, (
-            f"Identical images should have cosine dist ~0, got {dist:.4f}"
-        )
+        assert dist < 0.05, f"Identical images should have cosine dist ~0, got {dist:.4f}"
 
 
 # ---------------------------------------------------------------------------
@@ -500,9 +466,7 @@ class TestTemporalVarianceFilter:
         """(H, W) float32 thumbnail with uniform value."""
         return np.full((h, w), val, dtype=np.float32)
 
-    def _noisy(
-        self, rng: np.random.RandomState, h: int = 16, w: int = 24
-    ) -> np.ndarray:
+    def _noisy(self, rng: np.random.RandomState, h: int = 16, w: int = 24) -> np.ndarray:
         """(H, W) float32 thumbnail with high random variance."""
         return rng.uniform(0.0, 1.0, (h, w)).astype(np.float32)
 
@@ -510,9 +474,7 @@ class TestTemporalVarianceFilter:
         """Three near-identical frames → middle dropped (variance near zero)."""
         thumbs = [self._flat(0.5), self._flat(0.5), self._flat(0.5)]
         paths = ["a.png", "b.png", "c.png"]
-        result_t, result_p, n_drop = _temporal_variance_filter(
-            thumbs, paths, sigma_threshold=1e-3
-        )
+        result_t, result_p, n_drop = _temporal_variance_filter(thumbs, paths, sigma_threshold=1e-3)
         assert n_drop == 1
         assert len(result_p) == 2
         assert "b.png" not in result_p  # middle dropped
@@ -523,9 +485,7 @@ class TestTemporalVarianceFilter:
         rng = np.random.RandomState(0)
         thumbs = [self._noisy(rng), self._noisy(rng), self._noisy(rng)]
         paths = ["a.png", "b.png", "c.png"]
-        result_t, result_p, n_drop = _temporal_variance_filter(
-            thumbs, paths, sigma_threshold=1e-3
-        )
+        result_t, result_p, n_drop = _temporal_variance_filter(thumbs, paths, sigma_threshold=1e-3)
         assert n_drop == 0
         assert result_p == paths
 
@@ -534,9 +494,7 @@ class TestTemporalVarianceFilter:
         v = self._flat(0.3)
         thumbs = [v, v, v, v, v]  # all identical
         paths = [f"{i}.png" for i in range(5)]
-        result_t, result_p, n_drop = _temporal_variance_filter(
-            thumbs, paths, sigma_threshold=1e-3
-        )
+        result_t, result_p, n_drop = _temporal_variance_filter(thumbs, paths, sigma_threshold=1e-3)
         assert result_p[0] == "0.png"
         assert result_p[-1] == "4.png"
 
@@ -545,9 +503,7 @@ class TestTemporalVarianceFilter:
         v = self._flat(0.5)
         thumbs = [v, v, v]
         paths = ["a.png", "b.png", "c.png"]
-        result_t, result_p, n_drop = _temporal_variance_filter(
-            thumbs, paths, sigma_threshold=0.0
-        )
+        result_t, result_p, n_drop = _temporal_variance_filter(thumbs, paths, sigma_threshold=0.0)
         assert n_drop == 0
         assert result_p == paths
 
@@ -555,9 +511,7 @@ class TestTemporalVarianceFilter:
         """N < 3 → no processing; lists returned as-is."""
         thumbs = [self._flat(0.5), self._flat(0.5)]
         paths = ["a.png", "b.png"]
-        result_t, result_p, n_drop = _temporal_variance_filter(
-            thumbs, paths, sigma_threshold=1e-3
-        )
+        result_t, result_p, n_drop = _temporal_variance_filter(thumbs, paths, sigma_threshold=1e-3)
         assert n_drop == 0
         assert result_p == paths
 
@@ -605,9 +559,7 @@ class TestDetectHoldBlocksDhash:
 
     def test_single_frame_returns_single_block(self):
         """N=1 must return [0] without error."""
-        result = _detect_hold_blocks_dhash(
-            [self._uniform_thumb()], distance_threshold=4
-        )
+        result = _detect_hold_blocks_dhash([self._uniform_thumb()], distance_threshold=4)
         assert result == [0]
 
     def test_compute_dhash_same_image_zero_distance(self):
@@ -697,9 +649,7 @@ class TestRejectBlurryFrames:
         """Uniform interior frame has near-zero Laplacian variance → dropped."""
         thumbs = [self._sharp(0), self._flat(0.5), self._sharp(1)]
         paths = ["a.png", "b.png", "c.png"]
-        result_t, result_p, n_drop = _reject_blurry_frames(
-            thumbs, paths, blur_threshold=10.0
-        )
+        result_t, result_p, n_drop = _reject_blurry_frames(thumbs, paths, blur_threshold=10.0)
         assert n_drop == 1
         assert "b.png" not in result_p
         assert "a.png" in result_p and "c.png" in result_p
@@ -708,9 +658,7 @@ class TestRejectBlurryFrames:
         """Frames with high Laplacian variance are kept regardless of threshold."""
         thumbs = [self._sharp(i) for i in range(4)]
         paths = [f"{i}.png" for i in range(4)]
-        result_t, result_p, n_drop = _reject_blurry_frames(
-            thumbs, paths, blur_threshold=10.0
-        )
+        result_t, result_p, n_drop = _reject_blurry_frames(thumbs, paths, blur_threshold=10.0)
         assert n_drop == 0
         assert result_p == paths
 
@@ -719,9 +667,7 @@ class TestRejectBlurryFrames:
         flat = self._flat(0.3)
         thumbs = [flat, flat, flat, flat, flat]
         paths = [f"{i}.png" for i in range(5)]
-        result_t, result_p, n_drop = _reject_blurry_frames(
-            thumbs, paths, blur_threshold=100.0
-        )
+        result_t, result_p, n_drop = _reject_blurry_frames(thumbs, paths, blur_threshold=100.0)
         assert result_p[0] == "0.png"
         assert result_p[-1] == "4.png"
 
@@ -730,9 +676,7 @@ class TestRejectBlurryFrames:
         flat = self._flat(0.5)
         thumbs = [flat, flat, flat]
         paths = ["x.png", "y.png", "z.png"]
-        result_t, result_p, n_drop = _reject_blurry_frames(
-            thumbs, paths, blur_threshold=0.0
-        )
+        result_t, result_p, n_drop = _reject_blurry_frames(thumbs, paths, blur_threshold=0.0)
         assert n_drop == 0
         assert result_p == paths
 
@@ -740,9 +684,7 @@ class TestRejectBlurryFrames:
         """N < 3 → pass-through with zero drops (no interior frames to test)."""
         thumbs = [self._flat(), self._flat()]
         paths = ["p.png", "q.png"]
-        result_t, result_p, n_drop = _reject_blurry_frames(
-            thumbs, paths, blur_threshold=50.0
-        )
+        result_t, result_p, n_drop = _reject_blurry_frames(thumbs, paths, blur_threshold=50.0)
         assert n_drop == 0
         assert result_p == paths
 
@@ -768,9 +710,7 @@ class TestRejectLowContrastFrames:
         """Flash frame (std ≈ 0) as interior frame → dropped."""
         thumbs = [self._textured(), self._uniform(), self._textured()]
         paths = ["a.png", "flash.png", "b.png"]
-        _, result_p, n_drop = _reject_low_contrast_frames(
-            thumbs, paths, contrast_threshold=15.0
-        )
+        _, result_p, n_drop = _reject_low_contrast_frames(thumbs, paths, contrast_threshold=15.0)
         assert n_drop == 1
         assert "flash.png" not in result_p
 
@@ -778,9 +718,7 @@ class TestRejectLowContrastFrames:
         """High-contrast interior frame → kept."""
         thumbs = [self._textured(), self._textured(), self._textured()]
         paths = ["a.png", "mid.png", "b.png"]
-        _, result_p, n_drop = _reject_low_contrast_frames(
-            thumbs, paths, contrast_threshold=15.0
-        )
+        _, result_p, n_drop = _reject_low_contrast_frames(thumbs, paths, contrast_threshold=15.0)
         assert n_drop == 0
         assert result_p == paths
 
@@ -788,9 +726,7 @@ class TestRejectLowContrastFrames:
         """Flash frames at first/last positions are never dropped."""
         thumbs = [self._uniform(), self._textured(), self._uniform()]
         paths = ["first.png", "mid.png", "last.png"]
-        _, result_p, n_drop = _reject_low_contrast_frames(
-            thumbs, paths, contrast_threshold=15.0
-        )
+        _, result_p, n_drop = _reject_low_contrast_frames(thumbs, paths, contrast_threshold=15.0)
         assert "first.png" in result_p
         assert "last.png" in result_p
 
@@ -798,9 +734,7 @@ class TestRejectLowContrastFrames:
         """contrast_threshold=0.0 → pass-through, no frames dropped."""
         thumbs = [self._uniform(), self._uniform(), self._uniform()]
         paths = ["a.png", "b.png", "c.png"]
-        _, result_p, n_drop = _reject_low_contrast_frames(
-            thumbs, paths, contrast_threshold=0.0
-        )
+        _, result_p, n_drop = _reject_low_contrast_frames(thumbs, paths, contrast_threshold=0.0)
         assert n_drop == 0
         assert result_p == paths
 
@@ -808,9 +742,7 @@ class TestRejectLowContrastFrames:
         """Two flash frames in interior → n_dropped == 2."""
         thumbs = [self._textured(), self._uniform(), self._uniform(), self._textured()]
         paths = ["a.png", "f1.png", "f2.png", "b.png"]
-        _, _, n_drop = _reject_low_contrast_frames(
-            thumbs, paths, contrast_threshold=15.0
-        )
+        _, _, n_drop = _reject_low_contrast_frames(thumbs, paths, contrast_threshold=15.0)
         assert n_drop == 2
 
 

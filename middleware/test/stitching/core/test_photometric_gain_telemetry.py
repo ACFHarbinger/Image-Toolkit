@@ -39,9 +39,7 @@ def test_gain_telemetry_records_clamp_and_residual():
 
 def test_no_telemetry_arg_is_still_pixel_compatible():
     frames = [_frame(80), _frame(80), _frame(80)]
-    out = _apply_background_photometric_normalization(
-        frames, [_bg_mask()] * 3, 3
-    )
+    out = _apply_background_photometric_normalization(frames, [_bg_mask()] * 3, 3)
     assert len(out) == 3
 
 

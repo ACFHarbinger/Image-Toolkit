@@ -31,9 +31,7 @@ import sys
 
 import pytest
 
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 from middleware.src.stitching_evaluation.other import discovery  # noqa: E402
@@ -43,14 +41,21 @@ from middleware.src.stitching_evaluation.plugin import sample_fields as sf  # no
 
 ENTRY = {
     "name": "asp_test01",
-    "time": {"birefnet_sec": 8.769, "render_sec": 13.944, "composite_sec": 20.107,
-             "render_gate_fallback": 2, "total_sec": 63.89},
+    "time": {
+        "birefnet_sec": 8.769,
+        "render_sec": 13.944,
+        "composite_sec": 20.107,
+        "render_gate_fallback": 2,
+        "total_sec": 63.89,
+    },
     "frames": {"count": 16, "source_h": 1072, "source_w": 1787},
     "phases": {"count": 3},
     "mean_post_warp_diff": 7.3926,
     "pipeline_config": {"use_birefnet": True, "renderer": "median"},
     "matching": {
-        "raw_edges": 41, "filtered_edges": 36, "methods": {"unknown": 41},
+        "raw_edges": 41,
+        "filtered_edges": 36,
+        "methods": {"unknown": 41},
         "edges": [
             {"i": 0, "j": 1, "weight": 0.55, "n_pts": 48},
             {"i": 3, "j": 5, "weight": 0.4628, "n_pts": 30},
@@ -61,40 +66,75 @@ ENTRY = {
         "affines": [{"frame": i, "tx": 0.0, "ty": 967.55 - 62.0 * i} for i in range(6)],
         "dy_steps": [-62.0, -62.0, -300.0, -62.0, -62.0],
         "dx_steps": [0.0, 0.0, -4.1, 0.0, 0.0],
-        "dy_cv": 0.1561, "dx_cv": 3.458,
+        "dy_cv": 0.1561,
+        "dx_cv": 3.458,
     },
     "affine_health": {"valid": True, "reason": "ok"},
-    "photometric": {"ref_lum": 93.67, "bg_lums": [144.59, 120.0, 100.0],
-                    "applied_gains": [0.88, 1.0, 1.4], "frames_corrected": 14,
-                    "gain_range": [0.88, 1.4]},
-    "metrics_asp": {"sharpness": 119.33, "coverage": 0.9999, "seam_gradient": 7.777,
-                    "color_entropy": 7.6492, "edge_energy_score": 34.5869,
-                    "ghosting_siqe": 58.88, "seam_coherence": 21.64,
-                    "seam_visibility": 4.79, "ghost_seam_scores": [12.0, 45.0, 70.0],
-                    "ghost_seam_max": 70.0, "width": 1703, "height": 1704, "cqas_v1_legacy": 0.5125},
-    "metrics_simple": {"sharpness": 79.96, "coverage": 1.0, "seam_gradient": 6.385,
-                       "color_entropy": 7.7266, "edge_energy_score": 28.9596,
-                       "ghosting_siqe": 66.27, "seam_coherence": 25.16,
-                       "seam_visibility": 4.02, "ghost_seam_scores": [],
-                       "ghost_seam_max": None, "width": 1917, "height": 2050,
-                       "cqas_v1_legacy": 0.4711},
+    "photometric": {
+        "ref_lum": 93.67,
+        "bg_lums": [144.59, 120.0, 100.0],
+        "applied_gains": [0.88, 1.0, 1.4],
+        "frames_corrected": 14,
+        "gain_range": [0.88, 1.4],
+    },
+    "metrics_asp": {
+        "sharpness": 119.33,
+        "coverage": 0.9999,
+        "seam_gradient": 7.777,
+        "color_entropy": 7.6492,
+        "edge_energy_score": 34.5869,
+        "ghosting_siqe": 58.88,
+        "seam_coherence": 21.64,
+        "seam_visibility": 4.79,
+        "ghost_seam_scores": [12.0, 45.0, 70.0],
+        "ghost_seam_max": 70.0,
+        "width": 1703,
+        "height": 1704,
+        "cqas_v1_legacy": 0.5125,
+    },
+    "metrics_simple": {
+        "sharpness": 79.96,
+        "coverage": 1.0,
+        "seam_gradient": 6.385,
+        "color_entropy": 7.7266,
+        "edge_energy_score": 28.9596,
+        "ghosting_siqe": 66.27,
+        "seam_coherence": 25.16,
+        "seam_visibility": 4.02,
+        "ghost_seam_scores": [],
+        "ghost_seam_max": None,
+        "width": 1917,
+        "height": 2050,
+        "cqas_v1_legacy": 0.4711,
+    },
     "metrics_overmix": {},
     "metrics_hugin": {},
-    "comparison": {"ssim": 0.6999, "psnr_db": 12.42, "verdict": "simple_better",
-                   "verdict_source": "ground_truth"},
+    "comparison": {"ssim": 0.6999, "psnr_db": 12.42, "verdict": "simple_better", "verdict_source": "ground_truth"},
     "ground_truth": {
         "available": True,
-        "metrics_asp": {"ssim_vs_gt": 0.6877, "aligned_ssim_vs_gt": 0.7259,
-                        "psnr_vs_gt": 11.86, "seam_coherence": 21.64},
-        "metrics_simple": {"ssim_vs_gt": 0.7077, "aligned_ssim_vs_gt": 0.7501,
-                           "psnr_vs_gt": 12.02, "seam_coherence": 25.16},
+        "metrics_asp": {
+            "ssim_vs_gt": 0.6877,
+            "aligned_ssim_vs_gt": 0.7259,
+            "psnr_vs_gt": 11.86,
+            "seam_coherence": 21.64,
+        },
+        "metrics_simple": {
+            "ssim_vs_gt": 0.7077,
+            "aligned_ssim_vs_gt": 0.7501,
+            "psnr_vs_gt": 12.02,
+            "seam_coherence": 25.16,
+        },
         "verdict": "simple_better",
     },
     "used_fallback": True,
     "fallback_reason": "seam_vis_gate:asp=42.5_sim=4.0_limit=35.0",
-    "frame_selection": {"original_count": 98, "smart_select_count": 16,
-                        "spatial_dedup_count": 16, "final_count": 16,
-                        "selection_mode": "phase_correlation"},
+    "frame_selection": {
+        "original_count": 98,
+        "smart_select_count": 16,
+        "spatial_dedup_count": 16,
+        "final_count": 16,
+        "selection_mode": "phase_correlation",
+    },
 }
 
 
@@ -103,18 +143,21 @@ ENTRY = {
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("metric,direction", [
-    ("cqas_v1_legacy", mv.NEUTRAL),
-    ("sharpness", mv.HIGHER_BETTER),
-    ("coverage", mv.HIGHER_BETTER),
-    ("edge_energy_score", mv.HIGHER_BETTER),
-    ("ghosting_siqe", mv.LOWER_BETTER),
-    ("seam_visibility", mv.LOWER_BETTER),
-    ("seam_coherence", mv.LOWER_BETTER),
-    ("seam_gradient", mv.LOWER_BETTER),
-    ("ghost_seam_max", mv.LOWER_BETTER),
-    ("color_entropy", mv.NEUTRAL),
-])
+@pytest.mark.parametrize(
+    "metric,direction",
+    [
+        ("cqas_v1_legacy", mv.NEUTRAL),
+        ("sharpness", mv.HIGHER_BETTER),
+        ("coverage", mv.HIGHER_BETTER),
+        ("edge_energy_score", mv.HIGHER_BETTER),
+        ("ghosting_siqe", mv.LOWER_BETTER),
+        ("seam_visibility", mv.LOWER_BETTER),
+        ("seam_coherence", mv.LOWER_BETTER),
+        ("seam_gradient", mv.LOWER_BETTER),
+        ("ghost_seam_max", mv.LOWER_BETTER),
+        ("color_entropy", mv.NEUTRAL),
+    ],
+)
 def test_metric_directions_match_the_pipeline_definitions(metric, direction):
     row = next(r for r in mv.cv_metric_rows(ENTRY) if r.key == metric)
     assert row.direction == direction
@@ -122,10 +165,10 @@ def test_metric_directions_match_the_pipeline_definitions(metric, direction):
 
 def test_winner_follows_direction_not_magnitude():
     rows = {r.key: r for r in mv.cv_metric_rows(ENTRY)}
-    assert rows["sharpness"].best_key() == "asp"        # 119.33 > 79.96, higher better
-    assert rows["ghosting_siqe"].best_key() == "asp"    # 58.88 < 66.27, lower better
+    assert rows["sharpness"].best_key() == "asp"  # 119.33 > 79.96, higher better
+    assert rows["ghosting_siqe"].best_key() == "asp"  # 58.88 < 66.27, lower better
     assert rows["seam_visibility"].best_key() == "simple"  # 4.02 < 4.79
-    assert rows["coverage"].best_key() == "simple"      # 1.0 > 0.9999
+    assert rows["coverage"].best_key() == "simple"  # 1.0 > 0.9999
 
 
 def test_neutral_metric_has_no_winner():
@@ -194,16 +237,19 @@ def test_radar_uses_absolute_component_scales_not_min_max():
     assert rows["ghosting_siqe"].values["simple"] == pytest.approx(0.0)
 
 
-@pytest.mark.parametrize("metric,raw,expected", [
-    ("coverage", 1.0, 1.0),
-    ("sharpness", 50.0, 0.5),
-    ("sharpness", 250.0, 1.0),      # clamped
-    ("ghosting_siqe", 0.0, 1.0),
-    ("ghosting_siqe", 60.0, 0.0),
-    ("ghosting_siqe", 120.0, 0.0),  # clamped
-    ("seam_visibility", 12.5, 0.5),
-    ("seam_coherence", 25.0, 0.5),
-])
+@pytest.mark.parametrize(
+    "metric,raw,expected",
+    [
+        ("coverage", 1.0, 1.0),
+        ("sharpness", 50.0, 0.5),
+        ("sharpness", 250.0, 1.0),  # clamped
+        ("ghosting_siqe", 0.0, 1.0),
+        ("ghosting_siqe", 60.0, 0.0),
+        ("ghosting_siqe", 120.0, 0.0),  # clamped
+        ("seam_visibility", 12.5, 0.5),
+        ("seam_coherence", 25.0, 0.5),
+    ],
+)
 def test_radar_value_matches_legacy_component_references(metric, raw, expected):
     assert mv.radar_value(metric, raw) == pytest.approx(expected, abs=1e-6)
 
@@ -267,9 +313,9 @@ def test_seam_ghost_series_skips_comparators_without_scores():
     assert series["asp"] == [12.0, 45.0, 70.0]
 
 
-@pytest.mark.parametrize("score,band", [(0.0, "good"), (29.9, "good"),
-                                        (30.0, "warn"), (59.9, "warn"),
-                                        (60.0, "bad"), (100.0, "bad")])
+@pytest.mark.parametrize(
+    "score,band", [(0.0, "good"), (29.9, "good"), (30.0, "warn"), (59.9, "warn"), (60.0, "bad"), (100.0, "bad")]
+)
 def test_ghost_bands_use_the_pipeline_thresholds(score, band):
     assert mv.ghost_band(score) == band
 
@@ -284,9 +330,7 @@ def test_timing_breakdown_is_sorted_and_drops_non_time_counters():
 
 def test_frame_selection_funnel_is_ordered():
     stages = mv.frame_selection_stages(ENTRY)
-    assert [name for name, _ in stages] == [
-        "original", "after smart select", "after spatial dedup", "final"
-    ]
+    assert [name for name, _ in stages] == ["original", "after smart select", "after spatial dedup", "final"]
     assert [count for _, count in stages] == [98, 16, 16, 16]
 
 
@@ -296,7 +340,11 @@ def test_frame_selection_funnel_is_ordered():
 
 
 def _fake_corpus(
-    tmp_path, name="asp_test01", with_gt=True, with_overmix=True, with_hugin=False,
+    tmp_path,
+    name="asp_test01",
+    with_gt=True,
+    with_overmix=True,
+    with_hugin=False,
     simple_suffix="opencv_stitch",
 ):
     import cv2
@@ -427,10 +475,14 @@ def test_metrics_cache_is_keyed_per_results_file(tmp_path):
     results_dir = tmp_path / "backend" / "benchmark" / "output"
     results_dir.mkdir(parents=True)
     for stamp, sharpness in (("20260101_000000", 1.0), ("20260102_000000", 2.0)):
-        (results_dir / f"anime_stitch_{stamp}.json").write_text(json.dumps({
-            "metadata": {"timestamp": "2026-01-01T00:00:00", "total_datasets": 1},
-            "datasets": [{"name": "asp_test01", "metrics_asp": {"sharpness": sharpness}}],
-        }))
+        (results_dir / f"anime_stitch_{stamp}.json").write_text(
+            json.dumps(
+                {
+                    "metadata": {"timestamp": "2026-01-01T00:00:00", "total_datasets": 1},
+                    "datasets": [{"name": "asp_test01", "metrics_asp": {"sharpness": sharpness}}],
+                }
+            )
+        )
     files = discovery.results_files(str(tmp_path))
     assert len(files) == 2
     old = discovery.load_metrics(str(tmp_path), files[0])["asp_test01"]
@@ -466,13 +518,16 @@ def test_frames_dropped_pct_is_derived():
     assert sf.run_fields(ENTRY)["frames_dropped_pct"] == pytest.approx(83.67, abs=0.01)
 
 
-@pytest.mark.parametrize("asp,simple,verdict,expected", [
-    (1, 3, "simple_better", False),   # human agrees
-    (3, 1, "simple_better", True),    # human contradicts
-    (2, 2, "comparable", False),      # tie matches comparable
-    (2, 2, "asp_better", True),       # tie contradicts asp_better
-    (4, 1, "asp_better", False),
-])
+@pytest.mark.parametrize(
+    "asp,simple,verdict,expected",
+    [
+        (1, 3, "simple_better", False),  # human agrees
+        (3, 1, "simple_better", True),  # human contradicts
+        (2, 2, "comparable", False),  # tie matches comparable
+        (2, 2, "asp_better", True),  # tie contradicts asp_better
+        (4, 1, "asp_better", False),
+    ],
+)
 def test_disagreement_detection(asp, simple, verdict, expected):
     entry = dict(ENTRY, comparison=dict(ENTRY["comparison"], verdict=verdict))
     assert sf.disagreement(entry, _rated(asp, simple)) is expected
@@ -523,11 +578,12 @@ def test_gt_metrics_only_land_on_the_two_scored_comparators():
 
 
 def test_bbox_detections_use_fiftyone_bbox_convention():
-    entry = _rated(bboxes=[
-        BoundingBox(image="asp", x=0.1, y=0.2, w=0.3, h=0.4,
-                    label="tear", defect="torn_anatomy", severity=3),
-        BoundingBox(image="simple", x=0.5, y=0.5, w=0.1, h=0.1, defect="banding"),
-    ])
+    entry = _rated(
+        bboxes=[
+            BoundingBox(image="asp", x=0.1, y=0.2, w=0.3, h=0.4, label="tear", defect="torn_anatomy", severity=3),
+            BoundingBox(image="simple", x=0.5, y=0.5, w=0.1, h=0.1, defect="banding"),
+        ]
+    )
     detections = sf.bbox_detections(entry, "asp")
     assert len(detections) == 1
     assert detections[0]["bounding_box"] == [0.1, 0.2, 0.3, 0.4]

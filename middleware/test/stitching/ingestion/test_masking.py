@@ -39,9 +39,7 @@ class TestComputeFgMasksSam2Stateful:
     def test_no_birefnet_returns_none_predictor(self):
         """When use_birefnet=False, predictor/state/tmp_dir are all None."""
         frames = _make_frames(3)
-        masks, pred, state, tmp, fh, fw = _compute_fg_masks_sam2_stateful(
-            frames, None, use_birefnet=False
-        )
+        masks, pred, state, tmp, fh, fw = _compute_fg_masks_sam2_stateful(frames, None, use_birefnet=False)
         assert pred is None
         assert state is None
         assert tmp is None
@@ -50,9 +48,7 @@ class TestComputeFgMasksSam2Stateful:
     def test_frame_dimensions_returned(self):
         """frame_h and frame_w reflect the first frame's shape."""
         frames = _make_frames(2, h=48, w=64)
-        _, _, _, _, fh, fw = _compute_fg_masks_sam2_stateful(
-            frames, None, use_birefnet=False
-        )
+        _, _, _, _, fh, fw = _compute_fg_masks_sam2_stateful(frames, None, use_birefnet=False)
         assert fh == 48
         assert fw == 64
 
@@ -60,9 +56,7 @@ class TestComputeFgMasksSam2Stateful:
         """With birefnet=None (no mask for bbox), predictor is None and mask count correct."""
         frames = _make_frames(4, h=32, w=32)
         # birefnet_wrapper=None with use_birefnet=True triggers early-return
-        masks, pred, state, tmp, fh, fw = _compute_fg_masks_sam2_stateful(
-            frames, None, use_birefnet=True
-        )
+        masks, pred, state, tmp, fh, fw = _compute_fg_masks_sam2_stateful(frames, None, use_birefnet=True)
         assert pred is None
         assert state is None
         assert tmp is None
@@ -76,9 +70,7 @@ class TestComputeFgMasksSam2Stateful:
         # get_mask also used as fallback API
         bad_birefnet.get_mask.side_effect = RuntimeError("birefnet offline")
 
-        masks, pred, state, tmp, fh, fw = _compute_fg_masks_sam2_stateful(
-            frames, bad_birefnet, use_birefnet=True
-        )
+        masks, pred, state, tmp, fh, fw = _compute_fg_masks_sam2_stateful(frames, bad_birefnet, use_birefnet=True)
         assert pred is None
         assert len(masks) == 2
 

@@ -15,10 +15,8 @@ import pytest
 
 try:
     import backend as batch
-    if (
-        getattr(batch, "__file__", None) is None
-        or not hasattr(batch, "canvas")
-    ):
+
+    if getattr(batch, "__file__", None) is None or not hasattr(batch, "canvas"):
         raise ImportError("compiled base ASP extension not available")
     HAS_BATCH = True
 except ImportError:

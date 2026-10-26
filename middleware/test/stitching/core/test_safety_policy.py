@@ -51,9 +51,7 @@ class TestCompositeGate:
         policy = SafeAspPolicy(composite_sc_floor=999.0, composite_sb_floor=10.0)
         # Banded SCANS would have huge strip jumps if we measured it.
         affines = [_affine(0.0), _affine(60.0)]
-        decision = policy.evaluate_composite(
-            _solid(120, 80, 128), _banded(), affines
-        )
+        decision = policy.evaluate_composite(_solid(120, 80, 128), _banded(), affines)
         assert decision.accept
         assert decision.scores["sb_limit"] == 10.0
 
@@ -106,9 +104,7 @@ class TestGhostGate:
             assert decision.runtime_message.startswith("Ghosting gate (siqe):")
 
     def test_telemetry_only_never_rejects(self):
-        policy = SafeAspPolicy(
-            ghost_floor=0.0, ghost_ratio=0.01, ghost_telemetry_only=True
-        )
+        policy = SafeAspPolicy(ghost_floor=0.0, ghost_ratio=0.01, ghost_telemetry_only=True)
         decision = policy.evaluate_ghost(_banded(80, 64), _solid(80, 64, 128))
         assert decision.accept
         assert decision.status == "telemetry_only_inverse_validated"
@@ -148,9 +144,7 @@ class TestGhostTelemetryCounterfactual:
         ghost = policy.evaluate_ghost(_banded(80, 64), _solid(80, 64, 128))
         # Force a would-reject by using a tight policy clone for scores, but
         # the candidate decision above already accepts. Selection uses accept.
-        cf = safe_asp_counterfactual(
-            [ghost], policy, raw_available=True, scans_available=True
-        )
+        cf = safe_asp_counterfactual([ghost], policy, raw_available=True, scans_available=True)
         assert ghost.accept
         assert cf["would_select"] == "raw_asp"
         assert cf["gate"] is None

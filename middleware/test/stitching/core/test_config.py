@@ -43,10 +43,7 @@ class TestLoadAspConfig:
 
     def test_multi_section_keys_flattened(self, tmp_path, monkeypatch):
         cfg = tmp_path / "asp_config.toml"
-        cfg.write_text(
-            "[frame_selection]\nASP_HOLD_THRESHOLD = 0.03\n\n"
-            "[compositing]\nASP_SP_SOFT_PX = 8\n"
-        )
+        cfg.write_text("[frame_selection]\nASP_HOLD_THRESHOLD = 0.03\n\n[compositing]\nASP_SP_SOFT_PX = 8\n")
         monkeypatch.delenv("ASP_HOLD_THRESHOLD", raising=False)
         monkeypatch.delenv("ASP_SP_SOFT_PX", raising=False)
         result = load_asp_config(str(cfg))
@@ -134,9 +131,7 @@ class TestValidateAspConfig:
             "ASP_HOLD_THRESHOLD": -0.1,  # below minimum 0.0
             "ASP_HOLD_AVERAGE": 2,  # exceeds maximum 1
         }
-        with pytest.raises(
-            (ValueError, ConfigError), match="ASP config validation failed"
-        ):
+        with pytest.raises((ValueError, ConfigError), match="ASP config validation failed"):
             validate_asp_config(config, strict=True)
 
     def test_unknown_key_warns_but_not_a_violation(self):
@@ -219,9 +214,7 @@ class TestDumpAspConfigSchemaComments:
         monkeypatch.setenv("ASP_SEAM_NCC_GATE", "0.45")
         dump_asp_config(str(out))
         content = out.read_text()
-        assert "# type: float" in content, (
-            "Expected '# type: float' comment for float key"
-        )
+        assert "# type: float" in content, "Expected '# type: float' comment for float key"
 
     def test_range_comment_present(self, tmp_path, monkeypatch):
         """Keys in _CONFIG_SCHEMA with non-None range must have '# … range: [' annotation."""

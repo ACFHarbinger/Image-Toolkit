@@ -21,9 +21,7 @@ import sys
 
 import pytest
 
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 try:
@@ -48,6 +46,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # §11.6 — stage-level memory profiling
 # ---------------------------------------------------------------------------
+
 
 class TestLogResourceStore:
     def test_store_none_is_a_noop(self):
@@ -129,6 +128,7 @@ class TestStageMemoryWaterfallReport:
 # §11.9 — cross-run regression dashboard
 # ---------------------------------------------------------------------------
 
+
 class TestDetectRegressions:
     def _result(self, name: str, quality: float, ghosting: float, total_sec: float) -> dict:
         return {
@@ -176,7 +176,9 @@ class TestDetectRegressions:
         regressions = detect_regressions(current, baseline)
         assert len(regressions) == 1
         assert set(regressions[0]["reasons"]) == {
-            "composite_quality", "ghosting_siqe", "total_sec",
+            "composite_quality",
+            "ghosting_siqe",
+            "total_sec",
         }
 
     def test_improvement_is_not_a_regression(self):
@@ -229,6 +231,7 @@ class TestRegressionDashboardReport:
 # ---------------------------------------------------------------------------
 # §11.10 — comparative seam-configuration experiment tracker
 # ---------------------------------------------------------------------------
+
 
 class TestExperimentComparisonReport:
     def test_no_label_renders_note(self):

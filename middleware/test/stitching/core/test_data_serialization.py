@@ -105,9 +105,7 @@ class TestCOCOAnnotationBuilder:
     def test_add_seam_exclusion_with_bbox(self):
         b = COCOAnnotationBuilder()
         img_id = b.add_image("f0.jpg", width=640, height=360)
-        b.add_seam_exclusion(
-            img_id, bbox=[100, 50, 80, 60], text_prompt="right arm"
-        )
+        b.add_seam_exclusion(img_id, bbox=[100, 50, 80, 60], text_prompt="right arm")
         d = b.to_dict()
         ann = d["annotations"][0]
         assert ann["attributes"]["text_prompt"] == "right arm"
@@ -147,9 +145,7 @@ class TestCOCOAnnotationBuilder:
     def test_frame_selection_override_annotation(self):
         b = COCOAnnotationBuilder()
         img_id = b.add_image("f0.jpg")
-        b.add_frame_selection_override(
-            img_id, accepted=False, reason="duplicate pose"
-        )
+        b.add_frame_selection_override(img_id, accepted=False, reason="duplicate pose")
         d = b.to_dict()
         ann = d["annotations"][0]
         assert ann["attributes"]["accepted"] is False
@@ -219,9 +215,7 @@ class TestLabelStudioExporter:
 
 class TestCreateSessionSerializers:
     def test_returns_three_values(self, tmp_path):
-        builder, exporter, session_dir = create_session_serializers(
-            str(tmp_path / "session")
-        )
+        builder, exporter, session_dir = create_session_serializers(str(tmp_path / "session"))
         assert isinstance(builder, COCOAnnotationBuilder)
         assert isinstance(exporter, LabelStudioExporter)
         assert os.path.isdir(session_dir)

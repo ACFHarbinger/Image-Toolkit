@@ -68,9 +68,7 @@ class TestP4MaskRefinement:
         masks = [_make_mask(), _make_mask()]
         affines = [_make_affine(0), _make_affine(1)]
 
-        refined, uncertain_px = _refine_masks_for_plate(
-            [_make_frame(), _make_frame()], masks, affines
-        )
+        refined, uncertain_px = _refine_masks_for_plate([_make_frame(), _make_frame()], masks, affines)
 
         assert refined is masks
         assert uncertain_px == 0
@@ -161,9 +159,7 @@ class TestSpatialDedupFrames:
             _make_edge(2, 3, dy=60.0),
         ]
 
-        _, _, _, _, out_edges, n = _spatial_dedup_frames(
-            frames, scans, masks, paths, edges, min_displacement_px=25.0
-        )
+        _, _, _, _, out_edges, n = _spatial_dedup_frames(frames, scans, masks, paths, edges, min_displacement_px=25.0)
 
         assert n == 1
         # Only the surviving edges (not involving dropped frame 1) should remain,
@@ -182,9 +178,7 @@ class TestSpatialDedupFrames:
         # Even if frame 0→1 displacement is tiny, only frame 1 (j) can be dropped
         edges = [_make_edge(0, 1, dy=2.0), _make_edge(1, 2, dy=2.0)]
 
-        out_frames, _, _, _, _, n = _spatial_dedup_frames(
-            frames, scans, masks, paths, edges, min_displacement_px=25.0
-        )
+        out_frames, _, _, _, _, n = _spatial_dedup_frames(frames, scans, masks, paths, edges, min_displacement_px=25.0)
 
         # Frame 0 must survive; frame 1 is dropped; frame 2 has i=1 which is in
         # drop, so it is skipped by the guard and NOT dropped (it becomes orphaned
@@ -216,9 +210,7 @@ class TestFilterHighConfEdges:
         """Edges at or above threshold must survive the filter."""
         edges = [
             _make_edge_with_weight(0, 1, weight=0.90),
-            _make_edge_with_weight(
-                1, 2, weight=HIGH_CONF_EDGE_THRESH
-            ),  # exactly at floor
+            _make_edge_with_weight(1, 2, weight=HIGH_CONF_EDGE_THRESH),  # exactly at floor
             _make_edge_with_weight(2, 3, weight=0.75),
         ]
         result = _filter_high_conf_edges(edges)
@@ -315,8 +307,6 @@ class TestReloadScansFrames:
         assert result == []
 
 
-
-
 # ---------------------------------------------------------------------------
 # TestNormalizeFrameScales — §1.3C scale normalisation before BA (S54)
 # ---------------------------------------------------------------------------
@@ -331,13 +321,9 @@ def _make_scale_affine(scale: float, dy: float = 50.0) -> np.ndarray:
     return M
 
 
-
-
 # ---------------------------------------------------------------------------
 # §1.13B — _reject_scene_change_edges with use_bgr=True
 # ---------------------------------------------------------------------------
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -388,21 +374,13 @@ class TestCheckEdgeGraphConnectivity:
 # ---------------------------------------------------------------------------
 
 
-
-
 # §1.17 — _compute_canvas_span_utilization (canvas span utilisation gate)
 # Tests cover: edge cases (N<2), perfect monotone sequence, collapsed BA
 # (all frames same position), over-utilised (frames spread wider than median
 # step × (N-1)), and dominant-axis selection (horizontal vs vertical).
 
 
-
-
-
-
 # ── TestDetectStaticInput — §1.29 static input detection gate (S73) ──────────
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -445,16 +423,12 @@ class TestBuildManualEdge:
         edge = self._fn(0, 1, dx=30.0, dy=60.0)
         assert edge["pts_i"].shape == (1, 2)
         assert edge["pts_j"].shape == (1, 2)
-        np.testing.assert_allclose(
-            edge["pts_j"] - edge["pts_i"], [[30.0, 60.0]], atol=1e-6
-        )
+        np.testing.assert_allclose(edge["pts_j"] - edge["pts_i"], [[30.0, 60.0]], atol=1e-6)
 
 
 # ---------------------------------------------------------------------------
 # §1.37 — _compute_bg_coverage_fraction (S101)
 # ---------------------------------------------------------------------------
-
-
 
 
 # §1.39 — _compute_render_coverage (S103)
@@ -540,9 +514,7 @@ class TestApplyHiresKeyframes:
         hires_path = tmp_path / "hires_0.png"
         cv2.imwrite(str(hires_path), hires_img)
 
-        n, f_out, a_out, m_out = _apply_hires_keyframes(
-            frames, affines, masks, {0: str(hires_path)}
-        )
+        n, f_out, a_out, m_out = _apply_hires_keyframes(frames, affines, masks, {0: str(hires_path)})
 
         assert n == 1
         assert f_out[0].shape == (hires_h, hires_w, 3)
@@ -565,9 +537,7 @@ class TestApplyHiresKeyframes:
         hires_path = tmp_path / "hires_0.png"
         cv2.imwrite(str(hires_path), hires_img)
 
-        n, f_out, a_out, m_out = _apply_hires_keyframes(
-            frames, affines, masks, {0: str(hires_path)}
-        )
+        n, f_out, a_out, m_out = _apply_hires_keyframes(frames, affines, masks, {0: str(hires_path)})
 
         assert n == 1
         assert f_out[0].shape == (hires_h, hires_w, 3)
@@ -587,9 +557,7 @@ class TestApplyHiresKeyframes:
         hires_path = tmp_path / "hires_0.png"
         cv2.imwrite(str(hires_path), hires_img)
 
-        _, _, _, m_out = _apply_hires_keyframes(
-            frames, affines, masks, {0: str(hires_path)}
-        )
+        _, _, _, m_out = _apply_hires_keyframes(frames, affines, masks, {0: str(hires_path)})
 
         assert m_out[0] is not None
         assert m_out[0].shape == (hires_h, hires_w)
@@ -607,9 +575,7 @@ class TestApplyHiresKeyframes:
         hires_path = tmp_path / "hires_0.png"
         cv2.imwrite(str(hires_path), hires_img)
 
-        _, _, _, m_out = _apply_hires_keyframes(
-            frames, affines, masks, {0: str(hires_path)}
-        )
+        _, _, _, m_out = _apply_hires_keyframes(frames, affines, masks, {0: str(hires_path)})
 
         assert m_out[0] is None
 
@@ -619,9 +585,7 @@ class TestApplyHiresKeyframes:
         affines = [self._make_affine()]
         masks = [None]
 
-        n, f_out, a_out, m_out = _apply_hires_keyframes(
-            frames, affines, masks, {0: "/nonexistent/path/hires.png"}
-        )
+        n, f_out, a_out, m_out = _apply_hires_keyframes(frames, affines, masks, {0: "/nonexistent/path/hires.png"})
 
         assert n == 0
         assert f_out is frames
@@ -638,9 +602,7 @@ class TestApplyHiresKeyframes:
         hires_path = tmp_path / "hires_99.png"
         cv2.imwrite(str(hires_path), hires_img)
 
-        n, f_out, a_out, m_out = _apply_hires_keyframes(
-            frames, affines, masks, {99: str(hires_path)}
-        )
+        n, f_out, a_out, m_out = _apply_hires_keyframes(frames, affines, masks, {99: str(hires_path)})
 
         assert n == 0
 
@@ -659,9 +621,7 @@ class TestApplyHiresKeyframes:
         hires_path = tmp_path / "hires_0.png"
         cv2.imwrite(str(hires_path), hires_img)
 
-        _, _, a_out, _ = _apply_hires_keyframes(
-            frames, affines, masks, {0: str(hires_path)}
-        )
+        _, _, a_out, _ = _apply_hires_keyframes(frames, affines, masks, {0: str(hires_path)})
 
         # Linear sub-matrix must be exactly preserved
         np.testing.assert_array_almost_equal(a_out[0][:, :2], M[:, :2])
@@ -675,15 +635,9 @@ class TestApplyHiresKeyframes:
 # ---------------------------------------------------------------------------
 
 
-
-
 # ---------------------------------------------------------------------------
 # §3.16 — _smooth_affine_trajectory (S121)
 # ---------------------------------------------------------------------------
-
-
-
-
 
 
 class TestSortFramesByIndex:
@@ -724,26 +678,9 @@ def _make_spread_edge(i: int, j: int, ty: float, tx: float = 0.0) -> dict:
     return {"i": i, "j": j, "ty": ty, "tx": tx, "weight": 0.9}
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 # ===========================================================================
 # Merged from test_pipeline_s160.py
 # ===========================================================================
-
-
-
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -802,14 +739,12 @@ class TestSpatialDedupFramesBatchWiring:
         paths = ["z0.png", "z1.png", "z2.png"]
         edges = [_make_edge(0, 1, dy=3.0), _make_edge(1, 2, dy=80.0)]
 
-        _, out_s, _, _, _, n = _spatial_dedup_frames(
-            frames, scans, masks, paths, edges, min_displacement_px=25.0
-        )
+        _, out_s, _, _, _, n = _spatial_dedup_frames(frames, scans, masks, paths, edges, min_displacement_px=25.0)
 
         assert n == 1
         assert len(out_s) == 2
-        assert out_s[0][0, 0, 0] == 15   # scans[0] = val+5=15
-        assert out_s[1][0, 0, 0] == 35   # scans[2] = val+5=35
+        assert out_s[0][0, 0, 0] == 15  # scans[0] = val+5=15
+        assert out_s[1][0, 0, 0] == 35  # scans[2] = val+5=35
 
     def test_edge_reindex_correct_after_drop(self):
         """Surviving edges must have i/j remapped to the post-drop index space."""
@@ -818,14 +753,12 @@ class TestSpatialDedupFramesBatchWiring:
         masks = [_make_mask() for _ in range(4)]
         paths = [f"w{i}.png" for i in range(4)]
         edges = [
-            _make_edge(0, 1, dy=2.0),   # frame 1 near-static → dropped
+            _make_edge(0, 1, dy=2.0),  # frame 1 near-static → dropped
             _make_edge(1, 2, dy=80.0),  # involves dropped frame → excluded
             _make_edge(2, 3, dy=80.0),  # both survive → remapped (1→2)
         ]
 
-        _, _, _, _, out_e, n = _spatial_dedup_frames(
-            frames, scans, masks, paths, edges, min_displacement_px=25.0
-        )
+        _, _, _, _, out_e, n = _spatial_dedup_frames(frames, scans, masks, paths, edges, min_displacement_px=25.0)
 
         assert n == 1
         assert len(out_e) == 1
@@ -841,9 +774,7 @@ class TestSpatialDedupFramesBatchWiring:
         # dx=3 horizontal, dy=0 — below threshold on both axes
         edges = [_make_edge(0, 1, dy=0.0, dx=3.0), _make_edge(1, 2, dy=0.0, dx=80.0)]
 
-        _, _, _, _, _, n = _spatial_dedup_frames(
-            frames, scans, masks, paths, edges, min_displacement_px=25.0
-        )
+        _, _, _, _, _, n = _spatial_dedup_frames(frames, scans, masks, paths, edges, min_displacement_px=25.0)
 
         assert n == 1  # frame 1 dropped (ddx=3 < 25, ddy=0 < 25)
 
@@ -924,20 +855,9 @@ class TestAdaptiveDyCvMax:
 # ===========================================================================
 
 
-
 # ===========================================================================
 # §5.39 — Pipeline Canvas Valid-Area Ratio Gate (Stage 11.35)
 # ===========================================================================
-
-
-
-
-
-
-
-
-
-
 
 
 # ===========================================================================
@@ -945,72 +865,11 @@ class TestAdaptiveDyCvMax:
 # ===========================================================================
 
 
-
-
 # ===========================================================================
 # §5.50: Stage 11.41 Strip Sharpness CV Gate
 # ===========================================================================
 
 
-
-
 # ===========================================================================
 # §5.53: Stage 11.42 Strip Contrast CV Gate
 # ===========================================================================
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -13,9 +13,7 @@ import sys
 
 import pytest
 
-_repo_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, _repo_root)
 
 from middleware.src.stitching_evaluation.other.provenance import (  # noqa: E402
@@ -50,9 +48,7 @@ def test_round_trip_full():
         safety_tier="tier_pg13",
         gt_known_defects=["color_shift"],
     )
-    entry.add_observation(
-        SafetyObservation(source=SOURCE_HUMAN, verdict="clear", evidence="reviewed 2026-08-15")
-    )
+    entry.add_observation(SafetyObservation(source=SOURCE_HUMAN, verdict="clear", evidence="reviewed 2026-08-15"))
     restored = CaseProvenance.from_dict(json.loads(json.dumps(entry.to_dict())))
     assert restored.corpus_id == "sfw_q3"
     assert restored.web_redistribution_ok is True
@@ -125,9 +121,7 @@ class TestDualVetoGate:
     def test_adjudication_is_appended_not_a_replacement(self):
         entry = CaseProvenance(case_id="x")
         entry.add_observation(SafetyObservation(source=SOURCE_HUMAN, verdict="uncertain"))
-        entry.add_adjudication(
-            SafetyAdjudication(decision="clear", reason="manual review resolved ambiguity")
-        )
+        entry.add_adjudication(SafetyAdjudication(decision="clear", reason="manual review resolved ambiguity"))
         # the original observation is untouched -- adjudication is a
         # separate record, never a rewrite
         assert len(entry.safety_observations) == 1
@@ -166,9 +160,7 @@ class TestDualVetoGate:
         an adjudication cannot launder around a high_risk finding."""
         entry = CaseProvenance(case_id="x")
         entry.add_observation(SafetyObservation(source="commercial_endpoint", verdict="high_risk"))
-        entry.add_adjudication(
-            SafetyAdjudication(decision="clear", reason="reviewed and disagree with the flag")
-        )
+        entry.add_adjudication(SafetyAdjudication(decision="clear", reason="reviewed and disagree with the flag"))
         assert entry.minor_presenting_includable() is False
         assert len(entry.safety_adjudications) == 1
         assert entry.safety_adjudications[0].decision == "clear"
@@ -178,9 +170,7 @@ def test_load_save_round_trip(tmp_path):
     path = str(tmp_path / "provenance.json")
     entries = {
         "asp_test04": CaseProvenance(case_id="asp_test04", corpus_id="nsfw_97"),
-        "asp_test50": CaseProvenance(
-            case_id="asp_test50", corpus_id="sfw_q3", safety_tier="tier_g"
-        ),
+        "asp_test50": CaseProvenance(case_id="asp_test50", corpus_id="sfw_q3", safety_tier="tier_g"),
     }
     save_provenance(path, entries)
     loaded = load_provenance(path)

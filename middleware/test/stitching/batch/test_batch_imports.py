@@ -16,10 +16,8 @@ import pytest
 
 try:
     import backend as batch
-    if (
-        getattr(batch, "__file__", None) is None
-        or not hasattr(batch, "bundle_adjust")
-    ):
+
+    if getattr(batch, "__file__", None) is None or not hasattr(batch, "bundle_adjust"):
         raise ImportError("compiled base ASP extension not available")
     HAS_BATCH = True
 except ImportError:
@@ -130,12 +128,8 @@ class TestSubmoduleAPISurface:
     def test_all_symbols_exist_and_callable(self, submodule_name, symbols):
         submodule = getattr(batch, submodule_name)
         for fn_name in symbols:
-            assert hasattr(submodule, fn_name), (
-                f"batch.{submodule_name}.{fn_name} is missing from the pybind11 binding"
-            )
-            assert callable(getattr(submodule, fn_name)), (
-                f"batch.{submodule_name}.{fn_name} is not callable"
-            )
+            assert hasattr(submodule, fn_name), f"batch.{submodule_name}.{fn_name} is missing from the pybind11 binding"
+            assert callable(getattr(submodule, fn_name)), f"batch.{submodule_name}.{fn_name} is not callable"
 
     def test_all_symbols_have_docstrings(self, submodule_name, symbols):
         submodule = getattr(batch, submodule_name)
@@ -183,16 +177,14 @@ class TestDefaultArguments:
     def test_blocks_gain_compensate_minimal_args(self):
         import numpy as np
 
-        frames  = [np.zeros((60, 80, 3), dtype=np.uint8)]
-        masks   = [np.zeros((60, 80), dtype=np.uint8)]
+        frames = [np.zeros((60, 80, 3), dtype=np.uint8)]
+        masks = [np.zeros((60, 80), dtype=np.uint8)]
         corners = [(0, 0)]
-        self._call_tolerating_not_impl(
-            batch.exposure.blocks_gain_compensate, frames, masks, corners
-        )
+        self._call_tolerating_not_impl(batch.exposure.blocks_gain_compensate, frames, masks, corners)
 
     def test_correct_vignetting_minimal_args(self):
         import numpy as np
 
         frame = np.zeros((40, 60, 3), dtype=np.uint8)
-        vmap  = np.ones((40, 60), dtype=np.float32)
+        vmap = np.ones((40, 60), dtype=np.float32)
         self._call_tolerating_not_impl(batch.exposure.correct_vignetting, frame, vmap)

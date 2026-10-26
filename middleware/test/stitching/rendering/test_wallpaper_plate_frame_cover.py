@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-_WALLPAPER = Path(__file__).resolve().parents[2] / "src" / "rendering" / "wallpaper"
+_WALLPAPER = Path(__file__).resolve().parents[3] / "src" / "stitching" / "rendering" / "wallpaper"
 _MOD_PATH = _WALLPAPER / "_plate_frame_cover.py"
 
 
@@ -43,9 +43,7 @@ def _strip(h: int, w: int, x0: int, x1: int) -> np.ndarray:
 def test_disjoint_strips_require_both_frames() -> None:
     left = _strip(4, 8, 0, 4)
     right = _strip(4, 8, 4, 8)
-    result = select_plate_frames(
-        [left, right], min_samples=1, max_frames=8, cell_size=1
-    )
+    result = select_plate_frames([left, right], min_samples=1, max_frames=8, cell_size=1)
     assert set(result.selected) == {0, 1}
     assert result.covered_fraction == pytest.approx(1.0)
     assert result.redundancy_floor_fraction == pytest.approx(1.0)
@@ -94,23 +92,17 @@ def test_redundancy_floor_picks_overlap_not_just_cover() -> None:
     full = _strip(1, 4, 0, 4)
     left = _strip(1, 4, 0, 2)
     right = _strip(1, 4, 2, 4)
-    result = select_plate_frames(
-        [full, left, right], min_samples=2, max_frames=8, cell_size=1
-    )
+    result = select_plate_frames([full, left, right], min_samples=2, max_frames=8, cell_size=1)
     assert set(result.selected) == {0, 1, 2}
     assert result.redundancy_floor_fraction == pytest.approx(1.0)
 
-    one = select_plate_frames(
-        [full, left, right], min_samples=1, max_frames=8, cell_size=1
-    )
+    one = select_plate_frames([full, left, right], min_samples=1, max_frames=8, cell_size=1)
     assert one.selected == (0,)
 
 
 def test_budget_cap_stops_before_full_cover() -> None:
     masks = [_strip(2, 6, x, x + 2) for x in (0, 2, 4)]
-    result = select_plate_frames(
-        masks, min_samples=1, max_frames=2, cell_size=1
-    )
+    result = select_plate_frames(masks, min_samples=1, max_frames=2, cell_size=1)
     assert len(result.selected) == 2
     assert result.covered_fraction == pytest.approx(2.0 / 3.0)
     assert result.redundancy_floor_fraction == pytest.approx(2.0 / 3.0)
@@ -128,9 +120,7 @@ def test_greedy_recovers_off_grid_unique_frame_even_decimation_misses() -> None:
     even = set(np.unique(np.linspace(0, 39, 8).astype(np.int64)).tolist())
     assert 7 not in even
 
-    result = select_plate_frames(
-        masks, min_samples=1, max_frames=8, cell_size=1
-    )
+    result = select_plate_frames(masks, min_samples=1, max_frames=8, cell_size=1)
     assert 7 in result.selected
     assert result.covered_fraction == pytest.approx(1.0)
     assert result.selected[0] in even  # first pick is the common left cover
@@ -150,9 +140,7 @@ def test_quality_presets_supply_budget_and_floor() -> None:
 
 def test_explicit_budget_overrides_quality_preset() -> None:
     cover = _strip(2, 4, 0, 4)
-    result = select_plate_frames(
-        [cover], quality="fast", min_samples=3, max_frames=4, cell_size=1
-    )
+    result = select_plate_frames([cover], quality="fast", min_samples=3, max_frames=4, cell_size=1)
     assert result.min_samples == 3
     assert result.max_frames == 4
 
@@ -224,18 +212,14 @@ def test_maybe_select_is_passthrough_when_flag_off(
     left = _strip(2, 4, 0, 2)
     right = _strip(2, 4, 2, 4)
     dup = left.copy()
-    off = maybe_select_plate_frames(
-        [left, dup, right], hero_idx=1, min_samples=1, max_frames=1, cell_size=1
-    )
+    off = maybe_select_plate_frames([left, dup, right], hero_idx=1, min_samples=1, max_frames=1, cell_size=1)
     # Flag off: every non-hero index, even though greedy-with-budget-1
     # would have kept a single frame.
     assert off.selected == (0, 2)
     assert off.covered_fraction == pytest.approx(1.0)
 
     monkeypatch.setenv("ASP_PLATE_FRAME_COVER", "1")
-    on = maybe_select_plate_frames(
-        [left, dup, right], hero_idx=1, min_samples=1, max_frames=1, cell_size=1
-    )
+    on = maybe_select_plate_frames([left, dup, right], hero_idx=1, min_samples=1, max_frames=1, cell_size=1)
     assert on.selected == (0,)
     assert on.covered_fraction == pytest.approx(0.5)
 

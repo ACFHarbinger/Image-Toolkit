@@ -19,7 +19,7 @@ def _create_synthetic_anime_frame(
 ) -> np.ndarray:
     """Create a synthetic anime frame with flat cel skin/bg and ink line art."""
     img = np.full((h, w, 3), 220, dtype=np.uint8)  # Flat skin tone
-    
+
     # Add flat clothing region
     img[100:200, 30:170] = (80, 50, 180)  # Purple uniform
 

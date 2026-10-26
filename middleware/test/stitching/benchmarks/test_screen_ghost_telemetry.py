@@ -6,12 +6,7 @@ import importlib.util
 import json
 from pathlib import Path
 
-_SRC = (
-    Path(__file__).resolve().parents[3]
-    / "backend"
-    / "benchmark"
-    / "screen_ghost_telemetry.py"
-)
+_SRC = Path(__file__).resolve().parents[3] / "benchmark" / "asp" / "screen_ghost_telemetry.py"
 _spec = importlib.util.spec_from_file_location("screen_ghost_telemetry", _SRC)
 assert _spec and _spec.loader
 screen = importlib.util.module_from_spec(_spec)

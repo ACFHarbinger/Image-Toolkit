@@ -33,9 +33,7 @@ def test_plate_recovers_background_hero_footprint_excluded() -> None:
 
     hero_x = xs[2]
     footprint = rect_footprint(hero_x)
-    plate = build_background_plate(
-        frames, affines, bg_masks, footprint, (H, W), hero_frame_idx=2
-    )
+    plate = build_background_plate(frames, affines, bg_masks, footprint, (H, W), hero_frame_idx=2)
 
     assert isinstance(plate, BackgroundPlate)
     assert plate.plate.shape == (H, W, 3)
@@ -91,8 +89,10 @@ def test_joint_gain_compensation_applied() -> None:
     assert plate.gains.shape == (2,)
     # The solve regularizes toward 1.0 but must pull the two frames together.
     overlap = (bg_mask_for(40) & bg_mask_for(200)).astype(bool)
+
     def lum(f):
         return f[overlap].astype(np.float64).dot(np.array([0.114, 0.587, 0.299])).mean()
+
     d_raw = abs(lum(bg0) - lum(bg1))
     d_corr = abs(lum(bg0) * plate.gains[0] - lum(bg1) * plate.gains[1])
     assert d_corr < 0.5 * d_raw
@@ -149,9 +149,7 @@ def test_temporal_decimation_caps_sample_count() -> None:
     affines = [IDENTITY.copy()] * len(frames)
     bg_masks = [bg_mask_for(x) for x in xs]
 
-    plate = build_background_plate(
-        frames, affines, bg_masks, np.zeros((H, W), dtype=bool), (H, W), max_samples=6
-    )
+    plate = build_background_plate(frames, affines, bg_masks, np.zeros((H, W), dtype=bool), (H, W), max_samples=6)
     assert plate.valid_mask.all()
     assert plate.sample_count.max() <= 6
     assert plate.sample_count.min() >= 1
