@@ -8,7 +8,7 @@ the status lifecycle and deletion gate are documented in
 
 ## Summary
 
-- 29 feature rows: pyside-only × 26, both × 3, parity-passed × 0, pyside-deleted × 0
+- 31 feature rows: pyside-only × 22, both × 9, parity-passed × 0, pyside-deleted × 0
 
 ## wave-0
 
@@ -46,12 +46,12 @@ the status lifecycle and deletion gate are documented in
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
-| web.crawler | Crawler | unclaimed | [#906](https://github.com/ACFHarbinger/Image-Toolkit/issues/906) | pyside-only | web.crawler | — | 0 |
+| web.crawler | Crawler | Gemini | [#906](https://github.com/ACFHarbinger/Image-Toolkit/issues/906) | pyside-only | web.crawler | — | 0 |
 | web.drive-sync | Cloud Synchronization | Grok | [#908](https://github.com/ACFHarbinger/Image-Toolkit/issues/908) | pyside-only | web.drive-sync | — | 0 |
-| web.entity-recon | Entity Reconnaissance | unclaimed | [#911](https://github.com/ACFHarbinger/Image-Toolkit/issues/911) | pyside-only | web.entity-recon | — | 0 |
+| web.entity-recon | Entity Reconnaissance | Mistral | [#911](https://github.com/ACFHarbinger/Image-Toolkit/issues/911) | both | web.entity-recon | — | 1 |
 | web.media-loader | Media Loader | Grok | [#909](https://github.com/ACFHarbinger/Image-Toolkit/issues/909) | pyside-only | web.media-loader | — | 0 |
-| web.requests | Requests | unclaimed | [#907](https://github.com/ACFHarbinger/Image-Toolkit/issues/907) | pyside-only | web.requests | — | 0 |
-| web.reverse-search | Reverse Search | unclaimed | [#910](https://github.com/ACFHarbinger/Image-Toolkit/issues/910) | pyside-only | web.reverse-search | — | 0 |
+| web.requests | Requests | Gemini | [#907](https://github.com/ACFHarbinger/Image-Toolkit/issues/907) | pyside-only | web.requests | — | 0 |
+| web.reverse-search | Reverse Search | Mistral | [#910](https://github.com/ACFHarbinger/Image-Toolkit/issues/910) | both | web.reverse-search | — | 1 |
 
 ## wave-6
 
@@ -63,28 +63,28 @@ the status lifecycle and deletion gate are documented in
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
-| system.wallpaper | Wallpaper | unclaimed | [#913](https://github.com/ACFHarbinger/Image-Toolkit/issues/913) | pyside-only | system.wallpaper | 0/3 | 0 |
+| system.wallpaper | Wallpaper | Gemini | [#913](https://github.com/ACFHarbinger/Image-Toolkit/issues/913) | pyside-only | system.wallpaper | 0/3 | 0 |
 
 ## wave-8
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
-| editor.hybrid | Hybrid Editor | unclaimed | [#915](https://github.com/ACFHarbinger/Image-Toolkit/issues/915) | pyside-only | editor.hybrid | — | 0 |
-| manga.animation | Animation | unclaimed | [#916](https://github.com/ACFHarbinger/Image-Toolkit/issues/916) | pyside-only | manga.animation | — | 0 |
-| manga.colorization | Colorization | unclaimed | [#916](https://github.com/ACFHarbinger/Image-Toolkit/issues/916) | pyside-only | manga.colorization | — | 0 |
-| manga.puppeteering | Puppeteering | unclaimed | [#916](https://github.com/ACFHarbinger/Image-Toolkit/issues/916) | pyside-only | manga.puppeteering | — | 0 |
+| editor.hybrid | Hybrid Editor | Gemini | [#915](https://github.com/ACFHarbinger/Image-Toolkit/issues/915) | pyside-only | editor.hybrid | — | 0 |
+| manga.animation | Animation | Mistral | [#916](https://github.com/ACFHarbinger/Image-Toolkit/issues/916) | both | manga.animation | — | 1 |
+| manga.colorization | Colorization | Mistral | [#916](https://github.com/ACFHarbinger/Image-Toolkit/issues/916) | both | manga.colorization | — | 1 |
+| manga.puppeteering | Puppeteering | Mistral | [#916](https://github.com/ACFHarbinger/Image-Toolkit/issues/916) | both | manga.puppeteering | — | 1 |
 | stitch | Image Stitching | Grok | [#914](https://github.com/ACFHarbinger/Image-Toolkit/issues/914) | pyside-only | stitch.stitch<br>stitch.graph<br>stitch.adjust<br>stitch.canvas<br>stitch.statistics<br>stitch.sequence-builder<br>stitch.hybrid<br>stitch.animation-clusters | — | 0 |
 
 ## wave-9
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
+| developer.logs | Logs | Grok | [#919](https://github.com/ACFHarbinger/Image-Toolkit/issues/919) | pyside-only | developer.logs | — | 0 |
+| developer.metadata | File Metadata | Grok | [#919](https://github.com/ACFHarbinger/Image-Toolkit/issues/919) | pyside-only | developer.metadata | — | 0 |
 | window.auth | Authentication / vault unlock | Grok | [#918](https://github.com/ACFHarbinger/Image-Toolkit/issues/918) | pyside-only | — | — | 0 |
-| window.cloud-compute | Cloud Compute setup window | unclaimed | [#920](https://github.com/ACFHarbinger/Image-Toolkit/issues/920) | pyside-only | — | — | 0 |
-| window.logging | Logging and metadata windows | unclaimed | [#919](https://github.com/ACFHarbinger/Image-Toolkit/issues/919) | pyside-only | — | — | 0 |
-| window.settings | Settings window | Grok | [#917](https://github.com/ACFHarbinger/Image-Toolkit/issues/917) | pyside-only | — | — | 0 |
+| window.cloud-compute | Cloud Compute setup window | Mistral | [#920](https://github.com/ACFHarbinger/Image-Toolkit/issues/920) | both | — | — | 1 |
 | window.logging | Logging and metadata windows | Grok | [#919](https://github.com/ACFHarbinger/Image-Toolkit/issues/919) | pyside-only | — | — | 0 |
-| window.settings | Settings window | unclaimed | [#917](https://github.com/ACFHarbinger/Image-Toolkit/issues/917) | pyside-only | — | — | 0 |
+| window.settings | Settings window | Grok | [#917](https://github.com/ACFHarbinger/Image-Toolkit/issues/917) | pyside-only | — | — | 0 |
 
 ## Shared Qt infrastructure
 

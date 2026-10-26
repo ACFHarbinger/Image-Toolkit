@@ -1,0 +1,7 @@
+{
+  "id": "manga.csg.payload-shape",
+  "feature": "manga.colorization",
+  "kind": "differential",
+  "entry": "migration/scenarios/manga_csg.py",
+  "ignore": []
+}

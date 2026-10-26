@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Manga CSG rides the bridge** (Tauri migration Wave 8, E-03 #916).
+  - **Contracts & Capability:** added `csg` capability (`csg.colorize_scribble`, `csg.colorize_reference`, `csg.arap_deform`, `csg.propagate_sequence`) with schema `contracts/schemas/capability/csg.json` and method routing in `contracts/methods.toml`.
+  - **Sidecar:** handler in `middleware/src/sidecar/handlers/csg.py` dispatched in `SidecarServer._dispatch_csg`; builds the frozen Phase C `CsgService` commands, maps `CommandValidationError` to `csg.invalid_params`, and normalizes tuples to JSON lists in the payload.
+  - **Frontend View:** `MangaWorkspaceView` (Wave 8 E-03) wired to the real capability calls — colorization picks reference transfer or scribble colorization from the two hint inputs, animation propagates the frame sequence, puppeteering deforms via ARAP control/target point sets and reports the mesh vertex count; the three manga catalog routes mount it through the shell HostClient.
+  - **HostClient API:** added `csgColorizeScribble`, `csgColorizeReference`, `csgArapDeform`, and `csgPropagateSequence` methods to `HostClient`.
+  - **Ledger, Docs & Parity:** `manga.colorization`, `manga.animation`, `manga.puppeteering` rows in `migration/features.toml` now `owner = "Mistral"`, `contract = "csg"`, `status = "both"` with differential scenario `migration/scenarios/manga.csg.json` (contract payload shape vs handler projection); module doc `docs/modules/csg.md` carries the schema hash; refreshed the manifest total hash in `docs/modules/{asp,cre,_template}.md`.
+
 - **Wallpaper Service & Multi-Monitor Presenter** (Tauri migration Wave 7, A-01 #913).
   - **Contracts & Capability:** added `wallpaper` capability (`wallpaper.get_monitors`, `wallpaper.set`, `wallpaper.slideshow_config`, `wallpaper.slideshow_toggle`) with schema `contracts/schemas/capability/wallpaper.json` and method routing in `contracts/methods.toml`.
   - **Service Layer:** `middleware/src/services/wallpaper/` implementing `WallpaperServiceProtocol` (`WallpaperService`, `GetMonitorsHandler`, `SetWallpaperHandler`, `SlideshowConfigHandler`, `SlideshowToggleHandler`) wrapping `WallpaperManager` and canonical slideshow config at `~/.image-toolkit/.slideshow_config.json`.

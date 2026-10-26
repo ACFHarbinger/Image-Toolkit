@@ -1,4 +1,4 @@
-// GENERATED — contract hash 7f853bd58530640761fee9a62783e191b67b9cbc62db9153cfadfc7c15d42687. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 6a45b8f32749068100d96710e9ad83f596745d32b6cb9702fc61e1997c228ea4. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -378,6 +378,86 @@ pub struct LoginConfig {
     pub username: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub password: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ArapDeformParams {
+    pub image_path: String,
+    pub control_points: Vec<Vec<f64>>,
+    pub target_points: Vec<Vec<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mesh_resolution: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ArapDeformPayload {
+    pub success: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_path: Option<serde_json::Value>,
+    pub num_vertices: i64,
+    pub num_triangles: i64,
+    pub elapsed_seconds: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ColorizeReferenceParams {
+    pub lineart_path: String,
+    pub reference_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epsilon: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_iter: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ColorizeScribbleParams {
+    pub lineart_path: String,
+    pub scribble_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub intensity: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub use_screentone: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ColorizeScribblePayload {
+    pub success: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_path: Option<serde_json::Value>,
+    pub width: i64,
+    pub height: i64,
+    pub elapsed_seconds: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PropagateSequenceParams {
+    pub frame_paths: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keyframe_index: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keyframe_color_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_dir: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PropagateSequencePayload {
+    pub success: bool,
+    pub output_paths: Vec<String>,
+    pub frames_processed: i64,
+    pub elapsed_seconds: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

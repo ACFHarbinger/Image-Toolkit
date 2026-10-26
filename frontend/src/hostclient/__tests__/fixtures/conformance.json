@@ -33,6 +33,7 @@
               "similarity",
               "extractor",
               "auth",
+              "csg",
               "reverse_search",
               "drive_sync",
               "media_loader",

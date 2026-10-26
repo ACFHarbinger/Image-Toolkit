@@ -16,6 +16,9 @@ import { EntityReconView } from "../views/web/EntityRecon";
 import { WebRequestsView } from "../views/web/WebRequestsView";
 import { DriveSyncView } from "../views/web/DriveSyncView";
 import { MediaLoaderView } from "../views/web/MediaLoaderView";
+import { MangaColorizationView } from "../views/manga/MangaColorizationView";
+import { MangaAnimationView } from "../views/manga/MangaAnimationView";
+import { MangaPuppeteeringView } from "../views/manga/MangaPuppeteeringView";
 import ImageCrawlerTab from "../tabs/web/ImageCrawlerTab";
 import { BenchmarkDashboard } from "../tabs/apollo/BenchmarkDashboard";
 import { HieEditorTab } from "../tabs/editor/HieEditorTab";
@@ -76,6 +79,9 @@ const HOST_CLIENT_VIEWS = new Set([
   "web.requests",
   "web.drive-sync",
   "web.media-loader",
+  "manga.colorization",
+  "manga.animation",
+  "manga.puppeteering",
   "editor.hybrid",
   "developer.logs",
   "developer.metadata",
@@ -100,6 +106,9 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "web.media-loader": MediaLoaderView,
   "web.reverse-search": ReverseSearchView,
   "web.entity-recon": EntityReconView,
+  "manga.colorization": MangaColorizationView,
+  "manga.animation": MangaAnimationView,
+  "manga.puppeteering": MangaPuppeteeringView,
   "dl.train": DlWorkspace,
   "dl.generate": DlWorkspace,
   "dl.review": DlWorkspace,

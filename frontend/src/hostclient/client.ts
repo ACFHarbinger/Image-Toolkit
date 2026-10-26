@@ -9,6 +9,15 @@ import type {
 } from "../../../contracts/generated/ts";
 import type { ScanDirectoryParams, ScanDirectoryResult, SaveMetadataParams, SaveMetadataResult, SuggestTagsParams, SuggestTagsResult } from "../../../contracts/generated/ts";
 import type { ExecuteParams, ExecuteResult, SequenceParams, SequenceResult } from "../../../contracts/generated/ts";
+import type {
+  ArapDeformParams as CsgArapDeformParams,
+  ArapDeformPayload as CsgArapDeformPayload,
+  ColorizeReferenceParams as CsgColorizeReferenceParams,
+  ColorizeScribbleParams as CsgColorizeScribbleParams,
+  ColorizeScribblePayload as CsgColorizePayload,
+  PropagateSequenceParams as CsgPropagateSequenceParams,
+  PropagateSequencePayload as CsgPropagateSequencePayload,
+} from "../../../contracts/generated/ts";
 import type { BrowseParams, BrowseResult, CatalogResult, MutateParams, MutateResult } from "../../../contracts/generated/ts";
 import type {
   CrawlParams,
@@ -173,6 +182,26 @@ export class HostClient {
   async entityReconResolve(params: EntityReconResolveParams): Promise<EntityReconResolveResult> {
     await this.connect();
     return this.send<EntityReconResolveResult>("entity_recon.resolve", params as unknown as Record<string, unknown>);
+  }
+
+  async csgColorizeScribble(params: CsgColorizeScribbleParams): Promise<CsgColorizePayload> {
+    await this.connect();
+    return this.send<CsgColorizePayload>("csg.colorize_scribble", params as unknown as Record<string, unknown>);
+  }
+
+  async csgColorizeReference(params: CsgColorizeReferenceParams): Promise<CsgColorizePayload> {
+    await this.connect();
+    return this.send<CsgColorizePayload>("csg.colorize_reference", params as unknown as Record<string, unknown>);
+  }
+
+  async csgArapDeform(params: CsgArapDeformParams): Promise<CsgArapDeformPayload> {
+    await this.connect();
+    return this.send<CsgArapDeformPayload>("csg.arap_deform", params as unknown as Record<string, unknown>);
+  }
+
+  async csgPropagateSequence(params: CsgPropagateSequenceParams): Promise<CsgPropagateSequencePayload> {
+    await this.connect();
+    return this.send<CsgPropagateSequencePayload>("csg.propagate_sequence", params as unknown as Record<string, unknown>);
   }
 
   async cloudSetupProviders(): Promise<CloudSetupProvidersResult> {

@@ -12,6 +12,16 @@ import type { HostClient } from "../../hostclient";
 
 export type MangaMode = "colorization" | "animation" | "puppeteering";
 
+/** Parse a point-set string like "10,20 30,40" into [x, y] pairs. */
+export const parseCsgPoints = (text: string): Array<[number, number]> =>
+  text
+    .split(/[;\n]/)
+    .flatMap((part) => part.trim().split(/\s+/))
+    .filter(Boolean)
+    .map((token) => token.split(",").map((value) => Number(value.trim())))
+    .filter((pair) => pair.length === 2 && pair.every((value) => Number.isFinite(value)))
+    .map((pair) => [pair[0], pair[1]] as [number, number]);
+
 export interface MangaWorkspaceViewProps {
   initialMode?: MangaMode;
   showModal?: (
@@ -49,27 +59,84 @@ export const MANGA_MODES = [
 export const MangaWorkspaceView: React.FC<MangaWorkspaceViewProps> = ({
   initialMode = "colorization",
   showModal,
+  hostClient,
 }) => {
   const [mode, setMode] = useState<MangaMode>(initialMode);
   const [sourcePath, setSourcePath] = useState<string>("");
   const [referencePath, setReferencePath] = useState<string>("");
+  const [scribblePath, setScribblePath] = useState<string>("");
+  const [framePathsText, setFramePathsText] = useState<string>("");
+  const [controlPointsText, setControlPointsText] = useState<string>("");
+  const [targetPointsText, setTargetPointsText] = useState<string>("");
   const [statusMessage, setStatusMessage] = useState<string>("Workspace ready");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [meshVertices, setMeshVertices] = useState<number>(0);
 
-  const handleExecute = () => {
-    if (!sourcePath.trim()) {
+  const handleExecute = async () => {
+    if (!hostClient) {
+      setStatusMessage("Error: Host client unavailable");
+      if (showModal) showModal("Host client unavailable", "error");
+      return;
+    }
+    if (mode !== "animation" && !sourcePath.trim()) {
       if (showModal) showModal("Please select a line-art or manga plate", "error");
       setStatusMessage("Error: Missing source manga image");
       return;
     }
     setIsProcessing(true);
     setStatusMessage(`Running ${mode} solver...`);
-    if (showModal) showModal(`Solving ${mode} pipeline...`, "info", 1500);
-    setTimeout(() => {
+    try {
+      if (mode === "colorization") {
+        const reference = referencePath.trim();
+        const scribble = scribblePath.trim();
+        if (!reference && !scribble) {
+          throw new Error("Provide a color reference or scribble hints");
+        }
+        const payload = reference
+          ? await hostClient.csgColorizeReference({
+              lineart_path: sourcePath.trim(),
+              reference_path: reference,
+            })
+          : await hostClient.csgColorizeScribble({
+              lineart_path: sourcePath.trim(),
+              scribble_path: scribble,
+            });
+        if (!payload.success) throw new Error(payload.error ?? "colorization failed");
+        setStatusMessage(`Colorization complete: ${payload.output_path ?? "no output path"}`);
+        if (showModal) showModal("Colorization generated successfully", "success", 2000);
+      } else if (mode === "animation") {
+        const framePaths = framePathsText
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+        if (framePaths.length === 0) throw new Error("Provide frame paths for the sequence");
+        const payload = await hostClient.csgPropagateSequence({ frame_paths: framePaths });
+        if (!payload.success) throw new Error("sequence propagation failed");
+        setStatusMessage(`Propagated ${payload.frames_processed} frame(s)`);
+        if (showModal) showModal("Sequence propagation complete", "success", 2000);
+      } else {
+        const controlPoints = parseCsgPoints(controlPointsText);
+        const targetPoints = parseCsgPoints(targetPointsText);
+        if (controlPoints.length === 0 || targetPoints.length === 0) {
+          throw new Error("Provide control and target point sets (\"x,y x,y\")");
+        }
+        const payload = await hostClient.csgArapDeform({
+          image_path: sourcePath.trim(),
+          control_points: controlPoints,
+          target_points: targetPoints,
+        });
+        if (!payload.success) throw new Error(payload.error ?? "ARAP deformation failed");
+        setMeshVertices(payload.num_vertices);
+        setStatusMessage(`ARAP deform complete: ${payload.output_path ?? "no output path"}`);
+        if (showModal) showModal("Puppeteering pose generated successfully", "success", 2000);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setStatusMessage(`Error: ${message}`);
+      if (showModal) showModal(message, "error");
+    } finally {
       setIsProcessing(false);
-      setStatusMessage(`${mode.toUpperCase()} pass completed`);
-      if (showModal) showModal(`${mode} generated successfully`, "success", 2000);
-    }, 1000);
+    }
   };
 
   return (
@@ -139,7 +206,7 @@ export const MangaWorkspaceView: React.FC<MangaWorkspaceViewProps> = ({
           </div>
           <div className="h-8 border-t border-gray-800 bg-gray-900/90 flex items-center justify-between px-4 text-xs font-mono text-gray-400">
             <span>Mode: manga.{mode}</span>
-            <span>Mesh Vertices: 0</span>
+            <span>Mesh Vertices: {meshVertices}</span>
           </div>
         </div>
 
@@ -170,40 +237,86 @@ export const MangaWorkspaceView: React.FC<MangaWorkspaceViewProps> = ({
           </div>
 
           {mode === "colorization" && (
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Color Reference (Optional)</label>
-              <input
-                type="text"
-                placeholder="/path/to/reference_palette.png"
-                value={referencePath}
-                onChange={(e) => setReferencePath(e.target.value)}
-                className="w-full text-xs p-2 rounded bg-gray-900 border border-gray-800 text-gray-100 font-mono outline-none focus:border-pink-500"
-              />
+            <div className="space-y-2">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Color Reference (reference transfer)</label>
+                <input
+                  type="text"
+                  placeholder="/path/to/reference_palette.png"
+                  value={referencePath}
+                  onChange={(e) => setReferencePath(e.target.value)}
+                  className="w-full text-xs p-2 rounded bg-gray-900 border border-gray-800 text-gray-100 font-mono outline-none focus:border-pink-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Scribble Hints (scribble colorization)</label>
+                <input
+                  type="text"
+                  placeholder="/path/to/scribble_hints.png"
+                  value={scribblePath}
+                  onChange={(e) => setScribblePath(e.target.value)}
+                  className="w-full text-xs p-2 rounded bg-gray-900 border border-gray-800 text-gray-100 font-mono outline-none focus:border-pink-500"
+                />
+              </div>
             </div>
           )}
 
           {mode === "puppeteering" && (
-            <div className="bg-gray-900/60 p-2.5 rounded-lg border border-gray-800/80 text-xs font-mono space-y-1 text-gray-400">
-              <div className="flex justify-between">
-                <span>ARAP Rig:</span>
-                <span className="text-emerald-400">2D Triangular</span>
+            <div className="space-y-2">
+              <div className="bg-gray-900/60 p-2.5 rounded-lg border border-gray-800/80 text-xs font-mono space-y-1 text-gray-400">
+                <div className="flex justify-between">
+                  <span>ARAP Rig:</span>
+                  <span className="text-emerald-400">2D Triangular</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Energy Model:</span>
+                  <span>As-Rigid-As-Possible</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span>Energy Model:</span>
-                <span>As-Rigid-As-Possible</span>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Control Points ("x,y x,y")</label>
+                <input
+                  type="text"
+                  placeholder="10,20 80,25"
+                  value={controlPointsText}
+                  onChange={(e) => setControlPointsText(e.target.value)}
+                  className="w-full text-xs p-2 rounded bg-gray-900 border border-gray-800 text-gray-100 font-mono outline-none focus:border-pink-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Target Points ("x,y x,y")</label>
+                <input
+                  type="text"
+                  placeholder="12,24 95,20"
+                  value={targetPointsText}
+                  onChange={(e) => setTargetPointsText(e.target.value)}
+                  className="w-full text-xs p-2 rounded bg-gray-900 border border-gray-800 text-gray-100 font-mono outline-none focus:border-pink-500"
+                />
               </div>
             </div>
           )}
 
           {mode === "animation" && (
-            <div className="bg-gray-900/60 p-2.5 rounded-lg border border-gray-800/80 text-xs font-mono space-y-1 text-gray-400">
-              <div className="flex justify-between">
-                <span>Screentone Guard:</span>
-                <span className="text-emerald-400">FFT BANDPASS</span>
+            <div className="space-y-2">
+              <div className="bg-gray-900/60 p-2.5 rounded-lg border border-gray-800/80 text-xs font-mono space-y-1 text-gray-400">
+                <div className="flex justify-between">
+                  <span>Screentone Guard:</span>
+                  <span className="text-emerald-400">FFT BANDPASS</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Temporal Solver:</span>
+                  <span>Optimal Transport</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span>Temporal Solver:</span>
-                <span>Optimal Transport</span>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Frame Sequence (one path per line)</label>
+                <textarea
+                  placeholder={"/path/to/frame_001.png\n/path/to/frame_002.png"}
+                  value={framePathsText}
+                  onChange={(e) => setFramePathsText(e.target.value)}
+                  rows={4}
+                  className="w-full text-xs p-2 rounded bg-gray-900 border border-gray-800 text-gray-100 font-mono outline-none focus:border-pink-500"
+                />
               </div>
             </div>
           )}
