@@ -165,3 +165,19 @@ test("saving unrelated settings does not submit a preloaded shortcut", async () 
   await waitFor(() => expect(hostClient.prefsSet).toHaveBeenCalled());
   expect(hostClient.prefsSet.mock.calls[0][0]).not.toHaveProperty("shortcut");
 });
+
+test("clearing a saved shortcut submits an explicit empty chord", async () => {
+  const initial = { ...loaded(), shortcuts: [{ ...SHORTCUT, custom: "Meta+A" }] };
+  const hostClient = {
+    prefsGet: vi.fn().mockResolvedValue(initial),
+    prefsSet: vi.fn().mockResolvedValue({ ...loaded(), success: true, reason: "Saved", credentials_changed: false }),
+  };
+  render(<SettingsWindow hostClient={hostClient} account="ada" onClose={() => {}} />);
+  await screen.findByLabelText("Account name");
+  fireEvent.click(screen.getByRole("tab", { name: "Shortcuts" }));
+  fireEvent.change(screen.getByLabelText("Shortcut chord"), { target: { value: "" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(hostClient.prefsSet).toHaveBeenCalled());
+  expect(hostClient.prefsSet.mock.calls[0][0].shortcut).toEqual({ action: SHORTCUT.id, chord: "" });
+  expect(screen.getByLabelText("Shortcut chord")).toHaveValue("");
+});

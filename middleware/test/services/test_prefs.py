@@ -342,3 +342,21 @@ def test_shortcut_editor_preserves_hidden_bindings(tmp_path):
     assert json.loads(path.read_text()) == {
         "gallery.select_all": {"default_enabled": True, "custom": ["Alt+A", "Ctrl+Shift+A"]}
     }
+
+
+@pytest.mark.parametrize("remaining", [[], ["Ctrl+Shift+A"]])
+def test_clear_shortcut_through_dispatch(tmp_path, remaining):
+    keys = tmp_path / "keys.json"
+    keys.write_text(json.dumps({"gallery.select_all": {"default_enabled": True, "custom": ["Meta+A", *remaining]}}))
+    bind_prefs_paths(prefs=tmp_path / "prefs.json", keybindings=keys)
+    try:
+        server = SidecarServer(stdout=io.StringIO())
+        server.handle_frame({"jsonrpc": "2.0", "id": "hello", "method": "system.handshake", "params": {
+            "protocol": PROTOCOL_NAME, "client": {"name": "pytest", "version": "1.0.0"}}})
+        result = server.handle_frame({"jsonrpc": "2.0", "id": "save", "method": "prefs.set", "params": {
+            "account": "ada", "profiles": _PROFILES, "gallery": _GALLERY, "logging": _LOGGING,
+            "shortcut": {"action": "gallery.select_all", "chord": ""}}})
+        assert "error" not in result
+        assert json.loads(keys.read_text())["gallery.select_all"] == {"default_enabled": True, "custom": remaining}
+    finally:
+        bind_prefs_paths()

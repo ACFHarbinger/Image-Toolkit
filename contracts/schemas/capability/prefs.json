@@ -94,7 +94,7 @@
       "required": ["action", "chord"],
       "properties": {
         "action": { "type": "string", "minLength": 1 },
-        "chord": { "type": "string", "minLength": 1 }
+        "chord": { "type": "string", "description": "Empty removes the displayed custom binding; other bindings are preserved." }
       }
     },
     "PrefsGetParams": {

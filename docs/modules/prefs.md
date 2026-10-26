@@ -6,7 +6,7 @@
 | **Service Package** | `middleware/src/services/prefs/` |
 | **Frontend View** | `frontend/src/views/settings/SettingsWindow.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/prefs.json` |
-| **Contract SHA-256** | `bcec68d2b7a15845a13d48ab2d1c6bbb077a46b98d3d25bf73822cf17cda1159` |
+| **Contract SHA-256** | `34499e21978ec4c610ab3d02edeb74969003133221e8661c4ea6702a33d9819d` |
 
 ## Overview
 

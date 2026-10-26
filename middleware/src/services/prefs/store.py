@@ -185,7 +185,7 @@ def save_override(action: str, chord: str, path: Path | None = None) -> None:
     current = _read(target)
     previous = current.get(action, {})
     custom = previous.get("custom") or []
-    current[action] = {**previous, "custom": [chord, *custom[1:]]}
+    current[action] = {**previous, "custom": [chord, *custom[1:]] if chord else custom[1:]}
     _write(target, current)
 
 
@@ -222,8 +222,8 @@ def save_window(
     if shortcut is not None:
         action = shortcut.get("action")
         chord = shortcut.get("chord")
-        if not isinstance(action, str) or not action or not isinstance(chord, str) or not chord:
-            raise ValueError("shortcut action and chord are required")
+        if not isinstance(action, str) or not action or not isinstance(chord, str):
+            raise ValueError("shortcut action is required and chord must be a string")
         known = {item["id"] for item in load_registry()["actions"]}
         if action not in known:
             raise BridgeAppError("prefs.unknown_action", details={"action": action})

@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Allow clearing the displayed custom shortcut without changing other bindings or the default-enabled setting.
+
 - Settings saves leave untouched shortcuts unchanged; editing the displayed chord preserves default enablement and additional custom bindings.
 
 ### Changed
