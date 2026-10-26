@@ -1,0 +1,8 @@
+# tools/bench — run benchmarks for C++ via unified Image-Toolkit backend CMake tree (W0-03 Phase B / #867).
+
+set shell := ["bash", "-c"]
+
+all: cpp
+
+cpp:
+    cd ../../../.. && cmake -B build/backend backend/ -DCMAKE_BUILD_TYPE=Release -DBACKEND_BUILD_BENCHMARKS=ON && cmake --build build/backend --target backend_bench_hie -j && ./build/backend/benchmarks/backend_bench_hie

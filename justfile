@@ -249,9 +249,11 @@ asp-benchmark-clean: helper::_print_header
 asp-benchmark-assess *ARGS: helper::_print_header
     just benchmark::asp-benchmark-assess {{ARGS}}
 
-# Forward arbitrary arguments to the ASP tasks (absorbed into middleware/src/stitching, #1039).
+# Forward arbitrary arguments to the ASP submodule's root Justfile. This keeps
+# the submodule's own task surface reachable after the ASP repository split.
+# Examples: `just asp-just --list`, `just asp-just bench::help`.
 asp-just *ARGS: helper::_print_header
-    @echo "asp-just retired: ASP is absorbed into middleware/src/stitching (#1039)"
+    just --justfile submodules/ASP/justfile {{ARGS}}
 
 # Corpus-level triage of the ASP evaluations in FiftyOne (optional extra)
 asp-triage *ARGS: helper::_print_header
@@ -405,7 +407,7 @@ krita-install: helper::_print_header
 krita-uninstall: helper::_print_header
     just repository::krita-uninstall
 
-# Reinstall the plugin (close Krita first)
+# Reinstall the plugin — use after pulling submodule updates (close Krita first)
 krita-reinstall: helper::_print_header
     just repository::krita-reinstall
 

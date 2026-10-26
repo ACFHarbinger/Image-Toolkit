@@ -40,9 +40,8 @@ os_checklist = [ { item = "…", platform = "linux", checked = false } ]  # plat
 `pyside` + `[[shared]]` must partition `gui/src/**/*.py`: exactly one
 owner per file, no unowned file. `[[shared]]` entries (`{path, owner,
 note}`) cover shell infrastructure with the owning Wave-0 issue in
-`note`. Rows whose absorbed code lives in `middleware/src/` or
-workspace controllers point `pyside` at their existing `gui/src` files
-or `[]` if no standalone PySide6 surface remains (#867/#1039).
+`note`. Rows whose Qt code lives in the absorbed submodules point
+`pyside` at `submodules/{ASP,CSG,HIE}/...` (#867 absorbs them).
 
 ## Parity scenarios (#883)
 
@@ -92,10 +91,10 @@ spike no-go that keeps a row alive past its wave is also recorded here
   (`frontend/src/tabs/apollo`), so `pyside = []` and the row starts at
   `both` with no scenarios required. It tracks the meta issue #864 since
   no dedicated issue exists.
-- **stitch / manga / HIE**: absorbed into `middleware/src/` (#1035–#1039).
-  The ledger points to any surviving `gui/src` controllers (e.g.
-  `stitch_workspace.py`) and uses `pyside = []` where submodule Qt trees
-  were retired. Only the workspace controllers
+- **stitch / manga / HIE**: the Qt code lives in the absorbed submodule
+  GUIs (`submodules/ASP/gui/src`, `submodules/CSG/gui/src/tabs/`,
+  `submodules/HIE/gui/src/`); the ledger points there instead of
+  pretending it is under `gui/src`. Only the workspace controllers
   (`stitch_workspace.py`, `dl_workspace.py`, `comfy_workspace_controller.py`)
   live in `gui/src/modules/` and are owned by their rows.
 - **`gui/src/preferences/` stays `[[shared]]`** (#880 settings service

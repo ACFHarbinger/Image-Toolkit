@@ -9,9 +9,9 @@ data_dir="${ASP_DATA_DIR:-$HOME/Downloads/Data/Dump}"
 log_dir="${ASP_MONITOR_LOG_DIR:-$repo_root/.agent/reports/codex}"
 mkdir -p "$log_dir"
 
-checkpoint="$repo_root/middleware/benchmark/asp/output/_checkpoint.json"
+checkpoint="$repo_root/submodules/ASP/backend/benchmark/output/_checkpoint.json"
 bench=(
-  "$repo_root/middleware/benchmark/asp/bench_anime_stitch.py"
+  "$repo_root/submodules/ASP/backend/benchmark/bench_anime_stitch.py"
   --data-dir "$data_dir"
 )
 

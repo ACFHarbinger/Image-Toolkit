@@ -36,7 +36,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from middleware.src.stitching.core.config import asp_schema, get_asp
+from asp_backend.core.config import asp_schema, get_asp
 
 from gui.src.constants.windows import _KNOWN_GUI_KEYS
 from gui.src.windows.settings.app_settings import AppSettings

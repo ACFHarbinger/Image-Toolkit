@@ -3,7 +3,6 @@ import importlib.machinery
 import os
 import sys
 import tempfile
-import gui.src.legacy  # noqa: F401 - bootstrap legacy submodule Qt trees
 
 # --- ISOLATE THE CONFIG ROOT (must precede any PySide6 import) ---
 # Qt resolves and caches its settings root (QSettings, and its own
@@ -121,7 +120,12 @@ project_root = Path(__file__).resolve().parent.parent.parent
 # Add the project root to sys.path. This allows 'import gui.src...'
 # to resolve 'gui' as a package within Image-Toolkit/.
 sys.path.insert(0, str(project_root))
+# ASP and Manga Colorization & Animation live in their own submodules;
+# see git/scripts/_submodule_bootstrap.py for why this isn't a plain
+# sys.path.insert.
+from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa: E402
 
+register_submodule_packages(str(project_root))
 
 import gui.src  # noqa: E402,F401  -- installs the QFileDialog patch (ui-arch-29/#551)
 

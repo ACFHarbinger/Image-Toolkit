@@ -35,7 +35,7 @@ The project mission is to provide a unified environment for managing massive ima
 **No agent may launch a benchmark run (`bench_anime_stitch.py`, the ASP
 registration monitor, `asp_registration_monitor.sh`, or any multi-case/
 multi-hour corpus run) or a full test suite (`pytest` across a whole
-directory, `gui/test/`, `middleware/test/stitching/`, etc.) without
+directory, `gui/test/`, `submodules/ASP/backend/test/`, etc.) without
 going through this exact chain.** Multiple agents launching these
 concurrently has crashed Harbinger's machine. This is a hard rule, not a
 suggestion:

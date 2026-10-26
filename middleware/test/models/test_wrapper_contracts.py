@@ -35,7 +35,11 @@ _repo_root = os.path.dirname(
 )
 sys.path.insert(0, _repo_root)
 
+from git.scripts._submodule_bootstrap import (  # noqa: E402
+    register_submodule_packages,
+)
 
+register_submodule_packages(_repo_root)
 
 from middleware.test.models._contract_mixin import (  # noqa: E402
     ModelWrapperContractMixin,

@@ -1,0 +1,6 @@
+{
+  "app": {
+    "name": "anime-stitch-pipeline",
+    "log_level": "info"
+  }
+}

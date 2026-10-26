@@ -236,8 +236,9 @@ jobs:
           cp -f backend*.so "$SITE_PKGS/" || true
 
       - name: Run slow backend pytest
-        # exit 5 = "no tests collected": when there are no in-tree
-        # @pytest.mark.slow tests, an empty selection is not a failure.
+        # exit 5 = "no tests collected": there are currently no in-tree
+        # @pytest.mark.slow tests (all live under submodules/*/test), so an
+        # empty selection is not a failure.
         run: uv run pytest middleware/test --skip-gpu -m "slow" -q --tb=short --timeout=600 || [ $? -eq 5 ]
         env:
           PYTHONPATH: .

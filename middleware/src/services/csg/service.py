@@ -10,6 +10,7 @@ import os
 import time
 from typing import Any
 
+from middleware.src.services._submodule_loader import ensure_submodules_registered
 from middleware.src.services.base import CommandValidationError
 from middleware.src.services.csg.commands import (
     ArapDeformCommand,
@@ -32,6 +33,7 @@ class CsgService(CsgServiceProtocol):
     def __init__(self, csg_delegate: Any = None) -> None:
         """Initialize CsgService with optional delegate."""
         self._delegate = csg_delegate
+        ensure_submodules_registered()
 
     def colorize_scribble(self, command: ColorizeScribbleCommand) -> ColorizeScribbleResult:
         """Colorize lineart using scribble guidance."""

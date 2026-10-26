@@ -143,13 +143,13 @@ endif()
 # Test executable
 # ---------------------------------------------------------------------------
 add_executable(backend_tests
-    # Animation tests — relocated from ASP (W0-03 #867/#1039).
-    asp/test_seam.cpp
-    asp/test_compositing.cpp
-    asp/test_bundle_adjust.cpp
-    asp/test_matching.cpp
-    asp/test_validation.cpp
-    asp/test_fuzz.cpp
+    # Animation tests — live in the ASP submodule.
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/tests/test_seam.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/tests/test_compositing.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/tests/test_bundle_adjust.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/tests/test_matching.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/tests/test_validation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/tests/test_fuzz.cpp
 
     # Image I/O + filesystem tests (Phase 2)
     image/test_image_batch.cpp

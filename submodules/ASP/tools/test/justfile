@@ -1,0 +1,15 @@
+# tools/test — run every module's test suite.
+
+set shell := ["bash", "-c"]
+
+# Run all test suites
+all: backend gui base
+
+backend:
+    cd backend && uv run pytest test -v
+
+gui:
+    cd gui && uv run pytest test -v
+
+base:
+    cd ../../../.. && just test-base-cpp

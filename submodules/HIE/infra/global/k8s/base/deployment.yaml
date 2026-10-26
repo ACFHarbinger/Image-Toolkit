@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hybrid-image-editor
+  labels:
+    app: hybrid-image-editor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hybrid-image-editor
+  template:
+    metadata:
+      labels:
+        app: hybrid-image-editor
+    spec:
+      containers:
+        - name: app
+          # TODO: point at your real registry once infra/global/docker/Dockerfile is published there.
+          image: hybrid-image-editor:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: hybrid-image-editor-config
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

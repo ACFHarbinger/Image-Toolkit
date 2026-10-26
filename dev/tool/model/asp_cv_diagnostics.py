@@ -2,7 +2,7 @@
 
 Host attachment: plugin + ``PipelineSession`` ``TelemetrySink``. Consumes
 the existing OTLP-shaped JSONL telemetry emitted by
-``middleware/src/stitching/core/pipeline/telemetry.py`` and produces
+``submodules/ASP/backend/src/core/pipeline/telemetry.py`` and produces
 diagnostic artifacts for the Rerun desktop sidecar.
 
 This module defines serializable dataclasses for:

@@ -1,0 +1,8 @@
+# tools/build — compile C++ module via unified Image-Toolkit backend CMake tree (W0-03 Phase B / #867).
+
+set shell := ["bash", "-c"]
+
+all: cpp
+
+cpp:
+    cd ../../../.. && just build::build-base

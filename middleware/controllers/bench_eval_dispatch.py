@@ -27,15 +27,17 @@ from pathlib import Path
 def main() -> None:
     it_root = Path(__file__).resolve().parents[2]
     asp_dispatch = (
-        it_root / "middleware" / "src" / "stitching" / "cli" / "eval_dispatch.py"
+        it_root / "submodules" / "ASP" / "backend" / "src" / "cli" / "eval_dispatch.py"
     )
     if not asp_dispatch.is_file():
         raise SystemExit(
-            f"ASP eval_dispatch not found at {asp_dispatch}."
+            f"ASP eval_dispatch not found at {asp_dispatch}. "
+            "submodules/ASP is missing from this checkout."
         )
-    # Ensure repo root is importable when this shim is the entry script.
-    if str(it_root) not in sys.path:
-        sys.path.insert(0, str(it_root))
+    # Ensure both roots are importable when this shim is the entry script.
+    for p in (str(it_root), str(it_root / "submodules" / "ASP")):
+        if p not in sys.path:
+            sys.path.insert(0, p)
     sys.argv[0] = str(asp_dispatch)
     runpy.run_path(str(asp_dispatch), run_name="__main__")
 

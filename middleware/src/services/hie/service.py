@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from PIL import Image
 
+from middleware.src.services._submodule_loader import ensure_submodules_registered
 from middleware.src.services.base import CommandValidationError
 from middleware.src.services.hie.commands import (
     HieEditCommand,
@@ -63,6 +64,7 @@ class HieService(HieServiceProtocol):
     def __init__(self, ipc_service: Any = None) -> None:
         """Initialize HieService with optional IpcService delegate."""
         self._ipc_service = ipc_service
+        ensure_submodules_registered()
 
     def _get_ipc(self) -> Any:
         if self._ipc_service is not None:

@@ -15,20 +15,26 @@ gui-manager:
     @echo "🛠️ Starting Image-Toolkit with Manager integration..."
     source .venv/bin/activate && python middleware/main.py gui --enable-manager
 
-# --- ASP & CSG (absorbed into main Tauri application, #1039) ---
+# --- ASP (standalone, not the full Image-Toolkit app) ---
 
-# Standalone ASP GUI (absorbed into Image-Toolkit; use npm run dev)
+# Launch just the ASP stitch tab in its own PySide6 window
 asp-gui:
-    @echo "asp-gui is absorbed into the main application. Run: npm run dev"
+    @echo "🐍 Starting ASP Desktop App..."
+    source .venv/bin/activate && cd submodules/ASP/gui && python launch.py
 
-# Launch the ASP stitch view in the main application
+# Launch the ASP Tauri cross-platform UI (scaffold — see submodules/ASP/frontend/README.md)
 asp-web:
-    @echo "asp-web is absorbed into the main application. Run: npm run dev"
+    @echo "🦀 Starting ASP Tauri App..."
+    cd submodules/ASP/frontend && npm run tauri:dev
 
-# Standalone CSG GUI (absorbed into Image-Toolkit; use npm run dev)
+# --- CSG (standalone, not the full Image-Toolkit app) ---
+
+# Launch just the Manga Colorization/Animation/Puppeteering tabs in their own PySide6 window
 manga-gui:
-    @echo "manga-gui is absorbed into the main application. Run: npm run dev"
+    @echo "🐍 Starting CSG Desktop App..."
+    source .venv/bin/activate && cd submodules/CSG/gui && python launch.py
 
-# Launch the Manga views in the main application
+# Launch the Manga Tauri cross-platform UI (scaffold — see submodules/CSG/frontend/README.md)
 manga-web:
-    @echo "manga-web is absorbed into the main application. Run: npm run dev"
+    @echo "🦀 Starting CSG Tauri App..."
+    cd submodules/CSG/frontend && npm run tauri:dev

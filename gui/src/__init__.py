@@ -6,6 +6,5 @@ configuration no longer call ``apply_patch()`` themselves.
 """
 
 from gui.src.file_dialog_patch import apply_patch as _apply_file_dialog_patch
-import gui.src.legacy  # noqa: F401 - bootstrap legacy submodule Qt trees
 
 _apply_file_dialog_patch()

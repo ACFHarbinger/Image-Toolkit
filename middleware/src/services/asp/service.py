@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from middleware.src.services._submodule_loader import ensure_submodules_registered
 from middleware.src.services.asp.commands import (
     MatchFramesCommand,
     MatchFramesResult,
@@ -29,6 +30,7 @@ class StitchService(StitchServiceProtocol):
     def __init__(self, pipeline_factory: Any = None) -> None:
         """Initialize StitchService with optional pipeline factory or delegate."""
         self._pipeline_factory = pipeline_factory
+        ensure_submodules_registered()
 
     def _get_pipeline(self, **kwargs: Any) -> Any:
         if self._pipeline_factory is not None:
@@ -38,7 +40,12 @@ class StitchService(StitchServiceProtocol):
 
             return AnimeStitchPipeline(**kwargs)
         except (ImportError, Exception):
-            return None
+            try:
+                from asp_backend import AnimeStitchPipeline
+
+                return AnimeStitchPipeline(**kwargs)
+            except (ImportError, Exception):
+                return None
 
     def stitch(self, command: StitchCommand) -> StitchResult:
         """Execute stitching pipeline across image sequence."""

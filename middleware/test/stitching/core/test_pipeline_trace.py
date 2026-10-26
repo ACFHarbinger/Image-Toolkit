@@ -2,9 +2,7 @@
 
 import datetime
 
-import pytest
-_progress_mod = pytest.importorskip("asp_gui.helpers._progress_pipeline", reason="ASP GUI retired with submodules removal")
-_STAGE_LABELS = _progress_mod._STAGE_LABELS
+from asp_gui.helpers._progress_pipeline import _STAGE_LABELS
 
 
 def test_stage_labels_indexing():

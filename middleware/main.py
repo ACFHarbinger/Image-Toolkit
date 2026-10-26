@@ -55,6 +55,14 @@ with contextlib.suppress(OSError):
 # lives in middleware/, so the repo root is one level up from here.
 repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, repo_root)
+# ASP and Manga Colorization & Animation live in their own submodules;
+# see git/scripts/_submodule_bootstrap.py for why this isn't a plain
+# sys.path.insert.
+# Must run before any middleware/gui import below -- gui.src.windows.settings.
+# app_config imports asp_backend at module load time.
+from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa: E402
+
+register_submodule_packages(repo_root)
 
 # Qt Multimedia backend pinning (#374): PySide6's bundled Qt ships only the
 # FFmpeg backend, but a machine-wide QT_MEDIA_BACKEND=gstreamer (left over
