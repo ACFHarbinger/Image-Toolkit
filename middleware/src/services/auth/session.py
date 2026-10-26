@@ -54,6 +54,9 @@ class LiveVault:
         """Re-key only the account this process unlocked."""
         if not self.open or account_name != self.account:
             raise RuntimeError("C++ vault session locked")
+        # A failed unlock of another account leaves the global paths pointing
+        # at that account. The manager deletes and recreates those paths.
+        udef.update_cryptographic_values(self.account)
         self._manager.update_account_password(account_name, new_raw_pass)
 
 
@@ -64,6 +67,22 @@ def _require(account: str, password: str) -> tuple[str, str]:
     if not password:
         raise ValueError("password is empty")
     return cleaned, password
+
+
+_CRYPTO_PATHS = ("KEYSTORE_FILE", "VAULT_FILE", "PEPPER_FILE")
+
+
+def _path_snapshot() -> dict[str, str]:
+    return {name: getattr(udef, name) for name in _CRYPTO_PATHS}
+
+
+def _restore_paths(previous: dict[str, str]) -> None:
+    """Put the account paths back. ``update_cryptographic_values`` writes both the package and the crypto module."""
+    crypto = sys.modules.get("middleware.src.constants.crypto")
+    for name, value in previous.items():
+        setattr(udef, name, value)
+        if crypto is not None and hasattr(crypto, name):
+            setattr(crypto, name, value)
 
 
 def _load_vault_api() -> Any | None:
@@ -83,8 +102,10 @@ def open_live_session(account: str, password: str) -> LiveVault:
     api = _load_vault_api()
     if api is None:
         raise VaultOpenError("C++ vault module is missing.")
+    previous_paths = _path_snapshot()
     udef.update_cryptographic_values(cleaned)
     manager: VaultManager | None = None
+    opened = False
     try:
         manager = VaultManager()
         manager.load_keystore(udef.KEYSTORE_FILE, raw_password)
@@ -102,7 +123,9 @@ def open_live_session(account: str, password: str) -> LiveVault:
         if not handle or not api.is_unlocked(handle):
             raise VaultOpenError("C++ vault session was not opened.")
         profiles = list((stored.get("system_preference_profiles") or {}).keys())
-        return LiveVault(cleaned, manager, profiles)
+        live = LiveVault(cleaned, manager, profiles)
+        opened = True
+        return live
     except VaultOpenError:
         if manager is not None:
             manager.shutdown()
@@ -119,6 +142,9 @@ def open_live_session(account: str, password: str) -> LiveVault:
         if manager is not None:
             manager.shutdown()
         raise VaultOpenError("C++ vault session was not opened.") from None
+    finally:
+        if not opened:
+            _restore_paths(previous_paths)
 
 
 def unlock(account: str, password: str) -> dict[str, Any]:

@@ -75,7 +75,8 @@ def test_missing_native_module_does_not_open_a_session(monkeypatch: pytest.Monke
         open_live_session("keeper", "secret")
 
 
-def test_live_vault_delegates_password_change_only_while_open() -> None:
+def test_live_vault_delegates_password_change_only_while_open(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("middleware.src.constants.update_cryptographic_values", lambda _account: None)
     class Manager:
         def __init__(self) -> None:
             self.calls: list[tuple[str, str]] = []
@@ -119,3 +120,74 @@ def test_live_vault_confirms_only_the_stored_password() -> None:
     assert live.confirm_password("not-the-password") is False
     live.shutdown()
     assert live.confirm_password("old-secret") is False
+
+
+_PATH_NAMES = ("KEYSTORE_FILE", "VAULT_FILE", "PEPPER_FILE")
+
+
+def test_failed_unlock_restores_the_previous_account_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+    import middleware.src.constants as udef
+    import middleware.src.constants.crypto as crypto
+
+    for name in _PATH_NAMES:
+        monkeypatch.setattr(udef, name, f"/kept/ada/{name}")
+        monkeypatch.setattr(crypto, name, f"/kept/ada/{name}")
+
+    def retarget(account: str) -> None:
+        for name in _PATH_NAMES:
+            value = f"/other/{account}/{name}"
+            setattr(udef, name, value)
+            setattr(crypto, name, value)
+
+    class Manager:
+        def load_keystore(self, *_args: object) -> None:
+            raise FileNotFoundError("missing")
+
+        def shutdown(self) -> None:
+            return None
+
+    class Api:
+        def is_unlocked(self, _handle: object) -> bool:
+            return False
+
+    monkeypatch.setattr(udef, "update_cryptographic_values", retarget)
+    monkeypatch.setattr("middleware.src.services.auth.session.VaultManager", Manager)
+    monkeypatch.setattr("middleware.src.services.auth.session._load_vault_api", lambda: Api())
+    with pytest.raises(VaultOpenError, match="not found"):
+        open_live_session("bee", "nope")
+    for name in _PATH_NAMES:
+        assert getattr(udef, name) == f"/kept/ada/{name}"
+        assert getattr(crypto, name) == f"/kept/ada/{name}"
+
+
+def test_password_update_rebinds_the_live_account_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+    import middleware.src.constants as udef
+
+    monkeypatch.setattr(udef, "KEYSTORE_FILE", "/other/bee/keystore")
+    bound: list[str] = []
+
+    def retarget(account: str) -> None:
+        bound.append(account)
+        udef.KEYSTORE_FILE = f"/live/{account}/keystore"
+
+    monkeypatch.setattr(udef, "update_cryptographic_values", retarget)
+
+    class Manager:
+        def __init__(self) -> None:
+            self.path = ""
+
+        def update_account_password(self, account_name: str, new_raw_pass: str) -> None:
+            del account_name, new_raw_pass
+            self.path = udef.KEYSTORE_FILE
+
+        def shutdown(self) -> None:
+            return None
+
+    manager = Manager()
+    live = LiveVault("ada", manager, [])
+    live.update_account_password("ada", "next")
+    assert bound == ["ada"]
+    assert manager.path == "/live/ada/keystore"
+    with pytest.raises(RuntimeError, match="locked"):
+        live.update_account_password("bee", "later")
+    assert bound == ["ada"]
