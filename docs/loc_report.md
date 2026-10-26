@@ -6,6 +6,12 @@
 
 | Path | Code | Comments | Docstrings | Total |
 |---|---:|---:|---:|---:|
+| `middleware/src/csg/integrations/krita/pykrita/cel_shaded_generator/docker.py` | 1479 | 4 | 9 | 1492 |
+| `middleware/src/csg/project/service.py` | 856 | 0 | 83 | 939 |
+| `middleware/src/csg/integrations/krita/pykrita/cel_shaded_generator/color_docker.py` | 823 | 5 | 45 | 873 |
+| `middleware/src/csg/project/model.py` | 593 | 0 | 59 | 652 |
+| `middleware/src/csg/integrations/krita/pykrita/cel_shaded_generator/exercise.py` | 587 | 0 | 10 | 597 |
+| `middleware/src/csg/learning/engine_protocol.py` | 523 | 0 | 3 | 526 |
 | `gui/src/windows/settings/_credentials.py` | 500 | 32 | 14 | 546 |
 | `gui/src/tabs/models/delta/lora_train_tab.py` | 489 | 13 | 6 | 508 |
 | `middleware/src/models/tuning/lo_ra_tuner_v2.py` | 488 | 49 | 29 | 566 |
@@ -20,13 +26,15 @@
 | `gui/src/tabs/core/wallpaper_tab/graph/wallpaper_graph_scene.py` | 456 | 22 | 29 | 507 |
 | `gui/src/tabs/models/review_tools_page.py` | 455 | 1 | 8 | 464 |
 | `middleware/src/core/vault_manager.py` | 453 | 32 | 84 | 569 |
-| `middleware/src/sidecar/server.py` | 450 | 1 | 6 | 457 |
+| `middleware/src/sidecar/server.py` | 447 | 1 | 6 | 454 |
+| `middleware/src/csg/integrations/krita/pykrita/cel_shaded_generator/engine_client.py` | 442 | 0 | 1 | 443 |
 | `gui/src/tabs/core/extractor_tab/_media_player.py` | 439 | 114 | 29 | 582 |
 | `gui/src/components/dialogs/asp_advanced_config_dialog.py` | 437 | 21 | 8 | 466 |
 | `gui/src/tabs/web/reverse_search_tab.py` | 434 | 45 | 21 | 500 |
 | `gui/src/tabs/models/dl_workspace_host.py` | 434 | 5 | 24 | 463 |
 | `gui/src/windows/settings/_reset_state.py` | 432 | 16 | 17 | 465 |
 | `gui/src/helpers/core/_queue_extraction_process.py` | 429 | 7 | 29 | 465 |
+| `middleware/src/csg/learning/curriculum.py` | 422 | 0 | 10 | 432 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 418 | 27 | 20 | 465 |
 | `middleware/src/core/guidance_schema.py` | 415 | 20 | 58 | 493 |
 | `middleware/src/models/core/comfy_manager.py` | 413 | 65 | 46 | 524 |
@@ -39,21 +47,13 @@
 | `gui/src/classes/base/_gallery_presentation.py` | 394 | 21 | 21 | 436 |
 | `middleware/src/services/hie/service.py` | 391 | 2 | 20 | 413 |
 | `middleware/src/comfy_matrix.py` | 388 | 4 | 25 | 417 |
+| `middleware/src/utils/display/slideshow_daemon.py` | 388 | 37 | 34 | 459 |
 | `gui/src/styles/background_canvas.py` | 387 | 3 | 18 | 408 |
 | `gui/src/components/dialogs/thumbnail_file_picker.py` | 386 | 4 | 7 | 397 |
 | `gui/src/tabs/core/extractor_tab/_directory_scanning.py` | 385 | 35 | 24 | 444 |
 | `gui/src/windows/settings/_relaunch_settings.py` | 382 | 33 | 9 | 424 |
 | `middleware/src/cloud/engine.py` | 381 | 10 | 9 | 400 |
 | `middleware/src/core/wallpaper/_kde.py` | 381 | 106 | 31 | 518 |
-| `middleware/src/utils/display/slideshow_daemon.py` | 379 | 37 | 34 | 450 |
 | `gui/src/tabs/web/web_requests_tab.py` | 377 | 39 | 6 | 422 |
-| `gui/src/components/dialogs/dataset_advisor_panel.py` | 371 | 12 | 16 | 399 |
-| `gui/src/windows/settings/_profile_management.py` | 371 | 34 | 18 | 423 |
-| `middleware/src/services/wallpaper/handlers.py` | 367 | 4 | 18 | 389 |
-| `gui/src/tabs/models/guidance_diff_widget.py` | 366 | 4 | 21 | 391 |
-| `middleware/src/core/dataset_advisor.py` | 365 | 9 | 31 | 405 |
-| `gui/src/components/virtual_gallery/virtual_gallery_model.py` | 365 | 48 | 81 | 494 |
-| `middleware/src/models/core/comfy_provenance.py` | 357 | 16 | 32 | 405 |
-| `gui/src/tabs/core/extractor_tab/_extraction_workers.py` | 355 | 11 | 9 | 375 |
-| `middleware/src/models/tuning/cbir_tuner.py` | 352 | 32 | 76 | 460 |
-| **TOTALS** | **115153** | **6727** | **11782** | **133662** |
+| `middleware/src/services/wallpaper/handlers.py` | 374 | 4 | 18 | 396 |
+| **TOTALS** | **131906** | **6987** | **13926** | **152819** |
