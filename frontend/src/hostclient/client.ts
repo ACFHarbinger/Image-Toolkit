@@ -21,6 +21,10 @@ import type {
   AuthStatusResult,
   ProbeParams,
   ProbeResult,
+  DriveSyncPlanParams,
+  DriveSyncPlanResult,
+  MediaPlanParams,
+  MediaPlanResult,
   FrameParams,
   FrameResult,
   GetManyParams,
@@ -195,6 +199,14 @@ export class HostClient {
     return this.send<ProbeResult>("extractor.probe", params as unknown as Record<string, unknown>);
   }
 
+  async driveSyncPlan(params: DriveSyncPlanParams): Promise<DriveSyncPlanResult> {
+    await this.connect();
+    return this.send<DriveSyncPlanResult>("drive_sync.plan", params as unknown as Record<string, unknown>);
+  }
+
+  async mediaLoaderPlan(params: MediaPlanParams): Promise<MediaPlanResult> {
+    await this.connect();
+    return this.send<MediaPlanResult>("media_loader.plan", params as unknown as Record<string, unknown>);
   async authStatus(params: AuthStatusParams): Promise<AuthStatusResult> {
     await this.connect();
     return this.send<AuthStatusResult>("auth.status", params as unknown as Record<string, unknown>);

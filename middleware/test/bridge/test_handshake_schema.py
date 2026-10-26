@@ -64,6 +64,8 @@ def test_handshake_request_result_roundtrip() -> None:
         "merge",
         "similarity",
         "extractor",
+        "drive_sync",
+        "media_loader",
         "auth",
     }
     # the built result validates against the contract schemas

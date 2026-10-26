@@ -1,4 +1,4 @@
-# GENERATED — contract hash 184e19fe7526c6a9f25ef4689e2df0cc7a2b4ad9cf77a0fbf5460be658376f83. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash a60d8764530060b4277a430a09842662f494142a594a546bda95b31a575f5262. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -266,6 +266,20 @@ class ConvertResult:
     size_bytes: int | None = None
     elapsed_seconds: float | None = None
     error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class DriveSyncPlanParams:
+    provider: str
+    paths: list[str]
+
+
+@dataclass(frozen=True)
+class DriveSyncPlanResult:
+    submitted: Literal[False]
+    provider: str
+    count: int
+    reason: str
 
 
 @dataclass(frozen=True)
@@ -550,6 +564,21 @@ class FrameResult:
     height: int
     png_base64: str
     error: str
+
+
+@dataclass(frozen=True)
+class MediaPlanParams:
+    url: str
+    destination: str
+
+
+@dataclass(frozen=True)
+class MediaPlanResult:
+    accepted: bool
+    downloaded: Literal[False]
+    url: str
+    destination: str
+    reason: str
 
 
 @dataclass(frozen=True)
