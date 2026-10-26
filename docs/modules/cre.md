@@ -6,7 +6,7 @@
 | **Service Package** | `middleware/src/services/cre/service.py` |
 | **Frontend View** | N/A (Core Recommendation Service) |
 | **Contract Schema** | `contracts/CONTRACTS.sha256` |
-| **Contract SHA-256** | `7f853bd58530640761fee9a62783e191b67b9cbc62db9153cfadfc7c15d42687` |
+| **Contract SHA-256** | `518f5fa10208b0ed73cfe7fbbea67d2d0baddbad24edd98e22e685e1522561a0` |
 
 ## Overview
 
@@ -22,7 +22,7 @@ The Content Recommendation Engine (CRE) provides multi-modal media item recommen
 
 ## Contract & Routing
 
-- **Contract Manifest:** `contracts/CONTRACTS.sha256` (`7f853bd58530640761fee9a62783e191b67b9cbc62db9153cfadfc7c15d42687`).
+- **Contract Manifest:** `contracts/CONTRACTS.sha256` (`518f5fa10208b0ed73cfe7fbbea67d2d0baddbad24edd98e22e685e1522561a0`).
 - **Boundary Enforcement:**
   - `import-linter` contracts in `pyproject.toml` (`middleware.src.services must not import GUI`, `middleware.src.services must not import PySide`, `middleware.src.services features must be independent`).
 

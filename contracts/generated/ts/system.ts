@@ -1,4 +1,4 @@
-// GENERATED — contract hash 7f853bd58530640761fee9a62783e191b67b9cbc62db9153cfadfc7c15d42687. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 518f5fa10208b0ed73cfe7fbbea67d2d0baddbad24edd98e22e685e1522561a0. Do not edit; edit the schema and regenerate.
 
 export interface BridgeStatePayload {
   readonly state: "down" | "ready";

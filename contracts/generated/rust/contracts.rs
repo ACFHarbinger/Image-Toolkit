@@ -1,4 +1,4 @@
-// GENERATED — contract hash 7f853bd58530640761fee9a62783e191b67b9cbc62db9153cfadfc7c15d42687. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 518f5fa10208b0ed73cfe7fbbea67d2d0baddbad24edd98e22e685e1522561a0. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -1318,6 +1318,7 @@ pub struct SlideshowConfigResult {
     pub monitor_queues: std::collections::HashMap<String, Vec<String>>,
     pub current_paths: std::collections::HashMap<String, String>,
     pub config_path: String,
+    pub running: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

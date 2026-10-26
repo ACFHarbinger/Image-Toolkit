@@ -52,6 +52,7 @@ export function SlideshowPresenterWindow({
       }
       setQueues(cfgRes.monitor_queues || {});
       setCurrentPaths(cfgRes.current_paths || {});
+      setIsRunning(cfgRes.running === true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setStatusMessage(`Failed to load data: ${msg}`);

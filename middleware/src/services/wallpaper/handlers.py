@@ -133,6 +133,14 @@ def _still_alive(pid: int, timeout: float = 1.0) -> bool:
     return False
 
 
+def _verified_daemon_running(config: dict[str, Any]) -> bool:
+    """True when the saved flag is set and that pid is still alive."""
+    if not config.get("running"):
+        return False
+    pid = _config_pid(config)
+    return pid is not None and _pid_alive(pid)
+
+
 def _config_pid(config: dict[str, Any]) -> int | None:
     try:
         pid = int(config.get("pid"))
@@ -330,6 +338,7 @@ class SlideshowConfigHandler(Handler[SlideshowConfigCommand, SlideshowConfigResu
             monitor_queues=dict(current_config.get("monitor_queues", {})),
             current_paths=dict(current_config.get("current_paths", {})),
             config_path=str(config_path),
+            running=_verified_daemon_running(current_config),
             elapsed_seconds=elapsed,
         )
 

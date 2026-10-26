@@ -123,6 +123,47 @@ def test_slideshow_config_read_and_update(tmp_path: Path, monkeypatch: pytest.Mo
     assert readback.interval_seconds == 120
     assert readback.style == "span"
     assert readback.monitor_queues["0"] == ["/path/1.png", "/path/2.png"]
+    assert readback.running is False
+
+
+def test_slideshow_config_reports_a_live_daemon(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from middleware.src.sidecar.handlers.wallpaper import handle_slideshow_config
+
+    cfg_path = tmp_path / "slideshow.json"
+    monkeypatch.setattr("middleware.src.services.wallpaper.handlers.DAEMON_CONFIG_PATH", cfg_path)
+    monkeypatch.setattr("middleware.src.services.wallpaper.handlers.IMAGE_TOOLKIT_DIR", tmp_path)
+    cfg_path.write_text(
+        json.dumps(
+            {
+                "interval_seconds": 30,
+                "style": "fill",
+                "monitor_queues": {},
+                "current_paths": {},
+                "running": True,
+                "pid": 424242,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    service = WallpaperService()
+    dead = service.slideshow_config(SlideshowConfigCommand(update=False))
+    assert dead.running is False
+
+    monkeypatch.setattr(
+        "middleware.src.services.wallpaper.handlers._pid_alive", lambda pid: pid == 424242
+    )
+    live = handle_slideshow_config(service, {"update": False})
+    assert live["running"] is True
+
+    cfg_path.write_text(
+        json.dumps({"running": False, "pid": 424242, "interval_seconds": 30, "style": "fill"}),
+        encoding="utf-8",
+    )
+    stopped = service.slideshow_config(SlideshowConfigCommand(update=False))
+    assert stopped.running is False
 
 
 _FAKE_DAEMON_PID = 515151

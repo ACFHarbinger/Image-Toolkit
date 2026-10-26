@@ -41,6 +41,7 @@ describe("SlideshowPresenterWindow", () => {
       "1": "/path/to/second.png",
     },
     config_path: "/home/user/.image-toolkit/.slideshow_config.json",
+    running: false,
     elapsed_seconds: 0.01,
   };
 
@@ -120,6 +121,25 @@ describe("SlideshowPresenterWindow", () => {
           }),
         }),
       );
+    });
+  });
+
+  it("restores a running daemon from the config response", async () => {
+    const client = createFakeClient();
+    client.wallpaperSlideshowConfig = vi.fn().mockResolvedValue({
+      ...fakeConfig,
+      running: true,
+    });
+    render(<SlideshowPresenterWindow hostClient={client} />);
+
+    const toggleBtn = await screen.findByTestId("toggle-slideshow-button");
+    expect(toggleBtn).toHaveTextContent(/Stop Slideshow/);
+    expect(screen.getByTestId("slideshow-daemon-badge")).toHaveTextContent(/Running/);
+
+    fireEvent.click(toggleBtn);
+
+    await waitFor(() => {
+      expect(client.wallpaperSlideshowToggle).toHaveBeenCalledWith({ running: false });
     });
   });
 

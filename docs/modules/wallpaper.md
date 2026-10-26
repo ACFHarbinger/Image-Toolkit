@@ -6,7 +6,7 @@
 | **Service Package** | `middleware/src/services/wallpaper/` |
 | **Frontend View** | `frontend/src/views/system/WallpaperView.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/wallpaper.json` |
-| **Contract SHA-256** | `e435de01f7e303b0f1d9eb37da4da5bf95d31c21370de713736f903871e08af2` |
+| **Contract SHA-256** | `131289910c5109ab28b470690a8e564ebf28be35ca6b06998ef95f6f2147f609` |
 
 ## Overview
 
@@ -24,7 +24,7 @@ Slideshow state is stored canonically at `~/.image-toolkit/.slideshow_config.jso
 - **Sidecar (`middleware/src/sidecar/handlers/wallpaper.py`):**
   - `wallpaper.get_monitors`: returns connected monitor list and detected desktop environment.
   - `wallpaper.set`: applies wallpaper path mappings, scaling style, and background matte color.
-  - `wallpaper.slideshow_config`: reads or updates slideshow interval, queues, and styling.
+  - `wallpaper.slideshow_config`: reads or updates slideshow interval, queues, and styling, and reports `running` only when the saved daemon pid is alive.
   - `wallpaper.slideshow_toggle`: starts or stops the background slideshow process.
 - **Frontend (`frontend/src/views/system/WallpaperView.tsx`):**
   - Modular React component providing per-monitor path assignment, preview details, queue reordering, and daemon control.
