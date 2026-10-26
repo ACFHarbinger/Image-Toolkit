@@ -1,6 +1,6 @@
 import pytest
 from csg_gui.tabs.reference_coloring_tab import ReferenceColoringTab
-from editor import LayerStack
+from middleware.src.csg.editor import LayerStack
 
 pytestmark = pytest.mark.gui
 
@@ -63,7 +63,7 @@ def test_rename_selected_layer_updates_list_and_is_undoable(q_app, monkeypatch):
     stack.add_layer("source", "Source")
     tab._canvas.set_layer_stack(stack)
     tab._layer_panel.set_layer_stack(stack)
-    from editor import EditHistory
+    from middleware.src.csg.editor import EditHistory
 
     edit_history = EditHistory(stack)
     tab._history = edit_history
@@ -85,7 +85,7 @@ def test_rename_selected_layer_updates_list_and_is_undoable(q_app, monkeypatch):
 
 
 def test_clear_selected_layer_clears_pixels_and_mask_and_is_undoable(q_app):
-    from editor import EditHistory
+    from middleware.src.csg.editor import EditHistory
 
     tab = ReferenceColoringTab()
     stack = LayerStack(2, 2)
@@ -113,7 +113,7 @@ def test_clear_selected_layer_clears_pixels_and_mask_and_is_undoable(q_app):
 
 
 def test_merge_selected_layer_down_is_undoable(q_app):
-    from editor import EditHistory
+    from middleware.src.csg.editor import EditHistory
 
     tab = ReferenceColoringTab()
     stack = LayerStack(1, 1)
@@ -319,7 +319,7 @@ def test_close_line_gaps_button_bridges_a_gap_and_enables_segmentation(q_app, mo
 
 
 def _write_bible(tmp_path, accent=None):
-    from colorization.style_bible import (
+    from middleware.src.csg.colorization.style_bible import (
         CharacterStyleBible,
         MaterialPalette,
         StyleMaterial,
@@ -471,7 +471,7 @@ def test_assign_correspondence_without_bible_is_a_no_op(q_app, monkeypatch):
 
 
 def _bind_bible_skin_first(tab, monkeypatch, tmp_path):
-    from colorization.style_bible import (
+    from middleware.src.csg.colorization.style_bible import (
         CharacterStyleBible,
         MaterialPalette,
         StyleMaterial,
@@ -730,7 +730,7 @@ def test_bind_project_requires_an_existing_manifest(q_app, monkeypatch, tmp_path
 
 
 def test_bind_project_binds_an_existing_project(q_app, monkeypatch, tmp_path):
-    from project import create_project
+    from middleware.src.csg.project import create_project
 
     create_project(tmp_path, title="Existing")
     tab = ReferenceColoringTab()
@@ -743,7 +743,7 @@ def test_bind_project_binds_an_existing_project(q_app, monkeypatch, tmp_path):
 
 
 def test_bind_style_bible_attaches_to_bound_project(q_app, monkeypatch, tmp_path):
-    from project import create_project, load_project
+    from middleware.src.csg.project import create_project, load_project
 
     project_dir = tmp_path / "project"
     project_dir.mkdir()
@@ -761,7 +761,7 @@ def test_bind_style_bible_attaches_to_bound_project(q_app, monkeypatch, tmp_path
 def test_suggest_and_assign_correspondence_use_project_learned_weights(
     q_app, monkeypatch, tmp_path
 ):
-    from project import load_project
+    from middleware.src.csg.project import load_project
 
     project_dir = tmp_path / "project"
     project_dir.mkdir()
@@ -795,7 +795,7 @@ def test_suggest_and_assign_correspondence_use_project_learned_weights(
 
 
 def test_save_document_inside_bound_project_attaches_as_asset(q_app, monkeypatch, tmp_path):
-    from project import load_project
+    from middleware.src.csg.project import load_project
 
     project_dir = tmp_path / "project"
     project_dir.mkdir()
@@ -814,7 +814,7 @@ def test_save_document_inside_bound_project_attaches_as_asset(q_app, monkeypatch
 
 
 def test_save_document_outside_bound_project_is_not_attached(q_app, monkeypatch, tmp_path):
-    from project import load_project
+    from middleware.src.csg.project import load_project
 
     project_dir = tmp_path / "project"
     project_dir.mkdir()
@@ -1058,7 +1058,7 @@ def test_propagate_correspondence_without_canvas_is_a_no_op(q_app):
 def test_detach_project_document_removes_entry_without_deleting_files(
     q_app, monkeypatch, tmp_path
 ):
-    from project import load_project
+    from middleware.src.csg.project import load_project
 
     project_dir = tmp_path / "project"
     project_dir.mkdir()
@@ -1090,7 +1090,7 @@ def test_detach_project_document_without_selection_is_a_no_op(q_app):
 def test_detach_project_bible_removes_entry_and_clears_active_asset_path(
     q_app, monkeypatch, tmp_path
 ):
-    from project import load_project
+    from middleware.src.csg.project import load_project
 
     project_dir = tmp_path / "project"
     project_dir.mkdir()

@@ -59,6 +59,6 @@ packages = [
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
-pythonpath = ["src", "../logic/src"]
+pythonpath = ["src", "../../.."]
 addopts = "-ra"
 markers = ["gui: headless Qt GUI test"]

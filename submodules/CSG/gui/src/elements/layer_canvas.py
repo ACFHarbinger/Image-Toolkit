@@ -43,7 +43,7 @@ New feature, not code motion.
 from __future__ import annotations
 
 import numpy as np
-from editor import (
+from middleware.src.csg.editor import (
     EditHistory,
     Layer,
     LayerStack,

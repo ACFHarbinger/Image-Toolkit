@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 from csg_gui.components.manga_preference_dialog import MangaPreferenceDialog
-from features.preference_log import read_preferences
+from middleware.src.csg.features.preference_log import read_preferences
 
 pytestmark = pytest.mark.gui
 
