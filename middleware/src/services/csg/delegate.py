@@ -81,7 +81,10 @@ class SubmoduleCsgDelegate:
             from middleware.src.csg.rigging.arap import arap_deform, generate_mesh
 
             mask = np.ones(image.shape[:2], dtype=bool)
-            vertices, triangles = generate_mesh(mask, grid_step=_grid_step(image.shape, command.mesh_resolution))
+            vertices, _triangles = generate_mesh(mask, grid_step=_grid_step(image.shape, command.mesh_resolution))
+            # generate_mesh samples arange(0, dimension, step), so the grid stops
+            # short of the far pixel edge. The rasterizer leaves that strip black.
+            vertices, triangles = _cover_image_rect(np, vertices, image.shape[0], image.shape[1])
             anchors = _anchors(np, vertices, command.control_points, command.target_points)
             deformed = arap_deform(vertices, triangles, anchors)
             warped = _warp_bgr(cv2, np, image, vertices, deformed, triangles)
@@ -198,6 +201,40 @@ def _grid_step(shape: tuple[int, ...], requested: int) -> int:
     while step > 1 and (height // step) * (width // step) < 16:
         step //= 2
     return max(step, 1)
+
+
+def _cover_image_rect(np: Any, vertices: Any, height: int, width: int) -> tuple[Any, Any]:
+    """Rebuild the sampled grid so every pixel center lies inside a triangle.
+
+    OpenCV fills a pixel when its center is inside the polygon. A vertex on
+    the last pixel index (``width - 1``) leaves that column outside, so the
+    far edge is the exclusive bound ``width`` / ``height``.
+    """
+    if height < 1 or width < 1 or len(vertices) == 0:
+        return vertices, np.zeros((0, 3), dtype=np.int64)
+    xs = np.unique(vertices[:, 0].astype(np.float64))
+    ys = np.unique(vertices[:, 1].astype(np.float64))
+    right = float(width)
+    bottom = float(height)
+    if xs[0] > 0:
+        xs = np.insert(xs, 0, 0.0)
+    if ys[0] > 0:
+        ys = np.insert(ys, 0, 0.0)
+    if xs[-1] < right:
+        xs = np.append(xs, right)
+    if ys[-1] < bottom:
+        ys = np.append(ys, bottom)
+    grid_x, grid_y = np.meshgrid(xs, ys, indexing="xy")
+    covered = np.stack([grid_x.ravel(), grid_y.ravel()], axis=1).astype(np.float64)
+    nx = int(xs.size)
+    ny = int(ys.size)
+    tris: list[tuple[int, int, int]] = []
+    for row in range(ny - 1):
+        for col in range(nx - 1):
+            origin = row * nx + col
+            tris.append((origin, origin + 1, origin + nx + 1))
+            tris.append((origin, origin + nx + 1, origin + nx))
+    return covered, np.asarray(tris, dtype=np.int64)
 
 
 def _anchors(
