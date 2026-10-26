@@ -17,12 +17,20 @@ import type {
   ConcatenateResult,
   CompareParams,
   CompareResult,
+  AuthStatusParams,
+  AuthStatusResult,
   ProbeParams,
   ProbeResult,
   LogsReadParams,
   LogsReadResult,
   MetadataDescribeParams,
   MetadataDescribeResult,
+  DlInspectParams,
+  DlInspectResult,
+  DriveSyncPlanParams,
+  DriveSyncPlanResult,
+  MediaPlanParams,
+  MediaPlanResult,
   FrameParams,
   FrameResult,
   GetManyParams,
@@ -31,6 +39,9 @@ import type {
   ListImagesResult,
   ListGroupsResult,
   ListTagsResult,
+  EnginesResult as ReverseEnginesResult,
+  SearchParams as ReverseSearchParams,
+  SearchResult as ReverseSearchResult,
   GetParams,
   GetResult,
   PrefillParams,
@@ -202,6 +213,20 @@ export class HostClient {
   async metadataDescribe(params: MetadataDescribeParams): Promise<MetadataDescribeResult> {
     await this.connect();
     return this.send<MetadataDescribeResult>("metadata.describe", params as unknown as Record<string, unknown>);
+  async dlInspect(params: DlInspectParams): Promise<DlInspectResult> {
+    await this.connect();
+    return this.send<DlInspectResult>("dl.inspect", params as unknown as Record<string, unknown>);
+  async driveSyncPlan(params: DriveSyncPlanParams): Promise<DriveSyncPlanResult> {
+    await this.connect();
+    return this.send<DriveSyncPlanResult>("drive_sync.plan", params as unknown as Record<string, unknown>);
+  }
+
+  async mediaLoaderPlan(params: MediaPlanParams): Promise<MediaPlanResult> {
+    await this.connect();
+    return this.send<MediaPlanResult>("media_loader.plan", params as unknown as Record<string, unknown>);
+  async authStatus(params: AuthStatusParams): Promise<AuthStatusResult> {
+    await this.connect();
+    return this.send<AuthStatusResult>("auth.status", params as unknown as Record<string, unknown>);
   }
 
   async cloudOfferPrefill(params: PrefillParams): Promise<PrefillResult> {
@@ -256,6 +281,16 @@ export class HostClient {
   async listLibraryGroups(): Promise<ListGroupsResult> {
     await this.connect();
     return this.send<ListGroupsResult>("library.list_groups", {});
+  }
+
+  async reverseSearchEngines(): Promise<ReverseEnginesResult> {
+    await this.connect();
+    return this.send<ReverseEnginesResult>("reverse_search.engines", {});
+  }
+
+  async reverseSearch(params: ReverseSearchParams): Promise<ReverseSearchResult> {
+    await this.connect();
+    return this.send<ReverseSearchResult>("reverse_search.search", params as unknown as Record<string, unknown>);
   }
 
   async libraryAdminCatalog(): Promise<CatalogResult> {
