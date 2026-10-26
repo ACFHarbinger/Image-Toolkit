@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Relocate Absorbed Anime Stitch Pipeline into Monorepo Homes** (Tauri migration W0-03 Phase E, #1038):
+  - Relocated Python stitching engine from `submodules/ASP/backend/src` to `middleware/src/stitching/` with canonicalized `middleware.src.stitching.*` imports.
+  - Relocated C++ stitch components from `submodules/ASP/base/src` to `backend/src/asp/` and updated `backend/CMakeLists.txt`.
+  - Relocated ASP tests to `middleware/test/stitching/` and benchmarks to `middleware/benchmark/asp/`.
+  - Relocated sample data to `data/asp/` and documentation to `docs/asp/` (with `docs/asp/LICENSE`).
+  - Removed folded `submodules/ASP/frontend` and pruned `submodules/ASP/backend` from root `pyproject.toml` workspace members.
+
 - **Absorbed Submodule Sync & Upstream Drift Resolution (ASP)** (Tauri migration W0-03, #867):
   - Absorbed all 11 upstream ASP commits (`9ff744ae..main`, 57 files) into `submodules/ASP/` closing the version gap to `8763a2661`.
   - Resolved conflicts in `manager.py`, `efficient_loftr_wrapper.py`, `test_canvas.py`, `test_filter_edges.py`, and `docs/website/package-lock.json` while maintaining monorepo path renames.

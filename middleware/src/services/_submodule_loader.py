@@ -21,13 +21,15 @@ def ensure_submodules_registered() -> None:
         register_submodule_packages(str(repo_root))
     except (ImportError, Exception):
         for rel_parts in [
-            ("ASP", "backend", "src"),
             ("CSG", "logic", "src"),
             ("HIE", "middleware", "src"),
         ]:
             target = str(submodules_dir.joinpath(*rel_parts))
             if target not in sys.path and os.path.isdir(target):
                 sys.path.insert(0, target)
+        stitching_dir = str(repo_root / "middleware" / "src" / "stitching")
+        if stitching_dir not in sys.path and os.path.isdir(stitching_dir):
+            sys.path.insert(0, stitching_dir)
 
     # 2. CRE integration without shadowing middleware.src
     cre_src = str(submodules_dir / "CRE" / "src")
