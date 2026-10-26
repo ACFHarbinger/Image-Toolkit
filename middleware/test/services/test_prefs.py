@@ -259,7 +259,7 @@ def test_sidecar_round_trip_password_and_unknown_action(bound_paths: tuple[Path,
             self.new_raw_pass = new_raw_pass
 
     session = Session()
-    bind_vault_session(session)
+    server.bind_vault_session(session)
     changed = _request(
         server,
         "prefs.set",
@@ -276,3 +276,42 @@ def test_sidecar_round_trip_password_and_unknown_action(bound_paths: tuple[Path,
     assert session.new_raw_pass == "new-secret"
     assert json.loads(keys.read_text(encoding="utf-8"))["gallery.select_all"]["custom"] == ["Meta+A"]
     assert "new-secret" not in prefs.read_text(encoding="utf-8")
+
+
+def test_server_vault_session_gates_password_change(bound_paths: tuple[Path, Path]) -> None:
+    del bound_paths
+    server = SidecarServer(stdout=io.StringIO())
+    _handshake(server)
+
+    class Session:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        def update_account_password(self, account_name: str, new_raw_pass: str) -> None:
+            self.calls.append((account_name, new_raw_pass))
+
+    session = Session()
+    server.bind_vault_session(session)
+    changed = _request(
+        server,
+        "prefs.set",
+        _set_params(current_password="old-secret", new_password="new-secret"),
+        "changed",
+    )
+    assert changed["result"]["success"] is True
+    assert changed["result"]["credentials_changed"] is True
+    assert changed["result"]["reason"] == ""
+    assert session.calls == [("ada", "new-secret")]
+
+    server.clear_vault_session()
+    assert server.vault_session is None
+    locked = _request(
+        server,
+        "prefs.set",
+        _set_params(current_password="old-secret", new_password="other-secret"),
+        "locked",
+    )
+    assert locked["result"]["success"] is False
+    assert locked["result"]["credentials_changed"] is False
+    assert locked["result"]["reason"] == LOCKED
+    assert session.calls == [("ada", "new-secret")]
