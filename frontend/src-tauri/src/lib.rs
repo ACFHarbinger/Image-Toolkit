@@ -5,6 +5,7 @@ mod bridge_commands;
 mod comfy_commands;
 mod core_commands;
 mod gui_gate;
+mod settings_commands;
 mod tray;
 mod wallpaper_commands;
 mod window_registry;

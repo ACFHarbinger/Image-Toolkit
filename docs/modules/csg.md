@@ -6,7 +6,10 @@
 | **Service Package** | `middleware/src/services/csg/service.py` |
 | **Frontend View** | `submodules/CSG/gui/src/tabs/` (migrating to Wave 8 #916 E-03 `frontend/src/views/manga/`) |
 | **Contract Schema** | `contracts/CONTRACTS.sha256` |
-| **Contract SHA-256** | `518f5fa10208b0ed73cfe7fbbea67d2d0baddbad24edd98e22e685e1522561a0` |
+| **Contract SHA-256** | `25bb1ff48ee734cd0ab7e3b3a0936c4ad12ee96988058c651d235a1188a48fd3` |
+| **Frontend View** | `frontend/src/views/manga/` (Wave 8 #916 E-03: `MangaWorkspaceView` + per-mode wrappers) |
+| **Contract Schema** | `contracts/schemas/capability/csg.json` |
+| **Contract SHA-256** | `b57fa3df7c9fdac12abbe617be1910b1c921283a962495768ba208ce0257e617` |
 
 ## Overview
 
@@ -19,10 +22,12 @@ The Cel-Shaded Generator (CSG) provides automated and interactive manga/lineart 
   - Results: `ColorizeScribbleResult`, `ColorizeReferenceResult`, `ArapDeformResult`, `TemporalPropagateResult`
   - Handlers & Service: `CsgService`, `CsgServiceProtocol`
 - **Core Primitives:** `colorize_scribble`, `colorize_reference`, `generate_mesh`, `arap_deform`, `colorize_scribble_sequence` (`submodules/CSG/logic/src/`).
+- **Bridge (`csg` capability, #916):** methods `csg.colorize_scribble`, `csg.colorize_reference`, `csg.arap_deform`, `csg.propagate_sequence` (schema `contracts/schemas/capability/csg.json`; handler `middleware/src/sidecar/handlers/csg.py`). Frontend calls them through `HostClient.csgColorizeScribble/…Reference/…ArapDeform/…PropagateSequence`.
 
 ## Contract & Routing
 
-- **Contract Manifest:** `contracts/CONTRACTS.sha256` (`518f5fa10208b0ed73cfe7fbbea67d2d0baddbad24edd98e22e685e1522561a0`).
+- **Contract Manifest:** `contracts/CONTRACTS.sha256` (`25bb1ff48ee734cd0ab7e3b3a0936c4ad12ee96988058c651d235a1188a48fd3`).
+- **Contract Manifest:** `contracts/CONTRACTS.sha256` (`b57fa3df7c9fdac12abbe617be1910b1c921283a962495768ba208ce0257e617`).
 - **Feature Ledger Routing:** Tracks feature rows `manga.colorization`, `manga.animation`, and `manga.puppeteering` (Issue #916, wave-8) with routes `manga.colorization`, `manga.animation`, `manga.puppeteering`.
 - **Boundary Enforcement:**
   - `import-linter` contracts in `pyproject.toml` (`middleware.src.services must not import GUI`, `middleware.src.services must not import PySide`, `middleware.src.services features must be independent`).
@@ -37,6 +42,7 @@ The Cel-Shaded Generator (CSG) provides automated and interactive manga/lineart 
 ```bash
 source .venv/bin/activate
 pytest middleware/test/services/test_csg_service.py -v
+pytest middleware/test/sidecar/test_csg_dispatch.py -q
 lint-imports
 python middleware/validation/check_docs_freshness.py
 python middleware/validation/check_migration_ledger.py

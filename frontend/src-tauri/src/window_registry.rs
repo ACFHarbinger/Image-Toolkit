@@ -166,22 +166,47 @@ pub fn focus(app: &AppHandle, role: &str) -> Result<(), String> {
     window.set_focus().map_err(|err| err.to_string())
 }
 
+/// What `CloseRequested` does for a window label.
+///
+/// `Allow` lets the window close. `HideAll` is main: prevent the close and
+/// hide every hide-on-close webview. `HideThis` is a pop-out: prevent the
+/// close and hide that window only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CloseAction {
+    Allow,
+    HideAll,
+    HideThis,
+}
+
+pub fn close_action(label: &str) -> CloseAction {
+    let Some(spec) = find_role(label) else {
+        return CloseAction::Allow;
+    };
+    if spec.kind != "webview" || !spec.hide_on_close {
+        return CloseAction::Allow;
+    }
+    if spec.id == "main" {
+        CloseAction::HideAll
+    } else {
+        CloseAction::HideThis
+    }
+}
+
 pub fn on_window_event(window: &Window, event: &WindowEvent) {
     let WindowEvent::CloseRequested { api, .. } = event else {
         return;
     };
-    let Some(spec) = find_role(window.label()) else {
-        return;
-    };
-    if spec.kind != "webview" || !spec.hide_on_close {
-        return;
-    }
-    api.prevent_close();
-    if spec.id == "main" {
-        let _ = hide_all(window.app_handle());
-    } else {
-        let _ = window.hide();
-        let _ = window.set_skip_taskbar(true);
+    match close_action(window.label()) {
+        CloseAction::Allow => {}
+        CloseAction::HideAll => {
+            api.prevent_close();
+            let _ = hide_all(window.app_handle());
+        }
+        CloseAction::HideThis => {
+            api.prevent_close();
+            let _ = window.hide();
+            let _ = window.set_skip_taskbar(true);
+        }
     }
 }
 
@@ -212,9 +237,34 @@ mod tests {
         let labels = super::hide_on_close_labels();
         assert!(labels.contains(&"main".to_string()));
         assert!(labels.contains(&"cloud-jobs".to_string()));
+        assert!(labels.contains(&"library-preview".to_string()));
         assert!(!labels
             .iter()
             .any(|id| id == "tray" || id == "slideshow" || id.contains('.')));
+    }
+
+    #[test]
+    fn close_requested_hides_main_and_popouts_and_allows_the_rest() {
+        assert_eq!(super::close_action("main"), super::CloseAction::HideAll);
+        assert_eq!(
+            super::close_action("cloud.jobs"),
+            super::CloseAction::HideThis
+        );
+        assert_eq!(
+            super::close_action("cloud-jobs"),
+            super::CloseAction::HideThis
+        );
+        assert_eq!(
+            super::close_action("library.preview"),
+            super::CloseAction::HideThis
+        );
+        assert_eq!(
+            super::close_action("library-preview"),
+            super::CloseAction::HideThis
+        );
+        assert_eq!(super::close_action("tray"), super::CloseAction::Allow);
+        assert_eq!(super::close_action("slideshow"), super::CloseAction::Allow);
+        assert_eq!(super::close_action("unknown"), super::CloseAction::Allow);
     }
 
     #[test]

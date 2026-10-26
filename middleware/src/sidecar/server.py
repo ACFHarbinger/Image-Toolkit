@@ -46,6 +46,13 @@ from middleware.src.sidecar.handlers.cloud_offer import handle_prefill
 from middleware.src.sidecar.handlers.cloud_setup import handle_cloud_setup_providers
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
 from middleware.src.sidecar.handlers.crawler import handle_crawl, handle_list_supported
+from middleware.src.sidecar.handlers.csg import (
+    csg_service,
+    handle_arap_deform,
+    handle_colorize_reference,
+    handle_colorize_scribble,
+    handle_propagate_sequence,
+)
 from middleware.src.sidecar.handlers.desk import handle_logs_read, handle_metadata_describe
 from middleware.src.sidecar.handlers.dl import handle_inspect
 from middleware.src.sidecar.handlers.drive_sync import handle_drive_plan
@@ -360,7 +367,21 @@ class SidecarServer:
         wallpaper = self._dispatch_wallpaper(method, params)
         if wallpaper is not _UNHANDLED:
             return wallpaper
+        csg = self._dispatch_csg(method, params)
+        if csg is not _UNHANDLED:
+            return csg
         return self._dispatch_web(method, params)
+
+    def _dispatch_csg(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "csg.colorize_scribble":
+            return handle_colorize_scribble(csg_service(), params)
+        if method == "csg.colorize_reference":
+            return handle_colorize_reference(csg_service(), params)
+        if method == "csg.arap_deform":
+            return handle_arap_deform(csg_service(), params)
+        if method == "csg.propagate_sequence":
+            return handle_propagate_sequence(csg_service(), params)
+        return _UNHANDLED
 
     def _dispatch_wallpaper(self, method: str, params: dict[str, Any]) -> Any:
         if method == "wallpaper.get_monitors":

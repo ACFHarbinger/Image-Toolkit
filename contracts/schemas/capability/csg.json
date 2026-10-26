@@ -1,0 +1,252 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/csg.json",
+  "title": "CsgCapability",
+  "description": "Cel-Shaded Generator operations over the CsgService (E-03 / #916): scribble and reference colorization, ARAP mesh puppeteering, and temporal animation propagation. Results mirror the service's frozen command/result dataclasses; validation errors are csg.invalid_params.",
+  "type": "object",
+  "$defs": {
+    "ColorizeScribbleParams": {
+      "title": "ColorizeScribbleParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lineart_path",
+        "scribble_path"
+      ],
+      "properties": {
+        "lineart_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scribble_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "output_path": {
+          "type": "string"
+        },
+        "intensity": {
+          "type": "number",
+          "minimum": 0
+        },
+        "use_screentone": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ColorizeScribblePayload": {
+      "title": "ColorizeScribblePayload",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "width",
+        "height",
+        "elapsed_seconds"
+      ],
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "output_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "elapsed_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "ColorizeReferenceParams": {
+      "title": "ColorizeReferenceParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lineart_path",
+        "reference_path"
+      ],
+      "properties": {
+        "lineart_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reference_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "output_path": {
+          "type": "string"
+        },
+        "epsilon": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_iter": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "ArapDeformParams": {
+      "title": "ArapDeformParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "image_path",
+        "control_points",
+        "target_points"
+      ],
+      "properties": {
+        "image_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "control_points": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "target_points": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "output_path": {
+          "type": "string"
+        },
+        "mesh_resolution": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "ArapDeformPayload": {
+      "title": "ArapDeformPayload",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "num_vertices",
+        "num_triangles",
+        "elapsed_seconds"
+      ],
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "output_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "num_vertices": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "num_triangles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "elapsed_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "PropagateSequenceParams": {
+      "title": "PropagateSequenceParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frame_paths"
+      ],
+      "properties": {
+        "frame_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "keyframe_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "keyframe_color_path": {
+          "type": "string"
+        },
+        "output_dir": {
+          "type": "string"
+        }
+      }
+    },
+    "PropagateSequencePayload": {
+      "title": "PropagateSequencePayload",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "output_paths",
+        "frames_processed",
+        "elapsed_seconds"
+      ],
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "output_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "frames_processed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "elapsed_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

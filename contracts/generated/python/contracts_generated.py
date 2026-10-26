@@ -1,4 +1,4 @@
-# GENERATED — contract hash 518f5fa10208b0ed73cfe7fbbea67d2d0baddbad24edd98e22e685e1522561a0. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 25bb1ff48ee734cd0ab7e3b3a0936c4ad12ee96988058c651d235a1188a48fd3. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -332,6 +332,70 @@ class LoginConfig:
     url: (str | None) | None = None
     username: (str | None) | None = None
     password: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class ArapDeformParams:
+    image_path: str
+    control_points: list[list[float]]
+    target_points: list[list[float]]
+    output_path: str | None = None
+    mesh_resolution: int | None = None
+
+
+@dataclass(frozen=True)
+class ArapDeformPayload:
+    success: bool
+    num_vertices: int
+    num_triangles: int
+    elapsed_seconds: float
+    output_path: (str | None) | None = None
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class ColorizeReferenceParams:
+    lineart_path: str
+    reference_path: str
+    output_path: str | None = None
+    epsilon: float | None = None
+    max_iter: int | None = None
+
+
+@dataclass(frozen=True)
+class ColorizeScribbleParams:
+    lineart_path: str
+    scribble_path: str
+    output_path: str | None = None
+    intensity: float | None = None
+    use_screentone: bool | None = None
+
+
+@dataclass(frozen=True)
+class ColorizeScribblePayload:
+    success: bool
+    width: int
+    height: int
+    elapsed_seconds: float
+    output_path: (str | None) | None = None
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class PropagateSequenceParams:
+    frame_paths: list[str]
+    keyframe_index: int | None = None
+    keyframe_color_path: str | None = None
+    output_dir: str | None = None
+
+
+@dataclass(frozen=True)
+class PropagateSequencePayload:
+    success: bool
+    output_paths: list[str]
+    frames_processed: int
+    elapsed_seconds: float
+    error: (str | None) | None = None
 
 
 @dataclass(frozen=True)

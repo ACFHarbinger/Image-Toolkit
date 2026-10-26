@@ -61,6 +61,9 @@ export function getHieHost(): HieHost {
       : undefined;
   if (customHost) {
     return customHost;
+  const injected = (window as { __HIE_HOST__?: HieHost } | undefined)?.__HIE_HOST__;
+  if (typeof window !== "undefined" && injected) {
+    return injected;
   }
   return new BrowserFallbackHieHost();
 }

@@ -1,10 +1,10 @@
-import { LogDeskView } from "../views/windows/LogDeskView";
-import { MetadataDeskView } from "../views/windows/MetadataDeskView";
-import { LibraryManagement } from "../views/library/LibraryManagement";
-import { DataBrowser } from "../views/library/DataBrowser";
 import { ComponentType, ReactNode } from "react";
 import { ConvertPilot } from "../views/ConvertPilot";
 import { Listings } from "../views/library/Listings";
+import { ImageSearch } from "../views/library/ImageSearch";
+import { LibraryManagement } from "../views/library/LibraryManagement";
+import { DataBrowser } from "../views/library/DataBrowser";
+import { ScanMetadataView } from "../views/library/ScanMetadataView";
 import { MergeView } from "../views/system/MergeView";
 import { SimilarityView } from "../views/system/SimilarityView";
 import { ExtractorView } from "../views/system/ExtractorView";
@@ -13,14 +13,22 @@ import { StitchWorkspace } from "../views/stitch/StitchWorkspace";
 import { DlWorkspace, type DlRoute } from "../views/dl/DlWorkspace";
 import { ImageSearch } from "../views/library/ImageSearch";
 import { ScanMetadataView } from "../views/library/ScanMetadataView";
+import { ReverseSearchView } from "../views/web/ReverseSearch";
+import { EntityReconView } from "../views/web/EntityRecon";
+import { WebRequestsView } from "../views/web/WebRequestsView";
 import { DriveSyncView } from "../views/web/DriveSyncView";
 import { MediaLoaderView } from "../views/web/MediaLoaderView";
+import { MangaColorizationView } from "../views/manga/MangaColorizationView";
+import { MangaAnimationView } from "../views/manga/MangaAnimationView";
+import { MangaPuppeteeringView } from "../views/manga/MangaPuppeteeringView";
 import ImageCrawlerTab from "../tabs/web/ImageCrawlerTab";
 import { EntityReconView } from "../views/web/EntityRecon";
 import { ReverseSearchView } from "../views/web/ReverseSearch";
 import { WebRequestsView } from "../views/web/WebRequestsView";
 import { BenchmarkDashboard } from "../tabs/apollo/BenchmarkDashboard";
 import { HieEditorTab } from "../tabs/editor/HieEditorTab";
+import { LogDeskView } from "../views/windows/LogDeskView";
+import { MetadataDeskView } from "../views/windows/MetadataDeskView";
 import { CatalogEntry } from "./catalog";
 import type { HostClient } from "../hostclient";
 
@@ -60,6 +68,7 @@ const DL_ROUTE: Record<string, DlRoute> = {
   "ml.inference": "review",
 };
 
+/** Catalog pages whose view takes a HostClient (passed as both prop spellings). */
 const HOST_CLIENT_VIEWS = new Set([
   "system.convert",
   "system.merge",
@@ -82,15 +91,28 @@ const HOST_CLIENT_VIEWS = new Set([
   "developer.metadata",
   ...STITCH_ROUTE_IDS,
   ...Object.keys(DL_ROUTE),
+  "web.reverse-search",
+  "web.entity-recon",
+  "web.requests",
+  "web.drive-sync",
+  "web.media-loader",
+  "manga.colorization",
+  "manga.animation",
+  "manga.puppeteering",
+  "editor.hybrid",
+  "developer.logs",
+  "developer.metadata",
+  ...Object.keys(DL_ROUTE),
+  ...STITCH_ROUTE_IDS,
 ]);
 
 export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "system.convert": ConvertPilot,
-  "library.listings": Listings,
   "system.merge": MergeView,
   "system.similarity": SimilarityView,
   "system.extractor": ExtractorView,
   "system.wallpaper": WallpaperView,
+  "library.listings": Listings,
   "library.search": ImageSearch,
   "library.management": LibraryManagement,
   "library.data-browser": DataBrowser,
@@ -101,6 +123,9 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "web.media-loader": MediaLoaderView,
   "web.reverse-search": ReverseSearchView,
   "web.entity-recon": EntityReconView,
+  "manga.colorization": MangaColorizationView,
+  "manga.animation": MangaAnimationView,
+  "manga.puppeteering": MangaPuppeteeringView,
   "dl.train": DlWorkspace,
   "dl.generate": DlWorkspace,
   "dl.review": DlWorkspace,
@@ -111,9 +136,9 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "ml.inference": DlWorkspace,
   "editor.hybrid": HieEditorTab,
   "developer.benchmarks": BenchmarkDashboard,
-  ...STITCH_VIEWS,
   "developer.logs": LogDeskView,
   "developer.metadata": MetadataDeskView,
+  ...STITCH_VIEWS,
 };
 
 export function CatalogView({
@@ -147,4 +172,8 @@ export function CatalogView({
       {...(route ? { route } : {})}
     />
   );
+  const route = (STITCH_ROUTE_IDS as readonly string[]).includes(entry.id)
+    ? entry.id
+    : DL_ROUTE[entry.id];
+  return <View showModal={showModal} {...extra} {...hostClientProps} {...(route ? { route } : {})} />;
 }
