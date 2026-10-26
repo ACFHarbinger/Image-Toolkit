@@ -27,11 +27,12 @@ from middleware.src.bridge import (
     iter_frames,
     write_frame,
 )
+from middleware.src.services.auth.hub import VaultHub
 from middleware.src.services.cloud_jobs.projection import CloudProjection
 from middleware.src.services.crawler.service import CrawlerService
 from middleware.src.services.hie.service import HieService
 from middleware.src.services.stitch.status import stitch_status
-from middleware.src.sidecar.handlers.auth import handle_status
+from middleware.src.sidecar.handlers.auth import handle_lock, handle_status, handle_unlock
 from middleware.src.sidecar.handlers.cloud_jobs import (
     BadgeSource,
     JobsSource,
@@ -138,6 +139,7 @@ class SidecarServer:
         recon_engine: Any | None = None,
         webreq_service: Any | None = None,
         hie_service: Any | None = None,
+        vault_opener: Any | None = None,
     ) -> None:
         self.table = table or catalog()
         self.stdin = stdin or sys.stdin
@@ -154,6 +156,7 @@ class SidecarServer:
         self.recon_engine = recon_engine
         self.webreq_service = webreq_service
         self.hie_service = hie_service or HieService()
+        self.auth = VaultHub(vault_opener)
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self.cloud_service = None
         self._handshaken = False
@@ -439,7 +442,11 @@ class SidecarServer:
         if method == "dl.inspect":
             return handle_inspect(params)
         if method == "auth.status":
-            return handle_status(params)
+            return handle_status(self.auth, params)
+        if method == "auth.unlock":
+            return handle_unlock(self.auth, params)
+        if method == "auth.lock":
+            return handle_lock(self.auth, params)
         return _UNHANDLED
 
     def _dispatch_web(self, method: str, params: dict[str, Any]) -> Any:

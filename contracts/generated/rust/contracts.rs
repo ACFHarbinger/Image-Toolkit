@@ -1,8 +1,19 @@
-// GENERATED — contract hash 25bb1ff48ee734cd0ab7e3b3a0936c4ad12ee96988058c651d235a1188a48fd3. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash a4f0fd0f3b4e540630dddc3eaec3ec0e11e1e32419cff02dda892fb79373d8d4. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct AuthLockParams {
+    pub account: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct AuthLockResult {
+    pub success: bool,
+    pub account: String,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct AuthStatusParams {
@@ -11,11 +22,22 @@ pub struct AuthStatusParams {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct AuthStatusResult {
-    /// must be false (enforced by the framing layer, #875)
     pub unlocked: bool,
     pub account: String,
-    /// must be "unlock stays on the C++ session" (enforced by the framing layer, #875)
     pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct AuthUnlockParams {
+    pub account: String,
+    pub password: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct AuthUnlockResult {
+    pub success: bool,
+    pub account: String,
+    pub message: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

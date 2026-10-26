@@ -1,12 +1,11 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Moon, Settings, Sun } from "lucide-react";
 import { HostClient, RustTransport } from "../hostclient";
 import { useAppStore } from "../store/appStore";
 import { SettingsWindow } from "../views/settings/SettingsWindow";
 import { shellCatalog } from "./catalog";
+import { ClassicShell } from "./classic/ClassicShell";
 import { Inspector } from "./Inspector";
-import { Rail } from "./Rail";
-import { Ribbon } from "./Ribbon";
 import { StatusBar, DbStatus } from "./StatusBar";
 import { CatalogView } from "./views";
 import { CloudComputeSurface } from "./CloudComputeSurface";
@@ -16,15 +15,11 @@ import { popOut } from "./windows";
 import { useCloudBadge } from "./useCloudBadge";
 import {
   ACTIVE_ALIAS_GATES,
-  categoriesInOrder,
   defaultPageId,
-  drawerEntries,
   entryById,
   frontendEntries,
   resolveAlias,
-  ribbonRoutes,
   windowFor,
-  workspaceIdFor,
 } from "./navigation";
 
 interface ShellProps {
@@ -36,13 +31,10 @@ interface ShellProps {
 }
 
 export function Shell({ showModal }: ShellProps) {
-  const { logout, openSettings, closeSettings, showSettings, setDatabaseConnected, vault } = useAppStore();
+  const { logout, openSettings, closeSettings, showSettings, setDatabaseConnected, setTheme, preferences, vault } = useAppStore();
   const entries = useMemo(() => frontendEntries(), []);
-  const categories = useMemo(() => categoriesInOrder(entries), [entries]);
   const [activeId, setActiveId] = useState(() => defaultPageId(entries));
   const active = entryById(entries, activeId);
-  const [category, setCategory] = useState(active?.category ?? categories[0] ?? "");
-  const [drawerOpen, setDrawerOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [dbStatus, setDbStatus] = useState<DbStatus>("disconnected");
   const [hostClient, setHostClient] = useState<HostClient | null>(null);
@@ -99,15 +91,39 @@ export function Shell({ showModal }: ShellProps) {
       return;
     }
     setActiveId(next.id);
-    setCategory(next.category);
     setJobsFallback(false);
     setComputeOpen(false);
   };
 
-  const workspaceId = workspaceIdFor(active);
-  const workspace = workspaceId ? entryById(entries, workspaceId) : undefined;
-  const routes = ribbonRoutes(entries, workspaceId);
   const windowRole = windowFor(shellCatalog.windows, active?.window_id ?? "main")?.role ?? "main";
+
+  useEffect(() => {
+    if (!hostClient || !vault?.accountName) {
+      return;
+    }
+    let cancelled = false;
+    hostClient
+      .authStatus({ account: vault.accountName })
+      .then((status) => {
+        if (!cancelled && status.unlocked === false) {
+          logout();
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [hostClient, vault?.accountName, logout]);
+
+  const onLogout = () => {
+    const account = vault?.accountName ?? "";
+    const finish = () => logout();
+    if (!hostClient || !account) {
+      finish();
+      return;
+    }
+    void hostClient.authLock({ account }).then(finish, finish);
+  };
 
   const onAddImagesToDb = (files: File[]) => {
     showModal(`Attempting to add ${files.length} images to the database...`, "info");
@@ -137,37 +153,30 @@ export function Shell({ showModal }: ShellProps) {
                 setComputeOpen(true);
               }}
             />
-            <button type="button" onClick={openSettings} className="rounded-lg p-2 hover:bg-violet-600" title="Settings">
+            <button
+              type="button"
+              aria-label="Toggle theme"
+              title="Toggle theme"
+              onClick={() => setTheme(preferences.theme === "dark" ? "light" : "dark")}
+              className="rounded-lg p-2 hover:bg-violet-600"
+            >
+              {preferences.theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+            <button type="button" onClick={openSettings} aria-label="Settings" className="rounded-lg p-2 hover:bg-violet-600" title="Settings">
               <Settings size={20} />
             </button>
-            <button type="button" onClick={logout} className="rounded-lg p-2 hover:bg-violet-600" title="Logout">
+            <button type="button" onClick={onLogout} aria-label="Logout" className="rounded-lg p-2 hover:bg-violet-600" title="Logout">
               <LogOut size={20} />
             </button>
           </div>
         </header>
         <div className="flex min-h-0 flex-1">
-          <Rail
-            categories={categories}
-            activeCategory={category}
-            rows={drawerEntries(entries, category)}
-            activeId={activeId}
-            drawerOpen={drawerOpen}
-            onSelectCategory={setCategory}
-            onSelectModule={selectModule}
-            onToggleDrawer={() => setDrawerOpen((open) => !open)}
-          />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <Ribbon
-              workspaceTitle={workspace?.title ?? ""}
-              routes={routes}
-              activeId={activeId}
-              onSelectModule={selectModule}
-            />
+          <ClassicShell entries={entries} activeId={activeId} onSelect={selectModule}>
             <main
               className={
                 activeId === "developer.benchmarks"
                   ? "min-h-0 flex-1 overflow-hidden"
-                  : "min-h-0 flex-1 overflow-y-auto"
+                  : "min-h-0 flex-1 overflow-y-auto bg-it-window-bg"
               }
             >
               {jobsFallback ? (
@@ -186,7 +195,7 @@ export function Shell({ showModal }: ShellProps) {
                 )
               )}
             </main>
-          </div>
+          </ClassicShell>
           <Inspector entry={active} open={inspectorOpen} onToggle={() => setInspectorOpen((open) => !open)} />
         </div>
         <StatusBar dbStatus={dbStatus} activeId={activeId} windowRole={windowRole} />

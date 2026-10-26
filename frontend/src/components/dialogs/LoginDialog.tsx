@@ -1,26 +1,45 @@
 /**
- * LoginDialog - locked session status (#918).
- *
- * Unlock stays on the C++ session. The password is not sent and no account
- * is created. auth.status only reports that the vault was not opened.
+ * LoginDialog opens the sidecar C++ vault session.
+ * The password is an auth.unlock parameter only. auth.status is the session.
+ * localStorage remembers the account name, not a login flag.
  */
 
 import React, { useMemo, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { HostClient, RustTransport } from '../../hostclient';
 import { useAppStore } from '../../store/appStore';
 import { LogIn, UserPlus, Eye, EyeOff, Sun, Moon } from 'lucide-react';
 
-export interface AuthStatusClient {
+export interface AuthResult {
+  success: boolean;
+  message?: string;
+}
+
+export interface SessionClient {
+  create(account: string, password: string): Promise<AuthResult>;
+}
+
+export interface AuthBridge {
+  authUnlock(params: { account: string; password: string }): Promise<{ success: boolean; account: string; message: string }>;
   authStatus(params: { account: string }): Promise<{ unlocked: boolean; account: string; reason: string }>;
 }
 
-interface LoginDialogProps {
-  onClose?: () => void;
-  authClient?: AuthStatusClient;
+async function createAccount(account: string, password: string): Promise<AuthResult> {
+  return invoke<AuthResult>("create_user_account", { accountName: account, password });
 }
 
-export const LoginDialog: React.FC<LoginDialogProps> = ({ authClient }) => {
-  const { preferences, setTheme } = useAppStore();
+const defaultSession: SessionClient = {
+  create: createAccount,
+};
+
+interface LoginDialogProps {
+  onClose?: () => void;
+  session?: SessionClient;
+  authClient?: AuthBridge;
+}
+
+export const LoginDialog: React.FC<LoginDialogProps> = ({ session = defaultSession, authClient }) => {
+  const { preferences, setTheme, login } = useAppStore();
   const ownedClient = useMemo(
     () =>
       new HostClient(new RustTransport(), {
@@ -29,17 +48,35 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ authClient }) => {
       }),
     [],
   );
-  const client = authClient ?? ownedClient;
+  const bridge = authClient ?? ownedClient;
   const [accountName, setAccountName] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const reportLocked = async () => {
+  const confirmSession = async (account: string) => {
+    const opened = await bridge.authUnlock({ account, password });
+    if (!opened.success) {
+      setError(opened.message || 'Login failed.');
+      return;
+    }
+    const status = await bridge.authStatus({ account });
+    if (!status.unlocked) {
+      setError(status.reason || 'C++ vault session locked');
+      return;
+    }
+    login(status.account || account);
+  };
+
+  const submit = async (action: "login" | "create") => {
     const account = accountName.trim();
     if (!account) {
       setError('Please enter an account name');
+      return;
+    }
+    if (!password) {
+      setError('Please enter a password');
       return;
     }
 
@@ -47,10 +84,16 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ authClient }) => {
     setError('');
 
     try {
-      const result = await client.authStatus({ account });
-      setError(result.reason);
+      if (action === "create") {
+        const created = await session.create(account, password);
+        if (!created.success) {
+          setError(created.message || 'Account creation failed.');
+          return;
+        }
+      }
+      await confirmSession(account);
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to read the session status.';
+      const errorMessage = err instanceof Error ? err.message : 'Login failed.';
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -59,7 +102,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ authClient }) => {
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !isLoading) {
-      void reportLocked();
+      void submit("login");
     }
   };
 
@@ -169,7 +212,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ authClient }) => {
           {/* Action Buttons */}
           <div className="flex gap-3 pt-2">
             <button
-              onClick={() => void reportLocked()}
+              onClick={() => void submit("create")}
               disabled={isLoading}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold transition-colors ${isDark
                 ? 'bg-gray-700 text-white hover:bg-gray-600'
@@ -180,7 +223,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ authClient }) => {
               Create Account
             </button>
             <button
-              onClick={() => void reportLocked()}
+              onClick={() => void submit("login")}
               disabled={isLoading}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-white transition-colors ${isDark
                 ? 'bg-cyan-600 hover:bg-cyan-500'

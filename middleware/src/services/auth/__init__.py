@@ -1,1 +1,1 @@
-"""Locked session status for the login dialog (#918)."""
+"""C++ vault session for the sidecar (#1106)."""

@@ -26,12 +26,12 @@ test("diagnostics navigation mounts both desk views with the shell client", asyn
   localStorage.setItem("app_authenticated", "true");
   localStorage.setItem("app_account_name", "TestUser");
   render(<AppStoreProvider><App /></AppStoreProvider>);
-  fireEvent.click(await screen.findByRole("button", { name: "category Developer / Diagnostics" }));
-  fireEvent.click(screen.getByRole("button", { name: "Logs" }));
+  fireEvent.change(await screen.findByLabelText("Category"), { target: { value: "Developer / Diagnostics" } });
+  fireEvent.click(screen.getByRole("tab", { name: "Logs" }));
   fireEvent.change(screen.getByLabelText("Path"), { target: { value: "/tmp/app.log" } });
   fireEvent.click(screen.getByRole("button", { name: "Read" }));
   expect(await screen.findByText("desk log output")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "File Metadata" }));
+  fireEvent.click(screen.getByRole("tab", { name: "File Metadata" }));
   fireEvent.change(screen.getByLabelText("Path"), { target: { value: "/tmp/file.png" } });
   fireEvent.click(screen.getByRole("button", { name: "Describe" }));
   expect(await screen.findByText("metadata complete")).toBeInTheDocument();

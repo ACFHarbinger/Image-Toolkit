@@ -32,8 +32,8 @@ export const AppStoreProvider: React.FC<AppStoreProviderProps> = ({ children }) 
       isLoggedIn: true,
     }));
     
-    // Store auth state in localStorage for persistence
-    localStorage.setItem('app_authenticated', 'true');
+    // The account name is a hint for the next status check. It is not the vault session.
+    localStorage.removeItem('app_authenticated');
     localStorage.setItem('app_account_name', accountName);
   }, []);
 
@@ -43,8 +43,7 @@ export const AppStoreProvider: React.FC<AppStoreProviderProps> = ({ children }) 
       vault: null,
       isLoggedIn: false,
     }));
-    
-    // Clear auth state from localStorage
+
     localStorage.removeItem('app_authenticated');
     localStorage.removeItem('app_account_name');
   }, []);
@@ -105,15 +104,13 @@ export const AppStoreProvider: React.FC<AppStoreProviderProps> = ({ children }) 
 
   const setTheme = useCallback((theme: 'light' | 'dark' | 'system') => {
     updatePreferences({ theme });
-    
-    // Apply theme to document
+
+    // Tailwind's dark: variant and the shell tokens both read data-theme, not the class.
     const root = document.documentElement;
-    if (theme === 'system') {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      root.classList.toggle('dark', prefersDark);
-    } else {
-      root.classList.toggle('dark', theme === 'dark');
-    }
+    const prefersDark = theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const resolved = theme === 'system' ? (prefersDark ? 'dark' : 'light') : theme;
+    root.dataset.theme = resolved;
+    root.classList.toggle('dark', resolved === 'dark');
   }, [updatePreferences]);
 
   // ===== UI Actions =====
@@ -190,10 +187,9 @@ export const AppStoreProvider: React.FC<AppStoreProviderProps> = ({ children }) 
   // ===== Initialize from localStorage =====
 
   useEffect(() => {
-    // Load authentication state
-    const isAuthenticated = localStorage.getItem('app_authenticated') === 'true';
+    // Remember the account name only. The shell confirms auth.status before trusting it.
     const accountName = localStorage.getItem('app_account_name');
-    if (isAuthenticated && accountName) {
+    if (accountName) {
       login(accountName);
     }
 
