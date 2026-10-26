@@ -66,7 +66,6 @@ def test_hie_open_document_with_mock_ipc() -> None:
     mock_ipc = MagicMock()
     mock_ipc.handle.return_value = MagicMock(
         status="ok",
-        payload={"width": 800, "height": 600, "frame_count": 3},
         payload={"width": 800, "height": 600, "frame_count": 3, "document_id": "doc-mock"},
         error=None,
     )
@@ -97,15 +96,6 @@ def test_hie_edit_validation() -> None:
         service.execute_edit(HieEditCommand(document_id="doc-1", operation=""))
 
 
-def test_hie_edit_execution() -> None:
-    service = HieService()
-    result = service.execute_edit(
-        HieEditCommand(document_id="doc-1", operation="crop_composition", parameters={"x": 10})
-    )
-    assert result.success is True
-    assert result.document_id == "doc-1"
-    assert result.output_document_id is not None
-    assert len(result.modified_layers) > 0
 def test_hie_edit_unopened_document_fails() -> None:
     service = HieService()
     result = service.execute_edit(
@@ -194,16 +184,6 @@ def test_hie_export_validation() -> None:
 
 
 def test_hie_export_execution(tmp_path: Path) -> None:
-    out = tmp_path / "exported.png"
-    service = HieService()
-    # Open document first so the session exists
-    open_res = service.open_document(HieOpenDocumentCommand(source="/sample.png", document_id="doc-1"))
-    assert open_res.success is True
-
-    result = service.export_document(HieExportDocumentCommand(document_id="doc-1", output_path=str(out)))
-    assert result.success is True
-    assert result.output_path == str(out)
-    assert out.exists()
     source = _png(tmp_path / "src.png", (4, 3), (10, 20, 30))
     out = tmp_path / "nested" / "exported.png"
     old = b"old-bytes"

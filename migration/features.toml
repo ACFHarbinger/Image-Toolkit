@@ -439,10 +439,6 @@ routes = [
 ]
 route_map = {}
 pyside = ["gui/src/modules/stitch_workspace.py", "submodules/ASP/gui/src"]
-tauri = []
-service = "middleware/src/services/asp/service.py"
-contract = ""
-docs = "docs/modules/asp.md"
 tauri = ["frontend/src/views/stitch/StitchWorkspace.tsx"]
 service = "middleware/src/services/stitch/status.py"
 contract = "stitch"
@@ -467,7 +463,6 @@ pyside = [
 ]
 tauri = ["frontend/src/tabs/editor"]
 service = "middleware/src/services/hie/service.py"
-contract = ""
 contract = "hie"
 docs = "docs/modules/hie.md"
 scenarios = []

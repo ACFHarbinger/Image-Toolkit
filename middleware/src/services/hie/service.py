@@ -6,10 +6,6 @@ Canonical service home for HIE document model and render-graph pipeline
 
 from __future__ import annotations
 
-import time
-import uuid
-from pathlib import Path
-from typing import Any
 import io
 import os
 import tempfile
@@ -91,40 +87,6 @@ class HieService(HieServiceProtocol):
 
         try:
             ipc = self._get_ipc()
-            if ipc is not None:
-                from ipc import IpcRequest
-
-                req = IpcRequest(
-                    request_id=f"req-{uuid.uuid4().hex[:8]}",
-                    method="open_media",
-                    payload={
-                        "source": command.source,
-                        "document_id": doc_id,
-                        "metadata": command.metadata,
-                    },
-                )
-                res = ipc.handle(req)
-                if res.status != "ok":
-                    return HieOpenDocumentResult(
-                        success=False,
-                        document_id=doc_id,
-                        elapsed_seconds=round(time.monotonic() - t0, 4),
-                        error=res.error or "Failed to open document",
-                    )
-                payload = res.payload or {}
-                width = payload.get("width", 0)
-                height = payload.get("height", 0)
-                frame_count = payload.get("frame_count", 1)
-            else:
-                width, height, frame_count = 0, 0, 1
-
-            return HieOpenDocumentResult(
-                success=True,
-                document_id=doc_id,
-                frame_count=frame_count,
-                width=width,
-                height=height,
-                elapsed_seconds=round(time.monotonic() - t0, 4),
             if ipc is None:
                 return HieOpenDocumentResult(
                     success=False,
@@ -162,7 +124,6 @@ class HieService(HieServiceProtocol):
             return HieOpenDocumentResult(
                 success=False,
                 document_id=doc_id,
-                elapsed_seconds=round(time.monotonic() - t0, 4),
                 elapsed_seconds=_elapsed(t0),
                 error=str(exc),
             )
@@ -176,14 +137,6 @@ class HieService(HieServiceProtocol):
             raise CommandValidationError("operation must not be empty", field="operation")
 
         try:
-            out_doc_id = f"{command.document_id}-op-{uuid.uuid4().hex[:6]}"
-            elapsed = round(time.monotonic() - t0, 4)
-            return HieEditResult(
-                success=True,
-                document_id=command.document_id,
-                output_document_id=out_doc_id,
-                modified_layers=("layer-0",),
-                elapsed_seconds=elapsed,
             ipc = self._get_ipc()
             if ipc is None:
                 return HieEditResult(
@@ -210,12 +163,6 @@ class HieService(HieServiceProtocol):
             return HieEditResult(
                 success=False,
                 document_id=command.document_id,
-                elapsed_seconds=round(time.monotonic() - t0, 4),
-                error=str(exc),
-            )
-
-    def export_document(self, command: HieExportDocumentCommand) -> HieExportDocumentResult:
-        """Export a document session to destination media file."""
                 elapsed_seconds=_elapsed(t0),
                 error=str(exc),
             )
@@ -271,36 +218,6 @@ class HieService(HieServiceProtocol):
             raise CommandValidationError("output_path must not be empty", field="output_path")
 
         try:
-            out_p = Path(command.output_path)
-            out_p.parent.mkdir(parents=True, exist_ok=True)
-
-            ipc = self._get_ipc()
-            if ipc is not None:
-                from ipc import IpcRequest
-
-                req = IpcRequest(
-                    request_id=f"req-{uuid.uuid4().hex[:8]}",
-                    method="export_document",
-                    payload={
-                        "document_id": command.document_id,
-                        "output_path": command.output_path,
-                        "format": command.format,
-                        "quality": command.quality,
-                    },
-                )
-                res = ipc.handle(req)
-                if res.status != "ok":
-                    return HieExportDocumentResult(
-                        success=False,
-                        output_path=command.output_path,
-                        elapsed_seconds=round(time.monotonic() - t0, 4),
-                        error=res.error or "Export failed",
-                    )
-
-            if not out_p.exists():
-                out_p.write_bytes(b"")
-
-            size = out_p.stat().st_size if out_p.exists() else 0
             ipc = self._get_ipc()
             if ipc is None:
                 return _export_failure(command, t0, _IPC_UNAVAILABLE)
@@ -340,19 +257,6 @@ class HieService(HieServiceProtocol):
                 success=True,
                 output_path=command.output_path,
                 size_bytes=size,
-                elapsed_seconds=round(time.monotonic() - t0, 4),
-            )
-        except Exception as exc:
-            return HieExportDocumentResult(
-                success=False,
-                output_path=command.output_path,
-                elapsed_seconds=round(time.monotonic() - t0, 4),
-                error=str(exc),
-            )
-
-    def list_capabilities(
-        self, command: HieListCapabilitiesCommand | None = None
-    ) -> HieListCapabilitiesResult:
                 elapsed_seconds=_elapsed(t0),
             )
         except Exception as exc:

@@ -341,5 +341,4 @@ modules = [
     "middleware.src.services.csg",
     "middleware.src.services.cre",
     "middleware.src.services.crawler",
-    "middleware.src.services.hie",
 ]
