@@ -1,5 +1,21 @@
 # Your checklist
 
+## Run it
+From the repo root, on `main` (`git switch main && git pull`):
+```bash
+bash desktop/linux/scripts/setup_env.sh   # Python env -> .venv (once)
+npm run setup                             # JS deps (once)
+just build-base                           # C++ core (once, and after C++ changes)
+npm run dev                               # the Tauri app; first build takes 5-10 min
+```
+- The app finds the Python sidecar through `.venv/bin/python` at the repo root. If it says the runtime is missing: `IMAGE_TOOLKIT_RUNTIME=$PWD npm run dev`.
+- Safe test profile (own settings and data, not your real ones): `IMAGE_TOOLKIT_DIR=/tmp/it-test npm run dev`. Wallpaper tests still change your real desktop.
+- Library pages need the database: `docker ps` to check it is up (`docker start docker-db-1` if not).
+- Old PySide6 app, for comparison: `source .venv/bin/activate && python middleware/main.py`
+- Checks: `cd frontend && npm run typecheck && npm test`
+- `README.md` mentions `./run.sh` and `make dev`; neither exists. Use the commands above.
+- Windows: the dev runtime lookup only checks `python/python.exe` and Unix venv paths, so set `IMAGE_TOOLKIT_RUNTIME` to a staged runtime. Untested.
+
 ## Tray (S-03)
 Run each on KDE Wayland, GNOME Wayland, X11, Windows, macOS.
 - [ ] Tray icon appears; left click restores the main window
