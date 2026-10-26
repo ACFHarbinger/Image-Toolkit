@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "capability/dl.json",
   "title": "DlCapability",
-  "description": "Read one caller training-run directory (#912). Does not start a run or open library.db.",
+  "description": "Headless deep learning training, generation, evaluation, inference, and ComfyUI run control (#1111).",
   "type": "object",
   "$defs": {
     "DlInspectParams": {
@@ -39,6 +39,288 @@
         "event_count": { "type": "integer", "minimum": 0 },
         "started": { "const": false },
         "reason": { "type": "string" }
+      }
+    },
+    "DlTrainParams": {
+      "title": "DlTrainParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_architecture", "dataset_path", "output_dir"],
+      "properties": {
+        "model_architecture": { "type": "string" },
+        "dataset_path": { "type": "string" },
+        "output_dir": { "type": "string" },
+        "output_name": { "type": "string" },
+        "epochs": { "type": "integer", "minimum": 1 },
+        "batch_size": { "type": "integer", "minimum": 1 },
+        "learning_rate": { "type": "number" },
+        "device": { "type": "string" },
+        "config": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "DlTrainResult": {
+      "title": "DlTrainResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "run_dir", "status", "started", "message"],
+      "properties": {
+        "run_id": { "type": "string" },
+        "run_dir": { "type": "string" },
+        "status": { "type": "string" },
+        "started": { "type": "boolean" },
+        "message": { "type": "string" }
+      }
+    },
+    "DlStatusParams": {
+      "title": "DlStatusParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id"],
+      "properties": {
+        "run_id": { "type": "string" },
+        "run_dir": { "type": "string" }
+      }
+    },
+    "DlStatusResult": {
+      "title": "DlStatusResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "status", "step", "total_steps", "events_count", "message"],
+      "properties": {
+        "run_id": { "type": "string" },
+        "status": { "type": "string" },
+        "step": { "type": "integer", "minimum": 0 },
+        "total_steps": { "type": "integer", "minimum": 0 },
+        "loss": { "type": "number" },
+        "events_count": { "type": "integer", "minimum": 0 },
+        "message": { "type": "string" }
+      }
+    },
+    "DlCancelParams": {
+      "title": "DlCancelParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id"],
+      "properties": {
+        "run_id": { "type": "string" }
+      }
+    },
+    "DlCancelResult": {
+      "title": "DlCancelResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "canceled", "message"],
+      "properties": {
+        "run_id": { "type": "string" },
+        "canceled": { "type": "boolean" },
+        "message": { "type": "string" }
+      }
+    },
+    "DlGenerateParams": {
+      "title": "DlGenerateParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_architecture", "output_dir"],
+      "properties": {
+        "model_architecture": { "type": "string" },
+        "output_dir": { "type": "string" },
+        "prompt": { "type": "string" },
+        "negative_prompt": { "type": "string" },
+        "model_path": { "type": "string" },
+        "num_images": { "type": "integer", "minimum": 1 },
+        "seed": { "type": "integer" },
+        "config": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "DlGenerateResult": {
+      "title": "DlGenerateResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["job_id", "status", "output_images", "message"],
+      "properties": {
+        "job_id": { "type": "string" },
+        "status": { "type": "string" },
+        "output_images": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "message": { "type": "string" }
+      }
+    },
+    "DlEvaluateParams": {
+      "title": "DlEvaluateParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_path", "dataset_path"],
+      "properties": {
+        "model_path": { "type": "string" },
+        "dataset_path": { "type": "string" },
+        "metrics": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "config": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "DlEvaluateResult": {
+      "title": "DlEvaluateResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["job_id", "status", "scores", "message"],
+      "properties": {
+        "job_id": { "type": "string" },
+        "status": { "type": "string" },
+        "scores": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        },
+        "message": { "type": "string" }
+      }
+    },
+    "DlInferParams": {
+      "title": "DlInferParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_version", "image_path"],
+      "properties": {
+        "model_version": { "type": "string" },
+        "image_path": { "type": "string" },
+        "prompts": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "config": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "DlPrediction": {
+      "title": "DlPrediction",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "score"],
+      "properties": {
+        "label": { "type": "string" },
+        "score": { "type": "number" }
+      }
+    },
+    "DlInferResult": {
+      "title": "DlInferResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["job_id", "predictions", "message"],
+      "properties": {
+        "job_id": { "type": "string" },
+        "predictions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/DlPrediction" }
+        },
+        "message": { "type": "string" }
+      }
+    },
+    "DlComfyStatusParams": {
+      "title": "DlComfyStatusParams",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "probe": { "type": "boolean" }
+      }
+    },
+    "DlComfyStatusResult": {
+      "title": "DlComfyStatusResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "url", "port", "owns_server", "ready"],
+      "properties": {
+        "state": { "type": "string" },
+        "url": { "type": "string" },
+        "port": { "type": "integer" },
+        "owns_server": { "type": "boolean" },
+        "ready": { "type": "boolean" }
+      }
+    },
+    "DlComfyStartParams": {
+      "title": "DlComfyStartParams",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "port": { "type": "integer" },
+        "enable_manager": { "type": "boolean" },
+        "external": { "type": "boolean" }
+      }
+    },
+    "DlComfyStartResult": {
+      "title": "DlComfyStartResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["port", "url", "state", "success", "message"],
+      "properties": {
+        "port": { "type": "integer" },
+        "url": { "type": "string" },
+        "state": { "type": "string" },
+        "success": { "type": "boolean" },
+        "message": { "type": "string" }
+      }
+    },
+    "DlComfyStopParams": {
+      "title": "DlComfyStopParams",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "DlComfyStopResult": {
+      "title": "DlComfyStopResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stopped", "message"],
+      "properties": {
+        "stopped": { "type": "boolean" },
+        "message": { "type": "string" }
+      }
+    },
+    "DlComfyQueueParams": {
+      "title": "DlComfyQueueParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workflow"],
+      "properties": {
+        "workflow": { "type": "object", "additionalProperties": true },
+        "client_id": { "type": "string" },
+        "overrides": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "DlComfyQueueResult": {
+      "title": "DlComfyQueueResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prompt_id", "queued", "message"],
+      "properties": {
+        "prompt_id": { "type": "string" },
+        "queued": { "type": "boolean" },
+        "message": { "type": "string" }
+      }
+    },
+    "DlComfyRunStatusParams": {
+      "title": "DlComfyRunStatusParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prompt_id"],
+      "properties": {
+        "prompt_id": { "type": "string" }
+      }
+    },
+    "DlComfyRunStatusResult": {
+      "title": "DlComfyRunStatusResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prompt_id", "status", "completed", "output_images", "message"],
+      "properties": {
+        "prompt_id": { "type": "string" },
+        "status": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "output_images": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "message": { "type": "string" }
       }
     }
   }

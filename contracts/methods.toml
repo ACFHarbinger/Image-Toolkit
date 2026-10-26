@@ -604,6 +604,138 @@ stability = "experimental"
 owner = 912
 
 [[method]]
+name = "dl.train"
+capability = "dl"
+summary = "Start a headless deep learning training run (LoRA, R3GAN, Basic GAN)."
+params = "dl.DlTrainParams"
+result = "dl.DlTrainResult"
+errors = []
+cancelable = true
+emits = []
+stability = "experimental"
+owner = 1111
+
+[[method]]
+name = "dl.status"
+capability = "dl"
+summary = "Get execution and telemetry status for a training run."
+params = "dl.DlStatusParams"
+result = "dl.DlStatusResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 1111
+
+[[method]]
+name = "dl.cancel"
+capability = "dl"
+summary = "Cancel an in-flight deep learning training run."
+params = "dl.DlCancelParams"
+result = "dl.DlCancelResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 1111
+
+[[method]]
+name = "dl.generate"
+capability = "dl"
+summary = "Run headless generative model synthesis (LoRA, SD3, R3GAN, Basic GAN)."
+params = "dl.DlGenerateParams"
+result = "dl.DlGenerateResult"
+errors = []
+cancelable = true
+emits = []
+stability = "experimental"
+owner = 1111
+
+[[method]]
+name = "dl.evaluate"
+capability = "dl"
+summary = "Run headless generative model evaluation metrics (FID, KID, Precision/Recall, IS)."
+params = "dl.DlEvaluateParams"
+result = "dl.DlEvaluateResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 1111
+
+[[method]]
+name = "dl.infer"
+capability = "dl"
+summary = "Run headless model inference (Meta CLIP zero-shot classification, tagging)."
+params = "dl.DlInferParams"
+result = "dl.DlInferResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 1111
+
+[[method]]
+name = "dl.comfy_status"
+capability = "dl"
+summary = "Get ComfyUI server state and readiness."
+params = "dl.DlComfyStatusParams"
+result = "dl.DlComfyStatusResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 1111
+
+[[method]]
+name = "dl.comfy_start"
+capability = "dl"
+summary = "Start or connect to a ComfyUI server instance."
+params = "dl.DlComfyStartParams"
+result = "dl.DlComfyStartResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 1111
+
+[[method]]
+name = "dl.comfy_stop"
+capability = "dl"
+summary = "Stop the managed ComfyUI server instance."
+params = "dl.DlComfyStopParams"
+result = "dl.DlComfyStopResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 1111
+
+[[method]]
+name = "dl.comfy_queue"
+capability = "dl"
+summary = "Queue a ComfyUI workflow graph with optional overrides."
+params = "dl.DlComfyQueueParams"
+result = "dl.DlComfyQueueResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 1111
+
+[[method]]
+name = "dl.comfy_run_status"
+capability = "dl"
+summary = "Get execution and output status for a queued ComfyUI prompt."
+params = "dl.DlComfyRunStatusParams"
+result = "dl.DlComfyRunStatusResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 1111
+
+[[method]]
 name = "logs.read"
 capability = "desk"
 summary = "Last lines of a caller log file (#919). Does not follow the file or open ~/.image-toolkit."

@@ -6,32 +6,33 @@
 | **Service Package** | `middleware/src/services/dl/` |
 | **Frontend View** | `frontend/src/views/dl/DlWorkspace.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/dl.json` |
-| **Contract SHA-256** | `6b83bb886af99c32675010b8ae300c6704ae0d41a3a5f9e8624e80797500dbc8` |
+| **Contract SHA-256** | `16c4c2e798bfc498b20a2087e768bb9ed953190d58ce4d78f46a3efa3affee38` |
 
 ## Overview
 
-`dl.inspect` reads `record.json` and `events.jsonl` from a caller run directory. It does not start a run, write the directory, import torch, or open `library.db`. Training and generation stay on PySide6. `started` is always false.
+Headless deep learning training, generation, evaluation, inference, and ComfyUI run control (#1111). Provides headless run orchestration, event stream capture, model generation, evaluation scoring, zero-shot inference, and ComfyUI server/queue management behind sidecar methods without Qt or top-level torch/numpy dependencies.
 
 ## Public Surface
 
+- **Python (`middleware/src/services/dl/service.py`):** `DeepLearningService`.
 - **Python (`middleware/src/services/dl/inspect.py`):** `inspect_run`.
-- **Sidecar:** `dl.inspect`.
+- **Sidecar:** `dl.inspect`, `dl.train`, `dl.status`, `dl.cancel`, `dl.generate`, `dl.evaluate`, `dl.infer`, `dl.comfy_status`, `dl.comfy_start`, `dl.comfy_stop`, `dl.comfy_queue`, `dl.comfy_run_status`.
 - **C++ Native Entrypoints:** none.
 
 ## Contract & Routing
 
 - **JSON Schema:** `contracts/schemas/capability/dl.json`
-- **Methods:** `dl.inspect`
+- **Methods:** `dl.inspect`, `dl.train`, `dl.status`, `dl.cancel`, `dl.generate`, `dl.evaluate`, `dl.infer`, `dl.comfy_status`, `dl.comfy_start`, `dl.comfy_stop`, `dl.comfy_queue`, `dl.comfy_run_status`
 - **Events:** none
 
 ## Accessibility & Known Gaps
 
 - **Keyboard parity:** the run-directory field and Inspect control are in the tab order.
-- **Screen-reader notes & known gaps:** a missing directory or record is the returned reason. Starting a run stays on PySide6.
+- **Screen-reader notes & known gaps:** Headless engines and workers operate via sidecar capability methods.
 
 ## Verification
 
 ```bash
 source .venv/bin/activate
-PYTHONPATH=. pytest middleware/test/services/test_dl_inspect.py -q
+PYTHONPATH=. pytest middleware/test/services/test_dl_service.py -q
 ```
