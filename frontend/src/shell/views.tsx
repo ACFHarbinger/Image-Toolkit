@@ -11,8 +11,6 @@ import { ExtractorView } from "../views/system/ExtractorView";
 import WallpaperView from "../views/system/WallpaperView";
 import { StitchWorkspace } from "../views/stitch/StitchWorkspace";
 import { DlWorkspace, type DlRoute } from "../views/dl/DlWorkspace";
-import { ImageSearch } from "../views/library/ImageSearch";
-import { ScanMetadataView } from "../views/library/ScanMetadataView";
 import { ReverseSearchView } from "../views/web/ReverseSearch";
 import { EntityReconView } from "../views/web/EntityRecon";
 import { WebRequestsView } from "../views/web/WebRequestsView";
@@ -22,9 +20,6 @@ import { MangaColorizationView } from "../views/manga/MangaColorizationView";
 import { MangaAnimationView } from "../views/manga/MangaAnimationView";
 import { MangaPuppeteeringView } from "../views/manga/MangaPuppeteeringView";
 import ImageCrawlerTab from "../tabs/web/ImageCrawlerTab";
-import { EntityReconView } from "../views/web/EntityRecon";
-import { ReverseSearchView } from "../views/web/ReverseSearch";
-import { WebRequestsView } from "../views/web/WebRequestsView";
 import { BenchmarkDashboard } from "../tabs/apollo/BenchmarkDashboard";
 import { HieEditorTab } from "../tabs/editor/HieEditorTab";
 import { LogDeskView } from "../views/windows/LogDeskView";
@@ -172,8 +167,4 @@ export function CatalogView({
       {...(route ? { route } : {})}
     />
   );
-  const route = (STITCH_ROUTE_IDS as readonly string[]).includes(entry.id)
-    ? entry.id
-    : DL_ROUTE[entry.id];
-  return <View showModal={showModal} {...extra} {...hostClientProps} {...(route ? { route } : {})} />;
 }
