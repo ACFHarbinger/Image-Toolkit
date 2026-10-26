@@ -1,4 +1,4 @@
-// GENERATED — contract hash a06471e200d0ebbad6b544aa116489d517a985e837bd9bf5c797eb5238e2867d. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 5d09c62e96add841a446e510377b41502c35f696efd20917e72d8df65160033d. Do not edit; edit the schema and regenerate.
 export * from "./auth";
 export * from "./cloud_jobs";
 export * from "./cloud_offer";
@@ -19,6 +19,7 @@ export * from "./reverse_search";
 export * from "./scan";
 export * from "./settings";
 export * from "./similarity";
+export * from "./stitch";
 export * from "./system";
 export * from "./error";
 export * from "./event";

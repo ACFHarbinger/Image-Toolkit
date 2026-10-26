@@ -423,7 +423,7 @@ os_checklist = [
 id = "stitch"
 kind = "workspace"
 title = "Image Stitching"
-owner = "unclaimed"
+owner = "Grok"
 wave = "wave-8"
 issue = 914
 status = "pyside-only"
@@ -439,10 +439,10 @@ routes = [
 ]
 route_map = {}
 pyside = ["gui/src/modules/stitch_workspace.py", "submodules/ASP/gui/src"]
-tauri = []
-service = ""
-contract = ""
-docs = ""
+tauri = ["frontend/src/views/stitch/StitchWorkspace.tsx"]
+service = "middleware/src/services/stitch/status.py"
+contract = "stitch"
+docs = "docs/modules/stitch.md"
 scenarios = []
 os_checklist = []
 

@@ -8,6 +8,7 @@ import { Listings } from "../views/library/Listings";
 import { MergeView } from "../views/system/MergeView";
 import { SimilarityView } from "../views/system/SimilarityView";
 import { ExtractorView } from "../views/system/ExtractorView";
+import { StitchWorkspace } from "../views/stitch/StitchWorkspace";
 import { DlWorkspace, type DlRoute } from "../views/dl/DlWorkspace";
 import WallpaperTab from "../tabs/core/WallpaperTab";
 import { ImageSearch } from "../views/library/ImageSearch";
@@ -32,6 +33,20 @@ export interface ViewProps {
   hostClient: HostClient;
 }
 
+const STITCH_ROUTE_IDS = [
+  "stitch.stitch",
+  "stitch.graph",
+  "stitch.adjust",
+  "stitch.canvas",
+  "stitch.statistics",
+  "stitch.sequence-builder",
+  "stitch.hybrid",
+  "stitch.animation-clusters",
+] as const;
+
+const STITCH_VIEWS: Record<string, ComponentType<any>> = Object.fromEntries(
+  STITCH_ROUTE_IDS.map((id) => [id, StitchWorkspace]),
+);
 const DL_ROUTE: Record<string, DlRoute> = {
   "dl.train": "train",
   "dl.generate": "generate",
@@ -91,6 +106,7 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "ml.inference": MetaCLIPInferenceTab,
   "editor.hybrid": HieEditorTab,
   "developer.benchmarks": BenchmarkDashboard,
+  ...STITCH_VIEWS,
   "developer.logs": LogDeskView,
   "developer.metadata": MetadataDeskView,
 };
@@ -111,6 +127,9 @@ export function CatalogView({
     );
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
+  const stitchRoute = (STITCH_ROUTE_IDS as readonly string[]).includes(entry.id);
+  const hostClientProps =
+    stitchRoute ||
   const route = DL_ROUTE[entry.id];
   const hostClientProps = HOST_CLIENT_IDS.has(entry.id) ? { hostClient, client: hostClient } : {};
   return <View showModal={showModal} {...extra} {...hostClientProps} {...(route ? { route } : {})} />;
@@ -127,6 +146,11 @@ export function CatalogView({
       "library.listings",
       "library.management",
       "library.data-browser",
+    ].includes(entry.id)
+      ? { hostClient, client: hostClient }
+      : {};
+  const routeProps = stitchRoute ? { route: entry.id } : {};
+  return <View showModal={showModal} {...extra} {...hostClientProps} {...routeProps} />;
       "web.reverse-search",
     ].includes(entry.id) ? { hostClient, client: hostClient } : {};
   return <View showModal={showModal} {...extra} {...hostClientProps} />;

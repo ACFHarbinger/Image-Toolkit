@@ -51,6 +51,7 @@ def test_handshake_accept(sidecar: SidecarClient) -> None:
         "scan",
         "settings",
         "similarity",
+        "stitch",
         "system",
     ]
 
