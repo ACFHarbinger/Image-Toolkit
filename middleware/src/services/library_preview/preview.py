@@ -11,9 +11,10 @@ import base64
 import io
 from contextlib import ExitStack
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from PIL import Image, ImageChops, UnidentifiedImageError
+if TYPE_CHECKING:
+    from PIL import Image
 
 _MAX_PIXELS = 4_000_000
 _FRAME_EDGE = 512
@@ -27,6 +28,8 @@ def describe_paths(paths: list[str]) -> dict[str, Any]:
 
 
 def _describe_one(path: str) -> dict[str, Any]:
+    from PIL import Image, UnidentifiedImageError
+
     file = Path(path)
     blank = {
         "path": path,
@@ -63,6 +66,8 @@ def _describe_one(path: str) -> dict[str, Any]:
 
 def frame_png(path: str) -> dict[str, Any]:
     """First frame only. Animated playback stays on the Qt viewer for now."""
+    from PIL import Image, UnidentifiedImageError
+
     blank = {"path": path, "width": 0, "height": 0, "png_base64": "", "error": "not a file"}
     file = Path(path)
     if not file.is_file():
@@ -103,17 +108,23 @@ def _check_dimensions(image: Image.Image) -> None:
 
 
 def _open_rgba(path: str) -> Image.Image:
+    from PIL import Image
+
     with Image.open(path) as image:
         _check_dimensions(image)
         return image.convert("RGBA")
 
 
 def _premultiplied_rgb(image: Image.Image) -> Image.Image:
+    from PIL import ImageChops
+
     with image.convert("RGB") as rgb, image.getchannel("A") as alpha, alpha.convert("RGB") as mask:
         return ImageChops.multiply(rgb, mask)
 
 
 def difference_map(left: str, right: str, boost: int) -> dict[str, Any]:
+    from PIL import Image, ImageChops, UnidentifiedImageError
+
     try:
         with ExitStack() as stack:
             inputs = [stack.enter_context(Image.open(path)) for path in (left, right)]
