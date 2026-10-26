@@ -154,12 +154,22 @@ describe("MangaWorkspaceView", () => {
       target: { value: "/f1.png\n/f2.png" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Execute animation/i }));
+    expect(hostClient.csgPropagateSequence).not.toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(screen.getByText("Error: Provide a color keyframe")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("/path/to/keyframe_color.png"), {
+      target: { value: "/key.png" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Execute animation/i }));
 
     await vi.waitFor(() => {
       expect(screen.getByText("Propagated 2 frame(s)")).toBeInTheDocument();
     });
     expect(hostClient.csgPropagateSequence).toHaveBeenCalledWith({
       frame_paths: ["/f1.png", "/f2.png"],
+      keyframe_color_path: "/key.png",
     });
   });
 
