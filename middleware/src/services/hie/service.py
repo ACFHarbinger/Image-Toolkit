@@ -6,10 +6,8 @@ Canonical service home for HIE document model and render-graph pipeline
 
 from __future__ import annotations
 
-import json
 import time
 import uuid
-from pathlib import Path
 from typing import Any
 
 from middleware.src.services._submodule_loader import ensure_submodules_registered
@@ -253,33 +251,11 @@ class HieService(HieServiceProtocol):
                     elapsed_seconds=_elapsed(t0),
                     error="export payload has no document",
                 )
-            body = json.dumps(document)
-            encoded = body.encode("utf-8")
-            if not encoded:
-                return HieExportDocumentResult(
-                    success=False,
-                    output_path=command.output_path,
-                    elapsed_seconds=_elapsed(t0),
-                    error="export document payload is empty",
-                )
-
-            out_p = Path(command.output_path)
-            out_p.parent.mkdir(parents=True, exist_ok=True)
-            out_p.write_bytes(encoded)
-            size = out_p.stat().st_size
-            if size == 0:
-                out_p.unlink(missing_ok=True)
-                return HieExportDocumentResult(
-                    success=False,
-                    output_path=command.output_path,
-                    elapsed_seconds=_elapsed(t0),
-                    error="export document payload is empty",
-                )
             return HieExportDocumentResult(
-                success=True,
+                success=False,
                 output_path=command.output_path,
-                size_bytes=size,
                 elapsed_seconds=_elapsed(t0),
+                error="HIE media export is unavailable: IPC returned a document description, not rendered media",
             )
         except Exception as exc:
             return HieExportDocumentResult(

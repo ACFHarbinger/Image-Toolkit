@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import dataclasses
-import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -151,21 +150,22 @@ def test_hie_export_validation() -> None:
         service.export_document(HieExportDocumentCommand(document_id="doc-1", output_path=""))
 
 
-def test_hie_export_execution(tmp_path: Path) -> None:
+@pytest.mark.parametrize("existing", [False, True])
+def test_hie_export_description_is_not_encoded_as_media(tmp_path: Path, existing: bool) -> None:
     out = tmp_path / "exported.png"
+    if existing:
+        out.write_bytes(b"caller output")
     service = HieService()
-    open_res = service.open_document(HieOpenDocumentCommand(source="/sample.png", document_id="doc-1"))
-    assert open_res.success is True
-
+    opened = service.open_document(HieOpenDocumentCommand(source="/sample.png", document_id="doc-1"))
+    assert opened.success is True
     result = service.export_document(HieExportDocumentCommand(document_id="doc-1", output_path=str(out)))
-    assert result.success is True
-    assert result.output_path == str(out)
-    assert out.is_file()
-    raw = out.read_bytes()
-    assert raw != b""
-    assert result.size_bytes == out.stat().st_size == len(raw)
-    document = json.loads(raw)
-    assert document["document_id"] == "doc-1"
+    assert result.success is False
+    assert result.size_bytes == 0
+    assert "not rendered media" in result.error
+    if existing:
+        assert out.read_bytes() == b"caller output"
+    else:
+        assert not out.exists()
 
 
 def test_hie_list_capabilities() -> None:

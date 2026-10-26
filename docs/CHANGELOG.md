@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Reject HIE media export when IPC returns only a document description; leave caller output untouched.
+
 - Keep ASP/CSG image dependencies lazy, prevent CSG luminance overflow, and create exclusive temporary files for CSG output.
 
 ### Added
