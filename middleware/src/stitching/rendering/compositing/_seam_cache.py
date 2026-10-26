@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+
 from middleware.src.constants import SEAM_CROP_BAND_PX
 
 from ._flags import _GRAPHCUT_SEAM, _get_seam_pool

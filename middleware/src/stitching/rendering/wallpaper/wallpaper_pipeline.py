@@ -35,6 +35,7 @@ from typing import Any
 
 import cv2
 import numpy as np
+
 from middleware.src.stitching.core.pipeline.session import PipelineSession, PipelineStage
 from middleware.src.stitching.rendering.wallpaper._aspect_framer import FramedWallpaper, frame_wallpaper
 from middleware.src.stitching.rendering.wallpaper._cel_compositor import CelCompositeResult, composite_hero_cel

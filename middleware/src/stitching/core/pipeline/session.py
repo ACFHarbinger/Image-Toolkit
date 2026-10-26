@@ -12,6 +12,7 @@ canonical runner does not insert new HITL checkpoints here (that is M1c).
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import time
@@ -344,14 +345,12 @@ class PipelineSession:
         self.gain_telemetry = dict(payload)
         residual = payload.get("mean_residual", payload.get("clamp_residual"))
         if residual is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self.telemetry.metric(
                     METRIC_GAIN_CLAMP_RESIDUAL,
                     float(residual),
                     unit="1",
                 )
-            except Exception:
-                pass
 
     def note_seam_feasibility(self, payload: Mapping[str, Any]) -> None:
         # Drop image crops if a caller forwards seam_meta_out wholesale.
@@ -363,14 +362,12 @@ class PipelineSession:
         self.seam_feasibility = clean
         energy = clean.get("cut_energy", clean.get("energy", clean.get("max_seam_lum_step")))
         if energy is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self.telemetry.metric(
                     METRIC_SEAM_CUT_ENERGY,
                     float(energy),
                     unit="1",
                 )
-            except Exception:
-                pass
 
     def observability(self) -> dict[str, Any]:
         return {
@@ -443,14 +440,10 @@ class PipelineSession:
                 self.output_hashes[out] = digest
         peak_vram = self.resources.peak_vram_bytes
         if peak_vram is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self.telemetry.metric(METRIC_VRAM_PEAK_BYTES, float(peak_vram), unit="By")
-            except Exception:
-                pass
-        try:
+        with contextlib.suppress(Exception):
             self.telemetry.close()
-        except Exception:
-            pass
 
     def _host_telemetry(self) -> Any | None:
         """Image-Toolkit writer when present; no-op in standalone ASP."""
@@ -482,7 +475,7 @@ class PipelineSession:
         duration_ms = (
             None if record.duration_s is None else round(record.duration_s * 1000, 3)
         )
-        try:
+        with contextlib.suppress(Exception):
             self.telemetry.span_end(
                 f"asp.stage.{record.name}",
                 span_id=self._otel_span_id,
@@ -490,14 +483,12 @@ class PipelineSession:
                 error=error,
                 attributes={"asp.stage": record.name},
             )
-        except Exception:
-            pass
         self._otel_span_id = None
         tel = self._host_telemetry()
         if tel is None or self._span_id is None:
             self._span_id = None
             return
-        try:
+        with contextlib.suppress(Exception):
             tel.end_span(
                 "asp",
                 f"stage.{record.name}",
@@ -505,8 +496,6 @@ class PipelineSession:
                 duration_ms=duration_ms,
                 span_id=self._span_id,
             )
-        except Exception:
-            pass
         self._span_id = None
 
     def experiment_manifest(self) -> dict[str, Any]:

@@ -31,6 +31,9 @@ from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
+
+from middleware.src.constants import SPATIAL_DEDUP_PX
+from middleware.src.errors import CanvasError, PipelineError
 from middleware.src.stitching.alignment.bundle_adjust import _bundle_adjust_affine
 from middleware.src.stitching.alignment.canvas import (
     _compute_canvas,
@@ -56,8 +59,6 @@ from middleware.src.stitching.ingestion.masking import _compute_fg_masks
 from middleware.src.stitching.rendering.compositing import _composite_foreground
 from middleware.src.stitching.rendering.photometric import _apply_basic, _correct_vignetting
 from middleware.src.stitching.rendering.rendering import _render
-from middleware.src.constants import SPATIAL_DEDUP_PX
-from middleware.src.errors import CanvasError, PipelineError
 
 from ._affine_recovery import _recover_affine_health
 from ._content_trim import _trim_content_crop
@@ -142,12 +143,12 @@ def _refine_masks_for_plate(
 
 
 if TYPE_CHECKING:
-    from middleware.src.stitching.models.wrappers.aliked_lg_wrapper import ALIKEDLightGlueWrapper
-    from middleware.src.stitching.models.wrappers.efficient_loftr_wrapper import EfficientLoFTRWrapper
-    from middleware.src.stitching.models.wrappers.roma_wrapper import RoMaWrapper
     from middleware.src.models.wrappers.basic_wrapper import BaSiCWrapper as _BaSiCWrapperT
     from middleware.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
     from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper
+    from middleware.src.stitching.models.wrappers.aliked_lg_wrapper import ALIKEDLightGlueWrapper
+    from middleware.src.stitching.models.wrappers.efficient_loftr_wrapper import EfficientLoFTRWrapper
+    from middleware.src.stitching.models.wrappers.roma_wrapper import RoMaWrapper
 
     # Type-checking-only base: gives mypy visibility into attributes set by
     # AnimeStitchPipeline.__init__ / sibling mixins (see _pipeline_protocol.py).

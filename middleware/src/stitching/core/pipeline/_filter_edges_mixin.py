@@ -12,8 +12,9 @@ import os
 import re
 
 import numpy as np
-from middleware.src.stitching.alignment.matching import _template_match
+
 from middleware.src.constants import MATCH_EDGE_CROP, MIN_EXPECTED_STEP
+from middleware.src.stitching.alignment.matching import _template_match
 
 from ._edge_filters import _compute_adaptive_min_disp, _reject_static_edges
 from ._probes import _HAS_BATCH, _batch

@@ -16,6 +16,7 @@ repo's `backend` package Python's import system finds first -- see issue
 
 from __future__ import annotations
 
+import importlib.abc
 import importlib.util
 import sys
 from pathlib import Path
@@ -40,9 +41,41 @@ def _load_package(alias: str, src_dir: Path) -> None:
     spec.loader.exec_module(module)
 
 
-_load_package("middleware.src.stitching", _REPO_ROOT / "middleware" / "src" / "stitching")
-_load_package("asp_backend", _REPO_ROOT / "middleware" / "src" / "stitching")
-_load_package("asp_gui", _REPO_ROOT / "submodules" / "ASP" / "gui" / "src")
+class _SubmoduleAliasFinder(importlib.abc.MetaPathFinder):
+    def __init__(self, aliases: dict[str, str]) -> None:
+        self.aliases = aliases
+
+    def find_spec(self, fullname: str, path: object = None, target: object = None) -> object:
+        for prefix, target_prefix in self.aliases.items():
+            if fullname == prefix or fullname.startswith(prefix + "."):
+                real_name = target_prefix + fullname[len(prefix):]
+                real_spec = importlib.util.find_spec(real_name)
+                if real_spec and real_spec.origin:
+                    submodule_locations = (
+                        [str(Path(real_spec.origin).parent)]
+                        if real_spec.submodule_search_locations is not None
+                        else None
+                    )
+                    return importlib.util.spec_from_file_location(
+                        fullname,
+                        real_spec.origin,
+                        submodule_search_locations=submodule_locations,
+                    )
+        return None
+
+
+sys.meta_path.insert(
+    0,
+    _SubmoduleAliasFinder({
+        "asp_backend": "middleware.src.stitching",
+        "csg_backend": "middleware.src.csg",
+    }),
+)
+
+_asp_gui_dir = _REPO_ROOT / "gui" / "src" / "legacy" / "asp_gui"
+if not _asp_gui_dir.is_dir():
+    _asp_gui_dir = _REPO_ROOT / "submodules" / "ASP" / "gui" / "src"
+_load_package("asp_gui", _asp_gui_dir)
 _load_package("middleware.src.stitching_benchmark", _REPO_ROOT / "middleware" / "benchmark" / "asp")
 _load_package("middleware.src.stitching_evaluation", _REPO_ROOT / "middleware" / "benchmark" / "asp" / "evaluation")
 _load_package("asp_backend_benchmark", _REPO_ROOT / "middleware" / "benchmark" / "asp")

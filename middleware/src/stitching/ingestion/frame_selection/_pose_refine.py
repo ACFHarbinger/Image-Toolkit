@@ -112,7 +112,7 @@ def _pose_distance(
     return _fg_center_diff(thumbs[a], thumbs[b], fg_thumb_mask)
 
 
-def _global_pose_path(
+def _global_pose_path(  # noqa: C901
     selected_v1: list[int],
     N: int,
     thumbs: list[np.ndarray],

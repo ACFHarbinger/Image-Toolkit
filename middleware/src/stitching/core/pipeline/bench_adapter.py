@@ -16,6 +16,7 @@ from typing import Any
 
 import cv2
 import numpy as np
+
 from middleware.src.stitching.core.pipeline._frame_utils import _sort_frames_by_index
 from middleware.src.stitching.core.pipeline.manager import AnimeStitchPipeline
 from middleware.src.stitching.core.pipeline.safety_policy import (

@@ -8,10 +8,11 @@ import logging
 
 import cv2
 import numpy as np
-from middleware.src.stitching.core.stateless import _largest_valid_rect, _trim_dark_border
+from PIL import Image
+
 from middleware.src.constants import CANVAS_MAX_DIM
 from middleware.src.errors import CanvasError
-from PIL import Image
+from middleware.src.stitching.core.stateless import _largest_valid_rect, _trim_dark_border
 
 logger = logging.getLogger(__name__)
 

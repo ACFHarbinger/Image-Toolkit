@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
+
 from middleware.src.constants import LUMINANCE_WEIGHTS
 
 from ._flags import _BG_NORM_MIN_PX

@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 
 import numpy as np
+
 from middleware.src.stitching.core.stateless import _laplacian_blend
 
 from ._fg_pose import _seam_color_match, _single_pose_soft_edge

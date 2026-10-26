@@ -89,7 +89,12 @@ class StitchService(StitchServiceProtocol):
                 height = getattr(res, "height", 0) if res else 0
                 metrics = getattr(res, "metrics", {}) if res else {}
             else:
-                width, height, metrics = 0, 0, {}
+                return StitchResult(
+                    success=False,
+                    num_frames=len(command.image_paths),
+                    elapsed_seconds=round(time.monotonic() - t0, 4),
+                    error="ASP pipeline run operation is unavailable",
+                )
 
             elapsed = round(time.monotonic() - t0, 4)
             return StitchResult(

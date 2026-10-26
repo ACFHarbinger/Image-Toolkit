@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
-from middleware.src.stitching.core.stateless import _luma
 from scipy.optimize import least_squares
+
+from middleware.src.stitching.core.stateless import _luma
 
 try:
     import backend as _batch_photo

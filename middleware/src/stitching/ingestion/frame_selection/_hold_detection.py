@@ -223,7 +223,7 @@ def _detect_hold_blocks(
     return blocks
 
 
-def _select_hold_keyframes_dp(
+def _select_hold_keyframes_dp(  # noqa: C901
     thumbs: list[np.ndarray],
     hold_ids: list[int],
     cumpos: list[float] | None = None,

@@ -22,12 +22,12 @@ from typing import TYPE_CHECKING, Protocol
 import numpy as np
 
 if TYPE_CHECKING:
-    from middleware.src.stitching.models.wrappers.aliked_lg_wrapper import ALIKEDLightGlueWrapper
-    from middleware.src.stitching.models.wrappers.efficient_loftr_wrapper import EfficientLoFTRWrapper
-    from middleware.src.stitching.models.wrappers.roma_wrapper import RoMaWrapper
     from middleware.src.models.wrappers.basic_wrapper import BaSiCWrapper
     from middleware.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
     from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper
+    from middleware.src.stitching.models.wrappers.aliked_lg_wrapper import ALIKEDLightGlueWrapper
+    from middleware.src.stitching.models.wrappers.efficient_loftr_wrapper import EfficientLoFTRWrapper
+    from middleware.src.stitching.models.wrappers.roma_wrapper import RoMaWrapper
 
 
 class _PipelineHost(Protocol):

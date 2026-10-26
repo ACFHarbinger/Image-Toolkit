@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 import torch
+
 from middleware.src.constants import MATCH_EDGE_CROP, MAX_DX_DRIFT_RATIO
 
 from ._estimators import estimate_affine2d, estimate_affine_partial2d

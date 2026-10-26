@@ -108,3 +108,13 @@ def test_render_canvas_execution(tmp_path: Path) -> None:
     assert result.success is True
     assert result.output_path == out
     assert result.canvas_width > 0
+
+
+def test_stitch_requires_a_runnable_pipeline(tmp_path: Path) -> None:
+    first = _create_sample_frame(tmp_path / "first.png")
+    second = _create_sample_frame(tmp_path / "second.png")
+    service = StitchService(pipeline_factory=lambda **kwargs: object())
+    result = service.stitch(StitchCommand(image_paths=(first, second)))
+    assert result.success is False
+    assert result.error is not None
+    assert "run operation is unavailable" in result.error

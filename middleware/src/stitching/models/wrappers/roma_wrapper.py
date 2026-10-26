@@ -21,9 +21,10 @@ import logging
 import cv2
 import numpy as np
 import torch
+from PIL import Image
+
 from middleware.src.constants.models import _MAX_DRIFT_RATIO
 from middleware.src.models.core.base import ModelWrapper, lazy_load
-from PIL import Image
 
 logger = logging.getLogger(__name__)
 try:

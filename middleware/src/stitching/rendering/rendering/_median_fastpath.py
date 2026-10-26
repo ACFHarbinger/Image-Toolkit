@@ -13,6 +13,7 @@ import logging
 import warnings
 
 import numpy as np
+
 from middleware.src.constants import LANCZOS_BLEED, RENDERING_FADE_ROWS
 
 from . import _native

@@ -30,7 +30,7 @@ function selectedPath(value: unknown): string | null {
 }
 
 export interface HieEditorTabProps {
-  showModal: (
+  showModal?: (
     message: string,
     type?: "info" | "success" | "error",
     duration?: number
@@ -51,7 +51,7 @@ interface ToolOption {
 /**
  * Hybrid Image Editor tab for Image-Toolkit's React/Tauri frontend.
  */
-export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal, hostClient }) => {
+export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal = () => {}, hostClient }) => {
   const host = useMemo(() => getHieHost(), []);
   const [selectedTool, setSelectedTool] = useState<AssistanceTool>("localized_tone");
   const [proposalReady, setProposalReady] = useState(false);
@@ -220,7 +220,7 @@ export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal, hostClien
       setProposalReady(false);
       setSaveState("HISTORY UPDATED");
       setStatusMessage(`${active.label} accepted into document history graph`);
-      showModal(`${active.label} proposal applied to document layer stack`, "success", 2000);
+      showModal("Proposal accepted and merged into node stack", "success", 2000);
       setTimeout(() => setSaveState("READY"), 2000);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -239,7 +239,7 @@ export const HieEditorTab: React.FC<HieEditorTabProps> = ({ showModal, hostClien
             <h2 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
               Hybrid Image Editor{" "}
               <span className="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800">
-                HIE Core
+                NON-DESTRUCTIVE
               </span>
             </h2>
             <p className="text-xs text-gray-400">

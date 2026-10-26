@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
+
 from middleware.src.constants import (
     FEATHER_MAX,
     FEATHER_MIN,
