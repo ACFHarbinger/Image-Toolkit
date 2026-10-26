@@ -1,7 +1,7 @@
 [project]
 name = "image-toolkit-workspace"
 version = "1.0.0"
-description = "Root workspace manifest for Image-Toolkit. Python modules: middleware/ (see middleware/pyproject.toml), gui/ (see gui/pyproject.toml), and submodules/CRE/ (absorbed in W0-03; see submodules/CRE/pyproject.toml)."
+description = "Root workspace manifest for Image-Toolkit. Python modules: middleware/ (see middleware/pyproject.toml) and gui/ (see gui/pyproject.toml)."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
@@ -22,7 +22,9 @@ members = [
     "submodules/CSG/logic",
     "submodules/CSG/gui",
     # Other submodule / internal packages
-    "submodules/CRE",
+    # (submodules/CRE left the workspace in W0-03 phase E: its code now lives
+    #  at middleware/src/cre and data/cre, #1035; the stale submodules/CRE
+    #  pyproject stays until the final submodules/ removal PR.)
     "git",
 ]
 

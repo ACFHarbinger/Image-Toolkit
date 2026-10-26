@@ -43,7 +43,7 @@ class ListingsEmbeddingWorker(BaseQThreadWorker):
     def _execute(self) -> object:
         _ensure_re_on_path()
         try:
-            from src.data.embedder import Embedder  # pyrefly: ignore [missing-import]
+            from middleware.src.cre.data.embedder import Embedder
         except ImportError as exc:
             self.error.emit(
                 "BGE-M3 embedder unavailable (FlagEmbedding not "
