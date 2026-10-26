@@ -28,7 +28,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from document import ClipSegment, DocumentHistory, Timeline
+# Engine package moved to middleware.src.hie (#1037). This Qt tab stays here.
+from middleware.src.hie.document import ClipSegment, DocumentHistory, Timeline
 
 from viewport import HieViewport
 

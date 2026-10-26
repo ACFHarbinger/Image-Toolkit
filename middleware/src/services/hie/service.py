@@ -70,7 +70,7 @@ class HieService(HieServiceProtocol):
         if self._ipc_service is not None:
             return self._ipc_service
         try:
-            from ipc_service import IpcService
+            from middleware.src.hie.ipc_service import IpcService
 
             self._ipc_service = IpcService()
             return self._ipc_service
@@ -299,7 +299,7 @@ def _payload_int(payload: dict[str, Any], key: str) -> int:
 
 
 def _ipc_call(ipc: Any, method: str, payload: dict[str, Any]) -> Any:
-    from ipc import IpcRequest
+    from middleware.src.hie.ipc import IpcRequest
 
     request = IpcRequest(
         request_id=f"req-{uuid.uuid4().hex[:8]}",
