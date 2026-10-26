@@ -116,7 +116,7 @@ PYBIND11_MODULE(backend, m) {
         Hybrid Image Editor (HIE) submodule
         -------------------------------------
         base.hie             solve_seam, solve_alignment_gnc, solve_color_harmonization,
-                             pso_solve, de_solve — see submodules/HIE/logic/include/
+                             pso_solve, de_solve — see backend/src/hie/include/
     )doc";
 
     // ------------------------------------------------------------------

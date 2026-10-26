@@ -26,22 +26,16 @@ _ALIASES = {
 
 _PACKAGE_ROOTS = (
     ("CSG", "logic", "src"),
-    ("HIE", "middleware", "src"),
+    # Qt GUI stays at submodules/HIE/gui until the final removal PR.
+    # The engine is middleware.src.hie (#1037), not a path root: a bare
+    # ``import models`` would shadow middleware.src.models.
     ("HIE", "gui", "src"),
 )
 
-# Top-level packages owned by a submodule that share a name with a parent
-# repo test package (or another submodule). Pre-importing them here caches
-# the correct module in sys.modules so a later bare import (e.g. HIE's
-# "from models import ...") resolves to the submodule's package no matter
-# what pytest later prepends to sys.path (e.g. middleware/test/models
-# shadowing the real models package during combined test collection).
-# Mirrors the _load_package alias pattern: load the real package under its
-# own name so bare imports find it.
-_PRELOAD_PACKAGES = (
-    ("HIE", "middleware", "src", "models"),
-    ("HIE", "middleware", "src", "policies"),
-)
+# HIE models/policies preloads were removed in #1037 with the bare imports
+# they existed for. Do not preload a top-level ``models`` — it would shadow
+# middleware.src.models now that HIE is middleware.src.hie.models.
+_PRELOAD_PACKAGES: tuple[tuple[str, ...], ...] = ()
 
 # Parent-repo real packages that a test package shadows by name during
 # combined collection (e.g. middleware/test/models vs middleware/src/models, and

@@ -76,17 +76,17 @@ add_library(base_impl STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/web/clients/image_crawler.cpp
 
     # Hybrid Image Editor (HIE) core logic & solvers (W0-03 Phase B / #867)
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/greet.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/render_graph.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/exact_solvers.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/metaheuristics.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/hie/src/greet.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/hie/src/render_graph.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/hie/src/exact_solvers.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/hie/src/metaheuristics.cpp
 )
 
 if(HIE_ENABLE_SIMD_SEAM)
     target_compile_definitions(base_impl PUBLIC HIE_ENABLE_SIMD_SEAM)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64|i.86)$")
         set_source_files_properties(
-            ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/exact_solvers.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/../src/hie/src/exact_solvers.cpp
             PROPERTIES COMPILE_OPTIONS "-mavx2;-mfma"
         )
     endif()
@@ -97,7 +97,7 @@ endif()
 # path but do NOT link the pybind11 module entry point.
 target_include_directories(base_impl PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/hie/include
     ${OpenCV_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
     ${pybind11_INCLUDE_DIRS}
@@ -196,7 +196,7 @@ catch_discover_tests(backend_tests)
 
 # HIE standalone solver & render-graph test binary (W0-03 Phase B / #867)
 add_executable(hie_solver_tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/test/test_solvers.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/hie/test/test_solvers.cpp
 )
 target_link_libraries(hie_solver_tests PRIVATE base_impl)
 add_test(NAME hie_solver_tests COMMAND hie_solver_tests)

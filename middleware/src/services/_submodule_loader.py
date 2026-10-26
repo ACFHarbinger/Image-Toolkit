@@ -8,13 +8,16 @@ from pathlib import Path
 
 
 def ensure_submodules_registered() -> None:
-    """Ensure submodule packages (ASP, HIE, CSG, CRE) are registered in sys.path / sys.modules."""
+    """Ensure submodule packages (ASP, CSG, CRE) are registered in sys.path / sys.modules.
+
+    HIE lives at ``middleware.src.hie`` (#1037) and is not registered here.
+    """
     repo_root = Path(__file__).resolve().parents[3]
     submodules_dir = repo_root / "submodules"
     if not submodules_dir.is_dir():
         return
 
-    # 1. Base submodule bootstrap (ASP, CSG, HIE)
+    # 1. Base submodule bootstrap (ASP, CSG). HIE is middleware.src.hie (#1037).
     try:
         from git.scripts._submodule_bootstrap import register_submodule_packages
 
@@ -23,7 +26,6 @@ def ensure_submodules_registered() -> None:
         for rel_parts in [
             ("ASP", "backend", "src"),
             ("CSG", "logic", "src"),
-            ("HIE", "middleware", "src"),
         ]:
             target = str(submodules_dir.joinpath(*rel_parts))
             if target not in sys.path and os.path.isdir(target):

@@ -78,17 +78,17 @@ add_library(bench_impl STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/math/math_bindings.cpp
 
     # Hybrid Image Editor (HIE) solvers & logic (W0-03 Phase B / #867)
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/greet.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/render_graph.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/exact_solvers.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/metaheuristics.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/hie/src/greet.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/hie/src/render_graph.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/hie/src/exact_solvers.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/hie/src/metaheuristics.cpp
 )
 
 if(HIE_ENABLE_SIMD_SEAM)
     target_compile_definitions(bench_impl PUBLIC HIE_ENABLE_SIMD_SEAM)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64|i.86)$")
         set_source_files_properties(
-            ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/src/exact_solvers.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/../src/hie/src/exact_solvers.cpp
             PROPERTIES COMPILE_OPTIONS "-mavx2;-mfma"
         )
     endif()
@@ -100,7 +100,7 @@ target_compile_definitions(bench_impl PUBLIC BATCH_TESTS=1)
 
 target_include_directories(bench_impl PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/hie/include
     ${OpenCV_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
     ${eigen_SOURCE_DIR}
@@ -172,8 +172,8 @@ add_backend_benchmark(backend_bench_finder bench_finder.cpp)
 
 # 5. Hybrid Image Editor (HIE) exact & metaheuristic solvers (W0-03 Phase B / #867)
 add_executable(backend_bench_hie
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/benchmark/greet_benchmark.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/HIE/logic/benchmark/solvers_benchmark.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/hie/benchmark/greet_benchmark.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/hie/benchmark/solvers_benchmark.cpp
 )
 target_link_libraries(backend_bench_hie PRIVATE
     bench_impl

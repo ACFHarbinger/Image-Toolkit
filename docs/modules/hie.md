@@ -10,7 +10,7 @@
 
 ## Overview
 
-The Hybrid Image Editor (HIE) capability provides multi-modal image and video sequence editing with intelligent AI and RL co-pilot assistance (E-02 / #915). It wraps the HIE document session and render-graph pipeline into clean asynchronous bridge methods (`hie.open_document`, `hie.execute_edit`, `hie.export_document`, `hie.list_capabilities`), with seamless fallback when external ML models or GPU accelerators are unavailable.
+The Hybrid Image Editor (HIE) capability provides multi-modal image and video sequence editing with intelligent AI and RL co-pilot assistance (E-02 / #915). It wraps the HIE document session and render-graph pipeline (`middleware/src/hie/`, relocated from `submodules/HIE/middleware/src` in #1037) into clean asynchronous bridge methods (`hie.open_document`, `hie.execute_edit`, `hie.export_document`, `hie.list_capabilities`), with seamless fallback when external ML models or GPU accelerators are unavailable. Reference docs live in [`docs/hie/`](../hie/index.md).
 
 ## Public Surface
 
@@ -23,7 +23,7 @@ The Hybrid Image Editor (HIE) capability provides multi-modal image and video se
   - Handlers: `handle_open_document`, `handle_execute_edit`, `handle_export_document`, `handle_list_capabilities`
 - **Frontend Client (`frontend/src/hostclient/client.ts`):**
   - Typed methods: `hieOpenDocument`, `hieExecuteEdit`, `hieExportDocument`, `hieListCapabilities`
-- **C++ Native Entrypoints:** none directly; delegates through Python orchestrator and submodule services.
+- **C++ Native Entrypoints:** none on the bridge contract; the compiled solver sources live at `backend/src/hie/` and are linked into the `backend` extension. Delegates through the Python orchestrator.
 
 ## Contract & Routing
 
@@ -44,6 +44,6 @@ The Hybrid Image Editor (HIE) capability provides multi-modal image and video se
 
 ```bash
 source .venv/bin/activate
-pytest middleware/test/services/test_hie_service.py middleware/test/sidecar/test_hie_dispatch.py -q
+pytest middleware/test/services/test_hie_service.py middleware/test/sidecar/test_hie_dispatch.py middleware/test/hie -q
 npm run test-frontend -- src/tabs/editor/HieEditorTab.test.tsx
 ```
