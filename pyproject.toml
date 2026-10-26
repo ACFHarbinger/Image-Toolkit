@@ -16,7 +16,6 @@ members = [
     "middleware",
     "gui",
     # ASP submodule leaf packages
-    "submodules/ASP/backend",
     "submodules/ASP/gui",
     # CSG engine is middleware/src/csg (#1036). Leftover
     # submodules/CSG/logic/pyproject.toml stays until the final removal PR.

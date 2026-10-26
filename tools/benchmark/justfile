@@ -120,7 +120,7 @@ asp-benchmark-clean:
 asp-benchmark-assess *ARGS:
     @echo "🎨 Rating ASP panoramic stitches (human coherence inspector)..."
     @test -x {{_IT_PY}} || (echo "error: missing {{_IT_PY}} — run: just install" && exit 1)
-    @test -f {{_ASP_ROOT}}/backend/src/cli/eval_dispatch.py || (echo "error: ASP submodule missing eval_dispatch.py — init submodules/ASP" && exit 1)
+    @test -f {{_ASP_ROOT}}/backend/src/cli/eval_dispatch.py || (echo "error: ASP missing eval_dispatch.py — check submodules/ASP" && exit 1)
     {{_ASP_ENV}} {{_IT_PY}} \
         {{_ASP_ROOT}}/backend/src/cli/eval_dispatch.py --surface inspector {{ARGS}}
 

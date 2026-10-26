@@ -64,7 +64,10 @@ def _load_package(alias: str, src_dir: str) -> None:
 def register_submodule_packages(repo_root: str) -> None:
     """Idempotent -- safe to call from every entry point / conftest.py."""
     for alias, parts in _ALIASES.items():
-        _load_package(alias, os.path.join(repo_root, "submodules", *parts))
+        src_dir = os.path.join(repo_root, "submodules", *parts)
+        if alias == "asp_backend" and not os.path.isdir(src_dir):
+            src_dir = os.path.join(repo_root, "middleware", "src", "stitching")
+        _load_package(alias, src_dir)
     for parts in _PACKAGE_ROOTS:
         package_root = os.path.join(repo_root, "submodules", *parts)
         if os.path.isdir(package_root) and package_root not in sys.path:

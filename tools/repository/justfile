@@ -27,6 +27,6 @@ krita-uninstall:
     @echo "🗑️  Uninstalling CSG Krita plugin..."
     cd {{krita_root}} && uv run python integrations/krita/install.py uninstall
 
-# Reinstall the plugin — use after pulling submodule updates (close Krita first)
+# Reinstall the plugin — use after updating CSG (close Krita first)
 krita-reinstall: krita-uninstall krita-install
     @echo "✅ CSG Krita plugin reinstalled."

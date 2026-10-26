@@ -36,11 +36,16 @@ class StitchService(StitchServiceProtocol):
         if self._pipeline_factory is not None:
             return self._pipeline_factory(**kwargs)
         try:
-            from asp_backend import AnimeStitchPipeline
+            from middleware.src.stitching import AnimeStitchPipeline
 
             return AnimeStitchPipeline(**kwargs)
         except (ImportError, Exception):
-            return None
+            try:
+                from asp_backend import AnimeStitchPipeline
+
+                return AnimeStitchPipeline(**kwargs)
+            except (ImportError, Exception):
+                return None
 
     def stitch(self, command: StitchCommand) -> StitchResult:
         """Execute stitching pipeline across image sequence."""

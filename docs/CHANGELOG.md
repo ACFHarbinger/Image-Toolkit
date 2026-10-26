@@ -23,6 +23,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Relocate Absorbed Anime Stitch Pipeline into Monorepo Homes** (Tauri migration W0-03 Phase E, #1038):
+  - Relocated Python stitching engine from `submodules/ASP/backend/src` to `middleware/src/stitching/` with canonicalized `middleware.src.stitching.*` imports.
+  - Relocated C++ stitch components from `submodules/ASP/base/src` to `backend/src/asp/` and updated `backend/CMakeLists.txt`.
+  - Relocated ASP tests to `middleware/test/stitching/` and benchmarks to `middleware/benchmark/asp/`.
+  - Relocated sample data to `data/asp/` and documentation to `docs/asp/` (with `docs/asp/LICENSE`).
+  - Removed folded `submodules/ASP/frontend` and pruned `submodules/ASP/backend` from root `pyproject.toml` workspace members.
+
+- **Absorbed Submodule Sync & Upstream Drift Resolution (ASP)** (Tauri migration W0-03, #867):
+  - Absorbed all 11 upstream ASP commits (`9ff744ae..main`, 57 files) into `submodules/ASP/` closing the version gap to `8763a2661`.
+  - Resolved conflicts in `manager.py`, `efficient_loftr_wrapper.py`, `test_canvas.py`, `test_filter_edges.py`, and `docs/website/package-lock.json` while maintaining monorepo path renames.
+  - Tidied stale submodule links and documentation pointers in `docs/website/src/constants/submodules.ts`, `.github/dependabot.yml`, `DEVELOPMENT.md`, and benchmark/repository justfiles.
+  - Updated absorbed repos pre-archiving audit record in `.agent/reports/team/absorbed_repos_audit_2026-10-26.md`.
+
 - **Wallpaper Slideshow Presenter Window & Unified Daemon Config** (Tauri migration Wave 7, S-07 #893):
   - **KDE Candidate Fallback & Styles:** updated `middleware/src/core/wallpaper/_dbus.py` to filter out broken `qdbus` binaries reporting `could not find a Qt installation` and fallback through candidate executables (`qdbus6`, `qdbus-qt6`, etc.) before D-Bus Python. Added integer `fillMode` containment mapping for `Fill` (2) and `Fit` (1) in `middleware/src/constants/app.py`.
   - **Unified Daemon Config & Detached Process:** unified `wallpaper_commands.rs`, `WallpaperService` (`handlers.py`), and `slideshow_daemon.py` to read and write canonical `DAEMON_CONFIG_PATH` (`~/.image-toolkit/.slideshow_config.json`). Spawns daemon detached (`start_new_session=True` / `setsid`) with tracked PID so hiding the main UI window leaves the background process intact.

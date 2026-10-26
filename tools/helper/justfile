@@ -100,7 +100,7 @@ help:
     @echo "{{bold}}CSG Krita plugin{{reset}}"
     @echo "  just krita-install              Install the Krita plugin"
     @echo "  just krita-uninstall            Uninstall the Krita plugin"
-    @echo "  just krita-reinstall            Reinstall after pulling submodule updates"
+    @echo "  just krita-reinstall            Reinstall after updating CSG"
     @echo ""
     @echo "{{bold}}AI/ML Models & LoRA{{reset}}"
     @echo "  just lora-setup-tagger         Download WD14 tagger"
