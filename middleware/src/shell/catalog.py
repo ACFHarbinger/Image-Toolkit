@@ -216,6 +216,8 @@ def _entries() -> tuple[CatalogEntry, ...]:
             surfaces=("frontend",),
             icon_name="chart",
         ),
+        _page("developer.logs", "Logs", ModuleCategory.DEVELOPER, 26, surfaces=("frontend",)),
+        _page("developer.metadata", "File Metadata", ModuleCategory.DEVELOPER, 27, surfaces=("frontend",)),
     )
     stitch_workspace = _workspace(
         "stitch",

@@ -7,8 +7,6 @@ import re
 from pathlib import Path
 from typing import Any, Sequence
 
-from PIL import Image
-
 from middleware.src.services.base import CommandValidationError, Handler
 from middleware.src.services.scan.commands import (
     SaveMetadataCommand,
@@ -23,8 +21,23 @@ from middleware.src.services.scan.commands import (
 _WORD_RE = re.compile(r"[A-Za-z0-9]{2,}")
 _STOPWORDS = frozenset(
     {
-        "the", "and", "for", "with", "img", "image", "pic", "photo", "scan",
-        "new", "copy", "temp", "tmp", "download", "downloads", "raw", "edit",
+        "the",
+        "and",
+        "for",
+        "with",
+        "img",
+        "image",
+        "pic",
+        "photo",
+        "scan",
+        "new",
+        "copy",
+        "temp",
+        "tmp",
+        "download",
+        "downloads",
+        "raw",
+        "edit",
     }
 )
 
@@ -34,12 +47,16 @@ def _extract_path_tokens(path_str: str) -> tuple[str, ...]:
     tokens: list[str] = []
     # Immediate parent directory words
     if path.parent.name:
-        tokens.extend(w.lower() for w in _WORD_RE.findall(path.parent.name) if len(w) >= 2 and w.lower() not in _STOPWORDS)
+        tokens.extend(
+            w.lower() for w in _WORD_RE.findall(path.parent.name) if len(w) >= 2 and w.lower() not in _STOPWORDS
+        )
     # Filename stem words
     tokens.extend(w.lower() for w in _WORD_RE.findall(path.stem) if len(w) >= 2 and w.lower() not in _STOPWORDS)
     # Grandparent directory words
     if path.parent.parent.name and len(tokens) < 6:
-        tokens.extend(w.lower() for w in _WORD_RE.findall(path.parent.parent.name) if len(w) >= 2 and w.lower() not in _STOPWORDS)
+        tokens.extend(
+            w.lower() for w in _WORD_RE.findall(path.parent.parent.name) if len(w) >= 2 and w.lower() not in _STOPWORDS
+        )
     # Deduplicate while preserving order
     seen: set[str] = set()
     result: list[str] = []
@@ -59,7 +76,9 @@ class ScanDirectoryHandler(Handler[ScanDirectoryCommand, ScanDirectoryResult]):
     def handle(self, command: ScanDirectoryCommand) -> ScanDirectoryResult:
         dir_path = Path(command.directory)
         if not dir_path.exists() or not dir_path.is_dir():
-            raise CommandValidationError(f"Directory not found or not a directory: {command.directory}", field="directory")
+            raise CommandValidationError(
+                f"Directory not found or not a directory: {command.directory}", field="directory"
+            )
 
         normalized_formats = {
             fmt.lower().lstrip(".") for fmt in (command.formats or ("webp", "png", "jpg", "jpeg", "gif"))
@@ -81,6 +100,8 @@ class ScanDirectoryHandler(Handler[ScanDirectoryCommand, ScanDirectoryResult]):
             width: int | None = None
             height: int | None = None
             try:
+                from PIL import Image
+
                 with Image.open(path) as img:
                     width, height = img.size
             except Exception:

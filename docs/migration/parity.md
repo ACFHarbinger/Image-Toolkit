@@ -38,18 +38,18 @@ the status lifecycle and deletion gate are documented in
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
-| system.extractor | Extractor | unclaimed | [#905](https://github.com/ACFHarbinger/Image-Toolkit/issues/905) | pyside-only | system.extractor | — | 0 |
-| system.merge | Merge | unclaimed | [#903](https://github.com/ACFHarbinger/Image-Toolkit/issues/903) | pyside-only | system.merge | — | 0 |
-| system.similarity | Similarity | unclaimed | [#904](https://github.com/ACFHarbinger/Image-Toolkit/issues/904) | pyside-only | system.similarity | — | 0 |
+| system.extractor | Extractor | Grok | [#905](https://github.com/ACFHarbinger/Image-Toolkit/issues/905) | pyside-only | system.extractor | — | 0 |
+| system.merge | Merge | Grok | [#903](https://github.com/ACFHarbinger/Image-Toolkit/issues/903) | pyside-only | system.merge | — | 0 |
+| system.similarity | Similarity | Grok | [#904](https://github.com/ACFHarbinger/Image-Toolkit/issues/904) | pyside-only | system.similarity | — | 0 |
 
 ## wave-5
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
 | web.crawler | Crawler | unclaimed | [#906](https://github.com/ACFHarbinger/Image-Toolkit/issues/906) | pyside-only | web.crawler | — | 0 |
-| web.drive-sync | Cloud Synchronization | unclaimed | [#908](https://github.com/ACFHarbinger/Image-Toolkit/issues/908) | pyside-only | web.drive-sync | — | 0 |
+| web.drive-sync | Cloud Synchronization | Grok | [#908](https://github.com/ACFHarbinger/Image-Toolkit/issues/908) | pyside-only | web.drive-sync | — | 0 |
 | web.entity-recon | Entity Reconnaissance | unclaimed | [#911](https://github.com/ACFHarbinger/Image-Toolkit/issues/911) | pyside-only | web.entity-recon | — | 0 |
-| web.media-loader | Media Loader | unclaimed | [#909](https://github.com/ACFHarbinger/Image-Toolkit/issues/909) | pyside-only | web.media-loader | — | 0 |
+| web.media-loader | Media Loader | Grok | [#909](https://github.com/ACFHarbinger/Image-Toolkit/issues/909) | pyside-only | web.media-loader | — | 0 |
 | web.requests | Requests | unclaimed | [#907](https://github.com/ACFHarbinger/Image-Toolkit/issues/907) | pyside-only | web.requests | — | 0 |
 | web.reverse-search | Reverse Search | unclaimed | [#910](https://github.com/ACFHarbinger/Image-Toolkit/issues/910) | pyside-only | web.reverse-search | — | 0 |
 
@@ -57,7 +57,7 @@ the status lifecycle and deletion gate are documented in
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
-| dl | Deep Learning | unclaimed | [#912](https://github.com/ACFHarbinger/Image-Toolkit/issues/912) | pyside-only | dl.train<br>dl.generate<br>dl.review<br>dl.runs<br>ml.training<br>ml.generation<br>ml.evaluation<br>ml.inference<br>ml.comfyui | — | 0 |
+| dl | Deep Learning | Grok | [#912](https://github.com/ACFHarbinger/Image-Toolkit/issues/912) | pyside-only | dl.train<br>dl.generate<br>dl.review<br>dl.runs<br>ml.training<br>ml.generation<br>ml.evaluation<br>ml.inference<br>ml.comfyui | — | 0 |
 
 ## wave-7
 
@@ -79,9 +79,11 @@ the status lifecycle and deletion gate are documented in
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
-| window.auth | Authentication / vault unlock | unclaimed | [#918](https://github.com/ACFHarbinger/Image-Toolkit/issues/918) | pyside-only | — | — | 0 |
+| window.auth | Authentication / vault unlock | Grok | [#918](https://github.com/ACFHarbinger/Image-Toolkit/issues/918) | pyside-only | — | — | 0 |
 | window.cloud-compute | Cloud Compute setup window | unclaimed | [#920](https://github.com/ACFHarbinger/Image-Toolkit/issues/920) | pyside-only | — | — | 0 |
 | window.logging | Logging and metadata windows | unclaimed | [#919](https://github.com/ACFHarbinger/Image-Toolkit/issues/919) | pyside-only | — | — | 0 |
+| window.settings | Settings window | Grok | [#917](https://github.com/ACFHarbinger/Image-Toolkit/issues/917) | pyside-only | — | — | 0 |
+| window.logging | Logging and metadata windows | Grok | [#919](https://github.com/ACFHarbinger/Image-Toolkit/issues/919) | pyside-only | — | — | 0 |
 | window.settings | Settings window | unclaimed | [#917](https://github.com/ACFHarbinger/Image-Toolkit/issues/917) | pyside-only | — | — | 0 |
 
 ## Shared Qt infrastructure
