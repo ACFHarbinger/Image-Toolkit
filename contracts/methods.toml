@@ -270,7 +270,7 @@ owner = 851
 [[method]]
 name = "prefs.describe"
 capability = "prefs"
-summary = "Describe the settings window without opening the vault (#917). Credentials stay on the C++ vault session."
+summary = "List settings-window sections without opening the vault (#917). Credentials stay on the C++ vault session."
 params = "prefs.PrefsDescribeParams"
 result = "prefs.PrefsDescribeResult"
 errors = []
@@ -278,6 +278,30 @@ cancelable = false
 emits = []
 stability = "experimental"
 owner = 917
+
+[[method]]
+name = "prefs.get"
+capability = "prefs"
+summary = "Read account, profiles, gallery, logging, and shortcut actions (#1112). Does not open the vault or the log directory."
+params = "prefs.PrefsGetParams"
+result = "prefs.PrefsGetResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 1112
+
+[[method]]
+name = "prefs.set"
+capability = "prefs"
+summary = "Store profiles, gallery, logging, and one shortcut override (#1112). A master-password change is refused unless the current password is passed and a vault session is injected."
+params = "prefs.PrefsSetParams"
+result = "prefs.PrefsSetResult"
+errors = ["prefs.unknown_action"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 1112
 
 [[method]]
 name = "library_preview.describe"

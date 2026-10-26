@@ -1,4 +1,4 @@
-// GENERATED — contract hash 25bb1ff48ee734cd0ab7e3b3a0936c4ad12ee96988058c651d235a1188a48fd3. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 8f3b63259aeee332f0b0ef1780647fdc1e5692c6d3e1a1d6b8b0aeb24360f303. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -1044,6 +1044,81 @@ pub struct PrefsDescribeResult {
     pub credentials_changed: bool,
     /// must be "credentials stay on the C++ vault session" (enforced by the framing layer, #875)
     pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefsGallery {
+    pub thumbnail_size: i64,
+    pub page_size: i64,
+    pub confirm_deletions: bool,
+    pub recursive_scan: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefsGetParams {
+    pub account: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefsGetResult {
+    pub account: String,
+    pub profiles: PrefsProfiles,
+    pub gallery: PrefsGallery,
+    pub logging: PrefsLogging,
+    pub shortcuts: Vec<PrefsShortcut>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefsLogging {
+    pub level: String,
+    pub file_logging: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefsProfiles {
+    pub startup_category: String,
+    pub startup_tab: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefsSetParams {
+    pub account: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_password: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub new_password: Option<String>,
+    pub profiles: PrefsProfiles,
+    pub gallery: PrefsGallery,
+    pub logging: PrefsLogging,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shortcut: Option<PrefsShortcutOverride>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefsSetResult {
+    pub success: bool,
+    pub reason: String,
+    pub credentials_changed: bool,
+    pub account: String,
+    pub profiles: PrefsProfiles,
+    pub gallery: PrefsGallery,
+    pub logging: PrefsLogging,
+    pub shortcuts: Vec<PrefsShortcut>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefsShortcut {
+    pub id: String,
+    pub description: String,
+    pub scope: String,
+    pub default: String,
+    pub custom: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefsShortcutOverride {
+    pub action: String,
+    pub chord: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

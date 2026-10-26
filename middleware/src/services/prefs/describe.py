@@ -9,12 +9,11 @@ from __future__ import annotations
 from typing import Any
 
 SECTIONS: tuple[str, ...] = (
-    "appearance",
+    "account",
     "profiles",
+    "gallery",
+    "logging",
     "shortcuts",
-    "tab_config",
-    "credentials",
-    "reset",
 )
 REASON = "credentials stay on the C++ vault session"
 
