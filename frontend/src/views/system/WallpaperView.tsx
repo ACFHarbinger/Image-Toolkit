@@ -62,6 +62,7 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
     try {
       const res = await hostClient.wallpaperSlideshowConfig({ update: false });
       setIntervalSeconds(res.interval_seconds || 300);
+      setIsRunning(res.running === true);
       if (res.style) {
         setStyle(res.style as any);
       }
