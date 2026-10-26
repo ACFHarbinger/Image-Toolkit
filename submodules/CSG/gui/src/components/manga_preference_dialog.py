@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from features.preference_log import log_preference
+from middleware.src.csg.features.preference_log import log_preference
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 

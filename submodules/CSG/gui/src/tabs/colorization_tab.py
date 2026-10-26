@@ -29,9 +29,10 @@ New feature, not code motion.
 
 from __future__ import annotations
 
-from colorization.colorization import colorize_scribble
-from colorization.optimal_transport import colorize_reference
-from colorization.screentone import colorize_scribble_screentone
+from middleware.src.csg.colorization.colorization import colorize_scribble
+from middleware.src.csg.colorization.optimal_transport import colorize_reference
+from middleware.src.csg.colorization.screentone import colorize_scribble_screentone
+from middleware.src.csg.temporal.quadtree import build_quadtree
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QStandardItemModel
 from PySide6.QtWidgets import (
@@ -47,7 +48,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from temporal.quadtree import build_quadtree
 
 from ..elements import MangaCanvasEditor, qimage_to_rgb_array
 from ..helpers import ColorizeWorker, IncrementalColorizeWorker, ReferenceColorizeWorker

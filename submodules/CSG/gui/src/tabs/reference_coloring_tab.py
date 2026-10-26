@@ -79,13 +79,13 @@ import uuid
 from pathlib import Path
 
 import numpy as np
-from colorization.correspondence import (
+from middleware.src.csg.colorization.correspondence import (
     CorrespondenceSet,
     load_correspondence_set,
     save_correspondence_set,
 )
-from colorization.style_bible import CharacterStyleBible, load_style_bible
-from editor import (
+from middleware.src.csg.colorization.style_bible import CharacterStyleBible, load_style_bible
+from middleware.src.csg.editor import (
     PALETTE_ROLES,
     EditHistory,
     LayerStack,
@@ -100,7 +100,7 @@ from editor import (
     save_document,
     segment_layer_into_regions,
 )
-from project import (
+from middleware.src.csg.project import (
     attach_editor_document,
     create_project,
     detach_editor_document,
@@ -111,7 +111,7 @@ from project import (
     upsert_project_correspondence_set,
     upsert_project_style_bible,
 )
-from project.storage import MANIFEST_NAME
+from middleware.src.csg.project.storage import MANIFEST_NAME
 from PySide6.QtGui import QColor, QImage
 from PySide6.QtWidgets import (
     QCheckBox,

@@ -187,6 +187,13 @@ def _parse_monitors(config: dict) -> list:
             height=geom.get("height", 1080),
             name=f"Monitor {mid_str}"
         ))
+    if not monitors:
+        try:
+            from screeninfo import get_monitors
+
+            monitors = get_monitors()
+        except Exception as exc:
+            logging.warning("Could not discover slideshow monitors: %s", exc)
     return monitors
 
 
@@ -446,6 +453,10 @@ def _apply_all(
     if not path_map:
         return
 
+    if raw_style in {"fill", "fit", "stretch", "center", "tile", "span"}:
+        from middleware.src.services.wallpaper.handlers import canonical_wallpaper_style
+
+        raw_style = canonical_wallpaper_style(raw_style)
     try:
         WallpaperManager.apply_wallpaper(
             path_map, monitors, raw_style, qdbus, background_color=background_color
