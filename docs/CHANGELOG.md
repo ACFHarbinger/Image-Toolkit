@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Hybrid Image Editor capability and webview integration** (Tauri migration Wave 8, E-02 #915):
+  - **Contracts & Capability:** added `hie` capability (`hie.open_document`, `hie.execute_edit`, `hie.export_document`, `hie.list_capabilities`) with schema `contracts/schemas/capability/hie.json` and method routing in `contracts/methods.toml`.
+  - **Service Layer:** canonical domain service in `middleware/src/services/hie/` (`commands.py`, `protocols.py`, `service.py`) delegating to HIE document session and render-graph operations with graceful offline fallback.
+  - **Sidecar Dispatch:** sidecar handler in `middleware/src/sidecar/handlers/hie.py` dispatched via `SidecarServer._dispatch_hie`.
+  - **Frontend Client & Tab:** added typed methods (`hieOpenDocument`, `hieExecuteEdit`, `hieExportDocument`, `hieListCapabilities`) to `HostClient`, updated `HieEditorTab.tsx` with HostClient integration, and component tests in `HieEditorTab.test.tsx`.
+  - **Ledger & Docs:** registered in `migration/features.toml` (`owner = "Gemini"`, `contract = "hie"`, `service = "middleware/src/services/hie/service.py"`), documentation in `docs/modules/hie.md`.
+
 - Cloud Compute setup window rides the bridge (Tauri T-04, #920): a `cloud_setup` capability (`cloud_setup.providers`) carrying the Qt providers pane's four-provider descriptor catalog (gcd, cloudflare, oracle, aws; badge colors as theme-token names), and the setup surface becomes the real window — Providers (descriptor cards), Credentials (per-provider non-secret region/endpoint config persisted through the settings capability under the ACCOUNT-scoped `cloud_setup/profiles` key; real credentials live in the vault and never transit the bridge — attaching rides the vault unlock #918/#879), Request Builder (D4's, mounted), and Dashboards (D3's Resources/Spend views, mounted). Parity differential loads the live Qt descriptors and matches the catalog exactly; ledger row `both`.
 
 - Logging and metadata windows (#919): `logs.read` returns the last lines of a caller file and does not follow it. `metadata.describe` reports name and size and does not open `library.db`.

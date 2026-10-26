@@ -28,6 +28,7 @@ from middleware.src.bridge import (
     write_frame,
 )
 from middleware.src.services.cloud_jobs.projection import CloudProjection
+from middleware.src.services.hie.service import HieService
 from middleware.src.services.stitch.status import stitch_status
 from middleware.src.sidecar.handlers.auth import handle_status
 from middleware.src.sidecar.handlers.cloud_jobs import (
@@ -47,6 +48,12 @@ from middleware.src.sidecar.handlers.desk import handle_logs_read, handle_metada
 from middleware.src.sidecar.handlers.dl import handle_inspect
 from middleware.src.sidecar.handlers.drive_sync import handle_drive_plan
 from middleware.src.sidecar.handlers.extractor import handle_probe
+from middleware.src.sidecar.handlers.hie import (
+    handle_execute_edit,
+    handle_export_document,
+    handle_list_capabilities,
+    handle_open_document,
+)
 from middleware.src.sidecar.handlers.library import (
     handle_list_groups,
     handle_list_images,
@@ -103,6 +110,7 @@ class SidecarServer:
         scan_service: Any | None = None,
         library_store: Any | None = None,
         library_admin_store: Any | None = None,
+        hie_service: Any | None = None,
     ) -> None:
         self.table = table or catalog()
         self.stdin = stdin or sys.stdin
@@ -114,6 +122,7 @@ class SidecarServer:
         self.scan_service = scan_service
         self.library_store = library_store
         self.library_admin_store = library_admin_store
+        self.hie_service = hie_service or HieService()
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self.cloud_service = None
         self._handshaken = False
@@ -312,7 +321,21 @@ class SidecarServer:
         system_pages = self._dispatch_system_pages(method, params)
         if system_pages is not _UNHANDLED:
             return system_pages
+        hie = self._dispatch_hie(method, params)
+        if hie is not _UNHANDLED:
+            return hie
         return self._dispatch_web(method, params)
+
+    def _dispatch_hie(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "hie.open_document":
+            return handle_open_document(self.hie_service, params)
+        if method == "hie.execute_edit":
+            return handle_execute_edit(self.hie_service, params)
+        if method == "hie.export_document":
+            return handle_export_document(self.hie_service, params)
+        if method == "hie.list_capabilities":
+            return handle_list_capabilities(self.hie_service, params)
+        return _UNHANDLED
 
     def _dispatch_system_pages(self, method: str, params: dict[str, Any]) -> Any:
         if method == "merge.concatenate":

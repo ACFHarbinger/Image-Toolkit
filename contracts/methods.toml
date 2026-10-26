@@ -601,3 +601,51 @@ cancelable = false
 emits = []
 stability = "experimental"
 owner = 914
+
+[[method]]
+name = "hie.open_document"
+capability = "hie"
+summary = "Open or initialize an image document session (E-02 / #915)."
+params = "hie.OpenDocumentParams"
+result = "hie.OpenDocumentResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 915
+
+[[method]]
+name = "hie.execute_edit"
+capability = "hie"
+summary = "Apply an editing operation to an active document session (E-02 / #915)."
+params = "hie.EditParams"
+result = "hie.EditResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 915
+
+[[method]]
+name = "hie.export_document"
+capability = "hie"
+summary = "Render and export a document session to destination media file (E-02 / #915)."
+params = "hie.ExportDocumentParams"
+result = "hie.ExportDocumentResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 915
+
+[[method]]
+name = "hie.list_capabilities"
+capability = "hie"
+summary = "Query supported operations and available neural model adapters (E-02 / #915)."
+params = "hie.ListCapabilitiesParams"
+result = "hie.ListCapabilitiesResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 915

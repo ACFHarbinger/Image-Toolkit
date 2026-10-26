@@ -1,6 +1,16 @@
 import type { ScanDirectoryParams, ScanDirectoryResult, SaveMetadataParams, SaveMetadataResult, SuggestTagsParams, SuggestTagsResult } from "../../../contracts/generated/ts";
 import type { BrowseParams, BrowseResult, CatalogResult, MutateParams, MutateResult } from "../../../contracts/generated/ts";
 import type {
+  EditParams,
+  EditResult,
+  ExportDocumentParams,
+  ExportDocumentResult,
+  ListCapabilitiesParams,
+  ListCapabilitiesResult,
+  OpenDocumentParams,
+  OpenDocumentResult,
+} from "../../../contracts/generated/ts";
+import type {
   BridgeResponse,
   CancelResult,
   ConvertBatchParams,
@@ -344,6 +354,26 @@ export class HostClient {
   async scanSuggestTags(params: SuggestTagsParams): Promise<SuggestTagsResult> {
     await this.connect();
     return this.send<SuggestTagsResult>("scan.suggest_tags", params as unknown as Record<string, unknown>);
+  }
+
+  async hieOpenDocument(params: OpenDocumentParams): Promise<OpenDocumentResult> {
+    await this.connect();
+    return this.send<OpenDocumentResult>("hie.open_document", params as unknown as Record<string, unknown>);
+  }
+
+  async hieExecuteEdit(params: EditParams): Promise<EditResult> {
+    await this.connect();
+    return this.send<EditResult>("hie.execute_edit", params as unknown as Record<string, unknown>);
+  }
+
+  async hieExportDocument(params: ExportDocumentParams): Promise<ExportDocumentResult> {
+    await this.connect();
+    return this.send<ExportDocumentResult>("hie.export_document", params as unknown as Record<string, unknown>);
+  }
+
+  async hieListCapabilities(params?: ListCapabilitiesParams): Promise<ListCapabilitiesResult> {
+    await this.connect();
+    return this.send<ListCapabilitiesResult>("hie.list_capabilities", (params ?? {}) as Record<string, unknown>);
   }
 
   onEvent(listener: Parameters<NonNullable<BridgeTransport["onEvent"]>>[0]): () => void {

@@ -1,4 +1,4 @@
-// GENERATED — contract hash 5d09c62e96add841a446e510377b41502c35f696efd20917e72d8df65160033d. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash fd88a7fef136d55677f1b54786db5f5cc6ad804b203c2f6e41cebc765dabefbd. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -420,6 +420,77 @@ pub struct ProbeResult {
     pub duration_seconds: f64,
     pub codec: String,
     pub error: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct EditParams {
+    pub document_id: String,
+    pub operation: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct EditResult {
+    pub success: bool,
+    pub document_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_document_id: Option<serde_json::Value>,
+    pub modified_layers: Vec<String>,
+    pub elapsed_seconds: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ExportDocumentParams {
+    pub document_id: String,
+    pub output_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub format: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quality: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ExportDocumentResult {
+    pub success: bool,
+    pub output_path: String,
+    pub size_bytes: i64,
+    pub elapsed_seconds: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
+
+pub type ListCapabilitiesParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ListCapabilitiesResult {
+    pub capabilities: Vec<String>,
+    pub models_available: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct OpenDocumentParams {
+    pub source: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document_id: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct OpenDocumentResult {
+    pub success: bool,
+    pub document_id: String,
+    pub frame_count: i64,
+    pub width: i64,
+    pub height: i64,
+    pub elapsed_seconds: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

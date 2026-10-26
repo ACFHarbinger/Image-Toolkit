@@ -40,6 +40,7 @@ def test_handshake_accept(sidecar: SidecarClient) -> None:
         "dl",
         "drive_sync",
         "extractor",
+        "hie",
         "jobs",
         "library",
         "library_admin",

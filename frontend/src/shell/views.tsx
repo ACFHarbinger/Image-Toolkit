@@ -127,6 +127,20 @@ export function CatalogView({
     );
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
+  const hostClientProps = [
+    "system.convert",
+    "system.merge",
+    "system.similarity",
+    "system.extractor",
+    "library.scan",
+    "library.search",
+    "library.listings",
+    "library.management",
+    "library.data-browser",
+    "editor.hybrid",
+  ].includes(entry.id)
+    ? { hostClient, client: hostClient }
+    : {};
   const stitchRoute = (STITCH_ROUTE_IDS as readonly string[]).includes(entry.id);
   const hostClientProps =
     stitchRoute ||

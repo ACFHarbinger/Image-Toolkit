@@ -1,4 +1,4 @@
-# GENERATED — contract hash 5d09c62e96add841a446e510377b41502c35f696efd20917e72d8df65160033d. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash fd88a7fef136d55677f1b54786db5f5cc6ad804b203c2f6e41cebc765dabefbd. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -385,6 +385,65 @@ class ProbeResult:
     duration_seconds: float
     codec: str
     error: str
+
+
+@dataclass(frozen=True)
+class EditParams:
+    document_id: str
+    operation: str
+    parameters: (dict[str, Any] | None) | None = None
+
+
+@dataclass(frozen=True)
+class EditResult:
+    success: bool
+    document_id: str
+    modified_layers: list[str]
+    elapsed_seconds: float
+    output_document_id: (str | None) | None = None
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class ExportDocumentParams:
+    document_id: str
+    output_path: str
+    format: (str | None) | None = None
+    quality: (int | None) | None = None
+
+
+@dataclass(frozen=True)
+class ExportDocumentResult:
+    success: bool
+    output_path: str
+    size_bytes: int
+    elapsed_seconds: float
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class ListCapabilitiesResult:
+    capabilities: list[str]
+    models_available: list[str]
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class OpenDocumentParams:
+    source: str
+    document_id: (str | None) | None = None
+    metadata: (dict[str, Any] | None) | None = None
+
+
+@dataclass(frozen=True)
+class OpenDocumentResult:
+    success: bool
+    document_id: str
+    frame_count: int
+    width: int
+    height: int
+    elapsed_seconds: float
+    error: (str | None) | None = None
 
 
 @dataclass(frozen=True)
@@ -954,6 +1013,9 @@ SummaryParams = dict[str, Any]
 
 
 CloudSetupEmptyParams = dict[str, Any]
+
+
+ListCapabilitiesParams = dict[str, Any]
 
 
 EmptyParams = dict[str, Any]

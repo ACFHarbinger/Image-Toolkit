@@ -1,4 +1,4 @@
-// GENERATED — contract hash 5d09c62e96add841a446e510377b41502c35f696efd20917e72d8df65160033d. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash fd88a7fef136d55677f1b54786db5f5cc6ad804b203c2f6e41cebc765dabefbd. Do not edit; edit the schema and regenerate.
 
 export interface BridgeError {
   readonly code: string;
