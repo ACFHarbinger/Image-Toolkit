@@ -361,7 +361,7 @@ os_checklist = []
 id = "dl"
 kind = "workspace"
 title = "Deep Learning"
-owner = "unclaimed"
+owner = "Grok"
 wave = "wave-6"
 issue = 912
 status = "pyside-only"
@@ -382,10 +382,10 @@ pyside = [
     "gui/src/modules/dl_workspace.py",
     "gui/src/modules/comfy_workspace_controller.py",
 ]
-tauri = ["frontend/src/tabs/models"]
-service = ""
-contract = ""
-docs = ""
+tauri = ["frontend/src/views/dl/DlWorkspace.tsx"]
+service = "middleware/src/services/dl/inspect.py"
+contract = "dl"
+docs = "docs/modules/dl.md"
 scenarios = []
 os_checklist = []
 

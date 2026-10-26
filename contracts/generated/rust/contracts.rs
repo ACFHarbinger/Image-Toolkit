@@ -1,4 +1,4 @@
-// GENERATED — contract hash a60d8764530060b4277a430a09842662f494142a594a546bda95b31a575f5262. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash cb09b3509952d4f2709405f0468eda7f1d4955df5dba0507d05db47f923732c0. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -295,6 +295,25 @@ pub struct ConvertResult {
     pub elapsed_seconds: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlInspectParams {
+    pub run_dir: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlInspectResult {
+    pub found: bool,
+    pub run_dir: String,
+    pub run_id: String,
+    pub status: String,
+    pub engine: String,
+    pub model_id: String,
+    pub event_count: i64,
+    /// must be false (enforced by the framing layer, #875)
+    pub started: bool,
+    pub reason: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

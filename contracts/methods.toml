@@ -529,3 +529,15 @@ cancelable = false
 emits = []
 stability = "experimental"
 owner = 909
+
+[[method]]
+name = "dl.inspect"
+capability = "dl"
+summary = "Read record.json and events.jsonl from a caller run directory (#912). started stays false and no run is written."
+params = "dl.DlInspectParams"
+result = "dl.DlInspectResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 912

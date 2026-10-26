@@ -21,6 +21,8 @@ import type {
   AuthStatusResult,
   ProbeParams,
   ProbeResult,
+  DlInspectParams,
+  DlInspectResult,
   DriveSyncPlanParams,
   DriveSyncPlanResult,
   MediaPlanParams,
@@ -199,6 +201,9 @@ export class HostClient {
     return this.send<ProbeResult>("extractor.probe", params as unknown as Record<string, unknown>);
   }
 
+  async dlInspect(params: DlInspectParams): Promise<DlInspectResult> {
+    await this.connect();
+    return this.send<DlInspectResult>("dl.inspect", params as unknown as Record<string, unknown>);
   async driveSyncPlan(params: DriveSyncPlanParams): Promise<DriveSyncPlanResult> {
     await this.connect();
     return this.send<DriveSyncPlanResult>("drive_sync.plan", params as unknown as Record<string, unknown>);

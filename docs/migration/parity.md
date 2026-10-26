@@ -57,7 +57,7 @@ the status lifecycle and deletion gate are documented in
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
-| dl | Deep Learning | unclaimed | [#912](https://github.com/ACFHarbinger/Image-Toolkit/issues/912) | pyside-only | dl.train<br>dl.generate<br>dl.review<br>dl.runs<br>ml.training<br>ml.generation<br>ml.evaluation<br>ml.inference<br>ml.comfyui | — | 0 |
+| dl | Deep Learning | Grok | [#912](https://github.com/ACFHarbinger/Image-Toolkit/issues/912) | pyside-only | dl.train<br>dl.generate<br>dl.review<br>dl.runs<br>ml.training<br>ml.generation<br>ml.evaluation<br>ml.inference<br>ml.comfyui | — | 0 |
 
 ## wave-7
 

@@ -34,7 +34,8 @@
               "auth",
               "reverse_search",
               "drive_sync",
-              "media_loader"
+              "media_loader",
+              "dl"
             ]
           }
         }

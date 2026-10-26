@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/dl.json",
+  "title": "DlCapability",
+  "description": "Read one caller training-run directory (#912). Does not start a run or open library.db.",
+  "type": "object",
+  "$defs": {
+    "DlInspectParams": {
+      "title": "DlInspectParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_dir"],
+      "properties": {
+        "run_dir": { "type": "string", "minLength": 1 }
+      }
+    },
+    "DlInspectResult": {
+      "title": "DlInspectResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "found",
+        "run_dir",
+        "run_id",
+        "status",
+        "engine",
+        "model_id",
+        "event_count",
+        "started",
+        "reason"
+      ],
+      "properties": {
+        "found": { "type": "boolean" },
+        "run_dir": { "type": "string" },
+        "run_id": { "type": "string" },
+        "status": { "type": "string" },
+        "engine": { "type": "string" },
+        "model_id": { "type": "string" },
+        "event_count": { "type": "integer", "minimum": 0 },
+        "started": { "const": false },
+        "reason": { "type": "string" }
+      }
+    }
+  }
+}

@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Deep Learning workspace inspect (#912): `dl.inspect` reads `record.json` and `events.jsonl` from a caller run directory. It does not start training, write the directory, or open `library.db`. The train, generate, review, and runs views call inspect only. The ledger row stays `pyside-only`.
 - Cloud sync and media-loader plans (#908, #909): `drive_sync.plan` records a provider and caller paths with `submitted: false`, and `media_loader.plan` checks one http(s) URL and a destination directory with `downloaded: false`. Neither call authenticates, uploads, fetches, or opens `cloud_jobs.db`.
 - Reverse image search rides the bridge (Tauri B-05, #910): a `reverse_search` capability (`reverse_search.engines` / `reverse_search.search`) over a Qt-free `middleware/src/services/web/` projection of the existing `ReverseImageSearchManager` strategies (Google Lens, TinEye API, Local AI Search, SauceNAO, IQDB, Bing, Yandex). Results keep the legacy `ReverseSearchResult` shape with a numeric score; provider failures answer `ok: false` with the reason instead of crashing the bridge. The `web.reverse-search` catalog page is a HostClient-driven view (engine select, path, limit, optional ROI) replacing the legacy UI-only stub. Tests use fake strategies — no live HTTP, no Selenium.
 
