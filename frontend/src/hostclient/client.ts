@@ -66,7 +66,7 @@ import type {
   ProbeResult,
   ExtractorSnapshotParams,
   ExtractorRangeParams,
-  ExtractorFileResult,
+  ExtractorJobResult,
   ExtractorCutParams,
   ExtractorCutResult,
   StitchStatusResult,
@@ -300,14 +300,14 @@ export class HostClient {
     return this.send<ProbeResult>("extractor.probe", params as unknown as Record<string, unknown>);
   }
 
-  async extractorSnapshot(params: ExtractorSnapshotParams): Promise<ExtractorFileResult> {
+  async extractorSnapshot(params: ExtractorSnapshotParams): Promise<ExtractorJobResult> {
     await this.connect();
-    return this.send<ExtractorFileResult>("extractor.snapshot", params as unknown as Record<string, unknown>);
+    return this.send<ExtractorJobResult>("extractor.snapshot", params as unknown as Record<string, unknown>);
   }
 
-  async extractorExtractRange(params: ExtractorRangeParams): Promise<ExtractorFileResult> {
+  async extractorExtractRange(params: ExtractorRangeParams): Promise<ExtractorJobResult> {
     await this.connect();
-    return this.send<ExtractorFileResult>("extractor.extract_range", params as unknown as Record<string, unknown>);
+    return this.send<ExtractorJobResult>("extractor.extract_range", params as unknown as Record<string, unknown>);
   }
 
   async extractorCutSheet(params: ExtractorCutParams): Promise<ExtractorCutResult> {

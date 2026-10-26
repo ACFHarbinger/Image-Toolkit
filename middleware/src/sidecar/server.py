@@ -62,9 +62,9 @@ from middleware.src.sidecar.handlers.entity_recon import (
 )
 from middleware.src.sidecar.handlers.extractor import (
     handle_cut_sheet,
-    handle_extract_range,
     handle_probe,
-    handle_snapshot,
+    start_extractor_extract_range,
+    start_extractor_snapshot,
 )
 from middleware.src.sidecar.handlers.hie import (
     handle_execute_edit,
@@ -445,9 +445,9 @@ class SidecarServer:
         if method == "extractor.probe":
             return handle_probe(params)
         if method == "extractor.snapshot":
-            return handle_snapshot(params)
+            return start_extractor_snapshot(self.jobs, params)
         if method == "extractor.extract_range":
-            return handle_extract_range(params)
+            return start_extractor_extract_range(self.jobs, params)
         if method == "extractor.cut_sheet":
             return handle_cut_sheet(params)
         if method == "stitch.status":

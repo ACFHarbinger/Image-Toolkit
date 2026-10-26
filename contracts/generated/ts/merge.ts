@@ -1,4 +1,4 @@
-// GENERATED — contract hash 653032d8e300ffda76d5ce42c68053ca1c26001221cde7b7e609718d8a3f829a. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 1b081c15dfb3252eeb7f0209c44d8f0e6d1689dc3d7a36162b2e9c360c9d65cd. Do not edit; edit the schema and regenerate.
 
 export interface ConcatenateParams {
   readonly paths: Array<string>;

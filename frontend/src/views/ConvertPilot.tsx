@@ -155,8 +155,10 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
         setStatus("cancelled");
       } else if (finished.state === "failed") {
         setStatus("failed: batch");
+      } else if (finished.state === "completed") {
+        setStatus(completedBatchStatus(finished.result));
       } else {
-        setStatus(finished.state === "completed" ? "batch ok" : finished.state);
+        setStatus(finished.state);
       }
     } catch (err) {
       setStatus(`error: ${String(err)}`);
@@ -284,6 +286,26 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
       </p>
     </div>
   );
+}
+
+function completedBatchStatus(result: Record<string, unknown> | undefined): string {
+  if (result === undefined) {
+    return "batch ok";
+  }
+  const failed = result.failed;
+  const errors = Array.isArray(result.errors)
+    ? result.errors.filter((item): item is string => typeof item === "string" && item.length > 0)
+    : [];
+  const failedCount = typeof failed === "number" ? failed : 0;
+  if ((typeof failed !== "number" || failed <= 0) && errors.length === 0) {
+    return "batch ok";
+  }
+  const succeeded = typeof result.succeeded === "number" ? result.succeeded : 0;
+  const count = failedCount > 0 ? failedCount : errors.length;
+  const detail = errors.join(", ");
+  return detail
+    ? `batch failed: ${succeeded} succeeded, ${count} failed: ${detail}`
+    : `batch failed: ${succeeded} succeeded, ${count} failed`;
 }
 
 async function pollJob(

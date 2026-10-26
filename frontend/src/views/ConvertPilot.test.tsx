@@ -62,6 +62,29 @@ test("lists a directory and resamples the selection", async () => {
   );
 });
 
+test("a completed batch with file failures is not batch ok", async () => {
+  const hostClient = {
+    convert: vi.fn(),
+    convertListDir: vi.fn().mockResolvedValue({ files: ["/dir/a.png"], error: "" }),
+    convertBatch: vi.fn().mockResolvedValue({ job_id: "job-1" }),
+    jobStatus: vi.fn().mockResolvedValue({
+      job_id: "job-1",
+      kind: "convert.batch",
+      state: "completed",
+      result: { succeeded: 0, failed: 1, errors: ["corrupt image"], total_discovered: 1 },
+    }),
+    cancelJob: vi.fn(),
+  };
+  render(<ConvertPilot hostClient={hostClient as never} />);
+  fireEvent.change(screen.getByLabelText("Directory"), { target: { value: "/dir" } });
+  fireEvent.change(screen.getByLabelText("Output directory"), { target: { value: "/out" } });
+  fireEvent.click(screen.getByRole("button", { name: "List files" }));
+  expect(await screen.findByLabelText("/dir/a.png")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Convert Selected" }));
+  expect(await screen.findByText("Status: batch failed: 0 succeeded, 1 failed: corrupt image")).toBeInTheDocument();
+  expect(screen.queryByText("Status: batch ok")).not.toBeInTheDocument();
+});
+
 test("cancel asks the job to stop", async () => {
   let release: (value: unknown) => void = () => undefined;
   const pending = new Promise((resolve) => {

@@ -24,15 +24,22 @@ export interface CutResult {
   readonly error: string;
 }
 
+export interface ExtractorJobStatus {
+  readonly state: string;
+  readonly result?: Partial<FileResult>;
+  readonly error?: { readonly message_key?: string; readonly code?: string; readonly message?: string } | string;
+}
+
 export interface ExtractorClient {
   extractorProbe(params: { path: string }): Promise<ProbeResult>;
-  extractorSnapshot(params: { path: string; time_seconds: number; output_path: string }): Promise<FileResult>;
+  extractorSnapshot(params: { path: string; time_seconds: number; output_path: string }): Promise<{ job_id: string }>;
   extractorExtractRange(params: {
     path: string;
     start_seconds: number;
     end_seconds: number;
     output_path: string;
-  }): Promise<FileResult>;
+  }): Promise<{ job_id: string }>;
+  jobStatus(jobId: string): Promise<ExtractorJobStatus>;
   extractorCutSheet(params: {
     path: string;
     output_dir: string;
@@ -85,13 +92,12 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
   async function onSnapshot(): Promise<void> {
     setError("");
     try {
-      const next = await hostClient.extractorSnapshot({
+      const started = await hostClient.extractorSnapshot({
         path,
         time_seconds: snapshotAt,
         output_path: snapshotOut,
       });
-      setActionNote(next.written ? next.output_path : "");
-      setError(next.error);
+      await showFileJob(started.job_id);
     } catch (exc) {
       setActionNote("");
       setError(exc instanceof Error ? exc.message : "snapshot failed");
@@ -101,18 +107,36 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
   async function onRange(): Promise<void> {
     setError("");
     try {
-      const next = await hostClient.extractorExtractRange({
+      const started = await hostClient.extractorExtractRange({
         path,
         start_seconds: rangeStart,
         end_seconds: rangeEnd,
         output_path: rangeOut,
       });
-      setActionNote(next.written ? next.output_path : "");
-      setError(next.error);
+      await showFileJob(started.job_id);
     } catch (exc) {
       setActionNote("");
       setError(exc instanceof Error ? exc.message : "extract failed");
     }
+  }
+
+  async function showFileJob(jobId: string): Promise<void> {
+    const finished = await pollJob(hostClient, jobId);
+    if (finished.state === "cancelled") {
+      setActionNote("cancelled");
+      setError("");
+      return;
+    }
+    if (finished.state === "failed") {
+      setActionNote("");
+      setError(jobErrorText(finished.error));
+      return;
+    }
+    const file = finished.result;
+    const written = file?.written === true;
+    const outputPath = typeof file?.output_path === "string" ? file.output_path : "";
+    setActionNote(written ? outputPath : "");
+    setError(typeof file?.error === "string" ? file.error : "");
   }
 
   async function onCut(): Promise<void> {
@@ -239,4 +263,25 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
       {actionNote ? <p>{actionNote}</p> : null}
     </form>
   );
+}
+
+async function pollJob(hostClient: ExtractorClient, jobId: string): Promise<ExtractorJobStatus> {
+  let status = await hostClient.jobStatus(jobId);
+  for (;;) {
+    if (status.state !== "queued" && status.state !== "running") {
+      return status;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    status = await hostClient.jobStatus(jobId);
+  }
+}
+
+function jobErrorText(error: ExtractorJobStatus["error"]): string {
+  if (typeof error === "string" && error) {
+    return error;
+  }
+  if (error && typeof error === "object") {
+    return error.message || error.message_key || error.code || "extract failed";
+  }
+  return "extract failed";
 }

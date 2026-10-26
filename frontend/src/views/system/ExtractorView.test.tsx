@@ -19,6 +19,7 @@ test("probe shows the returned stream", async () => {
     extractorSnapshot: vi.fn(),
     extractorExtractRange: vi.fn(),
     extractorCutSheet: vi.fn(),
+    jobStatus: vi.fn(),
   };
   render(<ExtractorView hostClient={hostClient} />);
   fireEvent.change(screen.getByLabelText("Video"), { target: { value: "/clip.mp4" } });
@@ -30,8 +31,18 @@ test("probe shows the returned stream", async () => {
 test("cut sheet sends offset, spacing, and partial frames", async () => {
   const hostClient = {
     extractorProbe: vi.fn(),
-    extractorSnapshot: vi.fn().mockResolvedValue({ written: true, output_path: "/frame.png", error: "" }),
-    extractorExtractRange: vi.fn().mockResolvedValue({ written: true, output_path: "/range.mp4", error: "" }),
+    extractorSnapshot: vi.fn().mockResolvedValue({ job_id: "job-1" }),
+    extractorExtractRange: vi.fn().mockResolvedValue({ job_id: "job-1" }),
+    jobStatus: vi
+      .fn()
+      .mockResolvedValueOnce({
+        state: "completed",
+        result: { written: true, output_path: "/frame.png", error: "" },
+      })
+      .mockResolvedValueOnce({
+        state: "completed",
+        result: { written: true, output_path: "/range.mp4", error: "" },
+      }),
     extractorCutSheet: vi.fn().mockResolvedValue({
       written: true,
       output_dir: "/frames",
