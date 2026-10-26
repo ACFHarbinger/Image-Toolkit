@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import hmac
 import json
@@ -188,12 +189,13 @@ def main() -> int:
     account = str(payload.get("account") or "")
     password = str(payload.get("password") or "")
     try:
-        if action == "login":
-            result = unlock(account, password)
-        elif action == "create":
-            result = create_account(account, password)
-        else:
-            result = {"success": False, "message": "Unknown action."}
+        with contextlib.redirect_stdout(sys.stderr):
+            if action == "login":
+                result = unlock(account, password)
+            elif action == "create":
+                result = create_account(account, password)
+            else:
+                result = {"success": False, "message": "Unknown action."}
     except ValueError as exc:
         result = {"success": False, "message": str(exc)}
     except Exception as exc:

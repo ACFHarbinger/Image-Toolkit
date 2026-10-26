@@ -194,3 +194,27 @@ def test_refused_password_update_leaves_account_paths_untouched(monkeypatch: pyt
     with pytest.raises(RuntimeError, match="locked"):
         live.update_account_password("bee", "later")
     assert bound == []
+
+
+def test_create_cli_keeps_diagnostics_out_of_json(monkeypatch, capsys):
+    import io
+    import json
+
+    from middleware.src.services.auth import session
+
+    calls = []
+
+    def create(account, password):
+        calls.append((account, password))
+        print("vault diagnostic")
+        return {"success": True, "message": "created"}
+
+    monkeypatch.setattr(session, "create_account", create)
+    monkeypatch.setattr(session.sys, "stdin", io.StringIO(json.dumps({
+        "action": "create", "account": "ada", "password": "secret",
+    })))
+    assert session.main() == 0
+    output = capsys.readouterr()
+    assert json.loads(output.out) == {"success": True, "message": "created"}
+    assert "vault diagnostic" in output.err
+    assert calls == [("ada", "secret")]

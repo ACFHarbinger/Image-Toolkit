@@ -33,15 +33,15 @@ struct Launch {
 }
 
 #[derive(Debug)]
-struct Runtime {
-    root: PathBuf,
-    python: PathBuf,
+pub(crate) struct Runtime {
+    pub(crate) root: PathBuf,
+    pub(crate) python: PathBuf,
 }
 
-struct RuntimeProbe {
-    env_runtime: Option<PathBuf>,
-    resource_dir: Option<PathBuf>,
-    executable: PathBuf,
+pub(crate) struct RuntimeProbe {
+    pub(crate) env_runtime: Option<PathBuf>,
+    pub(crate) resource_dir: Option<PathBuf>,
+    pub(crate) executable: PathBuf,
 }
 
 static SESSION: Mutex<Option<Session>> = Mutex::new(None);
@@ -112,7 +112,7 @@ fn walk_executable(executable: &Path) -> Option<Runtime> {
     None
 }
 
-fn resolve_runtime(probe: &RuntimeProbe) -> Result<Runtime, String> {
+pub(crate) fn resolve_runtime(probe: &RuntimeProbe) -> Result<Runtime, String> {
     if let Some(root) = &probe.env_runtime {
         return runtime_at(root).ok_or_else(|| {
             format!(

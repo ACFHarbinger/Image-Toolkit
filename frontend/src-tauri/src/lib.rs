@@ -1,3 +1,4 @@
+mod python_json;
 mod auth_commands;
 mod settings_commands;
 mod benchmark_commands;
