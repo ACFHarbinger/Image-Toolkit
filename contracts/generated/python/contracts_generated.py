@@ -1,4 +1,4 @@
-# GENERATED — contract hash c9734dc6d1b29f88e7c9975cc142965a3f7cdc5c5c907e455625999b987bc515. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 184e19fe7526c6a9f25ef4689e2df0cc7a2b4ad9cf77a0fbf5460be658376f83. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -601,6 +601,42 @@ class RpcErrorObject:
 
 
 @dataclass(frozen=True)
+class EngineRecord:
+    id: str
+    label: str
+
+
+@dataclass(frozen=True)
+class EnginesResult:
+    engines: list[EngineRecord]
+
+
+@dataclass(frozen=True)
+class ReverseSearchResultItem:
+    url: str
+    engine: str
+    score: float
+    resolution: str | None = None
+    title: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class SearchParams:
+    engine: str
+    image_path: str
+    limit: int | None = None
+    roi: (list[int]) | None = None
+
+
+@dataclass(frozen=True)
+class SearchResult:
+    ok: bool
+    engine: str
+    results: list[ReverseSearchResultItem]
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
 class SaveMetadataItem:
     path: str
     tags: (list[str]) | None = None
@@ -800,6 +836,9 @@ AdminEmptyParams = dict[str, Any]
 
 
 BridgeResponse = ResultResponse | ErrorResponse
+
+
+ReverseSearchEmptyParams = dict[str, Any]
 
 
 PingParams = dict[str, Any]

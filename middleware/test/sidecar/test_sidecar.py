@@ -41,6 +41,7 @@ def test_handshake_accept(sidecar: SidecarClient) -> None:
         "library_admin",
         "library_preview",
         "merge",
+        "reverse_search",
         "scan",
         "settings",
         "similarity",

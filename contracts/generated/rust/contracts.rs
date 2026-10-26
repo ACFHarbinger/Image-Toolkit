@@ -1,4 +1,4 @@
-// GENERATED — contract hash c9734dc6d1b29f88e7c9975cc142965a3f7cdc5c5c907e455625999b987bc515. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 184e19fe7526c6a9f25ef4689e2df0cc7a2b4ad9cf77a0fbf5460be658376f83. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -677,6 +677,49 @@ pub struct RpcErrorObject {
     pub code: i64,
     pub message: String,
     pub data: BridgeError,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct EngineRecord {
+    pub id: String,
+    pub label: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct EnginesResult {
+    pub engines: Vec<EngineRecord>,
+}
+
+pub type ReverseSearchEmptyParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ReverseSearchResultItem {
+    pub url: String,
+    pub engine: String,
+    pub score: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resolution: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SearchParams {
+    pub engine: String,
+    pub image_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub roi: Option<Vec<i64>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SearchResult {
+    pub ok: bool,
+    pub engine: String,
+    pub results: Vec<ReverseSearchResultItem>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

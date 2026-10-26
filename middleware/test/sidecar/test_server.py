@@ -36,6 +36,7 @@ def test_handshake_result_and_ping_validate() -> None:
     assert result["protocol"] == PROTOCOL_NAME
     assert result["compatibility"] == {"min": "1.0.0", "max": "1.0.0"}
     assert set(result["capabilities"]) == {
+        "reverse_search",
         "scan",
         "settings",
         "jobs",

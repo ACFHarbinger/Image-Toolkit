@@ -29,6 +29,9 @@ import type {
   ListImagesResult,
   ListGroupsResult,
   ListTagsResult,
+  EnginesResult as ReverseEnginesResult,
+  SearchParams as ReverseSearchParams,
+  SearchResult as ReverseSearchResult,
   GetParams,
   GetResult,
   PrefillParams,
@@ -249,6 +252,16 @@ export class HostClient {
   async listLibraryGroups(): Promise<ListGroupsResult> {
     await this.connect();
     return this.send<ListGroupsResult>("library.list_groups", {});
+  }
+
+  async reverseSearchEngines(): Promise<ReverseEnginesResult> {
+    await this.connect();
+    return this.send<ReverseEnginesResult>("reverse_search.engines", {});
+  }
+
+  async reverseSearch(params: ReverseSearchParams): Promise<ReverseSearchResult> {
+    await this.connect();
+    return this.send<ReverseSearchResult>("reverse_search.search", params as unknown as Record<string, unknown>);
   }
 
   async libraryAdminCatalog(): Promise<CatalogResult> {

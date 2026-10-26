@@ -31,7 +31,8 @@
               "merge",
               "similarity",
               "extractor",
-              "auth"
+              "auth",
+              "reverse_search"
             ]
           }
         }
