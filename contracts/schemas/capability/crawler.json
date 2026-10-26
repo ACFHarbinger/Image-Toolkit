@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/crawler.json",
+  "title": "CrawlerCapability",
+  "description": "Image crawling and board scraping capability (B-01 / #906). Reads and writes caller destination paths only; does not open library.db.",
+  "type": "object",
+  "$defs": {
+    "LoginConfig": {
+      "title": "LoginConfig",
+      "type": "object",
+      "properties": {
+        "url": { "type": ["string", "null"] },
+        "username": { "type": ["string", "null"] },
+        "password": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "AuthConfig": {
+      "title": "AuthConfig",
+      "type": "object",
+      "properties": {
+        "username": { "type": ["string", "null"] },
+        "api_key": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "CrawlParams": {
+      "title": "CrawlParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["crawler_type", "download_dir"],
+      "properties": {
+        "crawler_type": {
+          "type": "string",
+          "enum": ["general", "danbooru", "gelbooru", "sankaku", "safebooru"]
+        },
+        "download_dir": { "type": "string", "minLength": 1 },
+        "url": { "type": ["string", "null"] },
+        "tags": { "type": ["string", "null"] },
+        "limit": { "type": ["integer", "null"], "minimum": 1, "maximum": 500 },
+        "max_pages": { "type": ["integer", "null"], "minimum": 1, "maximum": 100 },
+        "actions": {
+          "type": ["array", "null"],
+          "items": { "type": "string" }
+        },
+        "login_config": { "$ref": "#/$defs/LoginConfig" },
+        "auth": { "$ref": "#/$defs/AuthConfig" }
+      }
+    },
+    "CrawlResult": {
+      "title": "CrawlResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "crawler_type", "total_downloaded", "download_dir", "errors", "elapsed_seconds"],
+      "properties": {
+        "success": { "type": "boolean" },
+        "crawler_type": { "type": "string" },
+        "total_downloaded": { "type": "integer", "minimum": 0 },
+        "download_dir": { "type": "string" },
+        "errors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "elapsed_seconds": { "type": "number", "minimum": 0 }
+      }
+    },
+    "CrawlerSupportedParams": {
+      "title": "CrawlerSupportedParams",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "CrawlerSupportedResult": {
+      "title": "CrawlerSupportedResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["types", "boards", "action_templates"],
+      "properties": {
+        "types": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "boards": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "action_templates": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

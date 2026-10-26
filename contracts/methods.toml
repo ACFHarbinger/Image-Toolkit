@@ -268,6 +268,18 @@ stability = "experimental"
 owner = 851
 
 [[method]]
+name = "prefs.describe"
+capability = "prefs"
+summary = "Describe the settings window without opening the vault (#917). Credentials stay on the C++ vault session."
+params = "prefs.PrefsDescribeParams"
+result = "prefs.PrefsDescribeResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 917
+
+[[method]]
 name = "library_preview.describe"
 capability = "library_preview"
 summary = "Measure the images a preview window is about to show (#895). Does not open library.db."
@@ -453,6 +465,264 @@ stability = "experimental"
 owner = 905
 
 [[method]]
+name = "auth.status"
+capability = "auth"
+summary = "Report a locked session (#918). Unlocked stays false and the vault is not opened."
+params = "auth.AuthStatusParams"
+result = "auth.AuthStatusResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 918
+
+[[channel]]
+name = "jobs"
+payload = "jobs.JobEventPayload"
+snapshot = "jobs.JobListSnapshot"
+durable_default = true
+producers = ["sidecar", "cloud-jobs-daemon"]
+consumers = ["webview"]
+notes = "State transitions and progress of durable jobs; replay source is job_events / events.jsonl."
+
+[[channel]]
+name = "bridge"
+payload = "system.BridgeStatePayload"
+snapshot = "system.BridgeStateSnapshot"
+durable_default = false
+producers = ["supervisor"]
+consumers = ["webview"]
+notes = "Restart contract (roadmap): bridge.down then bridge.ready around sidecar restarts; in-flight session requests fail with the error envelope."
+
+[[method]]
+name = "reverse_search.engines"
+capability = "reverse_search"
+summary = "The supported reverse-image-search engine catalog (B-05 / #910)."
+params = "reverse_search.ReverseSearchEmptyParams"
+result = "reverse_search.EnginesResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 910
+
+[[method]]
+name = "reverse_search.search"
+capability = "reverse_search"
+summary = "Run one reverse image search on the selected engine (B-05 / #910). Engines make live network or browser calls; the bridge carries the command."
+params = "reverse_search.SearchParams"
+result = "reverse_search.SearchResult"
+errors = ["reverse_search.failed"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 910
+
+[[method]]
+name = "drive_sync.plan"
+capability = "drive_sync"
+summary = "Record a provider and caller paths (#908). submitted stays false; nothing is uploaded."
+params = "drive_sync.DriveSyncPlanParams"
+result = "drive_sync.DriveSyncPlanResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 908
+
+[[method]]
+name = "media_loader.plan"
+capability = "media_loader"
+summary = "Check one http(s) URL and a destination directory (#909). downloaded stays false."
+params = "media_loader.MediaPlanParams"
+result = "media_loader.MediaPlanResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 909
+
+[[method]]
+name = "dl.inspect"
+capability = "dl"
+summary = "Read record.json and events.jsonl from a caller run directory (#912). started stays false and no run is written."
+params = "dl.DlInspectParams"
+result = "dl.DlInspectResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 912
+
+[[method]]
+name = "logs.read"
+capability = "desk"
+summary = "Last lines of a caller log file (#919). Does not follow the file or open ~/.image-toolkit."
+params = "desk.LogsReadParams"
+result = "desk.LogsReadResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 919
+
+[[method]]
+name = "metadata.describe"
+capability = "desk"
+summary = "Name, size, and suffix of one caller file (#919). Does not open library.db."
+params = "desk.MetadataDescribeParams"
+result = "desk.MetadataDescribeResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 919
+
+[[method]]
+name = "cloud_setup.providers"
+capability = "cloud_setup"
+summary = "The cloud compute provider descriptor catalog for the setup window (T-04 / #920). No credentials transit the bridge."
+params = "cloud_setup.CloudSetupEmptyParams"
+result = "cloud_setup.ProvidersResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 920
+
+[[method]]
+name = "stitch.status"
+capability = "stitch"
+summary = "Report one Image Stitching catalog route (#914). Does not start the stitch pipeline."
+params = "stitch.StitchStatusParams"
+result = "stitch.StitchStatusResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 914
+
+[[method]]
+name = "hie.open_document"
+capability = "hie"
+summary = "Open or initialize an image document session (E-02 / #915)."
+params = "hie.OpenDocumentParams"
+result = "hie.OpenDocumentResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 915
+
+[[method]]
+name = "hie.execute_edit"
+capability = "hie"
+summary = "Apply an editing operation to an active document session (E-02 / #915)."
+params = "hie.EditParams"
+result = "hie.EditResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 915
+
+[[method]]
+name = "hie.export_document"
+capability = "hie"
+summary = "Render and export a document session to destination media file (E-02 / #915)."
+params = "hie.ExportDocumentParams"
+result = "hie.ExportDocumentResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 915
+
+[[method]]
+name = "hie.list_capabilities"
+capability = "hie"
+summary = "Query supported operations and available neural model adapters (E-02 / #915)."
+params = "hie.ListCapabilitiesParams"
+result = "hie.ListCapabilitiesResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 915
+
+[[method]]
+name = "webreq.execute"
+capability = "webreq"
+summary = "Execute a single HTTP request (B-02 / #907)."
+params = "webreq.ExecuteParams"
+result = "webreq.ExecuteResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 907
+
+[[method]]
+name = "webreq.sequence"
+capability = "webreq"
+summary = "Execute a sequential batch of HTTP requests with response actions (B-02 / #907)."
+params = "webreq.SequenceParams"
+result = "webreq.SequenceResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 907
+
+[[method]]
+name = "entity_recon.describe"
+capability = "entity_recon"
+summary = "The recon config snapshot and engine-attached state (B-06 / #911). The default scope is fully offline."
+params = "entity_recon.EntityReconEmptyParams"
+result = "entity_recon.EntityReconDescribeResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 911
+
+[[method]]
+name = "entity_recon.resolve"
+capability = "entity_recon"
+summary = "Resolve one cutout's identity with provenance (B-06 / #911). Web discovery runs only at the user's explicit request; tests stay offline."
+params = "entity_recon.EntityReconResolveParams"
+result = "entity_recon.EntityReconResolveResult"
+errors = ["entity_recon.failed"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 911
+
+[[method]]
+name = "crawler.crawl"
+capability = "crawler"
+summary = "Execute web or image board crawl into caller download directory (B-01 / #906)."
+params = "crawler.CrawlParams"
+result = "crawler.CrawlResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 906
+
+[[method]]
+name = "crawler.list_supported"
+capability = "crawler"
+summary = "Query supported crawler types, image boards, and action templates (B-01 / #906)."
+params = "crawler.CrawlerSupportedParams"
+result = "crawler.CrawlerSupportedResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 906
+
+[[method]]
 name = "wallpaper.get_monitors"
 capability = "wallpaper"
 summary = "Discover connected monitors with geometries and display identifiers (A-01 / #913)."
@@ -499,21 +769,3 @@ cancelable = false
 emits = []
 stability = "experimental"
 owner = 913
-
-[[channel]]
-name = "jobs"
-payload = "jobs.JobEventPayload"
-snapshot = "jobs.JobListSnapshot"
-durable_default = true
-producers = ["sidecar", "cloud-jobs-daemon"]
-consumers = ["webview"]
-notes = "State transitions and progress of durable jobs; replay source is job_events / events.jsonl."
-
-[[channel]]
-name = "bridge"
-payload = "system.BridgeStatePayload"
-snapshot = "system.BridgeStateSnapshot"
-durable_default = false
-producers = ["supervisor"]
-consumers = ["webview"]
-notes = "Restart contract (roadmap): bridge.down then bridge.ready around sidecar restarts; in-flight session requests fail with the error envelope."

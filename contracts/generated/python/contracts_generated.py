@@ -1,4 +1,4 @@
-# GENERATED — contract hash 239dc4acbba4111ef20878825587c4d6be98066d75cb0526995ffceaafec9cdb. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 7f853bd58530640761fee9a62783e191b67b9cbc62db9153cfadfc7c15d42687. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -8,6 +8,18 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from typing import Any, Literal
+
+@dataclass(frozen=True)
+class AuthStatusParams:
+    account: str
+
+
+@dataclass(frozen=True)
+class AuthStatusResult:
+    unlocked: Literal[False]
+    account: str
+    reason: Literal["unlock stays on the C++ session"]
+
 
 @dataclass(frozen=True)
 class CloudSubmitParams:
@@ -222,6 +234,29 @@ class PrefillResult:
 
 
 @dataclass(frozen=True)
+class ProviderDescriptor:
+    provider_id: str
+    name: str
+    badge_text: str
+    badge_token: str
+    description: str
+    target_service: str
+    cpu_shapes: str
+    memory_tiers: str
+    gpu_options: str
+    cost_estimate: str
+    cold_start: str
+    regions: list[str]
+    is_poc_target: bool
+    config_file: str | None = None
+
+
+@dataclass(frozen=True)
+class ProvidersResult:
+    providers: list[ProviderDescriptor]
+
+
+@dataclass(frozen=True)
 class ConvertBatchParams:
     input_dir: str
     output_dir: str
@@ -257,6 +292,183 @@ class ConvertResult:
 
 
 @dataclass(frozen=True)
+class AuthConfig:
+    username: (str | None) | None = None
+    api_key: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class CrawlParams:
+    crawler_type: str
+    download_dir: str
+    url: (str | None) | None = None
+    tags: (str | None) | None = None
+    limit: (int | None) | None = None
+    max_pages: (int | None) | None = None
+    actions: (list[str] | None) | None = None
+    login_config: LoginConfig | None = None
+    auth: AuthConfig | None = None
+
+
+@dataclass(frozen=True)
+class CrawlResult:
+    success: bool
+    crawler_type: str
+    total_downloaded: int
+    download_dir: str
+    errors: list[str]
+    elapsed_seconds: float
+
+
+@dataclass(frozen=True)
+class CrawlerSupportedResult:
+    types: list[str]
+    boards: list[str]
+    action_templates: list[str]
+
+
+@dataclass(frozen=True)
+class LoginConfig:
+    url: (str | None) | None = None
+    username: (str | None) | None = None
+    password: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class LogsReadParams:
+    path: str
+    limit: int
+
+
+@dataclass(frozen=True)
+class LogsReadResult:
+    found: bool
+    path: str
+    lines: list[str]
+    error_count: int
+    reason: str
+
+
+@dataclass(frozen=True)
+class MetadataDescribeParams:
+    path: str
+
+
+@dataclass(frozen=True)
+class MetadataDescribeResult:
+    found: bool
+    path: str
+    name: str
+    size: int
+    suffix: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class DlInspectParams:
+    run_dir: str
+
+
+@dataclass(frozen=True)
+class DlInspectResult:
+    found: bool
+    run_dir: str
+    run_id: str
+    status: str
+    engine: str
+    model_id: str
+    event_count: int
+    started: Literal[False]
+    reason: str
+
+
+@dataclass(frozen=True)
+class DriveSyncPlanParams:
+    provider: str
+    paths: list[str]
+
+
+@dataclass(frozen=True)
+class DriveSyncPlanResult:
+    submitted: Literal[False]
+    provider: str
+    count: int
+    reason: str
+
+
+@dataclass(frozen=True)
+class EntityReconDescribeResult:
+    available: bool
+    config: ReconConfigSnapshot
+
+
+@dataclass(frozen=True)
+class EntityReconResolveParams:
+    image_path: str
+    search_scope: str | None = None
+    local_match_threshold: float | None = None
+    top_k: int | None = None
+
+
+@dataclass(frozen=True)
+class EntityReconResolveResult:
+    available: bool
+    found: bool
+    name: str
+    confidence: float
+    method: str
+    origin: str
+    local_matches: list[LocalMatchItem]
+    web_domains: list[WebDomainItem]
+    report: ProvenanceReportItem
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class LocalMatchItem:
+    label: str
+    path: str
+    score: float
+
+
+@dataclass(frozen=True)
+class ProvenanceEntryItem:
+    kind: str
+    label: str
+    source: str
+    score: float
+    method: str
+    domain: str | None = None
+
+
+@dataclass(frozen=True)
+class ProvenanceReportItem:
+    query_hash: str
+    predicted_name: str
+    confidence: float
+    method: str
+    created_at: str
+    entries: list[ProvenanceEntryItem]
+
+
+@dataclass(frozen=True)
+class ReconConfigSnapshot:
+    search_scope: str
+    privacy_mode: bool
+    local_match_threshold: float
+    top_k: int
+    embed_mode: str
+    reverse_engines: list[str]
+
+
+@dataclass(frozen=True)
+class WebDomainItem:
+    domain: str
+    count: int
+    urls: list[str]
+
+
+@dataclass(frozen=True)
 class BridgeError:
     code: str
     retryable: bool
@@ -288,6 +500,65 @@ class ProbeResult:
     duration_seconds: float
     codec: str
     error: str
+
+
+@dataclass(frozen=True)
+class EditParams:
+    document_id: str
+    operation: str
+    parameters: (dict[str, Any] | None) | None = None
+
+
+@dataclass(frozen=True)
+class EditResult:
+    success: bool
+    document_id: str
+    modified_layers: list[str]
+    elapsed_seconds: float
+    output_document_id: (str | None) | None = None
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class ExportDocumentParams:
+    document_id: str
+    output_path: str
+    format: (str | None) | None = None
+    quality: (int | None) | None = None
+
+
+@dataclass(frozen=True)
+class ExportDocumentResult:
+    success: bool
+    output_path: str
+    size_bytes: int
+    elapsed_seconds: float
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class ListCapabilitiesResult:
+    capabilities: list[str]
+    models_available: list[str]
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class OpenDocumentParams:
+    source: str
+    document_id: (str | None) | None = None
+    metadata: (dict[str, Any] | None) | None = None
+
+
+@dataclass(frozen=True)
+class OpenDocumentResult:
+    success: bool
+    document_id: str
+    frame_count: int
+    width: int
+    height: int
+    elapsed_seconds: float
+    error: (str | None) | None = None
 
 
 @dataclass(frozen=True)
@@ -541,6 +812,21 @@ class FrameResult:
 
 
 @dataclass(frozen=True)
+class MediaPlanParams:
+    url: str
+    destination: str
+
+
+@dataclass(frozen=True)
+class MediaPlanResult:
+    accepted: bool
+    downloaded: Literal[False]
+    url: str
+    destination: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class ConcatenateParams:
     paths: list[str]
     output_path: str
@@ -557,6 +843,18 @@ class ConcatenateResult:
     height: int
     preview_png_base64: str
     error: str
+
+
+@dataclass(frozen=True)
+class PrefsDescribeParams:
+    account: str
+
+
+@dataclass(frozen=True)
+class PrefsDescribeResult:
+    sections: list[str]
+    credentials_changed: Literal[False]
+    reason: Literal["credentials stay on the C++ vault session"]
 
 
 @dataclass(frozen=True)
@@ -586,6 +884,42 @@ class RpcErrorObject:
     code: int
     message: str
     data: BridgeError
+
+
+@dataclass(frozen=True)
+class EngineRecord:
+    id: str
+    label: str
+
+
+@dataclass(frozen=True)
+class EnginesResult:
+    engines: list[EngineRecord]
+
+
+@dataclass(frozen=True)
+class ReverseSearchResultItem:
+    url: str
+    engine: str
+    score: float
+    resolution: str | None = None
+    title: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class SearchParams:
+    engine: str
+    image_path: str
+    limit: int | None = None
+    roi: (list[int]) | None = None
+
+
+@dataclass(frozen=True)
+class SearchResult:
+    ok: bool
+    engine: str
+    results: list[ReverseSearchResultItem]
+    error: (str | None) | None = None
 
 
 @dataclass(frozen=True)
@@ -729,6 +1063,18 @@ class CompareResult:
 
 
 @dataclass(frozen=True)
+class StitchStatusParams:
+    route: str
+
+
+@dataclass(frozen=True)
+class StitchStatusResult:
+    route: str
+    started: Literal[False]
+    reason: Literal["stitch pipeline is not started"]
+
+
+@dataclass(frozen=True)
 class BridgeStatePayload:
     state: str
 
@@ -831,6 +1177,69 @@ class SlideshowToggleResult:
     pid: (int | None) | None = None
 
 
+@dataclass(frozen=True)
+class ActionItem:
+    type: str
+    param: str | None = None
+
+
+@dataclass(frozen=True)
+class ExecuteParams:
+    url: str
+    method: str | None = None
+    headers: (dict[str, str]) | None = None
+    body: str | None = None
+    timeout_seconds: int | None = None
+
+
+@dataclass(frozen=True)
+class ExecuteResult:
+    url: str
+    status_code: int
+    status_text: str
+    headers: dict[str, str]
+    content_type: str
+    body: str
+    duration_ms: float
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class RequestItem:
+    type: str
+    param: str | None = None
+    headers: (dict[str, str]) | None = None
+
+
+@dataclass(frozen=True)
+class SequenceItemResult:
+    index: int
+    url: str
+    method: str
+    status_code: int
+    saved_path: (str | None) | None = None
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class SequenceParams:
+    base_url: str
+    requests: list[RequestItem]
+    actions: list[ActionItem]
+    timeout_seconds: int | None = None
+
+
+@dataclass(frozen=True)
+class SequenceResult:
+    status: str
+    base_url: str
+    total_requests: int
+    completed_requests: int
+    logs: list[str]
+    items: list[SequenceItemResult]
+    message: str
+
+
 JobSpecDocument = dict[str, Any]
 
 
@@ -843,6 +1252,18 @@ SpendParams = dict[str, Any]
 SummaryParams = dict[str, Any]
 
 
+CloudSetupEmptyParams = dict[str, Any]
+
+
+CrawlerSupportedParams = dict[str, Any]
+
+
+EntityReconEmptyParams = dict[str, Any]
+
+
+ListCapabilitiesParams = dict[str, Any]
+
+
 EmptyParams = dict[str, Any]
 
 
@@ -850,6 +1271,9 @@ AdminEmptyParams = dict[str, Any]
 
 
 BridgeResponse = ResultResponse | ErrorResponse
+
+
+ReverseSearchEmptyParams = dict[str, Any]
 
 
 PingParams = dict[str, Any]

@@ -1,5 +1,9 @@
 # frontend/
 
+> [!NOTE]
+> **Consolidation Note (W0-03 Phase D #867):**
+> Following submodule absorption and Tauri migration, ASP's frontend architecture is consolidated natively into the main application under `frontend/src/views/stitch/` (`StitchWorkspaceView.tsx`), unblocking Wave 8 issue #914 (E-01 Image Stitching).
+
 **Scaffold — not yet implemented, and frozen.** A Tauri-based cross-platform
 desktop UI for ASP, as an alternative to the PySide6 desktop UI in `../gui/`.
 Intended to talk to the same `backend/` pipeline (`AnimeStitchPipeline`) via a
