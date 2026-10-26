@@ -28,6 +28,7 @@ from middleware.src.bridge import (
     write_frame,
 )
 from middleware.src.services.cloud_jobs.projection import CloudProjection
+from middleware.src.sidecar.handlers.auth import handle_status
 from middleware.src.sidecar.handlers.cloud_jobs import (
     BadgeSource,
     JobsSource,
@@ -59,6 +60,10 @@ from middleware.src.sidecar.handlers.library_preview import (
 )
 from middleware.src.sidecar.handlers.media_loader import handle_media_plan
 from middleware.src.sidecar.handlers.merge import handle_concatenate
+from middleware.src.sidecar.handlers.reverse_search import (
+    handle_reverse_search,
+    handle_reverse_search_engines,
+)
 from middleware.src.sidecar.handlers.scan import (
     handle_save_metadata,
     handle_scan_directory,
@@ -163,22 +168,9 @@ class SidecarServer:
             return build_response(request_id, error=from_exception(exc), table=self.table)
 
     def _dispatch(self, method: str, params: dict[str, Any]) -> Any:
-        if method == "system.handshake":
-            return self._handshake(params)
-        if method == "system.ping":
-            return build_ping_result(table=self.table)
-        if method == "jobs.submit":
-            return self.jobs.submit(params)
-        if method == "jobs.status":
-            return self.jobs.status(params)
-        if method == "jobs.list":
-            return self.jobs.list(params)
-        if method == "jobs.cancel":
-            return self.jobs.cancel(params)
-        if method == "convert.convert":
-            return handle_convert(params)
-        if method == "convert.convert_batch":
-            return start_convert_batch(self.jobs, params)
+        core = self._dispatch_core(method, params)
+        if core is not _UNHANDLED:
+            return core
         cloud = self._dispatch_cloud(method, params)
         if cloud is not _UNHANDLED:
             return cloud
@@ -197,7 +189,32 @@ class SidecarServer:
         tail = self._dispatch_tail(method, params)
         if tail is not _UNHANDLED:
             return tail
+        system_pages = self._dispatch_system_pages(method, params)
+        if system_pages is not _UNHANDLED:
+            return system_pages
+        reverse = self._dispatch_reverse_search(method, params)
+        if reverse is not _UNHANDLED:
+            return reverse
         raise BridgeAppError("bridge.method_not_found", details={"method": method})
+
+    def _dispatch_core(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "system.handshake":
+            return self._handshake(params)
+        if method == "system.ping":
+            return build_ping_result(table=self.table)
+        if method == "jobs.submit":
+            return self.jobs.submit(params)
+        if method == "jobs.status":
+            return self.jobs.status(params)
+        if method == "jobs.list":
+            return self.jobs.list(params)
+        if method == "jobs.cancel":
+            return self.jobs.cancel(params)
+        if method == "convert.convert":
+            return handle_convert(params)
+        if method == "convert.convert_batch":
+            return start_convert_batch(self.jobs, params)
+        return _UNHANDLED
 
     def _dispatch_cloud(self, method: str, params: dict[str, Any]) -> Any:
         if method == "cloud_jobs.summary":
@@ -233,6 +250,13 @@ class SidecarServer:
             return handle_settings_get_many(params)
         if method == "settings.set_many":
             return handle_settings_set_many(params)
+        return _UNHANDLED
+
+    def _dispatch_reverse_search(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "reverse_search.engines":
+            return handle_reverse_search_engines()
+        if method == "reverse_search.search":
+            return handle_reverse_search(params)
         return _UNHANDLED
 
     def _dispatch_library(self, method: str, params: dict[str, Any]) -> Any:
@@ -282,6 +306,8 @@ class SidecarServer:
             return handle_compare(params)
         if method == "extractor.probe":
             return handle_probe(params)
+        if method == "auth.status":
+            return handle_status(params)
         return _UNHANDLED
 
     def _dispatch_web(self, method: str, params: dict[str, Any]) -> Any:

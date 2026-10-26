@@ -32,7 +32,9 @@
               "similarity",
               "extractor",
               "drive_sync",
-              "media_loader"
+              "media_loader",
+              "auth",
+              "reverse_search"
             ]
           }
         }

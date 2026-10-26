@@ -79,7 +79,7 @@ the status lifecycle and deletion gate are documented in
 
 | id | title | owner | issue | status | routes | os checklist | scenarios |
 |---|---|---|---|---|---|---|---|
-| window.auth | Authentication / vault unlock | unclaimed | [#918](https://github.com/ACFHarbinger/Image-Toolkit/issues/918) | pyside-only | — | — | 0 |
+| window.auth | Authentication / vault unlock | Grok | [#918](https://github.com/ACFHarbinger/Image-Toolkit/issues/918) | pyside-only | — | — | 0 |
 | window.cloud-compute | Cloud Compute setup window | unclaimed | [#920](https://github.com/ACFHarbinger/Image-Toolkit/issues/920) | pyside-only | — | — | 0 |
 | window.logging | Logging and metadata windows | unclaimed | [#919](https://github.com/ACFHarbinger/Image-Toolkit/issues/919) | pyside-only | — | — | 0 |
 | window.settings | Settings window | unclaimed | [#917](https://github.com/ACFHarbinger/Image-Toolkit/issues/917) | pyside-only | — | — | 0 |

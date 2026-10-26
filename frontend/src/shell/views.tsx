@@ -12,7 +12,7 @@ import { ScanMetadataView } from "../views/library/ScanMetadataView";
 import { DriveSyncView } from "../views/web/DriveSyncView";
 import { MediaLoaderView } from "../views/web/MediaLoaderView";
 import ImageCrawlerTab from "../tabs/web/ImageCrawlerTab";
-import ReverseSearchTab from "../tabs/web/ReverseSearchTab";
+import { ReverseSearchView } from "../views/web/ReverseSearch";
 import WebRequestsTab from "../tabs/web/WebRequestsTab";
 import { UnifiedTrainTab } from "../tabs/models/UnifiedTrainTab";
 import { UnifiedGenerateTab } from "../tabs/models/UnifiedGenerateTab";
@@ -63,6 +63,8 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "web.drive-sync": DriveSyncView,
   "web.media-loader": MediaLoaderView,
   "web.reverse-search": ReverseSearchTab,
+  "web.drive-sync": DriveSyncTab,
+  "web.reverse-search": ReverseSearchView,
   "ml.training": UnifiedTrainTab,
   "ml.generation": UnifiedGenerateTab,
   "ml.evaluation": R3GANEvaluateTab,
@@ -88,5 +90,18 @@ export function CatalogView({
   }
   const extra = entry.id === "library.scan" ? { onAddImagesToDb } : {};
   const hostClientProps = HOST_CLIENT_VIEWS.has(entry.id) ? { hostClient, client: hostClient } : {};
+  const hostClientProps =
+    [
+      "system.convert",
+      "system.merge",
+      "system.similarity",
+      "system.extractor",
+      "library.scan",
+      "library.search",
+      "library.listings",
+      "library.management",
+      "library.data-browser",
+      "web.reverse-search",
+    ].includes(entry.id) ? { hostClient, client: hostClient } : {};
   return <View showModal={showModal} {...extra} {...hostClientProps} />;
 }

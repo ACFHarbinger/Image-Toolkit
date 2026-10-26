@@ -29,4 +29,5 @@ CI runs `python middleware/validation/check_docs_freshness.py`, which verifies t
 | Extractor (`#905`) | `middleware/src/services/extractor/` | `contracts/schemas/capability/extractor.json` | [Extractor (`extractor.md`)](extractor.md) |
 | Cloud sync (`#908`) | `middleware/src/services/drive_sync/` | `contracts/schemas/capability/drive_sync.json` | [Cloud sync (`drive_sync.md`)](drive_sync.md) |
 | Media loader (`#909`) | `middleware/src/services/media_loader/` | `contracts/schemas/capability/media_loader.json` | [Media loader (`media_loader.md`)](media_loader.md) |
+| Authentication (`#918`) | `middleware/src/services/auth/` | `contracts/schemas/capability/auth.json` | [Authentication (`auth.md`)](auth.md) |
 | Module Template | `middleware/src/services/<feature>/` | `contracts/CONTRACTS.sha256` | [Module Template (`_template.md`)](_template.md) |
