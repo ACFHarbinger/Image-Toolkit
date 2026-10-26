@@ -6,6 +6,7 @@ import { AppStoreProvider } from "./store/AppStoreProvider";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { CloudJobsPopout } from "./shell/CloudJobsPopout";
 import { LibraryPreviewHost } from "./views/library/LibraryPreviewHost";
+import { SlideshowPresenterHost } from "./shell/SlideshowPresenterHost";
 import { windowRole } from "./shell/windowRole";
 
 console.log("--- REACT BOOTSTRAP STARTING ---");
@@ -25,6 +26,8 @@ root.render(
         <CloudJobsPopout />
       ) : role === "library.preview" ? (
         <LibraryPreviewHost />
+      ) : role === "slideshow" ? (
+        <SlideshowPresenterHost />
       ) : (
         <AppStoreProvider>
           <App />

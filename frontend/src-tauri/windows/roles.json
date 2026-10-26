@@ -30,10 +30,10 @@
     },
     {
       "id": "slideshow",
+      "label": "slideshow",
       "role": "slideshow",
-      "kind": "native",
-      "hide_on_close": false,
-      "deferred": "#893"
+      "kind": "webview",
+      "hide_on_close": false
     }
   ]
 }

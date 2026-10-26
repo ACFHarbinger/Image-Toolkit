@@ -14,12 +14,14 @@ pub struct MonitorInfo {
 }
 
 fn get_slideshow_config_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let config_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-
-    // Ensure the config directory exists
-    std::fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
-
-    Ok(config_dir.join("slideshow_config.json"))
+    let dir = if let Ok(custom) = std::env::var("IMAGE_TOOLKIT_DIR") {
+        PathBuf::from(custom)
+    } else {
+        let home = app.path().home_dir().map_err(|e| e.to_string())?;
+        home.join(".image-toolkit")
+    };
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join(".slideshow_config.json"))
 }
 
 #[tauri::command]
@@ -65,19 +67,28 @@ pub fn toggle_slideshow_daemon(app: tauri::AppHandle, running: bool) -> Result<(
         serde_json::json!({})
     };
     config["running"] = serde_json::json!(running);
-    let content = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
-    std::fs::write(&path, content).map_err(|e| e.to_string())?;
 
-    // 2. Start process if running
+    // 2. Start process or stop process
     if running {
-        // We assume 'python' is in path and we are in project root or can find middleware/main.py
-        // In a real app, we'd use sidecars or properly bundled python.
-        Command::new("python")
+        let child = Command::new("python")
             .arg("middleware/main.py")
             .arg("slideshow")
             .spawn()
             .map_err(|e| e.to_string())?;
+        config["pid"] = serde_json::json!(child.id());
+    } else {
+        if let Some(pid) = config.get("pid").and_then(|p| p.as_i64()) {
+            #[cfg(unix)]
+            unsafe {
+                libc::kill(pid as i32, libc::SIGTERM);
+            }
+        }
+        if let Some(obj) = config.as_object_mut() {
+            obj.remove("pid");
+        }
     }
+    let content = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
+    std::fs::write(&path, content).map_err(|e| e.to_string())?;
     Ok(())
 }
 

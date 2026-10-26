@@ -1,3 +1,4 @@
+mod auth_commands;
 mod settings_commands;
 mod benchmark_commands;
 mod bridge_commands;
@@ -27,23 +28,10 @@ pub fn run() {
             // Authentication commands
             auth_commands::authenticate_user,
             auth_commands::create_user_account,
-            auth_commands::load_user_settings,
-            auth_commands::save_user_settings,
-            auth_commands::update_master_password,
             // Settings commands (#917). Vault unlock is auth.status, not a Rust command.
             settings_commands::load_user_settings,
             settings_commands::save_user_settings,
             settings_commands::update_master_password,
-            // Database commands
-            database_commands::search_files,
-            database_commands::get_all_tags,
-            database_commands::get_all_groups,
-            database_commands::get_subgroups_for_group,
-            database_commands::add_image_to_database,
-            database_commands::delete_image_from_database,
-            database_commands::get_database_stats,
-            database_commands::test_database_connection,
-            database_commands::batch_add_images,
             // Benchmark analytics
             benchmark_commands::load_benchmark_reports,
             window_registry::window_popout,

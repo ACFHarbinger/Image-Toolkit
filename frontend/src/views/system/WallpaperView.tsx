@@ -12,6 +12,7 @@ import {
   ArrowUp,
   ArrowDown,
   Layers,
+  ExternalLink,
 } from "lucide-react";
 import type { HostClient } from "../../hostclient";
 import type {
@@ -214,6 +215,22 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
               <Clock size={13} /> Slideshow Active ({interval}s)
             </div>
           )}
+          <button
+            type="button"
+            data-testid="open-slideshow-window-button"
+            onClick={async () => {
+              try {
+                const { popOut } = await import("../../shell/windows");
+                await popOut("slideshow");
+              } catch (err) {
+                console.warn("Could not pop out slideshow window:", err);
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-violet-50 text-violet-700 hover:bg-violet-100 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900 border border-violet-200 dark:border-violet-800 transition"
+            title="Open companion Slideshow Presenter Window"
+          >
+            <ExternalLink size={14} /> Open Presenter Window
+          </button>
           <button
             onClick={refreshMonitors}
             disabled={loading}
