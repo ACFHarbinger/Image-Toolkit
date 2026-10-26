@@ -8,8 +8,11 @@ from __future__ import annotations
 
 import os
 import shutil
+import signal
 import subprocess
 import tempfile
+import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -17,17 +20,30 @@ _MAX_PIXELS = 4_000_000
 _MAX_EDGE = 8192
 
 
-def snapshot_frame(path: str, time_seconds: float, output_path: str) -> dict[str, Any]:
+def snapshot_frame(
+    path: str,
+    time_seconds: float,
+    output_path: str,
+    *,
+    raise_if_cancelled: Callable[[], None] | None = None,
+) -> dict[str, Any]:
     error = _media_ready(path, output_path, time_seconds, None)
     if error:
         return _file_result(output_path, error)
     command = [_ffmpeg_bin(), "-y", "-ss", str(time_seconds), "-i", path, "-frames:v", "1", output_path]
     if command[0] == "":
         return _file_result(output_path, "ffmpeg is not available")
-    return _run_ffmpeg(command, output_path)
+    return _run_ffmpeg(command, output_path, raise_if_cancelled)
 
 
-def extract_range(path: str, start_seconds: float, end_seconds: float, output_path: str) -> dict[str, Any]:
+def extract_range(
+    path: str,
+    start_seconds: float,
+    end_seconds: float,
+    output_path: str,
+    *,
+    raise_if_cancelled: Callable[[], None] | None = None,
+) -> dict[str, Any]:
     error = _media_ready(path, output_path, start_seconds, end_seconds)
     if error:
         return _file_result(output_path, error)
@@ -50,7 +66,7 @@ def extract_range(path: str, start_seconds: float, end_seconds: float, output_pa
         ]
     else:
         command = [ffmpeg, "-y", "-ss", str(start_seconds), "-to", str(end_seconds), "-i", path, "-c", "copy", output_path]
-    return _run_ffmpeg(command, output_path)
+    return _run_ffmpeg(command, output_path, raise_if_cancelled)
 
 
 def cut_sheet(
@@ -108,7 +124,11 @@ def _ffmpeg_bin() -> str:
     return shutil.which("ffmpeg") or ""
 
 
-def _run_ffmpeg(command: list[str], output_path: str) -> dict[str, Any]:
+def _run_ffmpeg(
+    command: list[str],
+    output_path: str,
+    raise_if_cancelled: Callable[[], None] | None = None,
+) -> dict[str, Any]:
     destination = Path(output_path)
     fd, temporary_name = tempfile.mkstemp(
         prefix=f".{destination.stem}.",
@@ -118,19 +138,78 @@ def _run_ffmpeg(command: list[str], output_path: str) -> dict[str, Any]:
     os.close(fd)
     temporary = Path(temporary_name)
     staged = [*command[:-1], str(temporary)]
+    process: subprocess.Popen[bytes] | None = None
     try:
         try:
-            completed = subprocess.run(staged, capture_output=True, check=False, timeout=120)
+            process = subprocess.Popen(
+                staged,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            _wait_ffmpeg(process, raise_if_cancelled)
         except (OSError, subprocess.TimeoutExpired) as exc:
             return _file_result(output_path, str(exc))
-        if completed.returncode != 0 or not temporary.is_file() or temporary.stat().st_size == 0:
+        _checkpoint(raise_if_cancelled, process)
+        if process.returncode != 0 or not temporary.is_file() or temporary.stat().st_size == 0:
             return _file_result(output_path, "ffmpeg failed")
+        _checkpoint(raise_if_cancelled, process)
         temporary.replace(destination)
         temporary = None
         return {"written": True, "output_path": output_path, "error": ""}
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
+
+
+def _wait_ffmpeg(process: subprocess.Popen[bytes], raise_if_cancelled: Callable[[], None] | None) -> None:
+    """Poll ffmpeg so a cancel can stop it before the temporary file is published."""
+    deadline = time.monotonic() + 120
+    while process.poll() is None:
+        _checkpoint(raise_if_cancelled, process)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            _stop_process(process)
+            raise subprocess.TimeoutExpired(process.args, 120)
+        try:
+            process.wait(timeout=min(0.2, remaining))
+        except subprocess.TimeoutExpired:
+            continue
+
+
+def _checkpoint(raise_if_cancelled: Callable[[], None] | None, process: subprocess.Popen[bytes] | None) -> None:
+    if raise_if_cancelled is None:
+        return
+    try:
+        raise_if_cancelled()
+    except Exception:
+        if process is not None:
+            _stop_process(process)
+        raise
+
+
+def _stop_process(process: subprocess.Popen[bytes]) -> None:
+    if process.poll() is not None:
+        return
+    pid = getattr(process, "pid", None)
+    if isinstance(pid, int) and pid > 0:
+        try:
+            os.killpg(pid, signal.SIGTERM)
+        except OSError:
+            process.terminate()
+    else:
+        process.terminate()
+    try:
+        process.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        if isinstance(pid, int) and pid > 0:
+            try:
+                os.killpg(pid, signal.SIGKILL)
+            except OSError:
+                process.kill()
+        else:
+            process.kill()
+        process.wait(timeout=2)
 
 
 def _rects(
@@ -237,23 +316,41 @@ def _clip(rect: tuple[int, int, int, int], img_w: int, img_h: int) -> tuple[int,
     return x1, y1, x2 - x1, y2 - y1
 
 
+def _crop_targets(path: str, output_dir: str, count: int) -> list[Path]:
+    """Name every crop first. Any collision with the source rejects the whole cut."""
+    source = Path(path).resolve()
+    destination = Path(output_dir)
+    targets: list[Path] = []
+    for index in range(1, count + 1):
+        target = destination / f"frame_{index:03d}.png"
+        if target.resolve() == source:
+            raise ValueError("output matches an input")
+        targets.append(target)
+    return targets
+
+
+def _has_alpha(image: Any) -> bool:
+    if image.mode in {"RGBA", "LA", "PA"}:
+        return True
+    return image.mode == "P" and "transparency" in image.info
+
+
 def _write_crops(path: str, output_dir: str, rects: list[tuple[int, int, int, int]]) -> list[str]:
     from PIL import Image
 
+    targets = _crop_targets(path, output_dir, len(rects))
     written: list[str] = []
-    destination = Path(output_dir)
     with Image.open(path) as image:
-        rgb = image.convert("RGB")
+        sheet = image.convert("RGBA") if _has_alpha(image) else image.convert("RGB")
         try:
-            for index, (x, y, width, height) in enumerate(rects, start=1):
-                crop = rgb.crop((x, y, x + width, y + height))
+            for target, (x, y, width, height) in zip(targets, rects, strict=True):
+                crop = sheet.crop((x, y, x + width, y + height))
                 try:
-                    target = destination / f"frame_{index:03d}.png"
                     crop.save(target, format="PNG")
                     written.append(str(target))
                 finally:
                     crop.close()
         finally:
-            if rgb is not image:
-                rgb.close()
+            if sheet is not image:
+                sheet.close()
     return written

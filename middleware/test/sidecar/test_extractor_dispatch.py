@@ -19,7 +19,7 @@ def test_snapshot_dispatch_returns_a_job_before_the_worker_finishes(monkeypatch)
     release = threading.Event()
     calls: list[tuple[str, float, str]] = []
 
-    def fake_snapshot(path: str, time_seconds: float, output_path: str) -> dict[str, Any]:
+    def fake_snapshot(path: str, time_seconds: float, output_path: str, **_kwargs: Any) -> dict[str, Any]:
         calls.append((path, time_seconds, output_path))
         started.set()
         assert release.wait(2)

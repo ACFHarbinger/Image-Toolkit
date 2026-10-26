@@ -16,17 +16,28 @@ def handle_probe(params: dict[str, Any]) -> dict[str, Any]:
     return probe_video(str(params["path"]))
 
 
-def handle_snapshot(params: dict[str, Any]) -> dict[str, Any]:
-    return snapshot_frame(str(params["path"]), float(params["time_seconds"]), str(params["output_path"]))
+def handle_snapshot(params: dict[str, Any], token: Any | None = None) -> dict[str, Any]:
+    return snapshot_frame(
+        str(params["path"]),
+        float(params["time_seconds"]),
+        str(params["output_path"]),
+        raise_if_cancelled=_checkpoint(token),
+    )
 
 
-def handle_extract_range(params: dict[str, Any]) -> dict[str, Any]:
+def handle_extract_range(params: dict[str, Any], token: Any | None = None) -> dict[str, Any]:
     return extract_range(
         str(params["path"]),
         float(params["start_seconds"]),
         float(params["end_seconds"]),
         str(params["output_path"]),
+        raise_if_cancelled=_checkpoint(token),
     )
+
+
+def _checkpoint(token: Any | None) -> Callable[[], None] | None:
+    raise_if_cancelled = getattr(token, "raise_if_cancelled", None)
+    return raise_if_cancelled if callable(raise_if_cancelled) else None
 
 
 def start_extractor_snapshot(jobs: JobRegistry, params: dict[str, Any]) -> dict[str, Any]:
@@ -43,14 +54,16 @@ def _start_file_job(
     jobs: JobRegistry,
     kind: str,
     params: dict[str, Any],
-    action: Callable[[dict[str, Any]], dict[str, Any]],
+    action: Callable[[dict[str, Any], Any], dict[str, Any]],
 ) -> dict[str, Any]:
     job_id, token = jobs.open_job(kind, params)
 
     def worker() -> None:
         try:
             token.raise_if_cancelled()
-            jobs.transition(job_id, "completed", result=action(params))
+            result = action(params, token)
+            token.raise_if_cancelled()
+            jobs.transition(job_id, "completed", result=result)
         except Cancelled:
             return
         except Exception as exc:
