@@ -42,7 +42,6 @@ def _load_package(alias: str, src_dir: Path) -> None:
 
 _load_package("middleware.src.stitching", _REPO_ROOT / "middleware" / "src" / "stitching")
 _load_package("asp_backend", _REPO_ROOT / "middleware" / "src" / "stitching")
-_load_package("asp_gui", _REPO_ROOT / "submodules" / "ASP" / "gui" / "src")
 _load_package("middleware.src.stitching_benchmark", _REPO_ROOT / "middleware" / "benchmark" / "asp")
 _load_package("middleware.src.stitching_evaluation", _REPO_ROOT / "middleware" / "benchmark" / "asp" / "evaluation")
 _load_package("asp_backend_benchmark", _REPO_ROOT / "middleware" / "benchmark" / "asp")

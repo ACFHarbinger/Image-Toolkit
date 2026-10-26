@@ -120,9 +120,6 @@ class SubmoduleCsgDelegate:
 
 
 def _load_runtime() -> tuple[Any, Any] | None:
-    from middleware.src.services._submodule_loader import ensure_submodules_registered
-
-    ensure_submodules_registered()
     try:
         import cv2
         import numpy as np

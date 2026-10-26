@@ -5,7 +5,7 @@ set shell := ["bash", "-c"]
 set unstable := true
 set working-directory := '../..'
 
-krita_root := "submodules/CSG"
+krita_script := "middleware/src/csg/integrations/krita/install.py"
 
 # Start ComfyUI headlessly (without the main desktop app)
 comfyui args="":
@@ -20,12 +20,12 @@ comfyui-stop:
 # Install the CSG Krita plugin (close Krita first)
 krita-install:
     @echo "🎨 Installing CSG Krita plugin..."
-    cd {{krita_root}} && uv run python integrations/krita/install.py install --engine .venv/bin/cel-shaded-generator-engine
+    source .venv/bin/activate && python {{krita_script}} install
 
 # Uninstall the CSG Krita plugin (close Krita first)
 krita-uninstall:
     @echo "🗑️  Uninstalling CSG Krita plugin..."
-    cd {{krita_root}} && uv run python integrations/krita/install.py uninstall
+    source .venv/bin/activate && python {{krita_script}} uninstall
 
 # Reinstall the plugin — use after updating CSG (close Krita first)
 krita-reinstall: krita-uninstall krita-install

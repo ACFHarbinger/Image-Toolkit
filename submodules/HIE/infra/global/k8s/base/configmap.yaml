@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: hybrid-image-editor-config
-data:
-  APP_LOG_LEVEL: "INFO"
