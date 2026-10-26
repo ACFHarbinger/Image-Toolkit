@@ -110,6 +110,19 @@ describe("WallpaperView", () => {
     expect(screen.getByRole("button", { name: /Stop Slideshow/i })).toBeInTheDocument();
   });
 
+  test("restores a running daemon and sends Stop after reopening", async () => {
+    const hostClient = {
+      wallpaperGetMonitors: vi.fn().mockResolvedValue(mockMonitorsResult),
+      wallpaperSlideshowConfig: vi.fn().mockResolvedValue({ ...mockConfigResult, running: true }),
+      wallpaperSet: vi.fn(),
+      wallpaperSlideshowToggle: vi.fn().mockResolvedValue({ running: false, message: "Stopped" }),
+    };
+    render(<WallpaperView hostClient={hostClient as any} />);
+    fireEvent.click(await screen.findByRole("button", { name: /Stop Slideshow/i }));
+    await waitFor(() => expect(hostClient.wallpaperSlideshowToggle).toHaveBeenCalledWith({ running: false }));
+    expect(await screen.findByText("Stopped")).toBeInTheDocument();
+  });
+
   test("updates slideshow configuration", async () => {
     const hostClient = {
       wallpaperGetMonitors: vi.fn().mockResolvedValue(mockMonitorsResult),
