@@ -275,6 +275,54 @@ class MemoryLibraryStore:
         self.images[key] = record
         return image_id
 
+    def get_image_by_path(self, file_path: str) -> dict[str, Any] | None:
+        key = str(Path(file_path).absolute())
+        current = self.images.get(key)
+        if current is None:
+            current = self.images.get(file_path)
+        if current is None:
+            return None
+        item = dict(current)
+        item["tags"] = list(current.get("tags") or [])
+        return item
+
+    def update_image(
+        self,
+        image_id: int,
+        group_name: str | None = None,
+        subgroup_name: str | None = None,
+        tags: list[str] | None = None,
+    ) -> None:
+        """None leaves a field. ``""`` clears it. Clearing the group clears the subgroup."""
+        record = next((image for image in self.images.values() if int(image["id"]) == int(image_id)), None)
+        if record is None:
+            raise KeyError(f"image not found: {image_id}")
+        group_cleared = False
+        if group_name is not None:
+            cleaned = group_name.strip()
+            if cleaned:
+                self.add_group(cleaned)
+                record["group_name"] = cleaned
+            else:
+                record["group_name"] = None
+                record["subgroup_name"] = None
+                group_cleared = True
+        if not group_cleared and subgroup_name is not None:
+            cleaned_sub = subgroup_name.strip()
+            if cleaned_sub:
+                parent = record.get("group_name")
+                if not parent:
+                    raise ValueError("cannot set a subgroup on an image without a group")
+                self.add_subgroup(cleaned_sub, str(parent))
+                record["subgroup_name"] = cleaned_sub
+            else:
+                record["subgroup_name"] = None
+        if tags is not None:
+            clean = [tag.strip() for tag in tags if tag and tag.strip()]
+            record["tags"] = clean
+            for tag in clean:
+                self.add_tag(tag, None)
+
     def delete_image_by_path(self, path: str) -> bool:
         key = str(Path(path).absolute())
         if key not in self.images and path not in self.images:

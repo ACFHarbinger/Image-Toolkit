@@ -117,6 +117,33 @@ from middleware.src.sidecar.jobs import JobRegistry
 _UNHANDLED = object()
 
 
+def _is_live_vault(session: Any) -> bool:
+    """A C++ vault session: open, named, and holding a manager. Not a store."""
+    if session is None:
+        return False
+    from middleware.src.services.library.attach import _is_ready_store
+
+    if _is_ready_store(session):
+        return False
+    return (
+        getattr(session, "open", False) is True
+        and isinstance(getattr(session, "account", None), str)
+        and getattr(session, "_manager", None) is not None
+    )
+
+
+def _live_vault_password(session: Any) -> str | None:
+    """Same pair the Qt helper uses: keystore or raw password, then account."""
+    manager = getattr(session, "_manager", None)
+    if manager is None:
+        return None
+    for name in ("keystore_pass", "raw_password"):
+        value = getattr(manager, name, None)
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
 class SidecarServer:
     """Dispatch contract methods after the readiness/version handshake."""
 
@@ -156,6 +183,7 @@ class SidecarServer:
         self.webreq_service = webreq_service
         self.hie_service = hie_service or HieService()
         self.vault_session = None
+        self._opened_library_session = False
         if library_session is not None:
             from middleware.src.services.library.attach import attach_library
 
@@ -164,20 +192,73 @@ class SidecarServer:
         self.cloud_service = None
         self._handshaken = False
         self._write_mu = threading.Lock()
+        from middleware.src.services.library.lifecycle import register_server
+
+        register_server(self)
 
     def bind_vault_session(self, session: Any) -> None:
-        """Remember an already-open vault session and attach its library stores."""
-        self.vault_session = session
-        from middleware.src.services.library.attach import attach_library
+        """Remember an already-open vault session and attach its library stores.
 
+        A ready store or facade is attached as-is. A live vault is not a
+        database handle: open the library with the vault password and account,
+        then attach that handle. Missing credentials or a failed open clear
+        the stores and do not raise.
+        """
+        self.vault_session = session
+        from middleware.src.services.library.attach import _is_facade, _is_ready_store, attach_library
+
+        if session is not None and (_is_ready_store(session) or _is_facade(session)):
+            self._close_opened_library()
+            attach_library(self, session)
+            return
+        if _is_live_vault(session):
+            self._attach_live_vault(session)
+            return
+        self._close_opened_library()
         attach_library(self, session)
 
     def clear_vault_session(self) -> None:
         """Drop the vault session. ``attach_library(None)`` clears the three stores."""
         self.vault_session = None
+        self._close_opened_library()
         from middleware.src.services.library.attach import attach_library
 
         attach_library(self, None)
+
+    def _close_opened_library(self) -> None:
+        """Close only a library session this server opened."""
+        if not self._opened_library_session:
+            return
+        self._opened_library_session = False
+        try:
+            from middleware.src.database.unified import session as library_session
+
+            library_session.close_session()
+        except Exception:
+            return
+
+    def _attach_live_vault(self, session: Any) -> None:
+        from middleware.src.services.library.attach import attach_library
+
+        password = _live_vault_password(session)
+        account = session.account.strip() if isinstance(session.account, str) else ""
+        if not password or not account:
+            self._close_opened_library()
+            attach_library(self, None)
+            return
+        from middleware.src.database.unified import session as library_session
+
+        try:
+            if self._opened_library_session:
+                library_session.close_session()
+                self._opened_library_session = False
+            handle = library_session.open_session(password, account)
+        except Exception:
+            self._opened_library_session = False
+            attach_library(self, None)
+            return
+        self._opened_library_session = True
+        attach_library(self, handle)
 
     @property
     def handshaken(self) -> bool:

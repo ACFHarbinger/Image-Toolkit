@@ -38,6 +38,15 @@ function stubClient(available = true) {
     listLibraryTags: vi.fn(
       async (): Promise<ListTagsResult> => ({ available, tags: ["night", "sunset"] }),
     ),
+    libraryAdminCatalog: vi.fn(async () => ({
+      available: true,
+      groups: [],
+      tags: [
+        { name: "night", category: "mood" },
+        { name: "sunset", category: "" },
+      ],
+      tables: [],
+    })),
     listLibraryImages: vi.fn(
       async (params: Record<string, unknown> = {}): Promise<ListImagesResult> => {
         const wanted = (params.group_names as string[] | undefined) ?? [];
@@ -140,6 +149,57 @@ test("edits image metadata and deletes a group through the store methods", async
   fireEvent.click(screen.getByTestId("library-listings-delete"));
   await waitFor(() => {
     expect(extra.libraryAdminMutate).toHaveBeenCalledWith({ action: "remove_group", name: "Trips" });
+  });
+});
+
+test("renaming a tag does not send update_tag when the category is untouched", async () => {
+  const client = stubClient();
+  const extra = {
+    libraryAdminMutate: vi.fn(async () => ({ available: true, applied: 1, error: "" })),
+  };
+  render(<Listings hostClient={{ ...client, ...extra } as never} />);
+  await screen.findByText("a.png");
+
+  fireEvent.change(screen.getByTestId("library-listings-kind"), { target: { value: "tag" } });
+  fireEvent.change(screen.getByLabelText("tag to edit"), { target: { value: "night" } });
+  expect(screen.getByLabelText("tag category")).toHaveValue("mood");
+  fireEvent.change(screen.getByLabelText("record name"), { target: { value: "evening" } });
+  fireEvent.click(screen.getByTestId("library-listings-save"));
+  await waitFor(() => {
+    expect(extra.libraryAdminMutate).toHaveBeenCalledTimes(1);
+  });
+  expect(extra.libraryAdminMutate).toHaveBeenCalledWith({
+    action: "rename_tag",
+    name: "night",
+    destination: "evening",
+  });
+  expect(extra.libraryAdminMutate).not.toHaveBeenCalledWith(expect.objectContaining({ action: "update_tag" }));
+});
+
+test("clearing a loaded category sends an empty update and a loaded category does not", async () => {
+  const client = stubClient();
+  const extra = {
+    libraryAdminMutate: vi.fn(async () => ({ available: true, applied: 1, error: "" })),
+  };
+  render(<Listings hostClient={{ ...client, ...extra } as never} />);
+  await screen.findByText("a.png");
+
+  fireEvent.change(screen.getByTestId("library-listings-kind"), { target: { value: "tag" } });
+  fireEvent.change(screen.getByLabelText("tag to edit"), { target: { value: "night" } });
+  expect(screen.getByLabelText("tag category")).toHaveValue("mood");
+  fireEvent.click(screen.getByTestId("library-listings-save"));
+  expect(await screen.findByTestId("library-listings-notice")).toHaveTextContent("No changes.");
+  expect(extra.libraryAdminMutate).not.toHaveBeenCalled();
+
+  fireEvent.change(screen.getByLabelText("tag category"), { target: { value: "" } });
+  fireEvent.click(screen.getByTestId("library-listings-save"));
+  await waitFor(() => {
+    expect(extra.libraryAdminMutate).toHaveBeenCalledTimes(1);
+  });
+  expect(extra.libraryAdminMutate).toHaveBeenCalledWith({
+    action: "update_tag",
+    name: "night",
+    category: "",
   });
 });
 

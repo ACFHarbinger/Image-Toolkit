@@ -43,6 +43,15 @@ _STOPWORDS = frozenset(
 )
 
 
+def _explicit_assignment(group_name: str | None, subgroup_name: str | None) -> tuple[str, str]:
+    """Blank clears the column. A cleared group cannot keep a subgroup."""
+    group = group_name.strip() if isinstance(group_name, str) else ""
+    subgroup = subgroup_name.strip() if isinstance(subgroup_name, str) else ""
+    if not group:
+        subgroup = ""
+    return group, subgroup
+
+
 def _extract_path_tokens(path_str: str) -> tuple[str, ...]:
     path = Path(path_str)
     tokens: list[str] = []
@@ -224,9 +233,12 @@ class SaveMetadataHandler(Handler[SaveMetadataCommand, SaveMetadataResult]):
         )
 
     def _write_item(self, item: MetadataItemCommand) -> int | None:
-        """Prefer a store ``add_image``. A raw SQL session still goes through ImageRepo."""
+        """Update an existing row in place. A new path still goes through ``add_image``."""
         writer = getattr(self._db_session, "add_image", None)
         if callable(writer):
+            existing = self._stored_image(item.path)
+            if existing is not None:
+                return self._update_existing(existing, item)
             return writer(
                 item.path,
                 group_name=item.group_name,
@@ -235,12 +247,40 @@ class SaveMetadataHandler(Handler[SaveMetadataCommand, SaveMetadataResult]):
             )
         from middleware.src.database.unified.image_repo import ImageRepo
 
-        return ImageRepo(self._db_session).add_image(
+        repo = ImageRepo(self._db_session)
+        existing = repo.get_image_by_path(item.path) if callable(getattr(repo, "get_image_by_path", None)) else None
+        if isinstance(existing, dict) and "id" in existing:
+            return self._update_existing(existing, item, repo.update_image)
+        return repo.add_image(
             item.path,
             group_name=item.group_name,
             subgroup_name=item.subgroup_name,
             tags=list(item.tags),
         )
+
+    def _stored_image(self, path: str) -> dict[str, Any] | None:
+        getter = getattr(self._db_session, "get_image_by_path", None)
+        if not callable(getter):
+            return None
+        found = getter(path)
+        if not isinstance(found, dict) or "id" not in found:
+            return None
+        return found
+
+    def _update_existing(
+        self,
+        existing: dict[str, Any],
+        item: MetadataItemCommand,
+        updater: Any = None,
+    ) -> int:
+        group, subgroup = _explicit_assignment(item.group_name, item.subgroup_name)
+        image_id = int(existing["id"])
+        if updater is None:
+            updater = getattr(self._db_session, "update_image", None)
+        if not callable(updater):
+            raise RuntimeError("store does not support update_image")
+        updater(image_id, group_name=group, subgroup_name=subgroup, tags=list(item.tags))
+        return image_id
 
 
 class SuggestTagsHandler(Handler[SuggestTagsCommand, SuggestTagsResult]):

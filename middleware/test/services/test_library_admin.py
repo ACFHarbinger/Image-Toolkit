@@ -82,6 +82,22 @@ def test_create_splits_comma_separated_groups() -> None:
     assert store.groups[-2:] == ["a", "b"]
 
 
+def test_blank_update_tag_category_clears_and_a_missing_category_does_not() -> None:
+    from middleware.src.services.library.attach import MemoryLibraryStore
+
+    store = MemoryLibraryStore()
+    store.add_tag("night", "mood")
+    missing = mutate_result(store, {"action": "update_tag", "name": "night"})
+    assert missing["applied"] == 0
+    assert missing["error"] == "category is required"
+    assert store.tags["night"] == "mood"
+    cleared = mutate_result(store, {"action": "update_tag", "name": "night", "category": "   "})
+    assert cleared == {"available": True, "applied": 1, "error": ""}
+    assert store.tags["night"] == ""
+    explicit_null = mutate_result(store, {"action": "update_tag", "name": "night", "category": None})
+    assert explicit_null["error"] == "category is required"
+
+
 def test_subgroup_and_merge_require_their_fields() -> None:
     store = _Store()
     missing_parent = mutate_result(store, {"action": "create_subgroup", "name": "closeup"})

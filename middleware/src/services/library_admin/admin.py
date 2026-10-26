@@ -111,7 +111,7 @@ def browse_result(store: Optional[AdminStore], params: Mapping[str, Any]) -> dic
 def _apply(store: AdminStore, action: str, params: Mapping[str, Any]) -> int:
     names = _names(str(params["name"]), split=action in _CREATE_ACTIONS)
     parent = _optional(params.get("parent"))
-    category = _optional(params.get("category"))
+    category = _required_category(params) if action == "update_tag" else _optional(params.get("category"))
     destination = _optional(params.get("destination"))
     if action in {"create_subgroup", "remove_subgroup", "rename_subgroup"} and not parent:
         raise ValueError("parent group is required")
@@ -119,8 +119,6 @@ def _apply(store: AdminStore, action: str, params: Mapping[str, Any]) -> int:
         raise ValueError("destination tag is required")
     if action in {"rename_group", "rename_subgroup", "rename_tag"} and not destination:
         raise ValueError("destination name is required")
-    if action == "update_tag" and category is None:
-        raise ValueError("category is required")
     for name in names:
         _one(store, action, name, parent, category, destination)
     return len(names)
@@ -193,6 +191,14 @@ def _optional(value: Any) -> str | None:
     if value is None:
         return None
     text = str(value).strip()
+    return text or None
+
+
+def _required_category(params: Mapping[str, Any]) -> str | None:
+    """Omitted or null is an error. Present empty or whitespace clears the category."""
+    if "category" not in params or params.get("category") is None:
+        raise ValueError("category is required")
+    text = str(params.get("category")).strip()
     return text or None
 
 

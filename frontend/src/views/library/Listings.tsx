@@ -6,6 +6,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import type {
+  CatalogResult,
   GroupRecord,
   ImageRecord,
   ListGroupsResult,
@@ -20,6 +21,22 @@ export interface ListingsProps {
 }
 
 const PAGE_SIZE = 100;
+
+function categoriesFromCatalog(catalog: CatalogResult | null): Record<string, string> | null {
+  if (!catalog) return null;
+  const next: Record<string, string> = {};
+  for (const tag of catalog.tags) {
+    next[tag.name] = tag.category ?? "";
+  }
+  return next;
+}
+
+async function readTagCatalog(hostClient: HostClient): Promise<CatalogResult | null> {
+  if (typeof hostClient.libraryAdminCatalog !== "function") {
+    return null;
+  }
+  return hostClient.libraryAdminCatalog();
+}
 
 export function Listings({ hostClient }: ListingsProps) {
   const [groups, setGroups] = useState<GroupRecord[] | null>(null);
@@ -41,6 +58,8 @@ export function Listings({ hostClient }: ListingsProps) {
   const [editName, setEditName] = useState("");
   const [editParent, setEditParent] = useState("");
   const [editCategory, setEditCategory] = useState("");
+  const [originalCategory, setOriginalCategory] = useState("");
+  const [tagCategories, setTagCategories] = useState<Record<string, string>>({});
   const [selectedPath, setSelectedPath] = useState("");
   const [editGroup, setEditGroup] = useState("");
   const [editSubgroup, setEditSubgroup] = useState("");
@@ -55,14 +74,14 @@ export function Listings({ hostClient }: ListingsProps) {
     let cancelled = false;
     const load = async () => {
       try {
-        const [groupsResult, tagsResult]: [ListGroupsResult, ListTagsResult] = await Promise.all([
-          hostClient.listLibraryGroups(),
-          hostClient.listLibraryTags(),
-        ]);
+        const [groupsResult, tagsResult, catalog]: [ListGroupsResult, ListTagsResult, CatalogResult | null] =
+          await Promise.all([hostClient.listLibraryGroups(), hostClient.listLibraryTags(), readTagCatalog(hostClient)]);
         if (cancelled) return;
         setGroups(groupsResult.groups);
         setTags(groupsResult.available ? tagsResult.tags : []);
         setRowsAvailable(groupsResult.available);
+        const categories = categoriesFromCatalog(catalog);
+        if (categories) setTagCategories(categories);
         setReady(true);
       } catch (err) {
         if (cancelled) return;
@@ -123,13 +142,13 @@ export function Listings({ hostClient }: ListingsProps) {
   };
 
   const reloadCatalog = async () => {
-    const [groupsResult, tagsResult]: [ListGroupsResult, ListTagsResult] = await Promise.all([
-      hostClient.listLibraryGroups(),
-      hostClient.listLibraryTags(),
-    ]);
+    const [groupsResult, tagsResult, catalog]: [ListGroupsResult, ListTagsResult, CatalogResult | null] =
+      await Promise.all([hostClient.listLibraryGroups(), hostClient.listLibraryTags(), readTagCatalog(hostClient)]);
     setGroups(groupsResult.groups);
     setTags(groupsResult.available ? tagsResult.tags : []);
     setRowsAvailable(groupsResult.available);
+    const categories = categoriesFromCatalog(catalog);
+    if (categories) setTagCategories(categories);
   };
 
   const saveRecord = async () => {
@@ -178,7 +197,9 @@ export function Listings({ hostClient }: ListingsProps) {
       if (editName.trim() !== originalName) {
         params.push({ action: "rename_tag", name: originalName, destination: editName.trim() });
       }
-      params.push({ action: "update_tag", name: editName.trim(), category: editCategory });
+      if (editCategory !== originalCategory) {
+        params.push({ action: "update_tag", name: editName.trim(), category: editCategory });
+      }
     }
     if (params.length === 0) {
       setNotice("No changes.");
@@ -196,6 +217,7 @@ export function Listings({ hostClient }: ListingsProps) {
       }
     }
     setOriginalName(editName.trim());
+    setOriginalCategory(editCategory);
     setNotice("Saved");
     await reloadCatalog();
     await search();
@@ -400,8 +422,12 @@ export function Listings({ hostClient }: ListingsProps) {
               aria-label="tag to edit"
               value={originalName}
               onChange={(event) => {
-                setOriginalName(event.target.value);
-                setEditName(event.target.value);
+                const name = event.target.value;
+                const category = name ? (tagCategories[name] ?? "") : "";
+                setOriginalName(name);
+                setEditName(name);
+                setEditCategory(category);
+                setOriginalCategory(category);
               }}
             >
               <option value="">Select a tag</option>
