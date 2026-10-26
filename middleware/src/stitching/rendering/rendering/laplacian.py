@@ -6,6 +6,7 @@ import logging
 
 import cv2
 import numpy as np
+
 from middleware.src.stitching.core.stateless import _laplacian_blend
 
 from . import _native

@@ -28,11 +28,11 @@ from .run_stage import _RunStageMixin
 from .session import PipelineSession
 
 if TYPE_CHECKING:
+    from middleware.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+    from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper
     from middleware.src.stitching.models.stitch_net import AnimeStitchNet
     from middleware.src.stitching.models.wrappers.aliked_lg_wrapper import ALIKEDLightGlueWrapper
     from middleware.src.stitching.models.wrappers.efficient_loftr_wrapper import EfficientLoFTRWrapper
-    from middleware.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
-    from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 
     from .session import PauseHook
 

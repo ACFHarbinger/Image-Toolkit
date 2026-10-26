@@ -11,6 +11,7 @@ whole retry chain finishes, so it stays in run() itself.
 from __future__ import annotations
 
 import numpy as np
+
 from middleware.src.stitching.alignment.bundle_adjust import _bundle_adjust_affine
 from middleware.src.stitching.core.validation import AffineHealth, _validate_affines
 

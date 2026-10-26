@@ -7,6 +7,7 @@ treats duration-only deltas as expected timing noise.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -87,10 +88,8 @@ def configure_reproducibility() -> dict[str, Any]:
             torch.backends.cudnn.deterministic = True
             torch.use_deterministic_algorithms(True, warn_only=True)
             torch.set_num_threads(1)
-            try:
+            with contextlib.suppress(RuntimeError):
                 torch.set_num_interop_threads(1)
-            except RuntimeError:
-                pass
         except Exception:
             pass
         applied = True

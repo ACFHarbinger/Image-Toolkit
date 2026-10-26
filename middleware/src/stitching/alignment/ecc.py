@@ -6,13 +6,14 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
-from middleware.src.stitching.core.stateless import _luma
+
 from middleware.src.constants import (
     ECC_EPS,
     ECC_MAX_DRIFT,
     ECC_MAX_ITER,
     ECC_PYRAMID_LEVELS,
 )
+from middleware.src.stitching.core.stateless import _luma
 
 try:
     import backend as _batch_ecc

@@ -18,9 +18,10 @@ import os
 from collections import deque
 
 import numpy as np
-from middleware.src.constants import DY_ABS_THRESH, DY_RATIO_THRESH, GNC_C_PX, GNC_MU_ANNEAL
 from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
+
+from middleware.src.constants import DY_ABS_THRESH, DY_RATIO_THRESH, GNC_C_PX, GNC_MU_ANNEAL
 
 try:
     import backend as batch
@@ -503,7 +504,7 @@ def _solve_cauchy(
     return x_opt
 
 
-def _bundle_adjust_affine(
+def _bundle_adjust_affine(  # noqa: C901
     edges: list[dict],
     num_frames: int,
     iterations: int = 200,

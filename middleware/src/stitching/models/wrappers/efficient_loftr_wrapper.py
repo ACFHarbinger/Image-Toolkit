@@ -26,12 +26,12 @@ import cv2
 import numpy as np
 import torch
 
+from middleware.src.constants.models import WRAPPERS__HF_REPO, WRAPPERS__MIN_INLIERS
+from middleware.src.models.core.base import ModelWrapper, lazy_load
 from middleware.src.stitching.alignment.matching._estimators import (
     estimate_affine_partial2d,
     find_homography,
 )
-from middleware.src.constants.models import WRAPPERS__HF_REPO, WRAPPERS__MIN_INLIERS
-from middleware.src.models.core.base import ModelWrapper, lazy_load
 
 logger = logging.getLogger(__name__)
 

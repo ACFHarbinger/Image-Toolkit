@@ -80,7 +80,7 @@ def _multiphase_plate_plan(
     return spans, physical_order, direction
 
 
-def _composite_foreground(
+def _composite_foreground(  # noqa: C901
     warped_corr: list[np.ndarray],
     warped_fgs: list[np.ndarray],
     canvas: np.ndarray,

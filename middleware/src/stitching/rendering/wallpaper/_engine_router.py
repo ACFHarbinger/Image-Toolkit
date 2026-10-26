@@ -20,6 +20,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+
 from middleware.src.stitching.rendering.compositing._gain_compensation import _adaptive_gain_clamp
 
 from ._aspect_framer import FramedWallpaper, frame_wallpaper

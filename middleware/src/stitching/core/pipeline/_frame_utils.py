@@ -8,6 +8,7 @@ import re
 
 import cv2
 import numpy as np
+
 from middleware.src.stitching.alignment.canvas import _load_frames, _normalise_widths
 
 from ._probes import _HAS_BATCH, _batch

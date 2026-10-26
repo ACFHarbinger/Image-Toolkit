@@ -4,6 +4,7 @@ seam-metadata annotation."""
 from __future__ import annotations
 
 import numpy as np
+
 from middleware.src.constants import FEATHER_MAX, FEATHER_MIN
 
 from ._fill import _fill_still_black_pixels

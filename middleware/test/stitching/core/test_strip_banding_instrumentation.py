@@ -8,7 +8,11 @@ from pathlib import Path
 import numpy as np
 from middleware.src.stitching.core.pipeline.safety_metrics import strip_banding_score
 
-_BENCH = Path(__file__).resolve().parents[3] / "backend" / "benchmark" / "bench_anime_stitch.py"
+_BENCH_CANDIDATES = (
+    Path(__file__).resolve().parents[3] / "benchmark" / "asp" / "bench_anime_stitch.py",
+    Path(__file__).resolve().parents[3] / "backend" / "benchmark" / "bench_anime_stitch.py",
+)
+_BENCH = next(p for p in _BENCH_CANDIDATES if p.is_file())
 
 
 def _stacked(top: int, bot: int, h: int = 100, w: int = 80) -> np.ndarray:

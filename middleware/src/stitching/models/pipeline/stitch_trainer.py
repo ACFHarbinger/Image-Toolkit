@@ -43,6 +43,12 @@ import cv2
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.cuda.amp import GradScaler, autocast
+from torch.optim import AdamW
+from torch.utils.data import DataLoader, random_split
+
+from middleware.src.constants.pipeline import DEFAULT_CONFIG
+from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper
 from middleware.src.stitching.models.data.stitch_dataset import (
     SyntheticStitchDataset,
     stitch_collate_fn,
@@ -51,11 +57,6 @@ from middleware.src.stitching.models.pipeline.stitch_losses import StitchNetLoss
 
 # --- Relocated Nested Imports ---
 from middleware.src.stitching.models.stitch_net import AnimeStitchNet
-from middleware.src.constants.pipeline import DEFAULT_CONFIG
-from middleware.src.models.wrappers.loftr_wrapper import LoFTRWrapper
-from torch.cuda.amp import GradScaler, autocast
-from torch.optim import AdamW
-from torch.utils.data import DataLoader, random_split
 
 # ---------------------------------------------------------------------------
 # Default configuration

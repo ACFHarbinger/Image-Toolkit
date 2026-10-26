@@ -30,6 +30,7 @@ import os
 
 import cv2
 import numpy as np
+
 from middleware.src.constants import (
     FG_REG_MAX_RESIDUAL as _FG_REG_MAX_RESIDUAL_DEFAULT,
 )

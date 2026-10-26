@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+
 from middleware.src.stitching.alignment.fg_register import register_foreground_at_seam
 
 from ._boundaries import _dominant_frame_in_band

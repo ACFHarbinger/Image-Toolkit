@@ -143,9 +143,14 @@ def recompute_strip_banding(
 
     import cv2
 
+    safety_metrics_path = ASP_ROOT / "src" / "stitching" / "core" / "pipeline" / "safety_metrics.py"
+    if not safety_metrics_path.is_file():
+        safety_metrics_path = ASP_ROOT / "backend" / "src" / "core" / "pipeline" / "safety_metrics.py"
+    if not safety_metrics_path.is_file():
+        return None, None, "no_safety_metrics"
     spec = importlib.util.spec_from_file_location(
         "asp_safety_metrics",
-        ASP_ROOT / "backend" / "src" / "core" / "pipeline" / "safety_metrics.py",
+        safety_metrics_path,
     )
     if spec is None or spec.loader is None:
         return None, None, "no_safety_metrics"

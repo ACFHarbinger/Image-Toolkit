@@ -88,7 +88,7 @@ def frame_wallpaper(
     crop_rect = (wx0, wy0, wx1, wy1)
 
     # 3. If window is completely inside canvas, slice directly
-    if 0 <= wx0 and wx1 <= canvas_w and 0 <= wy0 and wy1 <= canvas_h:
+    if wx0 >= 0 and wx1 <= canvas_w and wy0 >= 0 and wy1 <= canvas_h:
         cropped_img = composite[wy0:wy1, wx0:wx1].copy()
         sub_valid = valid_mask[wy0:wy1, wx0:wx1]
         outpaint_mask = ~sub_valid

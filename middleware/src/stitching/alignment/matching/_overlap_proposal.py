@@ -100,7 +100,7 @@ def _overlap_frac(rect_a: tuple[float, float, float, float], rect_b: tuple[float
     return inter / min(area_a, area_b)
 
 
-def build_overlap_bridge_proposals(
+def build_overlap_bridge_proposals(  # noqa: C901
     N: int,
     positions: list[tuple[float, float] | None],
     W: int,

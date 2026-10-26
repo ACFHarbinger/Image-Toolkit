@@ -35,10 +35,11 @@ from copy import deepcopy
 import cv2
 import numpy as np
 import torch
-from middleware.src.stitching.alignment.matching._estimators import estimate_affine_partial2d
+from huggingface_hub import hf_hub_download
+
 from middleware.src.constants.models import _CKPT_FILE, _HF_REPO, _JAMMA_ERR, _JAMMA_OK, _MIN_INLIERS
 from middleware.src.models.core.base import ModelWrapper, lazy_load
-from huggingface_hub import hf_hub_download
+from middleware.src.stitching.alignment.matching._estimators import estimate_affine_partial2d
 
 _VENDOR_PATH = os.path.join(
     os.path.dirname(__file__), "..", "..", "..", "vendor", "JamMa"
@@ -48,7 +49,6 @@ try:
     if os.path.isdir(_VENDOR_PATH) and _VENDOR_PATH not in sys.path:
         sys.path.insert(0, _VENDOR_PATH)
     import mamba_ssm  # noqa: F401 — confirm CUDA extension is loadable
-
     from src.config.default import get_cfg_defaults  # type: ignore
     from src.jamma.jamma import JamMa  # type: ignore
     _JAMMA_OK = True

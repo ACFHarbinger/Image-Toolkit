@@ -149,7 +149,7 @@ class OtlpJsonlSink:
             parent = os.path.dirname(self._path)
             if parent:
                 os.makedirs(parent, exist_ok=True)
-            self._owned = open(self._path, "a", encoding="utf-8")
+            self._owned = open(self._path, "a", encoding="utf-8")  # noqa: SIM115
         return self._owned
 
     def _emit(self, payload: dict[str, Any]) -> None:

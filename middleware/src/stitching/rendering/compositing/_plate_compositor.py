@@ -73,7 +73,7 @@ def plate_single_pose_safe_for_phases(
     )
 
 
-def _build_aligned_background_plate(
+def _build_aligned_background_plate(  # noqa: C901
     warped_frames: list[np.ndarray],
     warped_bg: list[np.ndarray | None],
     H: int,
@@ -125,11 +125,7 @@ def _build_aligned_background_plate(
             else np.ones((H, W), dtype=bool)
         )
         if i < len(warped_bg) and warped_bg[i] is not None:
-            if warped_bg[i].dtype == np.uint8:
-                # P4: 255 = confirmed bg, 128 = uncertain (excluded), 0 = fg
-                bg = warped_bg[i] > 200
-            else:
-                bg = warped_bg[i].astype(bool)
+            bg = (warped_bg[i] > 200) if warped_bg[i].dtype == np.uint8 else warped_bg[i].astype(bool)
             m = bg & valid
         else:
             m = valid & (wf.max(axis=2) > 0)
@@ -209,7 +205,7 @@ def _build_aligned_background_plate(
     return plate, valid_plate_mask
 
 
-def composite_plate_single_pose(
+def composite_plate_single_pose(  # noqa: C901
     warped_frames: list[np.ndarray],
     warped_bg: list[np.ndarray | None],
     canvas: np.ndarray,

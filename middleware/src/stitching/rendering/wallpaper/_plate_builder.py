@@ -26,6 +26,7 @@ from dataclasses import dataclass
 
 import cv2
 import numpy as np
+
 from middleware.src.stitching.rendering.compositing._flags import (
     _JOINT_GAIN_SIGMA_G,
     _JOINT_GAIN_SIGMA_N,
@@ -119,7 +120,7 @@ def _temporal_median_plate(
     black with ``sample_count == 0``.
     """
     N = len(warped_frames)
-    if N > max_samples:
+    if max_samples < N:
         idx = np.unique(np.linspace(0, N - 1, max_samples).astype(np.int64))
         warped_frames = [warped_frames[i] for i in idx]
         contribution = [contribution[i] for i in idx]
