@@ -180,10 +180,20 @@ def _frame_lists(
         raise ValueError("frame size is empty")
     xs = [offset_x] if arrangement == "vertical" else _axis_steps(offset_x, frame_w, spacing, img_w)
     ys = [offset_y] if arrangement == "horizontal" else _axis_steps(offset_y, frame_h, spacing, img_h)
-    if not xs or not ys:
-        return [], []
     frames = [(x, y, frame_w, frame_h) for y in ys for x in xs]
     leftover: list[tuple[int, int, int, int]] = []
+    # No complete step still leaves a positive span from the offset. Those rects
+    # stay in leftover so _rects can clip them only when include_partial is set.
+    missing_x = arrangement != "vertical" and not xs and img_w - offset_x > 0
+    missing_y = arrangement != "horizontal" and not ys and img_h - offset_y > 0
+    if missing_x and missing_y:
+        leftover.append((offset_x, offset_y, frame_w, frame_h))
+    elif missing_x:
+        leftover.extend((offset_x, y, frame_w, frame_h) for y in ys)
+    elif missing_y:
+        leftover.extend((x, offset_y, frame_w, frame_h) for x in xs)
+    if not xs or not ys:
+        return frames, leftover
     partial_w = 0
     partial_h = 0
     last_x = xs[-1]

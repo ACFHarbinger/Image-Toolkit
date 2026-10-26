@@ -102,6 +102,32 @@ def test_cut_honors_offset_spacing_and_partial_last_frame(tmp_path) -> None:
         assert frame.size == (1, 4)
 
 
+def test_grid_partial_clips_when_no_full_frame_fits(tmp_path) -> None:
+    sheet = tmp_path / "sheet.png"
+    with Image.new("RGB", (100, 100), (255, 0, 0)) as image:
+        with Image.new("RGB", (100, 50), (0, 255, 0)) as lower:
+            image.paste(lower, (0, 50))
+        image.save(sheet)
+    output = tmp_path / "frames"
+    output.mkdir()
+    skipped = cut_sheet(str(sheet), str(output), "grid", 200, 50, 0, 0, 0, False)
+    assert skipped["written"] is False
+    assert skipped["paths"] == []
+    assert skipped["error"] == "no frames"
+    assert list(output.glob("*.png")) == []
+    result = cut_sheet(str(sheet), str(output), "grid", 200, 50, 0, 0, 0, True)
+    assert result["written"] is True
+    assert len(result["paths"]) == 2
+    with Image.open(result["paths"][0]) as frame:
+        assert frame.size == (100, 50)
+        assert frame.getpixel((0, 0)) == (255, 0, 0)
+        assert frame.getpixel((99, 49)) == (255, 0, 0)
+    with Image.open(result["paths"][1]) as frame:
+        assert frame.size == (100, 50)
+        assert frame.getpixel((0, 0)) == (0, 255, 0)
+        assert frame.getpixel((99, 49)) == (0, 255, 0)
+
+
 def test_grid_partial_includes_the_bottom_right_intersection(tmp_path) -> None:
     sheet = tmp_path / "sheet.png"
     with Image.new("RGB", (25, 25), (0, 0, 0)) as image:
