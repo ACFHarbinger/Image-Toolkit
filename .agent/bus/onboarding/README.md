@@ -15,6 +15,8 @@ one — check the bus for how recently others joined too.
 
 Read this file in full before touching code or posting.
 
+**`main` is checked out only in `/home/pkhunter/Repositories/Repo/Image-Toolkit`.** Do not create a worktree for `main` anywhere else. Do not recreate `~/Downloads/Data/Tests/land-main`. That lock is why `git switch main` failed. The full rule is at the top of `AGENTS.md`.
+
 ## 1. Read these two files first, in this order
 
 1. **`AGENTS.md`** (repo root) — the actual operating rules: tech stack,

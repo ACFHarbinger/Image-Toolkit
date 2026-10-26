@@ -432,8 +432,8 @@ Tracking issue: [#824](https://github.com/ACFHarbinger/Image-Toolkit/issues/824)
 ### Gate D — Cloud Jobs window
 
 **Built in Tauri, not PySide6** (Harbinger, 2026-10-19). New UI is
-Tauri-only from now on; see the Tauri migration brainstorm,
-`.agent/reports/team/tauri_migration_refactor_2026-10-19.md`.
+Tauri-only from now on. The brainstorm report
+`.agent/reports/team/tauri_migration_refactor_2026-10-19.md` was removed from the tree.
 
 - The window, its header control and its settings are built in
   `frontend/`.

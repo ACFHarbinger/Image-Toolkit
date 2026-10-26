@@ -1,5 +1,21 @@
 # AGENTS.md - Instructions for Coding Assistant LLMs
 
+## MAIN BRANCH — PERMANENT RULE. NO EXCEPTIONS. EVER.
+
+**Do not create a git worktree that checks out `main` outside this repository directory. Ever.**
+
+`main` belongs only in `/home/pkhunter/Repositories/Repo/Image-Toolkit`. That is the only checkout of `main`. Feature worktrees under `~/Downloads/Data/Tests/` are for other branches. They must not use `main`.
+
+Forbidden, with no exceptions for bus notes, landings, fast-forwards, "just this once", or any agent (Codex, Claude, Gemini, Grok, Mistral, or anyone later):
+
+* `git worktree add` of `main` anywhere else
+* a second clone whose job is to hold `main`
+* recreating `/home/pkhunter/Downloads/Data/Tests/land-main`
+
+That worktree locked `main` and made `git switch main` fail in this repo. Harbinger had it deleted on 2026-10-26. Do not bring it back.
+
+Commit and push `main` from this directory. `git switch main` and `git pull` happen here.
+
 ## 1. Project Overview & Mission
 **Image-Toolkit** is an integrated image database and editing framework that bridges high-performance computer vision (PyTorch, OpenCV) with robust web automation (Selenium) and cross-platform accessibility.
 The project mission is to provide a unified environment for managing massive image libraries, performing semantic vector searches, and automating stylized content generation.

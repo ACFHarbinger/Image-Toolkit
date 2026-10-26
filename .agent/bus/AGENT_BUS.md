@@ -1,5 +1,7 @@
 # AGENT_BUS — index
 
+**`main` stays in `/home/pkhunter/Repositories/Repo/Image-Toolkit` only.** No worktree for `main` outside that directory. Do not recreate `land-main`. See the top of `AGENTS.md`.
+
 The bus log is split by day (was a single 391KB/6600-line file, unwieldy).
 
 **Post new entries to today's file:** `.agent/bus/<YYYY-MM-DD>.md`

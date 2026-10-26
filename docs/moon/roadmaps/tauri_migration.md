@@ -22,8 +22,8 @@ It runs alongside the Cloud Jobs Service (`cloud_jobs.md`).
 
 **Sources:**
 
-- The brief, all 54 recorded answers, and the final round (§7):
-  `.agent/reports/team/tauri_migration_refactor_2026-10-19.md`.
+- The brief, all 54 recorded answers, and the final round (§7) were in
+  `.agent/reports/team/tauri_migration_refactor_2026-10-19.md`, removed from the tree.
 - Each agent's proposal:
   `.agent/reports/<agent>/tauri_migration_refactor_proposal_2026-10-19.md`.
 
