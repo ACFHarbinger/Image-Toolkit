@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 import json
-import time
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -13,8 +12,50 @@ from middleware.src.services.dl.service import DeepLearningService
 from middleware.src.sidecar.server import SidecarServer
 
 
+def _running_trainer(params: dict[str, Any]) -> dict[str, Any]:
+    epochs = int(params.get("epochs") or 1)
+    output_dir = Path(str(params["output_dir"]))
+    run_id = "run-basic"
+    run_dir = output_dir / run_id
+    run_dir.mkdir(parents=True)
+    record = {"run_id": run_id, "status": "running", "epochs": epochs}
+    (run_dir / "record.json").write_text(json.dumps(record), encoding="utf-8")
+    event = {"step": 0, "total_steps": epochs}
+    (run_dir / "events.jsonl").write_text(json.dumps(event) + "\n", encoding="utf-8")
+    return {
+        "run_id": run_id,
+        "run_dir": str(run_dir),
+        "status": "running",
+        "started": True,
+        "message": "training delegated",
+    }
+
+
+def _png_generator(params: dict[str, Any]) -> dict[str, Any]:
+    output_dir = Path(str(params["output_dir"]))
+    output_dir.mkdir(parents=True, exist_ok=True)
+    count = int(params.get("num_images") or 1)
+    paths: list[str] = []
+    for index in range(count):
+        path = output_dir / f"out_{index}.png"
+        path.write_bytes(b"\x89PNG\r\n\x1a\n")
+        paths.append(str(path))
+    return {"status": "completed", "output_images": paths, "message": "generation delegated"}
+
+
+def _score_evaluator(params: dict[str, Any]) -> dict[str, Any]:
+    scores = {str(metric): 1.5 for metric in params.get("metrics") or []}
+    return {"job_id": "eval-double", "status": "completed", "scores": scores, "message": "evaluation delegated"}
+
+
+def _label_scorer(params: dict[str, Any]) -> dict[str, Any]:
+    prompts = list(params.get("prompts") or [])
+    predictions = [{"label": str(prompt), "score": 0.75} for prompt in prompts]
+    return {"job_id": "infer-double", "predictions": predictions, "message": "inference delegated"}
+
+
 def test_dl_service_train_and_status(tmp_path: Path) -> None:
-    svc = DeepLearningService()
+    svc = DeepLearningService(trainer=_running_trainer)
     dataset = tmp_path / "dataset"
     dataset.mkdir()
     out_dir = tmp_path / "runs"
@@ -40,8 +81,31 @@ def test_dl_service_train_and_status(tmp_path: Path) -> None:
     assert status["status"] in ("running", "success")
 
 
+def test_dl_service_train_missing_dataset(tmp_path: Path) -> None:
+    called = False
+
+    def trainer(_params: dict[str, Any]) -> dict[str, Any]:
+        nonlocal called
+        called = True
+        return {"started": True, "status": "running", "run_id": "should-not-run"}
+
+    svc = DeepLearningService(trainer=trainer)
+    out_dir = tmp_path / "runs"
+    res = svc.train({
+        "model_architecture": "basic_gan",
+        "dataset_path": str(tmp_path / "missing-dataset"),
+        "output_dir": str(out_dir),
+    })
+
+    assert called is False
+    assert res["started"] is False
+    assert res["status"] == "unavailable"
+    assert "missing" in res["message"]
+    assert not out_dir.exists()
+
+
 def test_dl_service_cancel(tmp_path: Path) -> None:
-    svc = DeepLearningService()
+    svc = DeepLearningService(trainer=_running_trainer)
     dataset = tmp_path / "dataset"
     dataset.mkdir()
     out_dir = tmp_path / "runs"
@@ -55,14 +119,15 @@ def test_dl_service_cancel(tmp_path: Path) -> None:
     run_id = res["run_id"]
 
     cancel_res = svc.cancel(run_id)
-    assert cancel_res["canceled"] is True
+    assert cancel_res["canceled"] is False
 
     status = svc.status(run_id, res["run_dir"])
-    assert status["status"] == "cancel"
+    assert status["run_id"] == run_id
+    assert status["status"] == "running"
 
 
 def test_dl_service_generate(tmp_path: Path) -> None:
-    svc = DeepLearningService()
+    svc = DeepLearningService(generator=_png_generator)
     out_dir = tmp_path / "gen_out"
 
     res = svc.generate({
@@ -82,7 +147,7 @@ def test_dl_service_generate(tmp_path: Path) -> None:
 
 
 def test_dl_service_evaluate(tmp_path: Path) -> None:
-    svc = DeepLearningService()
+    svc = DeepLearningService(evaluator=_score_evaluator)
     model = tmp_path / "model.pkl"
     model.write_text("weights")
     dataset = tmp_path / "eval_data"
@@ -102,7 +167,7 @@ def test_dl_service_evaluate(tmp_path: Path) -> None:
 
 
 def test_dl_service_infer(tmp_path: Path) -> None:
-    svc = DeepLearningService()
+    svc = DeepLearningService(scorer=_label_scorer)
     img = tmp_path / "input.png"
     img.write_text("fake image")
 
@@ -154,7 +219,48 @@ def test_dl_service_comfy() -> None:
 
 
 def test_sidecar_dl_dispatch(tmp_path: Path) -> None:
-    svc = DeepLearningService()
+    dataset = tmp_path / "data"
+    dataset.mkdir()
+    out = tmp_path / "out"
+    out.mkdir()
+    model = out / "model.pt"
+    model.write_text("weights")
+    image = out / "img.png"
+    image.write_bytes(b"png")
+
+    def trainer(_params: dict[str, Any]) -> dict[str, Any]:
+        run_dir = out / "run-dispatch"
+        run_dir.mkdir()
+        (run_dir / "record.json").write_text(
+            json.dumps({"run_id": "run-dispatch", "status": "running", "epochs": 2}),
+            encoding="utf-8",
+        )
+        (run_dir / "events.jsonl").write_text(
+            json.dumps({"step": 1, "total_steps": 2, "loss": 0.5}) + "\n",
+            encoding="utf-8",
+        )
+        return {
+            "run_id": "run-dispatch",
+            "run_dir": str(run_dir),
+            "status": "running",
+            "started": True,
+            "message": "training delegated",
+        }
+
+    def generator(_params: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "job_id": "gen-dispatch",
+            "status": "completed",
+            "output_images": [str(out / "gen.png")],
+            "message": "generation delegated",
+        }
+
+    svc = DeepLearningService(
+        trainer=trainer,
+        generator=generator,
+        evaluator=_score_evaluator,
+        scorer=_label_scorer,
+    )
     server = SidecarServer(
         stdin=io.StringIO(),
         stdout=io.StringIO(),
@@ -176,9 +282,6 @@ def test_sidecar_dl_dispatch(tmp_path: Path) -> None:
     assert res.get("result", {}).get("protocol") == "image-toolkit-bridge"
 
     # dl.train
-    dataset = tmp_path / "data"
-    dataset.mkdir()
-    out = tmp_path / "out"
     train_frame = {
         "jsonrpc": "2.0",
         "id": "2",
@@ -199,7 +302,7 @@ def test_sidecar_dl_dispatch(tmp_path: Path) -> None:
         "jsonrpc": "2.0",
         "id": "3",
         "method": "dl.status",
-        "params": {"run_id": run_id},
+        "params": {"run_id": run_id, "run_dir": str(out / "run-dispatch")},
     }
     status_res = server.handle_frame(status_frame)
     assert "result" in status_res
@@ -214,7 +317,7 @@ def test_sidecar_dl_dispatch(tmp_path: Path) -> None:
     }
     cancel_res = server.handle_frame(cancel_frame)
     assert "result" in cancel_res
-    assert cancel_res["result"]["canceled"] is True
+    assert cancel_res["result"]["canceled"] is False
 
     # dl.generate
     gen_frame = {

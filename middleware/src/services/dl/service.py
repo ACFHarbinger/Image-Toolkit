@@ -8,23 +8,12 @@ sidecar capability methods without Qt or top-level torch/numpy dependencies.
 from __future__ import annotations
 
 import importlib.util
-import json
-import os
 import sys
 import threading
-import time
-import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from middleware.src.services.dl.inspect import inspect_run
-
-# Minimal valid 1x1 RGBA PNG bytes for headless test/mock generation outputs
-_MOCK_PNG_BYTES = (
-    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08"
-    b"\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\rIDATx\x9cc\xf8\xff\xff?\x00\x05"
-    b"\xfe\x02\xfe\r\xefe\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
-)
 
 _TRAINING_MODULE: Any = None
 
@@ -49,8 +38,20 @@ def _get_training_runs_module() -> Any:
 class DeepLearningService:
     """Headless service coordinator for Deep Learning and ComfyUI runs."""
 
-    def __init__(self, comfy_manager: Any = None) -> None:
+    def __init__(
+        self,
+        comfy_manager: Any = None,
+        *,
+        trainer: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+        generator: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+        evaluator: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+        scorer: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+    ) -> None:
         self._comfy_manager = comfy_manager
+        self._trainer = trainer
+        self._generator = generator
+        self._evaluator = evaluator
+        self._scorer = scorer
         self._active_runs: dict[str, dict[str, Any]] = {}
         self._runs_lock = threading.Lock()
 
@@ -59,97 +60,24 @@ class DeepLearningService:
         return inspect_run(run_dir)
 
     def train(self, params: dict[str, Any]) -> dict[str, Any]:
-        """Start a headless deep learning training run."""
-        model_architecture = str(params["model_architecture"])
-        dataset_path = str(params["dataset_path"])
-        output_dir = Path(str(params["output_dir"]))
-        output_name = str(params.get("output_name") or f"{model_architecture}-train")
-        epochs = int(params.get("epochs") or 10)
-        batch_size = int(params.get("batch_size") or 4)
-        learning_rate = float(params.get("learning_rate") or 0.001)
-        device = str(params.get("device") or "cpu")
-        config = params.get("config") or {}
-
-        tr = _get_training_runs_module()
-        run_id = tr.new_run_id(output_name)
-        run_dir = output_dir / run_id
-        run_dir.mkdir(parents=True, exist_ok=True)
-
-        record = {
-            "run_id": run_id,
-            "output_name": output_name,
-            "model_architecture": model_architecture,
-            "engine": model_architecture,
-            "model_id": model_architecture,
-            "dataset_path": dataset_path,
-            "epochs": epochs,
-            "batch_size": batch_size,
-            "learning_rate": learning_rate,
-            "device": device,
-            "config": config,
-            "status": tr.STATUS_RUNNING,
-            "events_file": tr.EVENTS_FILE_NAME,
-        }
-        tr.write_run_record(run_dir, record)
-
-        init_event = {
-            "step": 0,
-            "total_steps": epochs,
-            "loss": 1.0,
-            "timestamp": time.time(),
-            "event": "started",
-        }
-        with open(tr.events_path(run_dir), "a", encoding="utf-8") as f:
-            f.write(json.dumps(init_event) + "\n")
-
-        cancel_event = threading.Event()
-        with self._runs_lock:
-            self._active_runs[run_id] = {
-                "run_id": run_id,
-                "run_dir": run_dir,
-                "status": tr.STATUS_RUNNING,
-                "step": 0,
-                "total_steps": epochs,
-                "loss": 1.0,
-                "cancel": cancel_event,
+        """Start a training run when a trainer engine is injected."""
+        dataset_raw = params.get("dataset_path")
+        dataset_path = Path(str(dataset_raw)) if dataset_raw not in (None, "") else None
+        if dataset_path is None or not dataset_path.is_dir():
+            shown = "" if dataset_raw in (None, "") else str(dataset_raw)
+            message = "dataset is missing" if not shown else f"dataset is missing: {shown}"
+            return {
+                "started": False,
+                "status": "unavailable",
+                "message": message,
             }
-
-        def _worker() -> None:
-            for step in range(1, epochs + 1):
-                if cancel_event.is_set():
-                    tr.finish_run(run_dir, tr.STATUS_CANCEL)
-                    with self._runs_lock:
-                        if run_id in self._active_runs:
-                            self._active_runs[run_id]["status"] = tr.STATUS_CANCEL
-                    return
-                time.sleep(0.01)
-                loss = round(max(0.01, 1.0 - (step / max(epochs, 1)) * 0.85), 4)
-                with self._runs_lock:
-                    if run_id in self._active_runs:
-                        self._active_runs[run_id]["step"] = step
-                        self._active_runs[run_id]["loss"] = loss
-                ev = {
-                    "step": step,
-                    "total_steps": epochs,
-                    "loss": loss,
-                    "timestamp": time.time(),
-                }
-                with open(tr.events_path(run_dir), "a", encoding="utf-8") as f:
-                    f.write(json.dumps(ev) + "\n")
-            tr.finish_run(run_dir, tr.STATUS_SUCCESS)
-            with self._runs_lock:
-                if run_id in self._active_runs:
-                    self._active_runs[run_id]["status"] = tr.STATUS_SUCCESS
-
-        threading.Thread(target=_worker, daemon=True, name=f"dl-train-{run_id}").start()
-
-        return {
-            "run_id": run_id,
-            "run_dir": str(run_dir),
-            "status": tr.STATUS_RUNNING,
-            "started": True,
-            "message": f"Training run started for {model_architecture}",
-        }
+        if self._trainer is None:
+            return {
+                "started": False,
+                "status": "unavailable",
+                "message": "training engine is unavailable",
+            }
+        return self._trainer(params)
 
     def status(self, run_id: str, run_dir: str | None = None) -> dict[str, Any]:
         """Query execution and telemetry status for a training run."""
@@ -222,72 +150,64 @@ class DeepLearningService:
         }
 
     def generate(self, params: dict[str, Any]) -> dict[str, Any]:
-        """Run headless generative model synthesis."""
-        model_architecture = str(params["model_architecture"])
-        output_dir = Path(str(params["output_dir"]))
-        output_dir.mkdir(parents=True, exist_ok=True)
-        num_images = max(1, int(params.get("num_images") or 1))
-        job_id = f"gen-{uuid.uuid4().hex[:8]}"
-
-        output_paths: list[str] = []
-        for i in range(num_images):
-            filename = f"{job_id}_{i:03d}.png"
-            file_path = output_dir / filename
-            file_path.write_bytes(_MOCK_PNG_BYTES)
-            output_paths.append(str(file_path))
-
-        return {
-            "job_id": job_id,
-            "status": "completed",
-            "output_images": output_paths,
-            "message": f"Generated {len(output_paths)} image(s) using {model_architecture}",
-        }
+        """Run generative synthesis when a generator engine is injected."""
+        if self._generator is None:
+            return {
+                "status": "unavailable",
+                "output_images": [],
+                "message": "generation engine is unavailable",
+            }
+        return self._generator(params)
 
     def evaluate(self, params: dict[str, Any]) -> dict[str, Any]:
-        """Run headless generative model evaluation."""
-        model_path = str(params["model_path"])
-        dataset_path = str(params["dataset_path"])
-        metrics = params.get("metrics") or ["fid", "kid"]
-        job_id = f"eval-{uuid.uuid4().hex[:8]}"
-
-        scores: dict[str, float] = {}
-        for m in metrics:
-            m_lower = str(m).lower()
-            if "fid" in m_lower:
-                scores[str(m)] = 12.45
-            elif "kid" in m_lower:
-                scores[str(m)] = 0.0082
-            elif "pr" in m_lower or "precision" in m_lower:
-                scores[str(m)] = 0.892
-            elif "is" in m_lower or "inception" in m_lower:
-                scores[str(m)] = 4.15
-            else:
-                scores[str(m)] = 1.0
-
-        return {
-            "job_id": job_id,
-            "status": "completed",
-            "scores": scores,
-            "message": f"Evaluation completed for model {Path(model_path).name} on {Path(dataset_path).name}",
-        }
+        """Score a model when an evaluator engine is injected."""
+        missing: list[str] = []
+        model_raw = params.get("model_path")
+        dataset_raw = params.get("dataset_path")
+        if model_raw in (None, "") or not Path(str(model_raw)).exists():
+            missing.append(
+                "model path is missing"
+                if model_raw in (None, "")
+                else f"model path is missing: {model_raw}"
+            )
+        if dataset_raw in (None, "") or not Path(str(dataset_raw)).exists():
+            missing.append(
+                "dataset path is missing"
+                if dataset_raw in (None, "")
+                else f"dataset path is missing: {dataset_raw}"
+            )
+        if missing:
+            return {
+                "status": "unavailable",
+                "scores": {},
+                "message": "; ".join(missing),
+            }
+        if self._evaluator is None:
+            return {
+                "status": "unavailable",
+                "scores": {},
+                "message": "evaluation engine is unavailable",
+            }
+        return self._evaluator(params)
 
     def infer(self, params: dict[str, Any]) -> dict[str, Any]:
-        """Run headless model inference."""
-        model_version = str(params["model_version"])
-        image_path = str(params["image_path"])
-        prompts = params.get("prompts") or ["anime", "illustration", "photo"]
-        job_id = f"infer-{uuid.uuid4().hex[:8]}"
-
-        predictions: list[dict[str, Any]] = []
-        for i, prompt in enumerate(prompts):
-            score = round(max(0.05, 0.88 - (i * 0.22)), 4)
-            predictions.append({"label": str(prompt), "score": score})
-
-        return {
-            "job_id": job_id,
-            "predictions": predictions,
-            "message": f"Inference completed for {Path(image_path).name} with {model_version}",
-        }
+        """Score prompts for an image when a scorer engine is injected."""
+        image_raw = params.get("image_path")
+        if image_raw in (None, "") or not Path(str(image_raw)).exists():
+            shown = "" if image_raw in (None, "") else str(image_raw)
+            message = "image is missing" if not shown else f"image is missing: {shown}"
+            return {
+                "predictions": [],
+                "status": "unavailable",
+                "message": message,
+            }
+        if self._scorer is None:
+            return {
+                "predictions": [],
+                "status": "unavailable",
+                "message": "inference engine is unavailable",
+            }
+        return self._scorer(params)
 
     # ------------------------------------------------------------------
     # ComfyUI Integration
