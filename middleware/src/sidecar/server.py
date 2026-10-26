@@ -88,6 +88,10 @@ from middleware.src.sidecar.handlers.settings import (
     handle_settings_set_many,
 )
 from middleware.src.sidecar.handlers.similarity import handle_compare
+from middleware.src.sidecar.handlers.webreq import (
+    handle_webreq_execute,
+    handle_webreq_sequence,
+)
 from middleware.src.sidecar.jobs import JobRegistry
 
 # Distinct from a handler result: cloud and settings routes may return None.
@@ -110,6 +114,7 @@ class SidecarServer:
         scan_service: Any | None = None,
         library_store: Any | None = None,
         library_admin_store: Any | None = None,
+        webreq_service: Any | None = None,
         hie_service: Any | None = None,
     ) -> None:
         self.table = table or catalog()
@@ -122,6 +127,7 @@ class SidecarServer:
         self.scan_service = scan_service
         self.library_store = library_store
         self.library_admin_store = library_admin_store
+        self.webreq_service = webreq_service
         self.hie_service = hie_service or HieService()
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self.cloud_service = None
@@ -324,7 +330,17 @@ class SidecarServer:
         hie = self._dispatch_hie(method, params)
         if hie is not _UNHANDLED:
             return hie
+        webreq = self._dispatch_webreq(method, params)
+        if webreq is not _UNHANDLED:
+            return webreq
         return self._dispatch_web(method, params)
+
+    def _dispatch_webreq(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "webreq.execute":
+            return handle_webreq_execute(self.webreq_service, params)
+        if method == "webreq.sequence":
+            return handle_webreq_sequence(self.webreq_service, params)
+        return _UNHANDLED
 
     def _dispatch_hie(self, method: str, params: dict[str, Any]) -> Any:
         if method == "hie.open_document":

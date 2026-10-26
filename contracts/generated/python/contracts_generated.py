@@ -1,4 +1,4 @@
-# GENERATED — contract hash fd88a7fef136d55677f1b54786db5f5cc6ad804b203c2f6e41cebc765dabefbd. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash d4c2f9f05e94f415f5a6aecc1d7684c3dcd8e9bd27a3076fe28a1c5cfdf5a174. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -998,6 +998,69 @@ class HandshakeResult:
 @dataclass(frozen=True)
 class PingResult:
     ok: Literal[True]
+
+
+@dataclass(frozen=True)
+class ActionItem:
+    type: str
+    param: str | None = None
+
+
+@dataclass(frozen=True)
+class ExecuteParams:
+    url: str
+    method: str | None = None
+    headers: (dict[str, str]) | None = None
+    body: str | None = None
+    timeout_seconds: int | None = None
+
+
+@dataclass(frozen=True)
+class ExecuteResult:
+    url: str
+    status_code: int
+    status_text: str
+    headers: dict[str, str]
+    content_type: str
+    body: str
+    duration_ms: float
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class RequestItem:
+    type: str
+    param: str | None = None
+    headers: (dict[str, str]) | None = None
+
+
+@dataclass(frozen=True)
+class SequenceItemResult:
+    index: int
+    url: str
+    method: str
+    status_code: int
+    saved_path: (str | None) | None = None
+    error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class SequenceParams:
+    base_url: str
+    requests: list[RequestItem]
+    actions: list[ActionItem]
+    timeout_seconds: int | None = None
+
+
+@dataclass(frozen=True)
+class SequenceResult:
+    status: str
+    base_url: str
+    total_requests: int
+    completed_requests: int
+    logs: list[str]
+    items: list[SequenceItemResult]
+    message: str
 
 
 JobSpecDocument = dict[str, Any]

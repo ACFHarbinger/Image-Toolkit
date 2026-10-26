@@ -1,4 +1,5 @@
 import type { ScanDirectoryParams, ScanDirectoryResult, SaveMetadataParams, SaveMetadataResult, SuggestTagsParams, SuggestTagsResult } from "../../../contracts/generated/ts";
+import type { ExecuteParams, ExecuteResult, SequenceParams, SequenceResult } from "../../../contracts/generated/ts";
 import type { BrowseParams, BrowseResult, CatalogResult, MutateParams, MutateResult } from "../../../contracts/generated/ts";
 import type {
   EditParams,
@@ -356,6 +357,14 @@ export class HostClient {
     return this.send<SuggestTagsResult>("scan.suggest_tags", params as unknown as Record<string, unknown>);
   }
 
+  async webreqExecute(params: ExecuteParams): Promise<ExecuteResult> {
+    await this.connect();
+    return this.send<ExecuteResult>("webreq.execute", params as unknown as Record<string, unknown>);
+  }
+
+  async webreqSequence(params: SequenceParams): Promise<SequenceResult> {
+    await this.connect();
+    return this.send<SequenceResult>("webreq.sequence", params as unknown as Record<string, unknown>);
   async hieOpenDocument(params: OpenDocumentParams): Promise<OpenDocumentResult> {
     await this.connect();
     return this.send<OpenDocumentResult>("hie.open_document", params as unknown as Record<string, unknown>);

@@ -12,6 +12,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Web: Requests pipeline and single-request execution** (Tauri migration Wave 5, B-02 #907).
+  - **Contracts & Capability:** added `webreq` capability (`webreq.execute`, `webreq.sequence`) with schema `contracts/schemas/capability/webreq.json` and method routing in `contracts/methods.toml`.
+  - **Service Layer:** `middleware/src/services/webreq/` implementing `WebRequestsServiceProtocol` (`WebRequestsService`, `ExecuteHandler`, `SequenceHandler`) backed by native C++ `backend.run_web_requests_sequence` / `WebRequestsLogic` and Python fallback. Gate B compliant: no database access.
+  - **Frontend View:** modular React view `WebRequestsView.tsx` (< 450 LoC) replacing legacy simulated tab in `frontend/src/views/web/WebRequestsView.tsx`, mounted in `CatalogView` for `web.requests`.
+  - **HostClient API:** added `webreqExecute` and `webreqSequence` methods to `HostClient`.
+  - **Ledger & Docs:** registered in `migration/features.toml` (`owner = "Gemini"`, `contract = "webreq"`), docs in `docs/modules/webreq.md`.
 - **Hybrid Image Editor capability and webview integration** (Tauri migration Wave 8, E-02 #915):
   - **Contracts & Capability:** added `hie` capability (`hie.open_document`, `hie.execute_edit`, `hie.export_document`, `hie.list_capabilities`) with schema `contracts/schemas/capability/hie.json` and method routing in `contracts/methods.toml`.
   - **Service Layer:** canonical domain service in `middleware/src/services/hie/` (`commands.py`, `protocols.py`, `service.py`) delegating to HIE document session and render-graph operations with graceful offline fallback.

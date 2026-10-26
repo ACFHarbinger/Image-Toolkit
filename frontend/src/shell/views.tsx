@@ -16,6 +16,12 @@ import { ScanMetadataView } from "../views/library/ScanMetadataView";
 import { DriveSyncView } from "../views/web/DriveSyncView";
 import { MediaLoaderView } from "../views/web/MediaLoaderView";
 import ImageCrawlerTab from "../tabs/web/ImageCrawlerTab";
+import ReverseSearchTab from "../tabs/web/ReverseSearchTab";
+import { WebRequestsView } from "../views/web/WebRequestsView";
+import { UnifiedTrainTab } from "../tabs/models/UnifiedTrainTab";
+import { UnifiedGenerateTab } from "../tabs/models/UnifiedGenerateTab";
+import { MetaCLIPInferenceTab } from "../tabs/models/MetaCLIPInferenceTab";
+import { R3GANEvaluateTab } from "../tabs/models/R3GANEvaluateTab";
 import { ReverseSearchView } from "../views/web/ReverseSearch";
 import WebRequestsTab from "../tabs/web/WebRequestsTab";
 import { BenchmarkDashboard } from "../tabs/apollo/BenchmarkDashboard";
@@ -86,6 +92,8 @@ export const CATALOG_VIEWS: Record<string, ComponentType<any>> = {
   "library.data-browser": DataBrowser,
   "library.scan": ScanMetadataView,
   "web.crawler": ImageCrawlerTab,
+  "web.requests": WebRequestsView,
+  "web.drive-sync": DriveSyncTab,
   "web.requests": WebRequestsTab,
   "web.drive-sync": DriveSyncView,
   "web.media-loader": MediaLoaderView,
