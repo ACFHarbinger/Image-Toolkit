@@ -1,5 +1,20 @@
 import type { ScanDirectoryParams, ScanDirectoryResult, SaveMetadataParams, SaveMetadataResult, SuggestTagsParams, SuggestTagsResult } from "../../../contracts/generated/ts";
+import type { ExecuteParams, ExecuteResult, SequenceParams, SequenceResult } from "../../../contracts/generated/ts";
 import type { BrowseParams, BrowseResult, CatalogResult, MutateParams, MutateResult } from "../../../contracts/generated/ts";
+import type {
+  CrawlParams,
+  CrawlResult,
+  CrawlerSupportedParams,
+  CrawlerSupportedResult,
+  EditParams,
+  EditResult,
+  ExportDocumentParams,
+  ExportDocumentResult,
+  ListCapabilitiesParams,
+  ListCapabilitiesResult,
+  OpenDocumentParams,
+  OpenDocumentResult,
+} from "../../../contracts/generated/ts";
 import type {
   BridgeResponse,
   CancelResult,
@@ -7,6 +22,10 @@ import type {
   ConvertBatchResult,
   CloudSubmitParams,
   CloudSubmitResult,
+  EntityReconDescribeResult,
+  EntityReconResolveParams,
+  EntityReconResolveResult,
+  ProvidersResult as CloudSetupProvidersResult,
   ConvertParams,
   ConvertResult,
   DescribeParams,
@@ -17,8 +36,22 @@ import type {
   ConcatenateResult,
   CompareParams,
   CompareResult,
+  AuthStatusParams,
+  AuthStatusResult,
   ProbeParams,
   ProbeResult,
+  StitchStatusResult,
+  PrefsDescribeResult,
+  LogsReadParams,
+  LogsReadResult,
+  MetadataDescribeParams,
+  MetadataDescribeResult,
+  DlInspectParams,
+  DlInspectResult,
+  DriveSyncPlanParams,
+  DriveSyncPlanResult,
+  MediaPlanParams,
+  MediaPlanResult,
   FrameParams,
   FrameResult,
   GetManyParams,
@@ -27,6 +60,9 @@ import type {
   ListImagesResult,
   ListGroupsResult,
   ListTagsResult,
+  EnginesResult as ReverseEnginesResult,
+  SearchParams as ReverseSearchParams,
+  SearchResult as ReverseSearchResult,
   GetParams,
   GetResult,
   PrefillParams,
@@ -120,6 +156,19 @@ export class HostClient {
     return this.send<ListResult>("jobs.list", params as unknown as Record<string, unknown>);
   }
 
+  async entityReconDescribe(): Promise<EntityReconDescribeResult> {
+    await this.connect();
+    return this.send<EntityReconDescribeResult>("entity_recon.describe", {});
+  }
+
+  async entityReconResolve(params: EntityReconResolveParams): Promise<EntityReconResolveResult> {
+    await this.connect();
+    return this.send<EntityReconResolveResult>("entity_recon.resolve", params as unknown as Record<string, unknown>);
+  async cloudSetupProviders(): Promise<CloudSetupProvidersResult> {
+    await this.connect();
+    return this.send<CloudSetupProvidersResult>("cloud_setup.providers", {});
+  }
+
   async cloudJobsSummary(): Promise<SummaryResult> {
     await this.connect();
     return this.send<SummaryResult>("cloud_jobs.summary", {});
@@ -190,6 +239,33 @@ export class HostClient {
     return this.send<ProbeResult>("extractor.probe", params as unknown as Record<string, unknown>);
   }
 
+  async stitchStatus(route: string): Promise<StitchStatusResult> {
+    await this.connect();
+    return this.send<StitchStatusResult>("stitch.status", { route });
+  async logsRead(params: LogsReadParams): Promise<LogsReadResult> {
+    await this.connect();
+    return this.send<LogsReadResult>("logs.read", params as unknown as Record<string, unknown>);
+  }
+
+  async metadataDescribe(params: MetadataDescribeParams): Promise<MetadataDescribeResult> {
+    await this.connect();
+    return this.send<MetadataDescribeResult>("metadata.describe", params as unknown as Record<string, unknown>);
+  async dlInspect(params: DlInspectParams): Promise<DlInspectResult> {
+    await this.connect();
+    return this.send<DlInspectResult>("dl.inspect", params as unknown as Record<string, unknown>);
+  async driveSyncPlan(params: DriveSyncPlanParams): Promise<DriveSyncPlanResult> {
+    await this.connect();
+    return this.send<DriveSyncPlanResult>("drive_sync.plan", params as unknown as Record<string, unknown>);
+  }
+
+  async mediaLoaderPlan(params: MediaPlanParams): Promise<MediaPlanResult> {
+    await this.connect();
+    return this.send<MediaPlanResult>("media_loader.plan", params as unknown as Record<string, unknown>);
+  async authStatus(params: AuthStatusParams): Promise<AuthStatusResult> {
+    await this.connect();
+    return this.send<AuthStatusResult>("auth.status", params as unknown as Record<string, unknown>);
+  }
+
   async cloudOfferPrefill(params: PrefillParams): Promise<PrefillResult> {
     await this.connect();
     return this.send<PrefillResult>("cloud_offer.prefill", params as unknown as Record<string, unknown>);
@@ -229,6 +305,12 @@ export class HostClient {
     return this.send<SetManyResult>("settings.set_many", params as unknown as Record<string, unknown>);
   }
 
+  /** Settings window sections. Does not open the vault or change a password. */
+  async prefsDescribe(account: string): Promise<PrefsDescribeResult> {
+    await this.connect();
+    return this.send<PrefsDescribeResult>("prefs.describe", { account });
+  }
+
   async listLibraryImages(params: ListImagesParams = {}): Promise<ListImagesResult> {
     await this.connect();
     return this.send<ListImagesResult>("library.list_images", params as unknown as Record<string, unknown>);
@@ -242,6 +324,16 @@ export class HostClient {
   async listLibraryGroups(): Promise<ListGroupsResult> {
     await this.connect();
     return this.send<ListGroupsResult>("library.list_groups", {});
+  }
+
+  async reverseSearchEngines(): Promise<ReverseEnginesResult> {
+    await this.connect();
+    return this.send<ReverseEnginesResult>("reverse_search.engines", {});
+  }
+
+  async reverseSearch(params: ReverseSearchParams): Promise<ReverseSearchResult> {
+    await this.connect();
+    return this.send<ReverseSearchResult>("reverse_search.search", params as unknown as Record<string, unknown>);
   }
 
   async libraryAdminCatalog(): Promise<CatalogResult> {
@@ -278,6 +370,42 @@ export class HostClient {
   async scanSuggestTags(params: SuggestTagsParams): Promise<SuggestTagsResult> {
     await this.connect();
     return this.send<SuggestTagsResult>("scan.suggest_tags", params as unknown as Record<string, unknown>);
+  }
+
+  async crawlerCrawl(params: CrawlParams): Promise<CrawlResult> {
+    await this.connect();
+    return this.send<CrawlResult>("crawler.crawl", params as unknown as Record<string, unknown>);
+  }
+
+  async crawlerListSupported(params?: CrawlerSupportedParams): Promise<CrawlerSupportedResult> {
+    await this.connect();
+    return this.send<CrawlerSupportedResult>("crawler.list_supported", (params ?? {}) as Record<string, unknown>);
+  async webreqExecute(params: ExecuteParams): Promise<ExecuteResult> {
+    await this.connect();
+    return this.send<ExecuteResult>("webreq.execute", params as unknown as Record<string, unknown>);
+  }
+
+  async webreqSequence(params: SequenceParams): Promise<SequenceResult> {
+    await this.connect();
+    return this.send<SequenceResult>("webreq.sequence", params as unknown as Record<string, unknown>);
+  async hieOpenDocument(params: OpenDocumentParams): Promise<OpenDocumentResult> {
+    await this.connect();
+    return this.send<OpenDocumentResult>("hie.open_document", params as unknown as Record<string, unknown>);
+  }
+
+  async hieExecuteEdit(params: EditParams): Promise<EditResult> {
+    await this.connect();
+    return this.send<EditResult>("hie.execute_edit", params as unknown as Record<string, unknown>);
+  }
+
+  async hieExportDocument(params: ExportDocumentParams): Promise<ExportDocumentResult> {
+    await this.connect();
+    return this.send<ExportDocumentResult>("hie.export_document", params as unknown as Record<string, unknown>);
+  }
+
+  async hieListCapabilities(params?: ListCapabilitiesParams): Promise<ListCapabilitiesResult> {
+    await this.connect();
+    return this.send<ListCapabilitiesResult>("hie.list_capabilities", (params ?? {}) as Record<string, unknown>);
   }
 
   onEvent(listener: Parameters<NonNullable<BridgeTransport["onEvent"]>>[0]): () => void {

@@ -1,17 +1,21 @@
-import { forwardRef, useState, useImperativeHandle } from "react";
+import { forwardRef, useEffect, useState, useImperativeHandle } from "react";
 import { Globe, Download, Settings, Play, Plus, Trash2 } from "lucide-react";
+import type { HostClient } from "../../hostclient";
 
-interface ImageCrawlerTabProps {
+export interface ImageCrawlerTabProps {
   showModal: (
     message: string,
     type: "info" | "success" | "error",
     duration?: number,
   ) => void;
+  hostClient?: HostClient;
 }
 
 const ImageCrawlerTab = forwardRef((props: ImageCrawlerTabProps, ref) => {
   const [crawlerType, setCrawlerType] = useState("General Web Crawler");
   const [downloadDir, setDownloadDir] = useState("");
+  const [isRunning, setIsRunning] = useState(false);
+  const [lastResult, setLastResult] = useState<{ downloaded?: number; error?: string } | null>(null);
 
   // General Settings
   const [targetUrl, setTargetUrl] = useState("");
@@ -23,6 +27,12 @@ const ImageCrawlerTab = forwardRef((props: ImageCrawlerTabProps, ref) => {
   const [boardUrl, setBoardUrl] = useState("https://danbooru.donmai.us");
   const [tags, setTags] = useState("");
   const [limit, setLimit] = useState("20");
+
+  useEffect(() => {
+    if (props.hostClient?.crawlerListSupported) {
+      void props.hostClient.crawlerListSupported().catch(() => {});
+    }
+  }, [props.hostClient]);
 
   useImperativeHandle(ref, () => ({
     getData: () => ({ crawlerType, downloadDir, targetUrl }),
@@ -40,11 +50,51 @@ const ImageCrawlerTab = forwardRef((props: ImageCrawlerTabProps, ref) => {
     setActions(actions.filter((_, i) => i !== idx));
   };
 
-  const handleRun = () => {
-    props.showModal(
-      `Starting ${crawlerType}...\nTarget: ${crawlerType.includes("General") ? targetUrl : boardUrl}`,
-      "success",
-    );
+  const handleRun = async () => {
+    const isGeneral = crawlerType === "General Web Crawler";
+    let mappedType: "general" | "danbooru" | "gelbooru" | "sankaku" | "safebooru" = "general";
+    if (crawlerType.includes("Danbooru")) mappedType = "danbooru";
+    else if (crawlerType.includes("Gelbooru")) mappedType = "gelbooru";
+    else if (crawlerType.includes("Sankaku")) mappedType = "sankaku";
+
+    const dir = downloadDir.trim() || "/tmp/crawler_downloads";
+
+    if (props.hostClient?.crawlerCrawl) {
+      setIsRunning(true);
+      props.showModal(`Starting ${crawlerType}...`, "info", 2000);
+      try {
+        const res = await props.hostClient.crawlerCrawl({
+          crawler_type: mappedType,
+          download_dir: dir,
+          url: isGeneral ? targetUrl : boardUrl,
+          tags: isGeneral ? undefined : tags,
+          limit: isGeneral ? undefined : parseInt(limit, 10) || 20,
+          actions: isGeneral && actions.length > 0 ? actions : undefined,
+        });
+        if (res.success) {
+          setLastResult({ downloaded: res.total_downloaded });
+          props.showModal(
+            `Crawl finished successfully! Downloaded ${res.total_downloaded} items to ${res.download_dir}`,
+            "success",
+          );
+        } else {
+          const err = res.errors.join("; ") || "Crawl operation failed";
+          setLastResult({ error: err });
+          props.showModal(`Crawl error: ${err}`, "error");
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setLastResult({ error: msg });
+        props.showModal(`Failed to execute crawl: ${msg}`, "error");
+      } finally {
+        setIsRunning(false);
+      }
+    } else {
+      props.showModal(
+        `Starting ${crawlerType}...\nTarget: ${isGeneral ? targetUrl : boardUrl}`,
+        "success",
+      );
+    }
   };
 
   return (
@@ -266,11 +316,25 @@ const ImageCrawlerTab = forwardRef((props: ImageCrawlerTabProps, ref) => {
         </div>
       </div>
 
+      {lastResult && (
+        <div
+          data-testid="crawler-status-banner"
+          className={`p-3 rounded-lg text-sm ${
+            lastResult.error
+              ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+              : "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+          }`}
+        >
+          {lastResult.error ? `Error: ${lastResult.error}` : `Completed: ${lastResult.downloaded} items downloaded.`}
+        </div>
+      )}
+
       <button
         onClick={handleRun}
-        className="w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold rounded-lg shadow-md hover:opacity-90 flex items-center justify-center gap-2"
+        disabled={isRunning}
+        className="w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold rounded-lg shadow-md hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
       >
-        <Play size={20} /> Run Crawler
+        <Play size={20} /> {isRunning ? "Crawling..." : "Run Crawler"}
       </button>
     </div>
   );

@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/reverse_search.json",
+  "title": "ReverseSearchCapability",
+  "description": "Reverse image search over the middleware strategies (B-05 / #910): the SUPPORTED_ENGINES catalog and one search run routed onto ReverseImageSearchManager. Engines make live network or browser calls at the user's request; the bridge carries the commands.",
+  "type": "object",
+  "$defs": {
+    "EngineRecord": {
+      "title": "EngineRecord",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "enum": [
+            "bing",
+            "google",
+            "iqdb",
+            "local_cbir",
+            "saucenao",
+            "tineye",
+            "yandex"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "EnginesResult": {
+      "title": "EnginesResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "engines"
+      ],
+      "properties": {
+        "engines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EngineRecord"
+          }
+        }
+      }
+    },
+    "SearchParams": {
+      "title": "SearchParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "engine",
+        "image_path"
+      ],
+      "properties": {
+        "engine": {
+          "type": "string",
+          "enum": [
+            "bing",
+            "google",
+            "iqdb",
+            "local_cbir",
+            "saucenao",
+            "tineye",
+            "yandex"
+          ]
+        },
+        "image_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "roi": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "ReverseSearchResultItem": {
+      "title": "ReverseSearchResultItem",
+      "description": "One hit; the legacy ReverseSearchResult.to_dict shape with score normalized to a number.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "engine",
+        "score"
+      ],
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "engine": {
+          "type": "string"
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0
+        },
+        "resolution": {
+          "type": "string"
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "SearchResult": {
+      "title": "SearchResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ok",
+        "engine",
+        "results"
+      ],
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "engine": {
+          "type": "string"
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReverseSearchResultItem"
+          }
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "ReverseSearchEmptyParams": {
+      "title": "ReverseSearchEmptyParams",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    }
+  }
+}

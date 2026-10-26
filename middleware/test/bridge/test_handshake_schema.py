@@ -50,6 +50,9 @@ def test_handshake_request_result_roundtrip() -> None:
     assert result["version"] == PROTOCOL_VERSION
     assert result["compatibility"] == {"min": "1.0.0", "max": COMPATIBILITY_MAX}
     assert set(result["capabilities"]) == {
+        "entity_recon",
+        "cloud_setup",
+        "reverse_search",
         "scan",
         "settings",
         "jobs",
@@ -63,6 +66,16 @@ def test_handshake_request_result_roundtrip() -> None:
         "merge",
         "similarity",
         "extractor",
+        "crawler",
+        "webreq",
+        "hie",
+        "stitch",
+        "prefs",
+        "desk",
+        "dl",
+        "drive_sync",
+        "media_loader",
+        "auth",
     }
     # the built result validates against the contract schemas
     assert TABLE.validate_result("system.handshake", result) == []

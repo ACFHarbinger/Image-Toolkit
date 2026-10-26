@@ -1,7 +1,6 @@
 import React, { ReactNode, useState } from "react";
 import { useAppStore } from "./store/appStore";
 import { LoginDialog } from "./components/dialogs/LoginDialog";
-import { SettingsDialog } from "./components/dialogs/SettingsDialog";
 import { ImagePreview } from "./components/sublime/ImagePreview";
 import { TaskProgress } from "./components/sublime/TaskProgress";
 import { Shell } from "./shell/Shell";
@@ -16,10 +15,8 @@ interface ModalData {
 const App: React.FC = () => {
   const {
     isLoggedIn,
-    showSettings,
     showImagePreview,
     previewImagePath,
-    closeSettings,
     closeImagePreview,
   } = useAppStore();
 
@@ -80,7 +77,6 @@ const App: React.FC = () => {
           </button>
         </div>
       </div>
-      {showSettings && <SettingsDialog onClose={closeSettings} />}
       {showImagePreview && previewImagePath && (
         <ImagePreview path={previewImagePath} onClose={closeImagePreview} />
       )}

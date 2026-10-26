@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/webreq.json",
+  "title": "WebRequestsCapability",
+  "description": "Sequential web request pipeline and single request executor (B-02 #907). Gate B compliant: does not open cloud_jobs.db or unsealed stores directly.",
+  "type": "object",
+  "$defs": {
+    "RequestItem": {
+      "title": "RequestItem",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "DELETE", "HEAD", "PATCH"]
+        },
+        "param": { "type": "string" },
+        "headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "ActionItem": {
+      "title": "ActionItem",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "Print Response URL",
+            "Print Response Status Code",
+            "Print Response Headers",
+            "Print Response Content (Text)",
+            "Save Response Content (Binary)"
+          ]
+        },
+        "param": { "type": "string" }
+      }
+    },
+    "ExecuteParams": {
+      "title": "ExecuteParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url"],
+      "properties": {
+        "url": { "type": "string", "minLength": 1 },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "DELETE", "HEAD", "PATCH"]
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "body": { "type": "string" },
+        "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 300 }
+      }
+    },
+    "ExecuteResult": {
+      "title": "ExecuteResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "status_code", "status_text", "headers", "content_type", "body", "duration_ms"],
+      "properties": {
+        "url": { "type": "string" },
+        "status_code": { "type": "integer" },
+        "status_text": { "type": "string" },
+        "headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "content_type": { "type": "string" },
+        "body": { "type": "string" },
+        "duration_ms": { "type": "number", "minimum": 0 },
+        "error": { "type": ["string", "null"] }
+      }
+    },
+    "SequenceParams": {
+      "title": "SequenceParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_url", "requests", "actions"],
+      "properties": {
+        "base_url": { "type": "string", "minLength": 1 },
+        "requests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/RequestItem" }
+        },
+        "actions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ActionItem" }
+        },
+        "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 300 }
+      }
+    },
+    "SequenceItemResult": {
+      "title": "SequenceItemResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index", "url", "method", "status_code"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "url": { "type": "string" },
+        "method": { "type": "string" },
+        "status_code": { "type": "integer" },
+        "saved_path": { "type": ["string", "null"] },
+        "error": { "type": ["string", "null"] }
+      }
+    },
+    "SequenceResult": {
+      "title": "SequenceResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "base_url", "total_requests", "completed_requests", "logs", "items", "message"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["completed", "failed", "cancelled"]
+        },
+        "base_url": { "type": "string" },
+        "total_requests": { "type": "integer", "minimum": 0 },
+        "completed_requests": { "type": "integer", "minimum": 0 },
+        "logs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SequenceItemResult" }
+        },
+        "message": { "type": "string" }
+      }
+    }
+  }
+}

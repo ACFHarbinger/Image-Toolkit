@@ -24,13 +24,26 @@
               "cloud_jobs",
               "cloud_offer",
               "settings",
+              "prefs",
               "library_preview",
               "library",
               "library_admin",
               "scan",
               "merge",
               "similarity",
-              "extractor"
+              "extractor",
+              "auth",
+              "reverse_search",
+              "drive_sync",
+              "media_loader",
+              "dl",
+              "desk",
+              "cloud_setup",
+              "stitch",
+              "hie",
+              "webreq",
+              "entity_recon",
+              "crawler"
             ]
           }
         }

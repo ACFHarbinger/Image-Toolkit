@@ -323,9 +323,14 @@ forbidden_modules = ["PySide6"]
 name = "middleware.src.services features must be independent"
 type = "independence"
 modules = [
+    "middleware.src.services.auth",
     "middleware.src.services.convert",
     "middleware.src.services.cloud_jobs",
+    "middleware.src.services.drive_sync",
+    "middleware.src.services.media_loader",
     "middleware.src.services.cloud_offer",
+    "middleware.src.services.desk",
+    "middleware.src.services.dl",
     "middleware.src.services.extractor",
     "middleware.src.services.library_admin",
     "middleware.src.services.library_preview",
@@ -335,4 +340,6 @@ modules = [
     "middleware.src.services.hie",
     "middleware.src.services.csg",
     "middleware.src.services.cre",
+    "middleware.src.services.crawler",
+    "middleware.src.services.hie",
 ]
