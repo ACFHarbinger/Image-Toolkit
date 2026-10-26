@@ -186,7 +186,7 @@ def test_native_session_handle_uses_the_real_constructor(tmp_path: Path, monkeyp
         handle.close()
 
 
-def test_without_the_native_module_a_handle_gets_an_in_memory_store(monkeypatch) -> None:
+def test_without_the_native_module_a_handle_stays_unavailable(monkeypatch) -> None:
     monkeypatch.setattr("middleware.src.services.library.attach._database_importable", lambda: False)
 
     class _Handle:
@@ -198,12 +198,13 @@ def test_without_the_native_module_a_handle_gets_an_in_memory_store(monkeypatch)
 
     server = SidecarServer(stdout=io.StringIO())
     attach_library(server, _Handle())
-    assert isinstance(server.library_store, MemoryLibraryStore)
+    assert server.library_store is None
+    assert server.library_admin_store is None
+    assert server.scan_service is None
     saved = handle_save_metadata(
         server.scan_service,
         {"items": [{"path": "/tmp/redo3-library/memory.png", "tags": ["art"], "group_name": "Studio"}]},
     )
-    assert saved["success"] is True
-    assert saved["saved_count"] == 1
-    names = [image["filename"] for image in list_images_result(server.library_store, {})["images"]]
-    assert names == ["memory.png"]
+    assert saved["success"] is False
+    assert saved["saved_count"] == 0
+    assert saved["database_available"] is False

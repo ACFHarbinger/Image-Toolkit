@@ -2,10 +2,10 @@
 
 Nothing in this module opens ``~/.image-toolkit/library.db`` or calls
 ``session.open_session``. A missing session leaves the sidecar stores
-unset so handlers keep returning ``available: false``. A session handle
-is wrapped with ``UnifiedImageDatabase`` when ``backend.database``
-imports; otherwise an in-memory store stands in and still reports real
-write failures.
+unset so handlers keep returning ``available: false``. A session handle is wrapped with ``UnifiedImageDatabase`` when
+``backend.database`` imports. If that engine cannot be imported, the
+library stays unavailable. ``MemoryLibraryStore`` is only for an
+explicitly injected test double.
 """
 
 from __future__ import annotations
@@ -28,14 +28,26 @@ def attach_library(server: Any, session: Any | None) -> None:
     creates a database file.
     """
     if session is None:
-        server.library_store = None
-        server.library_admin_store = None
-        server.scan_service = None
+        _clear_stores(server)
         return
-    store = coerce_store(session)
+    try:
+        store = coerce_store(session)
+    except PersistentStoreUnavailable:
+        _clear_stores(server)
+        return
     server.library_store = store
     server.library_admin_store = store
     server.scan_service = ScanService(db_session=store)
+
+
+def _clear_stores(server: Any) -> None:
+    server.library_store = None
+    server.library_admin_store = None
+    server.scan_service = None
+
+
+class PersistentStoreUnavailable(RuntimeError):
+    """The encrypted library engine cannot be constructed for this handle."""
 
 
 def coerce_store(session: Any) -> Any:
@@ -44,12 +56,15 @@ def coerce_store(session: Any) -> Any:
         return session
     if _is_facade(session):
         return SqlLibraryStore(session, session._db)
-    if _database_importable():
-        from middleware.src.database.unified.facade import UnifiedImageDatabase
+    if not _database_importable():
+        raise PersistentStoreUnavailable("backend.database is not available")
+    from middleware.src.database.unified.facade import UnifiedImageDatabase
 
+    try:
         facade = UnifiedImageDatabase(session)
-        return SqlLibraryStore(facade, session)
-    return MemoryLibraryStore()
+    except ImportError as exc:
+        raise PersistentStoreUnavailable("backend.database is not available") from exc
+    return SqlLibraryStore(facade, session)
 
 
 def _database_importable() -> bool:
@@ -132,7 +147,7 @@ class SqlLibraryStore:
 
 
 class MemoryLibraryStore:
-    """Handler surface used when the native encrypted store cannot be built."""
+    """In-memory handler surface for tests that inject this object."""
 
     def __init__(self) -> None:
         self.groups: dict[str, set[str]] = {}
