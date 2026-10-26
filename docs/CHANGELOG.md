@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Slideshow bridge styles now use desktop mappings in the daemon, monitor discovery works without Qt geometry, and repeated Start requests retain the live daemon.
+- Remove the duplicate system-page dispatch traversal after the sidecar landing re-sync.
+
+### Fixed
+
 - Expose Logs and File Metadata in the Developer / Diagnostics navigation with the shell HostClient (#919).
 
 ### Added
