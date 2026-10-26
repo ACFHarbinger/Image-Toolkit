@@ -24,11 +24,9 @@ _ALIASES = {
 }
 
 _PACKAGE_ROOTS = (
-    ("CSG", "logic", "src"),
     # Qt GUI stays at submodules/HIE/gui until the final removal PR.
     # The engine is middleware.src.hie (#1037), not a path root: a bare
     # ``import models`` would shadow middleware.src.models.
-    ("HIE", "middleware", "src"),
     ("HIE", "gui", "src"),
 )
 
