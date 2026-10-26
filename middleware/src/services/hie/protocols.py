@@ -37,8 +37,6 @@ class HieServiceProtocol(ServiceProtocol, Protocol):
         """Export a document session to destination media file."""
         ...
 
-    def list_capabilities(
-        self, command: HieListCapabilitiesCommand | None = None
-    ) -> HieListCapabilitiesResult:
+    def list_capabilities(self, command: HieListCapabilitiesCommand | None = None) -> HieListCapabilitiesResult:
         """Query supported operations and available neural model adapters."""
         ...

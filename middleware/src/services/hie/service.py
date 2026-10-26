@@ -12,9 +12,10 @@ import tempfile
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from PIL import Image
+if TYPE_CHECKING:
+    from PIL import Image
 
 from middleware.src.services._submodule_loader import ensure_submodules_registered
 from middleware.src.services.base import CommandValidationError
@@ -422,6 +423,8 @@ def _prepare_image(image: Image.Image, pillow_format: str) -> Image.Image:
 
 
 def _assert_decodable(source: Any) -> None:
+    from PIL import Image
+
     with Image.open(source) as decoded:
         decoded.load()
         if decoded.width <= 0 or decoded.height <= 0:
@@ -429,6 +432,8 @@ def _assert_decodable(source: Any) -> None:
 
 
 def _encode_source_image(source: str, image_format: str, quality: int) -> bytes:
+    from PIL import Image
+
     path = Path(source)
     if not path.is_file():
         raise ValueError(f"export source is not a readable image: {source}")
