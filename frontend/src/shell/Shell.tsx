@@ -1,6 +1,5 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { LogOut, Settings } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
 import { HostClient, RustTransport } from "../hostclient";
 import { useAppStore } from "../store/appStore";
 import { SettingsWindow } from "../views/settings/SettingsWindow";
@@ -45,7 +44,7 @@ export function Shell({ showModal }: ShellProps) {
   const [category, setCategory] = useState(active?.category ?? categories[0] ?? "");
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(false);
-  const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
+  const [dbStatus, setDbStatus] = useState<DbStatus>("disconnected");
   const [hostClient, setHostClient] = useState<HostClient | null>(null);
   const [computeOpen, setComputeOpen] = useState(false);
   const [jobsFallback, setJobsFallback] = useState(false);
@@ -64,14 +63,22 @@ export function Shell({ showModal }: ShellProps) {
   }, []);
 
   useEffect(() => {
+    if (!hostClient) {
+      setDbStatus("disconnected");
+      setDatabaseConnected(false);
+      return;
+    }
     let cancelled = false;
-    invoke("test_database_connection")
-      .then(() => {
+    setDbStatus("checking");
+    hostClient
+      .listLibraryGroups()
+      .then((result) => {
         if (cancelled) {
           return;
         }
-        setDbStatus("connected");
-        setDatabaseConnected(true);
+        const connected = result.available === true;
+        setDbStatus(connected ? "connected" : "disconnected");
+        setDatabaseConnected(connected);
       })
       .catch(() => {
         if (cancelled) {
@@ -83,7 +90,7 @@ export function Shell({ showModal }: ShellProps) {
     return () => {
       cancelled = true;
     };
-  }, [setDatabaseConnected]);
+  }, [hostClient, setDatabaseConnected]);
 
   const selectModule = (id: string) => {
     const resolved = resolveAlias(id, shellCatalog.aliases, ACTIVE_ALIAS_GATES);
@@ -166,7 +173,7 @@ export function Shell({ showModal }: ShellProps) {
               {jobsFallback ? (
                 <CloudJobsWindow badge={cloudBadge} hostClient={hostClient} />
               ) : computeOpen ? (
-                <CloudComputeSurface onClose={() => setComputeOpen(false)} />
+                <CloudComputeSurface hostClient={hostClient} onClose={() => setComputeOpen(false)} />
               ) : (
                 active &&
                 hostClient && (

@@ -24,6 +24,7 @@ function renderLoggedIn() {
 test("the rail opens catalog ids and the status bar shows the active id", async () => {
   renderLoggedIn();
   expect(await screen.findByText(/Image Database and Toolkit/i)).toBeInTheDocument();
+  expect(await screen.findByText("Database offline")).toBeInTheDocument();
   expect(screen.getByTestId("active-catalog-id")).toHaveTextContent("system.convert");
   expect(await screen.findByTestId("convert-pilot")).toBeInTheDocument();
 
@@ -117,6 +118,73 @@ test("a workspace paints its ribbon, and the inspector reads the catalog entry",
   fireEvent.click(screen.getByRole("button", { name: "Toggle inspector" }));
   expect(screen.getByTestId("inspector-body")).toHaveTextContent("stitch.canvas");
   expect(screen.getByTestId("active-window-role")).toHaveTextContent("main");
+});
+
+function bridgeResult(id: string | undefined, result: unknown) {
+  return { jsonrpc: "2.0", id, result };
+}
+
+function mockLibraryGroups(available: boolean | "fail") {
+  vi.mocked(invoke).mockImplementation(async (command: string, args?: unknown) => {
+    if (command !== "bridge_request") {
+      return {};
+    }
+    const request = (
+      args as { request?: { id?: string; method?: string } } | undefined
+    )?.request;
+    if (!request?.method) {
+      return {};
+    }
+    if (request.method === "system.handshake") {
+      return bridgeResult(request.id, {
+        protocol: "image-toolkit-bridge",
+        version: "1.0.0",
+        compatibility: { min: "1.0.0", max: "1.0.0" },
+        capabilities: ["library"],
+      });
+    }
+    if (request.method === "library.list_groups") {
+      if (available === "fail") {
+        throw new Error("list groups failed");
+      }
+      return bridgeResult(request.id, { available, groups: [] });
+    }
+    if (request.method === "cloud_jobs.summary") {
+      return bridgeResult(request.id, { available: false, running: 0, reserved_usd: 0 });
+    }
+    return {};
+  });
+}
+
+function listedGroups(): boolean {
+  return vi.mocked(invoke).mock.calls.some((call) => {
+    const request = (call[1] as { request?: { method?: string } } | undefined)?.request;
+    return call[0] === "bridge_request" && request?.method === "library.list_groups";
+  });
+}
+
+test("the database badge follows library.list_groups availability", async () => {
+  mockLibraryGroups(true);
+  renderLoggedIn();
+  expect(await screen.findByText("Database connected")).toBeInTheDocument();
+
+  cleanup();
+  mockLibraryGroups(false);
+  renderLoggedIn();
+  await waitFor(() => {
+    expect(listedGroups()).toBe(true);
+    expect(screen.getByText("Database offline")).toBeInTheDocument();
+  });
+  expect(screen.queryByText("Database connected")).not.toBeInTheDocument();
+
+  cleanup();
+  mockLibraryGroups("fail");
+  renderLoggedIn();
+  await waitFor(() => {
+    expect(listedGroups()).toBe(true);
+    expect(screen.getByText("Database offline")).toBeInTheDocument();
+  });
+  expect(screen.queryByText("Database connected")).not.toBeInTheDocument();
 });
 
 test("the header cloud control opens the jobs window and the compute surface", async () => {
