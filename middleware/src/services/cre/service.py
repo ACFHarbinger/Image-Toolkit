@@ -6,7 +6,6 @@ Canonical service home for CRE hybrid retrieval, ranking, and recommendations
 
 from __future__ import annotations
 
-import hashlib
 import os
 import sys
 import time
@@ -25,15 +24,6 @@ from middleware.src.services.cre.commands import (
 from middleware.src.services.cre.protocols import CreServiceProtocol
 
 _CRE_SYMBOLS: tuple[Any, Any, Any, Any] | None = None
-
-
-def _local_embedding(title: str, description: str) -> tuple[list[float], list[int], list[float]]:
-    """Hash title and description locally so indexing never loads the CRE embedder."""
-    digest = hashlib.sha256(f"{title}\0{description}".encode()).digest()
-    dense = [byte / 255.0 for byte in digest[:16]]
-    sparse_indices = [int(byte) for byte in digest[16:24]]
-    sparse_values = [byte / 255.0 for byte in digest[24:32]]
-    return dense, sparse_indices, sparse_values
 
 
 def _cre_repo_src() -> Path:
@@ -91,10 +81,11 @@ def _row_has_id(row: Any, item_id: str) -> bool:
 class CreService(CreServiceProtocol):
     """Canonical domain service for content recommendation and hybrid search."""
 
-    def __init__(self, pipeline: Any = None, store: Any = None) -> None:
+    def __init__(self, pipeline: Any = None, store: Any = None, embedder: Any = None) -> None:
         """Initialize CreService with optional pipeline or store delegate."""
         self._pipeline = pipeline
         self._store = store
+        self._embedder = embedder
         ensure_submodules_registered()
 
     def _get_pipeline(self) -> Any:
@@ -107,6 +98,14 @@ class CreService(CreServiceProtocol):
             return self._pipeline
         except Exception:
             return None
+
+    def _get_embedder(self) -> Any:
+        if self._embedder is None:
+            settings_cls, *_ = _cre_store_symbols()
+            from src.data.embedder import Embedder
+
+            self._embedder = Embedder(settings_cls().embed_model)
+        return self._embedder
 
     def _open_store(self) -> Any:
         settings_cls, _media_item, _embedded_item, store_cls = _cre_store_symbols()
@@ -205,15 +204,18 @@ class CreService(CreServiceProtocol):
                 )
 
             _settings, media_cls, embedded_cls, _store_cls = _cre_store_symbols()
-            dense, sparse_indices, sparse_values = _local_embedding(command.title, command.description)
+            item = media_cls(
+                id=command.item_id,
+                title=command.title,
+                type=command.media_type,
+                tags=list(command.tags),
+                review_notes=command.description or None,
+            )
+            embedder = self._get_embedder()
+            dense = embedder.embed_dense(item.dense_text)
+            sparse_indices, sparse_values = embedder.embed_sparse(item.sparse_text)
             embedded = embedded_cls(
-                item=media_cls(
-                    id=command.item_id,
-                    title=command.title,
-                    type=command.media_type,
-                    tags=list(command.tags),
-                    review_notes=command.description or None,
-                ),
+                item=item,
                 dense_vector=dense,
                 sparse_indices=sparse_indices,
                 sparse_values=sparse_values,

@@ -34,6 +34,14 @@ class _PipelineDouble:
         ]
 
 
+class _EmbedderDouble:
+    def embed_dense(self, text):
+        return [float(len(text))] * 1024
+
+    def embed_sparse(self, text):
+        return list(range(8)), [1.0] * 8
+
+
 class _StoreDouble:
     def __init__(self) -> None:
         self.by_id: dict[str, object] = {}
@@ -140,7 +148,7 @@ def test_index_item_validation() -> None:
 
 def test_index_item_upserts_and_fetches() -> None:
     store = _StoreDouble()
-    service = CreService(store=store)
+    service = CreService(store=store, embedder=_EmbedderDouble())
     command = IndexMediaItemCommand(
         item_id="m-42",
         title="Steins;Gate",
@@ -187,3 +195,15 @@ def test_index_item_without_upsert_fails() -> None:
     assert result.success is False
     assert result.error
     assert store.insert_called is False
+
+
+def test_indexing_does_not_write_fake_vectors_when_embedder_is_unavailable(monkeypatch):
+    store = _StoreDouble()
+    service = CreService(store=store)
+    def unavailable():
+        raise ImportError("embedding model unavailable")
+    monkeypatch.setattr(service, "_get_embedder", unavailable)
+    result = service.index_item(IndexMediaItemCommand(item_id="m-1", title="Test"))
+    assert result.success is False
+    assert "embedding model unavailable" in result.error
+    assert store.by_id == {}
