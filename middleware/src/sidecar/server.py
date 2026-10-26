@@ -189,13 +189,6 @@ class SidecarServer:
         scan = self._dispatch_scan(method, params)
         if scan is not _UNHANDLED:
             return scan
-        system_pages = self._dispatch_system_pages(method, params)
-        if system_pages is not _UNHANDLED:
-            return system_pages
-        setup = self._dispatch_cloud_setup(method, params)
-        if setup is not _UNHANDLED:
-            return setup
-        raise BridgeAppError("bridge.method_not_found", details={"method": method})
         tail = self._dispatch_tail(method, params)
         if tail is not _UNHANDLED:
             return tail
@@ -205,26 +198,10 @@ class SidecarServer:
         reverse = self._dispatch_reverse_search(method, params)
         if reverse is not _UNHANDLED:
             return reverse
+        setup = self._dispatch_cloud_setup(method, params)
+        if setup is not _UNHANDLED:
+            return setup
         raise BridgeAppError("bridge.method_not_found", details={"method": method})
-
-    def _dispatch_core(self, method: str, params: dict[str, Any]) -> Any:
-        if method == "system.handshake":
-            return self._handshake(params)
-        if method == "system.ping":
-            return build_ping_result(table=self.table)
-        if method == "jobs.submit":
-            return self.jobs.submit(params)
-        if method == "jobs.status":
-            return self.jobs.status(params)
-        if method == "jobs.list":
-            return self.jobs.list(params)
-        if method == "jobs.cancel":
-            return self.jobs.cancel(params)
-        if method == "convert.convert":
-            return handle_convert(params)
-        if method == "convert.convert_batch":
-            return start_convert_batch(self.jobs, params)
-        return _UNHANDLED
 
     def _dispatch_core(self, method: str, params: dict[str, Any]) -> Any:
         if method == "system.handshake":
