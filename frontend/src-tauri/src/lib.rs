@@ -1,16 +1,13 @@
-mod auth_commands;
+mod settings_commands;
 mod benchmark_commands;
 mod bridge_commands;
 mod comfy_commands;
 mod core_commands;
-mod database_commands;
-mod db;
 mod gui_gate;
 mod tray;
 mod wallpaper_commands;
 mod window_registry;
 
-use std::env;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -33,6 +30,10 @@ pub fn run() {
             auth_commands::load_user_settings,
             auth_commands::save_user_settings,
             auth_commands::update_master_password,
+            // Settings commands (#917). Vault unlock is auth.status, not a Rust command.
+            settings_commands::load_user_settings,
+            settings_commands::save_user_settings,
+            settings_commands::update_master_password,
             // Database commands
             database_commands::search_files,
             database_commands::get_all_tags,
@@ -66,36 +67,6 @@ pub fn run() {
             app.manage(window_registry::TrayHidden::default());
             tray::install(app)?;
             gui_gate::start(app.handle())?;
-
-            // Initialize database connection in the background
-            let app_handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                // Load DATABASE_URL from environment or .env file
-                dotenv::dotenv().ok();
-
-                let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| {
-                    log::warn!("DATABASE_URL not found, using default");
-                    "postgresql://localhost/image_toolkit".to_string()
-                });
-
-                match db::Db::new(&database_url).await {
-                    Ok(db_instance) => {
-                        // Initialize schema (ensure pgvector extension)
-                        if let Err(e) = db_instance.init_schema().await {
-                            log::error!("Failed to initialize database schema: {}", e);
-                        } else {
-                            log::info!("Database connected successfully");
-                        }
-
-                        app_handle.manage(db_instance);
-                    }
-                    Err(e) => {
-                        log::error!("Failed to connect to database: {}", e);
-                        log::warn!("Running without database support");
-                        // Continue without database - some features will be unavailable
-                    }
-                }
-            });
 
             Ok(())
         })

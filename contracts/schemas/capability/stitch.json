@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability/stitch.json",
+  "title": "StitchCapability",
+  "description": "Report one Image Stitching catalog route (#914). Does not start the stitch pipeline.",
+  "type": "object",
+  "$defs": {
+    "StitchStatusParams": {
+      "title": "StitchStatusParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["route"],
+      "properties": {
+        "route": { "type": "string", "minLength": 1 }
+      }
+    },
+    "StitchStatusResult": {
+      "title": "StitchStatusResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["route", "started", "reason"],
+      "properties": {
+        "route": { "type": "string", "minLength": 1 },
+        "started": { "type": "boolean", "const": false },
+        "reason": { "type": "string", "const": "stitch pipeline is not started" }
+      }
+    }
+  }
+}

@@ -11,9 +11,10 @@ import base64
 import io
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from PIL import Image, UnidentifiedImageError
+if TYPE_CHECKING:
+    from PIL import Image
 
 _MAX_PIXELS = 4_000_000
 _MAX_PATHS = 8
@@ -78,6 +79,8 @@ def _validate(paths: list[str], output_path: str, direction: str, spacing: int, 
 
 
 def _header_size(path: str) -> tuple[int, int]:
+    from PIL import Image, UnidentifiedImageError
+
     file = Path(path)
     if not file.is_file():
         raise ValueError(f"not a file: {path}")
@@ -111,6 +114,8 @@ def _cross_offset(spare: int, align: str) -> int:
 
 
 def _open_rgb(path: str) -> Image.Image:
+    from PIL import Image
+
     image = Image.open(path)
     try:
         _reject_canvas(*image.size)
@@ -163,6 +168,8 @@ def _compose(
     width: int,
     height: int,
 ) -> str:
+    from PIL import Image
+
     canvas = Image.new("RGB", (width, height), (255, 255, 255))
     try:
         cursor = 0

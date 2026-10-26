@@ -1,8 +1,22 @@
-// GENERATED — contract hash 7815df7f5295b89443325131d204adacad3557f783b5a5e23e9a70b22aad0e0f. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash fa9e3693e2291ced0dfb8ea17a7f05e5e7d4db54a64c8886140409356df48860. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct AuthStatusParams {
+    pub account: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct AuthStatusResult {
+    /// must be false (enforced by the framing layer, #875)
+    pub unlocked: bool,
+    pub account: String,
+    /// must be "unlock stays on the C++ session" (enforced by the framing layer, #875)
+    pub reason: String,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CloudSubmitParams {
@@ -235,6 +249,32 @@ pub struct PrefillResult {
     pub spec: std::collections::HashMap<String, serde_json::Value>,
 }
 
+pub type CloudSetupEmptyParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ProviderDescriptor {
+    pub provider_id: String,
+    pub name: String,
+    pub badge_text: String,
+    pub badge_token: String,
+    pub description: String,
+    pub target_service: String,
+    pub cpu_shapes: String,
+    pub memory_tiers: String,
+    pub gpu_options: String,
+    pub cost_estimate: String,
+    pub cold_start: String,
+    pub regions: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config_file: Option<String>,
+    pub is_poc_target: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ProvidersResult {
+    pub providers: Vec<ProviderDescriptor>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ConvertBatchParams {
     pub input_dir: String,
@@ -341,6 +381,149 @@ pub struct LoginConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct LogsReadParams {
+    pub path: String,
+    pub limit: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct LogsReadResult {
+    pub found: bool,
+    pub path: String,
+    pub lines: Vec<String>,
+    pub error_count: i64,
+    pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MetadataDescribeParams {
+    pub path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MetadataDescribeResult {
+    pub found: bool,
+    pub path: String,
+    pub name: String,
+    pub size: i64,
+    pub suffix: String,
+    pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlInspectParams {
+    pub run_dir: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlInspectResult {
+    pub found: bool,
+    pub run_dir: String,
+    pub run_id: String,
+    pub status: String,
+    pub engine: String,
+    pub model_id: String,
+    pub event_count: i64,
+    /// must be false (enforced by the framing layer, #875)
+    pub started: bool,
+    pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DriveSyncPlanParams {
+    pub provider: String,
+    pub paths: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DriveSyncPlanResult {
+    /// must be false (enforced by the framing layer, #875)
+    pub submitted: bool,
+    pub provider: String,
+    pub count: i64,
+    pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct EntityReconDescribeResult {
+    pub available: bool,
+    pub config: ReconConfigSnapshot,
+}
+
+pub type EntityReconEmptyParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct EntityReconResolveParams {
+    pub image_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search_scope: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_match_threshold: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_k: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct EntityReconResolveResult {
+    pub available: bool,
+    pub found: bool,
+    pub name: String,
+    pub confidence: f64,
+    pub method: String,
+    pub origin: String,
+    pub local_matches: Vec<LocalMatchItem>,
+    pub web_domains: Vec<WebDomainItem>,
+    pub report: ProvenanceReportItem,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct LocalMatchItem {
+    pub label: String,
+    pub path: String,
+    pub score: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ProvenanceEntryItem {
+    pub kind: String,
+    pub label: String,
+    pub source: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub domain: Option<String>,
+    pub score: f64,
+    pub method: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ProvenanceReportItem {
+    pub query_hash: String,
+    pub predicted_name: String,
+    pub confidence: f64,
+    pub method: String,
+    pub created_at: String,
+    pub entries: Vec<ProvenanceEntryItem>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ReconConfigSnapshot {
+    pub search_scope: String,
+    pub privacy_mode: bool,
+    pub local_match_threshold: f64,
+    pub top_k: i64,
+    pub embed_mode: String,
+    pub reverse_engines: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct WebDomainItem {
+    pub domain: String,
+    pub count: i64,
+    pub urls: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct BridgeError {
     pub code: String,
     pub retryable: bool,
@@ -373,6 +556,77 @@ pub struct ProbeResult {
     pub duration_seconds: f64,
     pub codec: String,
     pub error: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct EditParams {
+    pub document_id: String,
+    pub operation: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct EditResult {
+    pub success: bool,
+    pub document_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_document_id: Option<serde_json::Value>,
+    pub modified_layers: Vec<String>,
+    pub elapsed_seconds: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ExportDocumentParams {
+    pub document_id: String,
+    pub output_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub format: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quality: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ExportDocumentResult {
+    pub success: bool,
+    pub output_path: String,
+    pub size_bytes: i64,
+    pub elapsed_seconds: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
+
+pub type ListCapabilitiesParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ListCapabilitiesResult {
+    pub capabilities: Vec<String>,
+    pub models_available: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct OpenDocumentParams {
+    pub source: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document_id: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct OpenDocumentResult {
+    pub success: bool,
+    pub document_id: String,
+    pub frame_count: i64,
+    pub width: i64,
+    pub height: i64,
+    pub elapsed_seconds: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -664,6 +918,22 @@ pub struct FrameResult {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MediaPlanParams {
+    pub url: String,
+    pub destination: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MediaPlanResult {
+    pub accepted: bool,
+    /// must be false (enforced by the framing layer, #875)
+    pub downloaded: bool,
+    pub url: String,
+    pub destination: String,
+    pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ConcatenateParams {
     pub paths: Vec<String>,
     pub output_path: String,
@@ -680,6 +950,20 @@ pub struct ConcatenateResult {
     pub height: i64,
     pub preview_png_base64: String,
     pub error: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefsDescribeParams {
+    pub account: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PrefsDescribeResult {
+    pub sections: Vec<String>,
+    /// must be false (enforced by the framing layer, #875)
+    pub credentials_changed: bool,
+    /// must be "credentials stay on the C++ vault session" (enforced by the framing layer, #875)
+    pub reason: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -720,6 +1004,49 @@ pub struct RpcErrorObject {
     pub code: i64,
     pub message: String,
     pub data: BridgeError,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct EngineRecord {
+    pub id: String,
+    pub label: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct EnginesResult {
+    pub engines: Vec<EngineRecord>,
+}
+
+pub type ReverseSearchEmptyParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ReverseSearchResultItem {
+    pub url: String,
+    pub engine: String,
+    pub score: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resolution: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SearchParams {
+    pub engine: String,
+    pub image_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub roi: Option<Vec<i64>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SearchResult {
+    pub ok: bool,
+    pub engine: String,
+    pub results: Vec<ReverseSearchResultItem>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -877,6 +1204,20 @@ pub struct CompareResult {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct StitchStatusParams {
+    pub route: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct StitchStatusResult {
+    pub route: String,
+    /// must be false (enforced by the framing layer, #875)
+    pub started: bool,
+    /// must be "stitch pipeline is not started" (enforced by the framing layer, #875)
+    pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct BridgeStatePayload {
     pub state: String,
 }
@@ -918,4 +1259,80 @@ pub type PingParams = std::collections::HashMap<String, serde_json::Value>;
 pub struct PingResult {
     /// must be true (enforced by the framing layer, #875)
     pub ok: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ActionItem {
+    #[serde(rename = "type")]
+    pub r#type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub param: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ExecuteParams {
+    pub url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub method: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub headers: Option<std::collections::HashMap<String, String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_seconds: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ExecuteResult {
+    pub url: String,
+    pub status_code: i64,
+    pub status_text: String,
+    pub headers: std::collections::HashMap<String, String>,
+    pub content_type: String,
+    pub body: String,
+    pub duration_ms: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct RequestItem {
+    #[serde(rename = "type")]
+    pub r#type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub param: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub headers: Option<std::collections::HashMap<String, String>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SequenceItemResult {
+    pub index: i64,
+    pub url: String,
+    pub method: String,
+    pub status_code: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub saved_path: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SequenceParams {
+    pub base_url: String,
+    pub requests: Vec<RequestItem>,
+    pub actions: Vec<ActionItem>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_seconds: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SequenceResult {
+    pub status: String,
+    pub base_url: String,
+    pub total_requests: i64,
+    pub completed_requests: i64,
+    pub logs: Vec<String>,
+    pub items: Vec<SequenceItemResult>,
+    pub message: String,
 }

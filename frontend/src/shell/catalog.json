@@ -495,6 +495,42 @@
       "companion_window_id": null
     },
     {
+      "id": "developer.logs",
+      "title": "Logs",
+      "category": "Developer / Diagnostics",
+      "kind": "page",
+      "order_index": 26,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
+      "id": "developer.metadata",
+      "title": "File Metadata",
+      "category": "Developer / Diagnostics",
+      "kind": "page",
+      "order_index": 27,
+      "window_id": "main",
+      "workspace_id": null,
+      "route_key": null,
+      "icon_name": "box",
+      "capability_flags": [],
+      "search_terms": [],
+      "surfaces": [
+        "frontend"
+      ],
+      "legacy_frontend_id": null,
+      "companion_window_id": null
+    },
+    {
       "id": "stitch",
       "title": "Image Stitching",
       "category": "Image Stitching",

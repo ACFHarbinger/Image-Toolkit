@@ -1,8 +1,8 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { LogOut, Settings } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
 import { HostClient, RustTransport } from "../hostclient";
 import { useAppStore } from "../store/appStore";
+import { SettingsWindow } from "../views/settings/SettingsWindow";
 import { shellCatalog } from "./catalog";
 import { Inspector } from "./Inspector";
 import { Rail } from "./Rail";
@@ -36,7 +36,7 @@ interface ShellProps {
 }
 
 export function Shell({ showModal }: ShellProps) {
-  const { logout, openSettings, setDatabaseConnected } = useAppStore();
+  const { logout, openSettings, closeSettings, showSettings, setDatabaseConnected, vault } = useAppStore();
   const entries = useMemo(() => frontendEntries(), []);
   const categories = useMemo(() => categoriesInOrder(entries), [entries]);
   const [activeId, setActiveId] = useState(() => defaultPageId(entries));
@@ -44,7 +44,7 @@ export function Shell({ showModal }: ShellProps) {
   const [category, setCategory] = useState(active?.category ?? categories[0] ?? "");
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(false);
-  const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
+  const [dbStatus, setDbStatus] = useState<DbStatus>("disconnected");
   const [hostClient, setHostClient] = useState<HostClient | null>(null);
   const [computeOpen, setComputeOpen] = useState(false);
   const [jobsFallback, setJobsFallback] = useState(false);
@@ -63,14 +63,22 @@ export function Shell({ showModal }: ShellProps) {
   }, []);
 
   useEffect(() => {
+    if (!hostClient) {
+      setDbStatus("disconnected");
+      setDatabaseConnected(false);
+      return;
+    }
     let cancelled = false;
-    invoke("test_database_connection")
-      .then(() => {
+    setDbStatus("checking");
+    hostClient
+      .listLibraryGroups()
+      .then((result) => {
         if (cancelled) {
           return;
         }
-        setDbStatus("connected");
-        setDatabaseConnected(true);
+        const connected = result.available === true;
+        setDbStatus(connected ? "connected" : "disconnected");
+        setDatabaseConnected(connected);
       })
       .catch(() => {
         if (cancelled) {
@@ -82,7 +90,7 @@ export function Shell({ showModal }: ShellProps) {
     return () => {
       cancelled = true;
     };
-  }, [setDatabaseConnected]);
+  }, [hostClient, setDatabaseConnected]);
 
   const selectModule = (id: string) => {
     const resolved = resolveAlias(id, shellCatalog.aliases, ACTIVE_ALIAS_GATES);
@@ -114,6 +122,9 @@ export function Shell({ showModal }: ShellProps) {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 font-sans dark:bg-gray-900 sm:p-8">
+      {showSettings && hostClient ? (
+        <SettingsWindow hostClient={hostClient} account={vault?.accountName ?? ""} onClose={closeSettings} />
+      ) : null}
       <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-6xl flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800">
         <header className="flex items-center justify-between bg-violet-700 p-4 text-white">
           <h1 className="text-2xl font-extrabold tracking-tight">Image Database and Toolkit</h1>
@@ -162,7 +173,7 @@ export function Shell({ showModal }: ShellProps) {
               {jobsFallback ? (
                 <CloudJobsWindow badge={cloudBadge} hostClient={hostClient} />
               ) : computeOpen ? (
-                <CloudComputeSurface onClose={() => setComputeOpen(false)} />
+                <CloudComputeSurface hostClient={hostClient} onClose={() => setComputeOpen(false)} />
               ) : (
                 active &&
                 hostClient && (
