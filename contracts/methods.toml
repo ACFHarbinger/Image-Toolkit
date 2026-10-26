@@ -580,11 +580,35 @@ stability = "experimental"
 owner = 908
 
 [[method]]
+name = "drive_sync.sync"
+capability = "drive_sync"
+summary = "Execute cloud drive synchronization for specified paths (#908 / #1109)."
+params = "drive_sync.DriveSyncExecuteParams"
+result = "drive_sync.DriveSyncExecuteResult"
+errors = []
+cancelable = true
+emits = []
+stability = "experimental"
+owner = 908
+
+[[method]]
 name = "media_loader.plan"
 capability = "media_loader"
 summary = "Check one http(s) URL and a destination directory (#909). downloaded stays false."
 params = "media_loader.MediaPlanParams"
 result = "media_loader.MediaPlanResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 909
+
+[[method]]
+name = "media_loader.fetch"
+capability = "media_loader"
+summary = "Fetch a media URL and save it to the destination directory (#909 / #1109)."
+params = "media_loader.MediaFetchParams"
+result = "media_loader.MediaFetchResult"
 errors = []
 cancelable = false
 emits = []

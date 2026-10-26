@@ -29,6 +29,37 @@
         "count": { "type": "integer", "minimum": 1 },
         "reason": { "type": "string" }
       }
+    },
+    "DriveSyncExecuteParams": {
+      "title": "DriveSyncExecuteParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "paths"],
+      "properties": {
+        "provider": { "type": "string", "enum": ["google_drive", "dropbox", "onedrive"] },
+        "paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "remote_folder": { "type": "string" },
+        "dry_run": { "type": "boolean" }
+      }
+    },
+    "DriveSyncExecuteResult": {
+      "title": "DriveSyncExecuteResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "provider", "synced_count", "elapsed_seconds", "errors"],
+      "properties": {
+        "success": { "type": "boolean" },
+        "provider": { "type": "string", "enum": ["google_drive", "dropbox", "onedrive"] },
+        "synced_count": { "type": "integer", "minimum": 0 },
+        "elapsed_seconds": { "type": "number", "minimum": 0 },
+        "errors": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
     }
   }
 }

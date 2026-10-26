@@ -1,4 +1,4 @@
-// GENERATED — contract hash 25bb1ff48ee734cd0ab7e3b3a0936c4ad12ee96988058c651d235a1188a48fd3. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 0f49aea8dd625fc56b2e2aaefc29f91d6c8e55ea3e9a57354a03e5352c6ad9b5. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -510,6 +510,25 @@ pub struct DlInspectResult {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DriveSyncExecuteParams {
+    pub provider: String,
+    pub paths: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remote_folder: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dry_run: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DriveSyncExecuteResult {
+    pub success: bool,
+    pub provider: String,
+    pub synced_count: i64,
+    pub elapsed_seconds: f64,
+    pub errors: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct DriveSyncPlanParams {
     pub provider: String,
     pub paths: Vec<String>,
@@ -995,6 +1014,23 @@ pub struct FrameResult {
     pub height: i64,
     pub png_base64: String,
     pub error: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MediaFetchParams {
+    pub url: String,
+    pub destination: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MediaFetchResult {
+    pub success: bool,
+    pub url: String,
+    pub destination_path: String,
+    pub bytes_downloaded: i64,
+    pub elapsed_seconds: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

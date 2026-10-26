@@ -175,3 +175,38 @@ def test_sidecar_server_dispatch_list_and_detail():
     )
     assert detail_res["result"]["job_id"] == "job-alpha"
     assert detail_res["result"]["metrics"]["gpu_util_pct"] == 88.0
+
+    spec_payload = {
+        "job_id": "job-test-1",
+        "kind": "extract",
+        "title": "Test job",
+        "placement": {"provider": "fake", "region": "us-east-1", "mode": "instance"},
+        "shards": [{"index": 0, "params": {}, "inputs": []}],
+    }
+
+    # Preview with fake service
+    preview_res = server.handle_frame(
+        {
+            "jsonrpc": "2.0",
+            "id": "4",
+            "method": "cloud_jobs.preview",
+            "params": {"spec": spec_payload},
+        }
+    )
+    assert preview_res["result"]["available"] is True
+    assert preview_res["result"]["provider"] == "fake"
+
+    # Submit with fake service
+    submit_res = server.handle_frame(
+        {
+            "jsonrpc": "2.0",
+            "id": "5",
+            "method": "cloud_jobs.submit",
+            "params": {
+                "spec": spec_payload,
+                "acknowledged": ["pol.no_estimate", "pol.reduced_protection"],
+            },
+        }
+    )
+    assert submit_res["result"]["accepted"] is True
+    assert submit_res["result"]["job_id"] == "job-test-1"

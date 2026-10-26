@@ -114,13 +114,60 @@ class CrawlerService(CrawlerServiceProtocol):
         """Internal execution helper for crawler operations."""
         # Gate B guard: this service operates on caller paths and files only;
         # it does not open library.db or cloud_jobs.db.
+        errors: list[str] = []
+        total_downloaded = 0
+        dest = Path(command.download_dir)
+        dest.mkdir(parents=True, exist_ok=True)
+
+        if command.crawler_type in ("danbooru", "gelbooru", "sankaku", "safebooru"):
+            try:
+                from middleware.src.web.crawlers.danbooru_crawler import DanbooruCrawler
+                from middleware.src.web.crawlers.gelbooru_crawler import GelbooruCrawler
+                from middleware.src.web.crawlers.safebooru_crawler import SafebooruCrawler
+                from middleware.src.web.crawlers.sankaku_crawler import SankakuCrawler
+
+                cls_map = {
+                    "danbooru": DanbooruCrawler,
+                    "gelbooru": GelbooruCrawler,
+                    "sankaku": SankakuCrawler,
+                    "safebooru": SafebooruCrawler,
+                }
+                crawler_cls = cls_map[command.crawler_type]
+                cfg = {
+                    "url": command.url,
+                    "tags": command.tags or "",
+                    "limit": command.limit or 20,
+                    "max_pages": command.max_pages or 1,
+                    "download_dir": command.download_dir,
+                    "login_config": command.login_config,
+                }
+                crawler = crawler_cls(cfg)
+                total_downloaded = crawler.run() or 0
+            except Exception as exc:
+                errors.append(str(exc))
+        elif command.crawler_type == "general":
+            try:
+                from middleware.src.web.crawlers.image_crawler import ImageCrawler
+
+                cfg = {
+                    "target_url": command.url,
+                    "download_dir": command.download_dir,
+                    "actions": list(command.actions) if command.actions else [],
+                    "login_config": command.login_config,
+                }
+                crawler = ImageCrawler(cfg)
+                crawler.run()
+                total_downloaded = len([p for p in dest.iterdir() if p.is_file()])
+            except Exception as exc:
+                errors.append(str(exc))
+
         elapsed = round(time.monotonic() - start_time, 4)
         return CrawlResult(
-            success=True,
+            success=len(errors) == 0,
             crawler_type=command.crawler_type,
-            total_downloaded=0,
+            total_downloaded=total_downloaded,
             download_dir=command.download_dir,
-            errors=(),
+            errors=tuple(errors),
             elapsed_seconds=elapsed,
         )
 
