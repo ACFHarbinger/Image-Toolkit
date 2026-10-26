@@ -31,7 +31,6 @@ from middleware.src.services.auth.hub import VaultHub
 from middleware.src.services.cloud_jobs.projection import CloudProjection
 from middleware.src.services.crawler.service import CrawlerService
 from middleware.src.services.hie.service import HieService
-from middleware.src.services.stitch.status import stitch_status
 from middleware.src.sidecar.handlers.auth import (
     handle_apply_profile,
     handle_guest,
@@ -78,6 +77,7 @@ from middleware.src.sidecar.handlers.hie import (
     handle_export_document,
     handle_list_capabilities,
     handle_open_document,
+    handle_render_viewport,
 )
 from middleware.src.sidecar.handlers.library import (
     handle_list_groups,
@@ -118,6 +118,11 @@ from middleware.src.sidecar.handlers.settings import (
     handle_settings_set_many,
 )
 from middleware.src.sidecar.handlers.similarity import handle_compare, handle_scan
+from middleware.src.sidecar.handlers.stitch import (
+    handle_stitch_canvas,
+    handle_stitch_run,
+    handle_stitch_status,
+)
 from middleware.src.sidecar.handlers.wallpaper import (
     handle_get_monitors,
     handle_monitor_graph,
@@ -185,6 +190,7 @@ class SidecarServer:
         hie_service: Any | None = None,
         vault_opener: Any | None = None,
         library_session: Any | None = None,
+        stitch_service: Any | None = None,
     ) -> None:
         self.table = table or catalog()
         self.stdin = stdin or sys.stdin
@@ -201,6 +207,7 @@ class SidecarServer:
         self.recon_engine = recon_engine
         self.webreq_service = webreq_service
         self.hie_service = hie_service or HieService()
+        self.stitch_service = stitch_service
         self.auth = VaultHub(vault_opener)
         self.vault_session = None
         self._opened_library_session = False
@@ -215,6 +222,13 @@ class SidecarServer:
         from middleware.src.services.library.lifecycle import register_server
 
         register_server(self)
+
+    def _get_stitch_service(self) -> Any:
+        if self.stitch_service is None:
+            from middleware.src.services.stitch.service import StitchService
+
+            self.stitch_service = StitchService()
+        return self.stitch_service
 
     def bind_vault_session(self, session: Any) -> None:
         """Remember an already-open vault session and attach its library stores.
@@ -553,6 +567,8 @@ class SidecarServer:
             return handle_export_document(self.hie_service, params)
         if method == "hie.list_capabilities":
             return handle_list_capabilities(self.hie_service, params)
+        if method == "hie.render_viewport":
+            return handle_render_viewport(self.hie_service, params)
         return _UNHANDLED
 
     def _dispatch_system_pages(self, method: str, params: dict[str, Any]) -> Any:
@@ -573,7 +589,11 @@ class SidecarServer:
         if method == "extractor.cut_sheet":
             return start_extractor_cut_sheet(self.jobs, params)
         if method == "stitch.status":
-            return stitch_status(params["route"])
+            return handle_stitch_status(self._get_stitch_service(), params)
+        if method == "stitch.run":
+            return handle_stitch_run(self._get_stitch_service(), params)
+        if method == "stitch.canvas":
+            return handle_stitch_canvas(self._get_stitch_service(), params)
         if method == "logs.read":
             return handle_logs_read(params)
         if method == "metadata.describe":

@@ -1,4 +1,4 @@
-// GENERATED — contract hash c30cf0dd6674a685340ce15641f019f568d5adba75e10d53baca8364f72fe25d. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 9fe77d2de0e32c92dfddbdf87c37a1f78a2aa550494a3394c78ad951fd387f08. Do not edit; edit the schema and regenerate.
 
 export interface EditParams {
   readonly document_id: string;
@@ -26,6 +26,13 @@ export interface ExportDocumentResult {
   readonly elapsed_seconds: number;
   readonly error?: string | null;
 }
+export interface HieLayer {
+  readonly id: string;
+  readonly name: string;
+  readonly visible: boolean;
+  readonly opacity: number;
+  readonly blend_mode?: string | null;
+}
 export type ListCapabilitiesParams = Record<string, unknown>;
 export interface ListCapabilitiesResult {
   readonly capabilities: Array<string>;
@@ -43,6 +50,23 @@ export interface OpenDocumentResult {
   readonly frame_count: number;
   readonly width: number;
   readonly height: number;
+  readonly elapsed_seconds: number;
+  readonly error?: string | null;
+}
+export interface RenderViewportParams {
+  readonly document_id: string;
+  readonly zoom?: number | null;
+  readonly pan_x?: number | null;
+  readonly pan_y?: number | null;
+  readonly viewport_width?: number | null;
+  readonly viewport_height?: number | null;
+}
+export interface RenderViewportResult {
+  readonly success: boolean;
+  readonly document_id: string;
+  readonly width?: number;
+  readonly height?: number;
+  readonly layers?: Array<HieLayer>;
   readonly elapsed_seconds: number;
   readonly error?: string | null;
 }
