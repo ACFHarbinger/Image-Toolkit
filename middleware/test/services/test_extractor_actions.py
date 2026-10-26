@@ -3,6 +3,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import pytest
 from middleware.src.bridge import Cancelled
 from middleware.src.services.extractor.actions import cut_sheet, extract_range, snapshot_frame
 from PIL import Image
@@ -292,3 +293,40 @@ def test_cancel_after_ffmpeg_does_not_publish(tmp_path, monkeypatch) -> None:
     else:
         raise AssertionError("cancel must win before publish")
     assert output.read_bytes() == b"keep-me"
+
+
+def test_sheet_rejects_output_explosion_before_building_targets(tmp_path, monkeypatch):
+    from middleware.src.services.extractor import actions
+
+    sheet = tmp_path / "large.png"
+    Image.new("RGB", (2000, 2000)).save(sheet)
+    output = tmp_path / "output"
+    output.mkdir()
+    def unexpected(*args):
+        raise AssertionError("must reject before allocating destinations")
+    monkeypatch.setattr(actions, "_crop_targets", unexpected)
+    result = cut_sheet(str(sheet), str(output), "grid", 1, 1, 0, 0, 0, True)
+    assert result["written"] is False
+    assert "1024 crop limit" in result["error"]
+    assert list(output.iterdir()) == []
+
+
+def test_sheet_cancellation_before_publish_preserves_existing_target(tmp_path):
+    from middleware.src.bridge import Cancelled
+
+    sheet = tmp_path / "sheet.png"
+    Image.new("RGBA", (4, 2)).save(sheet)
+    output = tmp_path / "output"
+    output.mkdir()
+    target = output / "frame_001.png"
+    target.write_bytes(b"existing output")
+    calls = 0
+    def checkpoint():
+        nonlocal calls
+        calls += 1
+        if calls == 3:
+            raise Cancelled()
+    with pytest.raises(Cancelled):
+        cut_sheet(str(sheet), str(output), "grid", 2, 2, 0, 0, 0, False, raise_if_cancelled=checkpoint)
+    assert target.read_bytes() == b"existing output"
+    assert list(output.iterdir()) == [target]

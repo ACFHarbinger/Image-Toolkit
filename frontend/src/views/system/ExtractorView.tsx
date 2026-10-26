@@ -26,7 +26,7 @@ export interface CutResult {
 
 export interface ExtractorJobStatus {
   readonly state: string;
-  readonly result?: Partial<FileResult>;
+  readonly result?: Partial<FileResult & CutResult>;
   readonly error?: { readonly message_key?: string; readonly code?: string; readonly message?: string } | string;
 }
 
@@ -39,6 +39,7 @@ export interface ExtractorClient {
     end_seconds: number;
     output_path: string;
   }): Promise<{ job_id: string }>;
+  cancelJob(jobId: string): Promise<unknown>;
   jobStatus(jobId: string): Promise<ExtractorJobStatus>;
   extractorCutSheet(params: {
     path: string;
@@ -50,11 +51,13 @@ export interface ExtractorClient {
     offset_y: number;
     spacing: number;
     include_partial: boolean;
-  }): Promise<CutResult>;
+  }): Promise<{ job_id: string }>;
 }
 
 /** One-path video probe (#905). Frame extraction stays on PySide6. */
 export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorClient }): React.ReactElement {
+  const [cutJob, setCutJob] = useState<string | null>(null);
+  const [cutting, setCutting] = useState(false);
   const [path, setPath] = useState("");
   const [result, setResult] = useState<ProbeResult | null>(null);
   const [error, setError] = useState("");
@@ -140,9 +143,11 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
   }
 
   async function onCut(): Promise<void> {
+    setCutting(true);
+    setActionNote("");
     setError("");
     try {
-      const next = await hostClient.extractorCutSheet({
+      const started = await hostClient.extractorCutSheet({
         path: sheetPath,
         output_dir: sheetDir,
         arrangement,
@@ -153,11 +158,23 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
         spacing,
         include_partial: includePartial,
       });
-      setActionNote(next.written ? `${next.width}x${next.height} ${next.paths.length}` : "");
-      setError(next.error);
+      setCutJob(started.job_id);
+      const finished = await pollJob(hostClient, started.job_id);
+      if (finished.state === "cancelled") {
+        setActionNote("cancelled");
+      } else if (finished.state === "failed") {
+        setError(jobErrorText(finished.error));
+      } else {
+        const next = finished.result;
+        setActionNote(next?.written ? `${next.width}x${next.height} ${next.paths?.length ?? 0}` : "");
+        setError(next?.error ?? "");
+      }
     } catch (exc) {
       setActionNote("");
       setError(exc instanceof Error ? exc.message : "cut failed");
+    } finally {
+      setCutJob(null);
+      setCutting(false);
     }
   }
 
@@ -168,6 +185,9 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
         <input value={path} onChange={(event) => setPath(event.target.value)} />
       </label>
       <button type="submit">Probe</button>
+      {cutJob ? <button type="button" onClick={() => {
+        void hostClient.cancelJob(cutJob).catch((exc: unknown) => setError(String(exc)));
+      }}>Cancel sheet cut</button> : null}
       {error ? <p role="alert">{error}</p> : null}
       {result?.available ? (
         <p>
@@ -257,7 +277,7 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
           onChange={(event) => setIncludePartial(event.target.checked)}
         />
       </label>
-      <button type="button" onClick={onCut}>
+      <button type="button" onClick={onCut} disabled={cutting}>
         Cut sheet
       </button>
       {actionNote ? <p>{actionNote}</p> : null}

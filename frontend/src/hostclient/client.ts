@@ -68,7 +68,6 @@ import type {
   ExtractorRangeParams,
   ExtractorJobResult,
   ExtractorCutParams,
-  ExtractorCutResult,
   StitchStatusResult,
   PrefsDescribeResult,
   LogsReadParams,
@@ -310,9 +309,9 @@ export class HostClient {
     return this.send<ExtractorJobResult>("extractor.extract_range", params as unknown as Record<string, unknown>);
   }
 
-  async extractorCutSheet(params: ExtractorCutParams): Promise<ExtractorCutResult> {
+  async extractorCutSheet(params: ExtractorCutParams): Promise<ExtractorJobResult> {
     await this.connect();
-    return this.send<ExtractorCutResult>("extractor.cut_sheet", params as unknown as Record<string, unknown>);
+    return this.send<ExtractorJobResult>("extractor.cut_sheet", params as unknown as Record<string, unknown>);
   }
 
   async stitchStatus(route: string): Promise<StitchStatusResult> {

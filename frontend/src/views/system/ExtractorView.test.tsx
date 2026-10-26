@@ -8,6 +8,7 @@ afterEach(() => {
 
 test("probe shows the returned stream", async () => {
   const hostClient = {
+    cancelJob: vi.fn(),
     extractorProbe: vi.fn().mockResolvedValue({
       available: true,
       width: 320,
@@ -30,6 +31,7 @@ test("probe shows the returned stream", async () => {
 
 test("cut sheet sends offset, spacing, and partial frames", async () => {
   const hostClient = {
+    cancelJob: vi.fn(),
     extractorProbe: vi.fn(),
     extractorSnapshot: vi.fn().mockResolvedValue({ job_id: "job-1" }),
     extractorExtractRange: vi.fn().mockResolvedValue({ job_id: "job-1" }),
@@ -42,15 +44,19 @@ test("cut sheet sends offset, spacing, and partial frames", async () => {
       .mockResolvedValueOnce({
         state: "completed",
         result: { written: true, output_path: "/range.mp4", error: "" },
+      })
+      .mockResolvedValueOnce({
+        state: "completed",
+        result: {
+          written: true,
+          output_dir: "/frames",
+          width: 10,
+          height: 4,
+          paths: ["/frames/frame_001.png"],
+          error: "",
+        },
       }),
-    extractorCutSheet: vi.fn().mockResolvedValue({
-      written: true,
-      output_dir: "/frames",
-      width: 10,
-      height: 4,
-      paths: ["/frames/frame_001.png"],
-      error: "",
-    }),
+    extractorCutSheet: vi.fn().mockResolvedValue({ job_id: "cut-1" }),
   };
   render(<ExtractorView hostClient={hostClient} />);
   fireEvent.change(screen.getByLabelText("Video"), { target: { value: "/clip.mp4" } });
@@ -89,4 +95,21 @@ test("cut sheet sends offset, spacing, and partial frames", async () => {
     spacing: 2,
     include_partial: true,
   });
+});
+
+test("sheet job can be cancelled while the worker is running", async () => {
+  let cancelled = false;
+  const hostClient = {
+    extractorProbe: vi.fn(),
+    extractorSnapshot: vi.fn(),
+    extractorExtractRange: vi.fn(),
+    extractorCutSheet: vi.fn().mockResolvedValue({ job_id: "cut-job" }),
+    jobStatus: vi.fn().mockImplementation(async () => ({ state: cancelled ? "cancelled" : "running" })),
+    cancelJob: vi.fn().mockImplementation(async () => { cancelled = true; }),
+  };
+  render(<ExtractorView hostClient={hostClient} />);
+  fireEvent.click(screen.getByRole("button", { name: "Cut sheet" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Cancel sheet cut" }));
+  expect(await screen.findByText("cancelled")).toBeInTheDocument();
+  expect(hostClient.cancelJob).toHaveBeenCalledWith("cut-job");
 });

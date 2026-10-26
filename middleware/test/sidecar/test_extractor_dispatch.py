@@ -58,3 +58,37 @@ def test_snapshot_dispatch_returns_a_job_before_the_worker_finishes(monkeypatch)
     assert status["state"] == "completed"
     assert status["result"] == {"written": True, "output_path": "/out.png", "error": ""}
     assert calls == [("/clip.mp4", 0.0, "/out.png")]
+
+
+def test_sheet_dispatch_stays_responsive_and_propagates_cancel(monkeypatch) -> None:
+    started = threading.Event()
+    release = threading.Event()
+    stopped = threading.Event()
+
+    def fake_cut(*args, raise_if_cancelled, **kwargs):
+        started.set()
+        try:
+            assert release.wait(2)
+            raise_if_cancelled()
+            raise AssertionError("cancelled cut must not publish output")
+        finally:
+            stopped.set()
+
+    monkeypatch.setattr("middleware.src.sidecar.handlers.extractor.cut_sheet", fake_cut)
+    server = SidecarServer(stdout=io.StringIO())
+    _request(server, "system.handshake", {
+        "protocol": PROTOCOL_NAME, "client": {"name": "pytest", "version": "1.0.0"},
+    }, "hello")
+    try:
+        response = _request(server, "extractor.cut_sheet", {
+            "path": "/sheet.png", "output_dir": "/frames", "arrangement": "grid",
+            "frame_width": 1, "frame_height": 1, "offset_x": 0, "offset_y": 0,
+            "spacing": 0, "include_partial": False,
+        }, "cut")
+        job_id = response["result"]["job_id"]
+        assert started.wait(2)
+        _request(server, "jobs.cancel", {"job_id": job_id}, "cancel")
+        assert _request(server, "jobs.status", {"job_id": job_id}, "status")["result"]["state"] == "cancelled"
+    finally:
+        release.set()
+    assert stopped.wait(2)

@@ -84,7 +84,7 @@ def _job_error(exc: Exception) -> dict[str, Any]:
     }
 
 
-def handle_cut_sheet(params: dict[str, Any]) -> dict[str, Any]:
+def handle_cut_sheet(params: dict[str, Any], token: Any | None = None) -> dict[str, Any]:
     return cut_sheet(
         str(params["path"]),
         str(params["output_dir"]),
@@ -95,4 +95,9 @@ def handle_cut_sheet(params: dict[str, Any]) -> dict[str, Any]:
         int(params["offset_y"]),
         int(params["spacing"]),
         bool(params["include_partial"]),
+        raise_if_cancelled=_checkpoint(token),
     )
+
+
+def start_extractor_cut_sheet(jobs: JobRegistry, params: dict[str, Any]) -> dict[str, Any]:
+    return _start_file_job(jobs, "extractor.cut_sheet", params, handle_cut_sheet)

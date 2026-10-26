@@ -1,4 +1,4 @@
-// GENERATED — contract hash 1b081c15dfb3252eeb7f0209c44d8f0e6d1689dc3d7a36162b2e9c360c9d65cd. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash e0db33d9af5a9a4f1a6cdc08951212bea919fbae41766e4c197dbe507cb15e7e. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -660,16 +660,6 @@ pub struct ExtractorCutParams {
     pub offset_y: i64,
     pub spacing: i64,
     pub include_partial: bool,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct ExtractorCutResult {
-    pub written: bool,
-    pub output_dir: String,
-    pub width: i64,
-    pub height: i64,
-    pub paths: Vec<String>,
-    pub error: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

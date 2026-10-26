@@ -18,6 +18,7 @@ from typing import Any
 
 _MAX_PIXELS = 4_000_000
 _MAX_EDGE = 8192
+_MAX_CROPS = 1024
 
 
 def snapshot_frame(
@@ -79,6 +80,8 @@ def cut_sheet(
     offset_y: int,
     spacing: int,
     include_partial: bool,
+    *,
+    raise_if_cancelled: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
     blank = {"written": False, "output_dir": output_dir, "width": 0, "height": 0, "paths": [], "error": ""}
     if not Path(path).is_file():
@@ -89,7 +92,8 @@ def cut_sheet(
         rects, width, height = _rects(
             path, arrangement, frame_width, frame_height, offset_x, offset_y, spacing, include_partial
         )
-        written = _write_crops(path, output_dir, rects)
+        _checkpoint(raise_if_cancelled, None)
+        written = _write_crops(path, output_dir, rects, raise_if_cancelled)
     except (OSError, ValueError) as exc:
         return {**blank, "error": str(exc)}
     return {
@@ -228,7 +232,7 @@ def _rects(
         img_w, img_h = image.size
     if img_w < 1 or img_h < 1 or img_w > _MAX_EDGE or img_h > _MAX_EDGE or img_w * img_h > _MAX_PIXELS:
         raise ValueError("image is too large")
-    frames, leftover = _frame_lists(arrangement, img_w, img_h, frame_width, frame_height, offset_x, offset_y, spacing)
+    frames, leftover = _frame_lists(arrangement, img_w, img_h, frame_width, frame_height, offset_x, offset_y, spacing, include_partial)
     rects = list(frames)
     if include_partial:
         rects.extend(rect for rect in (_clip(item, img_w, img_h) for item in leftover) if rect is not None)
@@ -246,7 +250,10 @@ def _frame_lists(
     offset_x: int,
     offset_y: int,
     spacing: int,
+    include_partial: bool = True,
 ) -> tuple[list[tuple[int, int, int, int]], list[tuple[int, int, int, int]]]:
+    if min(offset_x, offset_y, spacing) < 0:
+        raise ValueError("offset and spacing must be nonnegative")
     if arrangement == "vertical":
         frame_w, frame_h = img_w - offset_x, frame_height
     elif arrangement == "horizontal":
@@ -257,52 +264,20 @@ def _frame_lists(
         raise ValueError("arrangement must be grid, vertical, or horizontal")
     if frame_w <= 0 or frame_h <= 0:
         raise ValueError("frame size is empty")
-    xs = [offset_x] if arrangement == "vertical" else _axis_steps(offset_x, frame_w, spacing, img_w)
-    ys = [offset_y] if arrangement == "horizontal" else _axis_steps(offset_y, frame_h, spacing, img_h)
-    frames = [(x, y, frame_w, frame_h) for y in ys for x in xs]
-    leftover: list[tuple[int, int, int, int]] = []
-    # No complete step still leaves a positive span from the offset. Those rects
-    # stay in leftover so _rects can clip them only when include_partial is set.
-    missing_x = arrangement != "vertical" and not xs and img_w - offset_x > 0
-    missing_y = arrangement != "horizontal" and not ys and img_h - offset_y > 0
-    if missing_x and missing_y:
-        leftover.append((offset_x, offset_y, frame_w, frame_h))
-    elif missing_x:
-        leftover.extend((offset_x, y, frame_w, frame_h) for y in ys)
-    elif missing_y:
-        leftover.extend((x, offset_y, frame_w, frame_h) for x in xs)
-    if not xs or not ys:
-        return frames, leftover
-    partial_w = 0
-    partial_h = 0
-    last_x = xs[-1]
-    last_y = ys[-1]
-    if arrangement != "vertical":
-        last_x_end = last_x + frame_w
-        partial_w = img_w - last_x_end - spacing
-        if partial_w > 0 and last_x_end + spacing < img_w:
-            leftover.extend((last_x_end + spacing, y, partial_w, frame_h) for y in ys)
-        else:
-            partial_w = 0
-    if arrangement != "horizontal":
-        last_y_end = last_y + frame_h
-        partial_h = img_h - last_y_end - spacing
-        if partial_h > 0 and last_y_end + spacing < img_h:
-            leftover.extend((x, last_y_end + spacing, frame_w, partial_h) for x in xs)
-        else:
-            partial_h = 0
-    if arrangement == "grid" and partial_w > 0 and partial_h > 0:
-        leftover.append((last_x + frame_w + spacing, last_y + frame_h + spacing, partial_w, partial_h))
+    x_stop = img_w if include_partial else img_w - frame_w + 1
+    y_stop = img_h if include_partial else img_h - frame_h + 1
+    xs = range(offset_x, x_stop, frame_w + spacing)
+    ys = range(offset_y, y_stop, frame_h + spacing)
+    # range lengths are constant-space; reject before allocating the product.
+    if len(xs) * len(ys) > _MAX_CROPS:
+        raise ValueError(f"sheet exceeds the {_MAX_CROPS} crop limit")
+    frames = []
+    leftover = []
+    for y in ys:
+        for x in xs:
+            target = frames if x + frame_w <= img_w and y + frame_h <= img_h else leftover
+            target.append((x, y, frame_w, frame_h))
     return frames, leftover
-
-
-def _axis_steps(offset: int, size: int, gap: int, limit: int) -> list[int]:
-    steps: list[int] = []
-    pos = offset
-    while pos + size <= limit:
-        steps.append(pos)
-        pos += size + gap
-    return steps
 
 
 def _clip(rect: tuple[int, int, int, int], img_w: int, img_h: int) -> tuple[int, int, int, int] | None:
@@ -335,7 +310,10 @@ def _has_alpha(image: Any) -> bool:
     return image.mode == "P" and "transparency" in image.info
 
 
-def _write_crops(path: str, output_dir: str, rects: list[tuple[int, int, int, int]]) -> list[str]:
+def _write_crops(
+    path: str, output_dir: str, rects: list[tuple[int, int, int, int]],
+    raise_if_cancelled: Callable[[], None] | None = None,
+) -> list[str]:
     from PIL import Image
 
     targets = _crop_targets(path, output_dir, len(rects))
@@ -344,10 +322,18 @@ def _write_crops(path: str, output_dir: str, rects: list[tuple[int, int, int, in
         sheet = image.convert("RGBA") if _has_alpha(image) else image.convert("RGB")
         try:
             for target, (x, y, width, height) in zip(targets, rects, strict=True):
+                _checkpoint(raise_if_cancelled, None)
                 crop = sheet.crop((x, y, x + width, y + height))
                 try:
-                    crop.save(target, format="PNG")
-                    written.append(str(target))
+                    with tempfile.NamedTemporaryFile(dir=target.parent, suffix=".png", delete=False) as handle:
+                        temporary = Path(handle.name)
+                    try:
+                        crop.save(temporary, format="PNG")
+                        _checkpoint(raise_if_cancelled, None)
+                        temporary.replace(target)
+                        written.append(str(target))
+                    finally:
+                        temporary.unlink(missing_ok=True)
                 finally:
                     crop.close()
         finally:

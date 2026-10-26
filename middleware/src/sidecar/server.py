@@ -61,8 +61,8 @@ from middleware.src.sidecar.handlers.entity_recon import (
     handle_entity_recon_resolve,
 )
 from middleware.src.sidecar.handlers.extractor import (
-    handle_cut_sheet,
     handle_probe,
+    start_extractor_cut_sheet,
     start_extractor_extract_range,
     start_extractor_snapshot,
 )
@@ -449,7 +449,7 @@ class SidecarServer:
         if method == "extractor.extract_range":
             return start_extractor_extract_range(self.jobs, params)
         if method == "extractor.cut_sheet":
-            return handle_cut_sheet(params)
+            return start_extractor_cut_sheet(self.jobs, params)
         if method == "stitch.status":
             return stitch_status(params["route"])
         if method == "logs.read":

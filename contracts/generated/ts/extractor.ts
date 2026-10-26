@@ -1,4 +1,4 @@
-// GENERATED — contract hash 1b081c15dfb3252eeb7f0209c44d8f0e6d1689dc3d7a36162b2e9c360c9d65cd. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash e0db33d9af5a9a4f1a6cdc08951212bea919fbae41766e4c197dbe507cb15e7e. Do not edit; edit the schema and regenerate.
 
 export interface ExtractorCutParams {
   readonly path: string;
@@ -10,14 +10,6 @@ export interface ExtractorCutParams {
   readonly offset_y: number;
   readonly spacing: number;
   readonly include_partial: boolean;
-}
-export interface ExtractorCutResult {
-  readonly written: boolean;
-  readonly output_dir: string;
-  readonly width: number;
-  readonly height: number;
-  readonly paths: Array<string>;
-  readonly error: string;
 }
 export interface ExtractorJobResult {
   readonly job_id: string;

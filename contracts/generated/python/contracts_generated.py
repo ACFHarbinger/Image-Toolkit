@@ -1,4 +1,4 @@
-# GENERATED — contract hash 1b081c15dfb3252eeb7f0209c44d8f0e6d1689dc3d7a36162b2e9c360c9d65cd. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash e0db33d9af5a9a4f1a6cdc08951212bea919fbae41766e4c197dbe507cb15e7e. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -580,16 +580,6 @@ class ExtractorCutParams:
     offset_y: int
     spacing: int
     include_partial: bool
-
-
-@dataclass(frozen=True)
-class ExtractorCutResult:
-    written: bool
-    output_dir: str
-    width: int
-    height: int
-    paths: list[str]
-    error: str
 
 
 @dataclass(frozen=True)

@@ -67,7 +67,7 @@
       "title": "ExtractorJobResult",
       "type": "object",
       "additionalProperties": false,
-      "description": "Accepted extract. The file result is on jobs.status when the job finishes.",
+      "description": "Accepted extract. The file or sheet result is on jobs.status when the job finishes.",
       "required": ["job_id"],
       "properties": {
         "job_id": { "type": "string", "minLength": 1 }
