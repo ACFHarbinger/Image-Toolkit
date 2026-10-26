@@ -16,7 +16,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
 ]
 dependencies = [
-    "cel-shaded-generator>=0.1.0",
+    # Engine moved to middleware/src/csg (#1036); this frozen GUI no longer
+    # installs the cel-shaded-generator workspace package.
     "pyside6>=6.10.0",
     "numpy>=2.3.4",
     "opencv-python-headless>=4.11.0.86",
@@ -55,9 +56,6 @@ packages = [
     "csg_gui.helpers",
     "csg_gui.tabs",
 ]
-
-[tool.uv.sources]
-cel-shaded-generator = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["test"]

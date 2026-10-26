@@ -1,14 +1,13 @@
 """Registers Python packages supplied by repository submodules.
 
 ASP (Anime-Stitch-Pipeline) exposes flattened source roots and is loaded
-under collision-proof aliases. CSG (Cel-Shaded-Generator) also exposes a
-flattened core source root; its top-level domain packages are imported
-directly:
+under collision-proof aliases. CSG's colorization engine lives at
+``middleware.src.csg`` (#1036), not on ``sys.path``. The frozen Qt GUI is
+still loaded under an alias:
 
     asp_backend  -> submodules/ASP/backend/src
     asp_gui      -> submodules/ASP/gui/src
-    colorization/learning/... -> submodules/CSG/logic/src
-    csg_gui     -> submodules/CSG/gui/src
+    csg_gui      -> submodules/CSG/gui/src
 """
 
 from __future__ import annotations
@@ -25,7 +24,6 @@ _ALIASES = {
 }
 
 _PACKAGE_ROOTS = (
-    ("CSG", "logic", "src"),
     ("HIE", "middleware", "src"),
     ("HIE", "gui", "src"),
 )

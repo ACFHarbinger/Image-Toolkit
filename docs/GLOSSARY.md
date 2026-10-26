@@ -4,7 +4,7 @@
 | --- | --- |
 | **ASP** | Anime-Stitch-Pipeline — panorama / anime stitch submodule at `submodules/ASP` |
 | **CRE** | Content-Recommendation-Engine submodule (`submodules/CRE`) |
-| **CSG** | Cel-Shaded-Generator submodule (`submodules/CSG`) |
+| **CSG** | Cel-Shaded-Generator; engine at `middleware/src/csg` (#1036), Qt remainder at `submodules/CSG` |
 | **SCANS** | OpenCV simple stitch comparator baseline |
 | **Human coherence rating** | 0–4 structural quality score from the Phase 0.1 inspector (`just asp-benchmark-assess`) |
 | **Hybrid memory** | (Coding-Assistants context) SQLite + Markdown shared agent memory — not IT core |
