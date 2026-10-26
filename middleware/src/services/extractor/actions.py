@@ -6,8 +6,10 @@ This module does not invent frame bytes and does not open library.db.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -108,15 +110,27 @@ def _ffmpeg_bin() -> str:
 
 def _run_ffmpeg(command: list[str], output_path: str) -> dict[str, Any]:
     destination = Path(output_path)
+    fd, temporary_name = tempfile.mkstemp(
+        prefix=f".{destination.name}.",
+        suffix=".partial",
+        dir=destination.parent,
+    )
+    os.close(fd)
+    temporary = Path(temporary_name)
+    staged = [*command[:-1], str(temporary)]
     try:
-        completed = subprocess.run(command, capture_output=True, check=False, timeout=120)
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        destination.unlink(missing_ok=True)
-        return _file_result(output_path, str(exc))
-    if completed.returncode != 0 or not destination.is_file() or destination.stat().st_size == 0:
-        destination.unlink(missing_ok=True)
-        return _file_result(output_path, "ffmpeg failed")
-    return {"written": True, "output_path": output_path, "error": ""}
+        try:
+            completed = subprocess.run(staged, capture_output=True, check=False, timeout=120)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return _file_result(output_path, str(exc))
+        if completed.returncode != 0 or not temporary.is_file() or temporary.stat().st_size == 0:
+            return _file_result(output_path, "ffmpeg failed")
+        temporary.replace(destination)
+        temporary = None
+        return {"written": True, "output_path": output_path, "error": ""}
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def _rects(
@@ -170,16 +184,26 @@ def _frame_lists(
         return [], []
     frames = [(x, y, frame_w, frame_h) for y in ys for x in xs]
     leftover: list[tuple[int, int, int, int]] = []
+    partial_w = 0
+    partial_h = 0
+    last_x = xs[-1]
+    last_y = ys[-1]
     if arrangement != "vertical":
-        last_x_end = xs[-1] + frame_w
+        last_x_end = last_x + frame_w
         partial_w = img_w - last_x_end - spacing
         if partial_w > 0 and last_x_end + spacing < img_w:
             leftover.extend((last_x_end + spacing, y, partial_w, frame_h) for y in ys)
+        else:
+            partial_w = 0
     if arrangement != "horizontal":
-        last_y_end = ys[-1] + frame_h
+        last_y_end = last_y + frame_h
         partial_h = img_h - last_y_end - spacing
         if partial_h > 0 and last_y_end + spacing < img_h:
             leftover.extend((x, last_y_end + spacing, frame_w, partial_h) for x in xs)
+        else:
+            partial_h = 0
+    if arrangement == "grid" and partial_w > 0 and partial_h > 0:
+        leftover.append((last_x + frame_w + spacing, last_y + frame_h + spacing, partial_w, partial_h))
     return frames, leftover
 
 

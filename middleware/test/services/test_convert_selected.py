@@ -85,6 +85,44 @@ def test_selected_file_outside_the_directory_is_refused(tmp_path) -> None:
         )
 
 
+def test_resample_keeps_alpha_for_png_and_drops_it_for_jpeg(tmp_path) -> None:
+    source = tmp_path / "in"
+    output = tmp_path / "out"
+    source.mkdir()
+    output.mkdir()
+    with Image.new("RGBA", (4, 4), (0, 0, 0, 0)) as image:
+        image.save(source / "clear.png")
+    png = run_selected(
+        {
+            "input_dir": str(source),
+            "output_dir": str(output),
+            "action": "resample",
+            "paths": [str(source / "clear.png")],
+            "width": 2,
+            "height": 2,
+            "output_format": "png",
+        },
+        lambda _done, _total: None,
+    )
+    assert png["succeeded"] == 1
+    with Image.open(png["output_paths"][0]) as image:
+        assert image.mode == "RGBA"
+        assert image.getpixel((0, 0))[3] == 0
+    jpeg = run_selected(
+        {
+            "input_dir": str(source),
+            "output_dir": str(output),
+            "action": "reencode",
+            "paths": [str(source / "clear.png")],
+            "output_format": "jpg",
+        },
+        lambda _done, _total: None,
+    )
+    assert jpeg["succeeded"] == 1
+    with Image.open(jpeg["output_paths"][0]) as image:
+        assert image.mode == "RGB"
+
+
 def test_image_reencode_writes_jpeg_without_ffmpeg(tmp_path) -> None:
     source = tmp_path / "in"
     output = tmp_path / "out"

@@ -44,6 +44,7 @@ _PIL_FORMATS = {
     "gif": "GIF",
     "ico": "ICO",
 }
+_OPAQUE_FORMATS = frozenset({"jpg", "jpeg", "bmp"})
 
 
 def list_directory(directory: str) -> dict[str, Any]:
@@ -192,16 +193,28 @@ def _resize_image(src: str, dest: Path, width: Any, height: Any, algorithm: str,
         raise ValueError("unsupported resample algorithm")
     with Image.open(src) as image:
         target_w, target_h = _target_size(*image.size, width, height)
-        rgb = image.convert("RGB")
+        working = _for_format(image, fmt)
         try:
-            resized = rgb.resize((target_w, target_h), resampling[algorithm])
+            resized = working.resize((target_w, target_h), resampling[algorithm])
             try:
                 resized.save(dest, format=_PIL_FORMATS[fmt])
             finally:
                 resized.close()
         finally:
-            if rgb is not image:
-                rgb.close()
+            if working is not image:
+                working.close()
+
+
+def _for_format(image: Any, fmt: str) -> Any:
+    if fmt not in _OPAQUE_FORMATS and _has_alpha(image):
+        return image.convert("RGBA")
+    return image.convert("RGB")
+
+
+def _has_alpha(image: Any) -> bool:
+    if "A" in image.getbands():
+        return True
+    return image.mode == "P" and "transparency" in image.info
 
 
 def _target_size(source_w: int, source_h: int, width: Any, height: Any) -> tuple[int, int]:
