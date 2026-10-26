@@ -29,6 +29,7 @@ def test_snapshot_writes_the_ffmpeg_output(tmp_path, monkeypatch) -> None:
 
     def fake_run(args, **_kwargs):
         assert args[0] == "/usr/bin/ffmpeg"
+        assert Path(args[-1]).suffix == output.suffix
         assert args[-1] != str(output)
         assert "-frames:v" in args
         Path(args[-1]).write_bytes(b"frame-bytes")
@@ -47,6 +48,7 @@ def test_range_extract_cleans_up_a_failed_ffmpeg(tmp_path, monkeypatch) -> None:
     output = tmp_path / "clip-out.mp4"
 
     def fake_run(args, **_kwargs):
+        assert Path(args[-1]).suffix == ".mp4"
         assert args[-1] != str(output)
         Path(args[-1]).write_bytes(b"")
         return subprocess.CompletedProcess(args, 1)
@@ -66,6 +68,7 @@ def test_failed_extract_keeps_an_existing_destination(tmp_path, monkeypatch) -> 
     output.write_bytes(b"keep-me")
 
     def fake_run(args, **_kwargs):
+        assert Path(args[-1]).suffix == ".mp4"
         assert args[-1] != str(output)
         return subprocess.CompletedProcess(args, 1)
 

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import io
+import subprocess
 import time
+from pathlib import Path
 
 import pytest
 from middleware.src.bridge import PROTOCOL_NAME, Cancelled
@@ -144,6 +146,40 @@ def test_image_reencode_writes_jpeg_without_ffmpeg(tmp_path) -> None:
     with Image.open(result["output_paths"][0]) as image:
         assert image.format == "JPEG"
         assert image.size == (3, 3)
+
+
+def test_failed_video_reencode_keeps_the_existing_file(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "in"
+    output = tmp_path / "out"
+    source.mkdir()
+    output.mkdir()
+    video = source / "clip.mp4"
+    video.write_bytes(b"not a video")
+    existing = output / "clip.mp4"
+    existing.write_bytes(b"keep-me")
+
+    def fake_run(args, **_kwargs):
+        target = Path(args[-1])
+        assert target.suffix == ".mp4"
+        assert target != existing
+        return subprocess.CompletedProcess(args, 1)
+
+    monkeypatch.setattr("middleware.src.services.convert.selected.shutil.which", lambda _name: "/usr/bin/ffmpeg")
+    monkeypatch.setattr("middleware.src.services.convert.selected.subprocess.run", fake_run)
+    result = run_selected(
+        {
+            "input_dir": str(source),
+            "output_dir": str(output),
+            "action": "reencode",
+            "paths": [str(video)],
+            "video_codec": "h264",
+            "audio_codec": "aac",
+        },
+        lambda _done, _total: None,
+    )
+    assert result["failed"] == 1
+    assert "ffmpeg failed" in result["errors"][0]
+    assert existing.read_bytes() == b"keep-me"
 
 
 def test_video_reencode_uses_ffmpeg_and_does_not_fake_output(tmp_path, monkeypatch) -> None:

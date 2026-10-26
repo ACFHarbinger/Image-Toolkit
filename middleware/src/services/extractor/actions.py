@@ -111,8 +111,8 @@ def _ffmpeg_bin() -> str:
 def _run_ffmpeg(command: list[str], output_path: str) -> dict[str, Any]:
     destination = Path(output_path)
     fd, temporary_name = tempfile.mkstemp(
-        prefix=f".{destination.name}.",
-        suffix=".partial",
+        prefix=f".{destination.stem}.",
+        suffix=destination.suffix,
         dir=destination.parent,
     )
     os.close(fd)

@@ -6,8 +6,10 @@ PIL and ffmpeg are imported or resolved inside the file that needs them.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
+import tempfile
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -279,13 +281,24 @@ def _reencode_video(params: dict[str, Any], src: str, ext: str) -> tuple[str, st
     crf = params.get("crf")
     if isinstance(crf, int) and not isinstance(crf, bool) and video != "copy":
         command.extend(["-crf", str(crf)])
-    command.append(str(dest))
+    return _publish_ffmpeg(command, dest)
+
+
+def _publish_ffmpeg(command: list[str], dest: Path) -> tuple[str, str]:
+    """Write beside ``dest``, keeping its suffix so ffmpeg can see the format."""
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{dest.stem}.", suffix=dest.suffix, dir=dest.parent)
+    os.close(fd)
+    temporary = Path(temporary_name)
     try:
-        completed = subprocess.run(command, capture_output=True, check=False, timeout=120)
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        dest.unlink(missing_ok=True)
-        return "", str(exc)
-    if completed.returncode != 0 or not dest.is_file() or dest.stat().st_size == 0:
-        dest.unlink(missing_ok=True)
-        return "", "ffmpeg failed"
-    return str(dest), ""
+        try:
+            completed = subprocess.run([*command, str(temporary)], capture_output=True, check=False, timeout=120)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return "", str(exc)
+        if completed.returncode != 0 or not temporary.is_file() or temporary.stat().st_size == 0:
+            return "", "ffmpeg failed"
+        temporary.replace(dest)
+        temporary = None
+        return str(dest), ""
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
