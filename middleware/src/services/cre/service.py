@@ -9,7 +9,6 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from middleware.src.services._submodule_loader import ensure_submodules_registered
 from middleware.src.services.base import CommandValidationError
 from middleware.src.services.cre.commands import (
     IndexMediaItemCommand,
@@ -28,13 +27,12 @@ class CreService(CreServiceProtocol):
         """Initialize CreService with optional pipeline or store delegate."""
         self._pipeline = pipeline
         self._store = store
-        ensure_submodules_registered()
 
     def _get_pipeline(self) -> Any:
         if self._pipeline is not None:
             return self._pipeline
         try:
-            from src.search.pipeline import RecommendationPipeline
+            from middleware.src.cre.search.pipeline import RecommendationPipeline
 
             self._pipeline = RecommendationPipeline(top_k=10, use_reranker=False, explain=False)
             return self._pipeline

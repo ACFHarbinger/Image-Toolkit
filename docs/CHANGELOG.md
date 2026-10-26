@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+
+- **CRE relocated out of `submodules/`** (W0-03 phase E, #1035 / #867): the Content Recommendation Engine now lives at `middleware/src/cre/` (engine), `middleware/test/cre/` (tests), `middleware/scripts/cre_{evaluate,sweep}.py` (offline eval scripts), `data/cre/` (sample corpora), and `docs/cre/` (architecture, roadmaps, research notes — linked from `docs/modules/cre.md`; the differing CRE licence is kept at `docs/cre/LICENSE`). Imports are the canonical `middleware.src.cre.*` everywhere; `CreService` and the GUI recommendation/embedding workers no longer go through the submodule `src` path hack, and `submodules/CRE` left the uv workspace (lock updated). No behavior change — the stale submodules/CRE tree (Qt-era configs, CI templates, per-repo pyproject) stays until the final `submodules/` removal PR.
+
+### Fixed
+
+- Wallpaper settings restore the live daemon state on mount, offering Stop when a slideshow is already running.
+- Slideshow bridge styles now use desktop mappings in the daemon, monitor discovery works without Qt geometry, and repeated Start requests retain the live daemon.
+- Remove the duplicate system-page dispatch traversal after the sidecar landing re-sync.
+
 ### Fixed
 
 - Expose Logs and File Metadata in the Developer / Diagnostics navigation with the shell HostClient (#919).
