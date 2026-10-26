@@ -55,12 +55,6 @@ class BrowserFallbackHieHost implements HieHost {
 }
 
 export function getHieHost(): HieHost {
-  const customHost =
-    typeof window !== "undefined"
-      ? (window as unknown as { __HIE_HOST__?: HieHost }).__HIE_HOST__
-      : undefined;
-  if (customHost) {
-    return customHost;
   const injected = (window as { __HIE_HOST__?: HieHost } | undefined)?.__HIE_HOST__;
   if (typeof window !== "undefined" && injected) {
     return injected;
