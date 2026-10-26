@@ -139,6 +139,7 @@ class SidecarServer:
         webreq_service: Any | None = None,
         hie_service: Any | None = None,
         cloud_service: Any | None = None,
+        vault_session: Any | None = None,
     ) -> None:
         self.table = table or catalog()
         self.stdin = stdin or sys.stdin
@@ -157,8 +158,13 @@ class SidecarServer:
         self.hie_service = hie_service or HieService()
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self.cloud_service = cloud_service
+        self.vault_session = vault_session
         self._handshaken = False
         self._write_mu = threading.Lock()
+
+    def set_vault_session(self, vault_session: Any | None) -> None:
+        """Store the authenticated vault session used by drive sync."""
+        self.vault_session = vault_session
 
     def _get_cloud_service(self) -> Any:
         if self.cloud_service is None:
@@ -455,7 +461,7 @@ class SidecarServer:
         if method == "drive_sync.sync":
             from middleware.src.sidecar.handlers.drive_sync import handle_drive_sync
 
-            return handle_drive_sync(params)
+            return handle_drive_sync(params, getattr(self, "vault_session", None))
         if method == "media_loader.plan":
             return handle_media_plan(params)
         if method == "media_loader.fetch":

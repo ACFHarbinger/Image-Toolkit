@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 import time
 import urllib.parse
 import urllib.request
@@ -20,7 +21,7 @@ def fetch_media(
 ) -> dict[str, Any]:
     """Download media from url into destination folder or target path."""
     t0 = time.monotonic()
-    
+
     # Run plan validation first
     plan = plan_download(url, destination)
     if not plan.get("accepted"):
@@ -72,17 +73,27 @@ def fetch_media(
                 "error": str(exc),
             }
 
+    # Sibling keeps the destination suffix so type sniffing still works, but
+    # the real path is replaced only after the full body is on disk.
+    temp_path: Path | None = None
     try:
         req = urllib.request.Request(
             url,
             headers={"User-Agent": "Image-Toolkit-MediaLoader/1.0"},
         )
+        fd, tmp_name = tempfile.mkstemp(
+            suffix=target_path.suffix,
+            prefix=f".{target_path.name}.",
+            dir=dest_dir,
+        )
+        temp_path = Path(tmp_name)
         total_bytes = 0
-        with urllib.request.urlopen(req, timeout=timeout) as response:
-            with target_path.open("wb") as handle:
-                while chunk := response.read(64 * 1024):
-                    handle.write(chunk)
-                    total_bytes += len(chunk)
+        with os.fdopen(fd, "wb") as handle, urllib.request.urlopen(req, timeout=timeout) as response:
+            while chunk := response.read(64 * 1024):
+                handle.write(chunk)
+                total_bytes += len(chunk)
+        os.replace(temp_path, target_path)
+        temp_path = None
 
         return {
             "success": True,
@@ -93,7 +104,6 @@ def fetch_media(
             "error": None,
         }
     except Exception as exc:
-        target_path.unlink(missing_ok=True)
         return {
             "success": False,
             "url": url,
@@ -102,3 +112,6 @@ def fetch_media(
             "elapsed_seconds": round(time.monotonic() - t0, 4),
             "error": str(exc),
         }
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)

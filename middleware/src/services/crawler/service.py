@@ -149,15 +149,15 @@ class CrawlerService(CrawlerServiceProtocol):
             try:
                 from middleware.src.web.crawlers.image_crawler import ImageCrawler
 
+                # ImageCrawler.run reads config["url"] and returns 0 when that key is absent.
                 cfg = {
-                    "target_url": command.url,
+                    "url": command.url,
                     "download_dir": command.download_dir,
                     "actions": list(command.actions) if command.actions else [],
                     "login_config": command.login_config,
                 }
                 crawler = ImageCrawler(cfg)
-                crawler.run()
-                total_downloaded = len([p for p in dest.iterdir() if p.is_file()])
+                total_downloaded = int(crawler.run() or 0)
             except Exception as exc:
                 errors.append(str(exc))
 

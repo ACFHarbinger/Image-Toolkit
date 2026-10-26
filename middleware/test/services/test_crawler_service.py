@@ -98,6 +98,27 @@ def test_crawl_with_custom_runner(tmp_path: Path) -> None:
     assert result.total_downloaded == 42
 
 
+def test_general_crawl_passes_url_and_uses_the_crawler_count(tmp_path: Path, monkeypatch) -> None:
+    seen: dict[str, object] = {}
+
+    class FakeCrawler:
+        def __init__(self, config: dict) -> None:
+            seen["config"] = config
+
+        def run(self) -> int:
+            return 3
+
+    monkeypatch.setattr("middleware.src.web.crawlers.image_crawler.ImageCrawler", FakeCrawler)
+    (tmp_path / "already-there.png").write_bytes(b"old")
+    result = CrawlerService().crawl(
+        CrawlCommand(crawler_type="general", download_dir=str(tmp_path), url="https://example.com/gallery")
+    )
+    assert result.success is True
+    assert result.total_downloaded == 3
+    assert seen["config"]["url"] == "https://example.com/gallery"
+    assert "target_url" not in seen["config"]
+
+
 def test_list_supported() -> None:
     service = CrawlerService()
     result = service.list_supported(ListSupportedCommand())

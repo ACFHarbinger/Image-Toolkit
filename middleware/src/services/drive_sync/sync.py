@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import time
-from pathlib import Path
 from typing import Any
 
 from middleware.src.services.drive_sync.plan import plan_sync
@@ -22,7 +21,7 @@ def execute_drive_sync(
 ) -> dict[str, Any]:
     """Execute sync for the given paths to the cloud provider."""
     t0 = time.monotonic()
-    
+
     # Validation via plan rules
     try:
         plan_sync(provider, paths)
@@ -85,9 +84,9 @@ def execute_drive_sync(
     if vault_session is not None:
         try:
             cred_key = f"cloud_{provider}_token"
-            if hasattr(vault_session, "get_secret") and vault_session.get_secret(cred_key):
-                has_credentials = True
-            elif hasattr(vault_session, "is_unlocked") and vault_session.is_unlocked():
+            has_secret = hasattr(vault_session, "get_secret") and vault_session.get_secret(cred_key)
+            has_unlock = hasattr(vault_session, "is_unlocked") and vault_session.is_unlocked()
+            if has_secret or has_unlock:
                 has_credentials = True
         except Exception:
             has_credentials = False
@@ -101,10 +100,11 @@ def execute_drive_sync(
             "errors": [f"Provider {provider} requires authenticated vault session credentials"] + missing_paths,
         }
 
+    # A vault session is not an upload. Without an injected syncer nothing is sent.
     return {
-        "success": True,
+        "success": False,
         "provider": provider,
-        "synced_count": len(valid_paths),
+        "synced_count": 0,
         "elapsed_seconds": round(time.monotonic() - t0, 4),
-        "errors": missing_paths,
+        "errors": ["provider upload is unavailable"] + missing_paths,
     }

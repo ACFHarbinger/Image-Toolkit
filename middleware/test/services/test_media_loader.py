@@ -47,11 +47,26 @@ def test_fetch_media_success(tmp_path, monkeypatch) -> None:
     assert result["bytes_downloaded"] == len(b"fake image bytes")
     assert out_file.read_bytes() == b"fake image bytes"
 
-    # Handler test
     handler_result = handle_media_fetch({
         "url": "https://example.com/test.png",
         "destination": str(tmp_path),
     })
     assert handler_result["success"] is True
     assert handler_result["destination_path"] == str(out_file)
+
+
+def test_fetch_failure_keeps_an_existing_file(tmp_path, monkeypatch) -> None:
+    from middleware.src.services.media_loader.fetch import fetch_media
+
+    existing = tmp_path / "test.png"
+    existing.write_bytes(b"keep-me")
+
+    def boom(*_args, **_kwargs):
+        raise OSError("connection failed")
+
+    monkeypatch.setattr("middleware.src.services.media_loader.fetch.urllib.request.urlopen", boom)
+    result = fetch_media("https://example.com/test.png", str(tmp_path))
+    assert result["success"] is False
+    assert existing.read_bytes() == b"keep-me"
+    assert list(tmp_path.glob(".test.png.*")) == []
 
