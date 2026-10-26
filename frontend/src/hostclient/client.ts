@@ -2,6 +2,10 @@ import type { ScanDirectoryParams, ScanDirectoryResult, SaveMetadataParams, Save
 import type { ExecuteParams, ExecuteResult, SequenceParams, SequenceResult } from "../../../contracts/generated/ts";
 import type { BrowseParams, BrowseResult, CatalogResult, MutateParams, MutateResult } from "../../../contracts/generated/ts";
 import type {
+  CrawlParams,
+  CrawlResult,
+  CrawlerSupportedParams,
+  CrawlerSupportedResult,
   EditParams,
   EditResult,
   ExportDocumentParams,
@@ -368,6 +372,14 @@ export class HostClient {
     return this.send<SuggestTagsResult>("scan.suggest_tags", params as unknown as Record<string, unknown>);
   }
 
+  async crawlerCrawl(params: CrawlParams): Promise<CrawlResult> {
+    await this.connect();
+    return this.send<CrawlResult>("crawler.crawl", params as unknown as Record<string, unknown>);
+  }
+
+  async crawlerListSupported(params?: CrawlerSupportedParams): Promise<CrawlerSupportedResult> {
+    await this.connect();
+    return this.send<CrawlerSupportedResult>("crawler.list_supported", (params ?? {}) as Record<string, unknown>);
   async webreqExecute(params: ExecuteParams): Promise<ExecuteResult> {
     await this.connect();
     return this.send<ExecuteResult>("webreq.execute", params as unknown as Record<string, unknown>);

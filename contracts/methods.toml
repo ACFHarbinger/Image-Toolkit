@@ -697,3 +697,27 @@ cancelable = false
 emits = []
 stability = "experimental"
 owner = 911
+
+[[method]]
+name = "crawler.crawl"
+capability = "crawler"
+summary = "Execute web or image board crawl into caller download directory (B-01 / #906)."
+params = "crawler.CrawlParams"
+result = "crawler.CrawlResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 906
+
+[[method]]
+name = "crawler.list_supported"
+capability = "crawler"
+summary = "Query supported crawler types, image boards, and action templates (B-01 / #906)."
+params = "crawler.CrawlerSupportedParams"
+result = "crawler.CrawlerSupportedResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 906

@@ -336,5 +336,6 @@ modules = [
     "middleware.src.services.library_preview",
     "middleware.src.services.merge",
     "middleware.src.services.similarity",
+    "middleware.src.services.crawler",
     "middleware.src.services.hie",
 ]

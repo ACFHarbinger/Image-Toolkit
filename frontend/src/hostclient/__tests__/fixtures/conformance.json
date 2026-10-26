@@ -42,7 +42,8 @@
               "stitch",
               "hie",
               "webreq",
-              "entity_recon"
+              "entity_recon",
+              "crawler"
             ]
           }
         }

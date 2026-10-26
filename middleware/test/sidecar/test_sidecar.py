@@ -36,6 +36,7 @@ def test_handshake_accept(sidecar: SidecarClient) -> None:
         "cloud_offer",
         "cloud_setup",
         "convert",
+        "crawler",
         "desk",
         "dl",
         "drive_sync",

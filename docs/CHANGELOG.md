@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Web: Crawler capability and tab integration** (Tauri migration Wave 5, B-01 #906):
+  - **Contracts & Capability:** added `crawler` capability (`crawler.crawl`, `crawler.list_supported`) with schema `contracts/schemas/capability/crawler.json` and method routing in `contracts/methods.toml`.
+  - **Service Layer:** canonical domain service in `middleware/src/services/crawler/` (`commands.py`, `protocols.py`, `service.py`, `__init__.py`) implementing `CrawlerServiceProtocol` for automated scraping into caller paths without opening `library.db`.
+  - **Sidecar & HostClient:** sidecar handler in `middleware/src/sidecar/handlers/crawler.py` dispatched in `SidecarServer._dispatch_crawler`, typed client methods `crawlerCrawl` and `crawlerListSupported` on `HostClient`.
+  - **Frontend Webview:** updated `frontend/src/tabs/web/ImageCrawlerTab.tsx` with HostClient integration, live download status/error reporting, and component test `ImageCrawlerTab.test.tsx`.
+  - **Ledger & Docs:** registered in `migration/features.toml` (`owner = "Gemini"`, `contract = "crawler"`, `service = "middleware/src/services/crawler/service.py"`), documented in `docs/modules/crawler.md`.
+
 - Entity reconnaissance rides the bridge (Tauri B-06, #911): an `entity_recon` capability (`entity_recon.describe` / `entity_recon.resolve`) over a Qt-free projection of the recon engine — one cutout resolves to an identity with its full provenance report (local ArcFace/CLIP matches first; reverse-image web discovery only at the user's explicit scope, default fully offline). The engine is injected on the sidecar; with none attached results stay `available: false`. The `web.entity-recon` catalog page gets its first webview (config panel, cutout resolve, local matches, web domains, provenance list, JSON export). Unreadable images and engine failures answer failed resolves; cv2 stays out of the sidecar's import graph (the heavy-import guard holds).
 
 - **Web: Requests pipeline and single-request execution** (Tauri migration Wave 5, B-02 #907).

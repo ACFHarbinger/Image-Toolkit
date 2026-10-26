@@ -28,6 +28,7 @@ from middleware.src.bridge import (
     write_frame,
 )
 from middleware.src.services.cloud_jobs.projection import CloudProjection
+from middleware.src.services.crawler.service import CrawlerService
 from middleware.src.services.hie.service import HieService
 from middleware.src.services.stitch.status import stitch_status
 from middleware.src.sidecar.handlers.auth import handle_status
@@ -44,6 +45,7 @@ from middleware.src.sidecar.handlers.cloud_jobs import (
 from middleware.src.sidecar.handlers.cloud_offer import handle_prefill
 from middleware.src.sidecar.handlers.cloud_setup import handle_cloud_setup_providers
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
+from middleware.src.sidecar.handlers.crawler import handle_crawl, handle_list_supported
 from middleware.src.sidecar.handlers.desk import handle_logs_read, handle_metadata_describe
 from middleware.src.sidecar.handlers.dl import handle_inspect
 from middleware.src.sidecar.handlers.drive_sync import handle_drive_plan
@@ -118,6 +120,7 @@ class SidecarServer:
         scan_service: Any | None = None,
         library_store: Any | None = None,
         library_admin_store: Any | None = None,
+        crawler_service: Any | None = None,
         recon_engine: Any | None = None,
         webreq_service: Any | None = None,
         hie_service: Any | None = None,
@@ -132,6 +135,7 @@ class SidecarServer:
         self.scan_service = scan_service
         self.library_store = library_store
         self.library_admin_store = library_admin_store
+        self.crawler_service = crawler_service or CrawlerService()
         self.recon_engine = recon_engine
         self.webreq_service = webreq_service
         self.hie_service = hie_service or HieService()
@@ -342,7 +346,17 @@ class SidecarServer:
         recon = self._dispatch_entity_recon(method, params)
         if recon is not _UNHANDLED:
             return recon
+        crawler = self._dispatch_crawler(method, params)
+        if crawler is not _UNHANDLED:
+            return crawler
         return self._dispatch_web(method, params)
+
+    def _dispatch_crawler(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "crawler.crawl":
+            return handle_crawl(self.crawler_service, params)
+        if method == "crawler.list_supported":
+            return handle_list_supported(self.crawler_service, params)
+        return _UNHANDLED
 
     def _dispatch_entity_recon(self, method: str, params: dict[str, Any]) -> Any:
         if method == "entity_recon.describe":
