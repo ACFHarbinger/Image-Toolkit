@@ -3,8 +3,10 @@ Anime Stitching and MFSR Constants.
 Centralized from middleware/src/animation/*
 """
 
-
-import numpy as np
+try:
+    import numpy as np
+except ImportError:  # the staged sidecar runtime ships without numpy
+    np = None
 
 # Core stitching constants
 LAPLACIAN_BANDS = 5
@@ -21,7 +23,7 @@ FOREGROUND_DILATION = 16
 FOREGROUND_EROSION = 8
 
 # Luminance weights (BT.601 for BGR)
-LUMINANCE_WEIGHTS = np.array([0.114, 0.587, 0.299], dtype=np.float32)
+LUMINANCE_WEIGHTS = np.array([0.114, 0.587, 0.299], dtype=np.float32) if np is not None else (0.114, 0.587, 0.299)
 
 # Compositing
 FEATHER_MAX = 300
@@ -51,12 +53,8 @@ FLOW_PATCH_SIZE = 512
 # Foreground pose registration (Stage 8.5 — flow-guided fg re-posing)
 # See research/ASP_Foreground_Assembly_Research.md §5.
 FG_REG_TAPER_PX = 220  # half-width (px) over which the seam warp tapers to zero
-FG_REG_MAX_RESIDUAL = (
-    90.0  # max per-pixel animation residual (px) to warp; above → no-warp
-)
-FG_REG_MIN_FG_PIXELS = (
-    150  # min foreground pixels in the seam zone to attempt registration
-)
+FG_REG_MAX_RESIDUAL = 90.0  # max per-pixel animation residual (px) to warp; above → no-warp
+FG_REG_MIN_FG_PIXELS = 150  # min foreground pixels in the seam zone to attempt registration
 FG_REG_SMOOTH_SIGMA = 9.0  # Gaussian sigma to smooth the residual flow before warping
 
 # Rendering
@@ -97,19 +95,11 @@ RLHF_FLAW_TYPES = [
 MIN_EXPECTED_STEP = 25
 SPATIAL_DEDUP_PX = 25
 NEAR_DUP_LUMA_THRESH = 3.0  # §1.2B: pre-stage-5 luma dedup ceiling (luma units, 0–255)
-STATIC_EDGE_MIN_DISP_PX = (
-    50  # §1.2A: minimum per-axis displacement to keep an edge before BA
-)
-ADAPTIVE_MIN_DISP_FRAC = (
-    0.10  # §1.2C: adaptive threshold = max(floor, frac * expected_step)
-)
-HIGH_CONF_EDGE_THRESH = (
-    0.65  # §2.9C: minimum edge weight to keep on high-confidence re-solve
-)
+STATIC_EDGE_MIN_DISP_PX = 50  # §1.2A: minimum per-axis displacement to keep an edge before BA
+ADAPTIVE_MIN_DISP_FRAC = 0.10  # §1.2C: adaptive threshold = max(floor, frac * expected_step)
+HIGH_CONF_EDGE_THRESH = 0.65  # §2.9C: minimum edge weight to keep on high-confidence re-solve
 GNC_C_PX = 10.0  # §1.17: Geman-McClure c parameter (px); rᵢ ≈ c → 50% weight
-GNC_MU_ANNEAL = (
-    1.4  # §1.17: GNC μ annealing divisor per outer iteration (Yang et al. 2020)
-)
+GNC_MU_ANNEAL = 1.4  # §1.17: GNC μ annealing divisor per outer iteration (Yang et al. 2020)
 
 # §2.4B: Seam overlay annotation thresholds (compositing.py)
 SEAM_OVERLAY_AMBER_THRESH = 10.0  # post_warp_diff below this → green annotation
