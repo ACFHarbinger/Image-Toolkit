@@ -6,7 +6,7 @@
 | **Service Package** | `middleware/src/services/asp/service.py` |
 | **Frontend View** | `gui/src/modules/stitch_workspace.py` (migrating to Wave 8 #914 E-01 `frontend/src/views/stitch/`) |
 | **Contract Schema** | `contracts/CONTRACTS.sha256` |
-| **Contract SHA-256** | `7f853bd58530640761fee9a62783e191b67b9cbc62db9153cfadfc7c15d42687` |
+| **Contract SHA-256** | `6a45b8f32749068100d96710e9ad83f596745d32b6cb9702fc61e1997c228ea4` |
 
 ## Overview
 
@@ -22,7 +22,7 @@ The Anime Stitch Pipeline (ASP) provides high-performance multi-frame panorama a
 
 ## Contract & Routing
 
-- **Contract Manifest:** `contracts/CONTRACTS.sha256` (`7f853bd58530640761fee9a62783e191b67b9cbc62db9153cfadfc7c15d42687`).
+- **Contract Manifest:** `contracts/CONTRACTS.sha256` (`6a45b8f32749068100d96710e9ad83f596745d32b6cb9702fc61e1997c228ea4`).
 - **Feature Ledger Routing:** Tracks feature row `stitch` (Issue #914, wave-8) with routes `stitch.stitch`, `stitch.graph`, `stitch.adjust`, `stitch.canvas`, `stitch.statistics`, `stitch.sequence-builder`, `stitch.hybrid`, `stitch.animation-clusters`.
 - **Boundary Enforcement:**
   - `import-linter` contracts in `pyproject.toml` (`middleware.src.services must not import GUI`, `middleware.src.services must not import PySide`, `middleware.src.services features must be independent`).

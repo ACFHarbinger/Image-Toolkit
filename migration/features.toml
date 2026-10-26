@@ -472,10 +472,10 @@ os_checklist = []
 id = "manga.colorization"
 kind = "page"
 title = "Colorization"
-owner = "unclaimed"
+owner = "Mistral"
 wave = "wave-8"
 issue = 916
-status = "pyside-only"
+status = "both"
 routes = ["manga.colorization"]
 route_map = {}
 pyside = [
@@ -484,45 +484,45 @@ pyside = [
 ]
 tauri = ["frontend/src/views/manga/MangaColorizationView.tsx"]
 service = "middleware/src/services/csg/service.py"
-contract = ""
+contract = "csg"
 docs = "docs/modules/csg.md"
-scenarios = []
+scenarios = ["migration/scenarios/manga.csg.json"]
 os_checklist = []
 
 [[feature]]
 id = "manga.animation"
 kind = "page"
 title = "Animation"
-owner = "unclaimed"
+owner = "Mistral"
 wave = "wave-8"
 issue = 916
-status = "pyside-only"
+status = "both"
 routes = ["manga.animation"]
 route_map = {}
 pyside = ["submodules/CSG/gui/src/tabs/animation_tab.py"]
 tauri = ["frontend/src/views/manga/MangaAnimationView.tsx"]
 service = "middleware/src/services/csg/service.py"
-contract = ""
+contract = "csg"
 docs = "docs/modules/csg.md"
-scenarios = []
+scenarios = ["migration/scenarios/manga.csg.json"]
 os_checklist = []
 
 [[feature]]
 id = "manga.puppeteering"
 kind = "page"
 title = "Puppeteering"
-owner = "unclaimed"
+owner = "Mistral"
 wave = "wave-8"
 issue = 916
-status = "pyside-only"
+status = "both"
 routes = ["manga.puppeteering"]
 route_map = {}
 pyside = ["submodules/CSG/gui/src/tabs/puppeteering_tab.py"]
 tauri = ["frontend/src/views/manga/MangaPuppeteeringView.tsx"]
 service = "middleware/src/services/csg/service.py"
-contract = ""
+contract = "csg"
 docs = "docs/modules/csg.md"
-scenarios = []
+scenarios = ["migration/scenarios/manga.csg.json"]
 os_checklist = []
 
 # ── Wave 9: Windows ──────────────────────────────────────────────────

@@ -476,7 +476,56 @@ emits = []
 stability = "experimental"
 owner = 918
 
+[[method]]
+name = "csg.colorize_scribble"
+capability = "csg"
+summary = "Colorize lineart from user scribble guidance (E-03 / #916)."
+params = "csg.ColorizeScribbleParams"
+result = "csg.ColorizeScribblePayload"
+errors = ["csg.invalid_params"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 916
+
+[[method]]
+name = "csg.colorize_reference"
+capability = "csg"
+summary = "Transfer color from a reference style image to lineart (E-03 / #916)."
+params = "csg.ColorizeReferenceParams"
+result = "csg.ColorizeScribblePayload"
+errors = ["csg.invalid_params"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 916
+
+[[method]]
+name = "csg.arap_deform"
+capability = "csg"
+summary = "Deform a character sprite with ARAP mesh puppeteering (E-03 / #916)."
+params = "csg.ArapDeformParams"
+result = "csg.ArapDeformPayload"
+errors = ["csg.invalid_params"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 916
+
+[[method]]
+name = "csg.propagate_sequence"
+capability = "csg"
+summary = "Propagate colorization temporally across animation frames (E-03 / #916)."
+params = "csg.PropagateSequenceParams"
+result = "csg.PropagateSequencePayload"
+errors = ["csg.invalid_params"]
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 916
+
 [[channel]]
+
 name = "jobs"
 payload = "jobs.JobEventPayload"
 snapshot = "jobs.JobListSnapshot"
