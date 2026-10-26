@@ -25,6 +25,7 @@
 | `gui/src/tabs/web/reverse_search_tab.py` | 434 | 45 | 21 | 500 |
 | `gui/src/tabs/models/dl_workspace_host.py` | 434 | 5 | 24 | 463 |
 | `gui/src/windows/settings/_reset_state.py` | 432 | 16 | 17 | 465 |
+| `middleware/src/sidecar/server.py` | 430 | 1 | 6 | 437 |
 | `gui/src/helpers/core/_queue_extraction_process.py` | 429 | 7 | 29 | 465 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 418 | 27 | 20 | 465 |
 | `middleware/src/core/guidance_schema.py` | 415 | 20 | 58 | 493 |
@@ -36,6 +37,7 @@
 | `gui/src/windows/main/_session_recovery.py` | 400 | 31 | 28 | 459 |
 | `gui/src/tabs/models/gen/generate_surface.py` | 399 | 2 | 11 | 412 |
 | `gui/src/classes/base/_gallery_presentation.py` | 394 | 21 | 21 | 436 |
+| `middleware/src/services/hie/service.py` | 391 | 2 | 20 | 413 |
 | `middleware/src/comfy_matrix.py` | 388 | 4 | 25 | 417 |
 | `gui/src/styles/background_canvas.py` | 387 | 3 | 18 | 408 |
 | `gui/src/components/dialogs/thumbnail_file_picker.py` | 386 | 4 | 7 | 397 |
@@ -54,6 +56,4 @@
 | `gui/src/tabs/core/extractor_tab/_extraction_workers.py` | 355 | 11 | 9 | 375 |
 | `middleware/src/models/tuning/cbir_tuner.py` | 352 | 32 | 76 | 460 |
 | `middleware/src/app.py` | 346 | 112 | 50 | 508 |
-| `gui/src/tabs/core/extractor_tab/_queue_panel.py` | 346 | 36 | 32 | 414 |
-| `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
-| **TOTALS** | **112022** | **6693** | **11505** | **130220** |
+| **TOTALS** | **114700** | **6725** | **11755** | **133180** |
