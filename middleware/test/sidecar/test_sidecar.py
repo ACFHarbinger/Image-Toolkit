@@ -31,16 +31,22 @@ def test_handshake_accept(sidecar: SidecarClient) -> None:
     assert result["protocol"] == "image-toolkit-bridge"
     assert result["compatibility"] == {"min": "1.0.0", "max": "1.0.0"}
     assert sorted(result["capabilities"]) == [
+        "auth",
         "cloud_jobs",
         "cloud_offer",
         "cloud_setup",
         "convert",
+        "desk",
+        "dl",
+        "drive_sync",
         "extractor",
         "jobs",
         "library",
         "library_admin",
         "library_preview",
+        "media_loader",
         "merge",
+        "reverse_search",
         "scan",
         "settings",
         "similarity",

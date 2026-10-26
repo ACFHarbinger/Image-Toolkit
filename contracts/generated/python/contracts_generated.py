@@ -1,4 +1,4 @@
-# GENERATED — contract hash c9dc9d7141ed461cca53dea9e9cff60d7c77cf1731bb7b0c6ecd3e7a875df09f. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 11d82ceaf8037efde28126d5553743180fc68a3cda0403f18d9fb8b764f6b3df. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -8,6 +8,18 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from typing import Any, Literal
+
+@dataclass(frozen=True)
+class AuthStatusParams:
+    account: str
+
+
+@dataclass(frozen=True)
+class AuthStatusResult:
+    unlocked: Literal[False]
+    account: str
+    reason: Literal["unlock stays on the C++ session"]
+
 
 @dataclass(frozen=True)
 class CloudSubmitParams:
@@ -277,6 +289,68 @@ class ConvertResult:
     size_bytes: int | None = None
     elapsed_seconds: float | None = None
     error: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class LogsReadParams:
+    path: str
+    limit: int
+
+
+@dataclass(frozen=True)
+class LogsReadResult:
+    found: bool
+    path: str
+    lines: list[str]
+    error_count: int
+    reason: str
+
+
+@dataclass(frozen=True)
+class MetadataDescribeParams:
+    path: str
+
+
+@dataclass(frozen=True)
+class MetadataDescribeResult:
+    found: bool
+    path: str
+    name: str
+    size: int
+    suffix: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class DlInspectParams:
+    run_dir: str
+
+
+@dataclass(frozen=True)
+class DlInspectResult:
+    found: bool
+    run_dir: str
+    run_id: str
+    status: str
+    engine: str
+    model_id: str
+    event_count: int
+    started: Literal[False]
+    reason: str
+
+
+@dataclass(frozen=True)
+class DriveSyncPlanParams:
+    provider: str
+    paths: list[str]
+
+
+@dataclass(frozen=True)
+class DriveSyncPlanResult:
+    submitted: Literal[False]
+    provider: str
+    count: int
+    reason: str
 
 
 @dataclass(frozen=True)
@@ -564,6 +638,21 @@ class FrameResult:
 
 
 @dataclass(frozen=True)
+class MediaPlanParams:
+    url: str
+    destination: str
+
+
+@dataclass(frozen=True)
+class MediaPlanResult:
+    accepted: bool
+    downloaded: Literal[False]
+    url: str
+    destination: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class ConcatenateParams:
     paths: list[str]
     output_path: str
@@ -609,6 +698,42 @@ class RpcErrorObject:
     code: int
     message: str
     data: BridgeError
+
+
+@dataclass(frozen=True)
+class EngineRecord:
+    id: str
+    label: str
+
+
+@dataclass(frozen=True)
+class EnginesResult:
+    engines: list[EngineRecord]
+
+
+@dataclass(frozen=True)
+class ReverseSearchResultItem:
+    url: str
+    engine: str
+    score: float
+    resolution: str | None = None
+    title: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class SearchParams:
+    engine: str
+    image_path: str
+    limit: int | None = None
+    roi: (list[int]) | None = None
+
+
+@dataclass(frozen=True)
+class SearchResult:
+    ok: bool
+    engine: str
+    results: list[ReverseSearchResultItem]
+    error: (str | None) | None = None
 
 
 @dataclass(frozen=True)
@@ -814,6 +939,9 @@ AdminEmptyParams = dict[str, Any]
 
 
 BridgeResponse = ResultResponse | ErrorResponse
+
+
+ReverseSearchEmptyParams = dict[str, Any]
 
 
 PingParams = dict[str, Any]

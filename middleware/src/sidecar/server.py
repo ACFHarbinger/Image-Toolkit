@@ -28,6 +28,7 @@ from middleware.src.bridge import (
     write_frame,
 )
 from middleware.src.services.cloud_jobs.projection import CloudProjection
+from middleware.src.sidecar.handlers.auth import handle_status
 from middleware.src.sidecar.handlers.cloud_jobs import (
     BadgeSource,
     JobsSource,
@@ -41,6 +42,9 @@ from middleware.src.sidecar.handlers.cloud_jobs import (
 from middleware.src.sidecar.handlers.cloud_offer import handle_prefill
 from middleware.src.sidecar.handlers.cloud_setup import handle_cloud_setup_providers
 from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
+from middleware.src.sidecar.handlers.desk import handle_logs_read, handle_metadata_describe
+from middleware.src.sidecar.handlers.dl import handle_inspect
+from middleware.src.sidecar.handlers.drive_sync import handle_drive_plan
 from middleware.src.sidecar.handlers.extractor import handle_probe
 from middleware.src.sidecar.handlers.library import (
     handle_list_groups,
@@ -57,7 +61,12 @@ from middleware.src.sidecar.handlers.library_preview import (
     handle_difference,
     handle_frame,
 )
+from middleware.src.sidecar.handlers.media_loader import handle_media_plan
 from middleware.src.sidecar.handlers.merge import handle_concatenate
+from middleware.src.sidecar.handlers.reverse_search import (
+    handle_reverse_search,
+    handle_reverse_search_engines,
+)
 from middleware.src.sidecar.handlers.scan import (
     handle_save_metadata,
     handle_scan_directory,
@@ -187,6 +196,35 @@ class SidecarServer:
         if setup is not _UNHANDLED:
             return setup
         raise BridgeAppError("bridge.method_not_found", details={"method": method})
+        tail = self._dispatch_tail(method, params)
+        if tail is not _UNHANDLED:
+            return tail
+        system_pages = self._dispatch_system_pages(method, params)
+        if system_pages is not _UNHANDLED:
+            return system_pages
+        reverse = self._dispatch_reverse_search(method, params)
+        if reverse is not _UNHANDLED:
+            return reverse
+        raise BridgeAppError("bridge.method_not_found", details={"method": method})
+
+    def _dispatch_core(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "system.handshake":
+            return self._handshake(params)
+        if method == "system.ping":
+            return build_ping_result(table=self.table)
+        if method == "jobs.submit":
+            return self.jobs.submit(params)
+        if method == "jobs.status":
+            return self.jobs.status(params)
+        if method == "jobs.list":
+            return self.jobs.list(params)
+        if method == "jobs.cancel":
+            return self.jobs.cancel(params)
+        if method == "convert.convert":
+            return handle_convert(params)
+        if method == "convert.convert_batch":
+            return start_convert_batch(self.jobs, params)
+        return _UNHANDLED
 
     def _dispatch_core(self, method: str, params: dict[str, Any]) -> Any:
         if method == "system.handshake":
@@ -248,6 +286,13 @@ class SidecarServer:
             return handle_settings_set_many(params)
         return _UNHANDLED
 
+    def _dispatch_reverse_search(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "reverse_search.engines":
+            return handle_reverse_search_engines()
+        if method == "reverse_search.search":
+            return handle_reverse_search(params)
+        return _UNHANDLED
+
     def _dispatch_library(self, method: str, params: dict[str, Any]) -> Any:
         if method == "library.list_images":
             return handle_list_images(self.library_store, params)
@@ -282,6 +327,12 @@ class SidecarServer:
             return handle_suggest_tags(self.scan_service, params)
         return _UNHANDLED
 
+    def _dispatch_tail(self, method: str, params: dict[str, Any]) -> Any:
+        system_pages = self._dispatch_system_pages(method, params)
+        if system_pages is not _UNHANDLED:
+            return system_pages
+        return self._dispatch_web(method, params)
+
     def _dispatch_system_pages(self, method: str, params: dict[str, Any]) -> Any:
         if method == "merge.concatenate":
             return handle_concatenate(params)
@@ -289,6 +340,21 @@ class SidecarServer:
             return handle_compare(params)
         if method == "extractor.probe":
             return handle_probe(params)
+        if method == "logs.read":
+            return handle_logs_read(params)
+        if method == "metadata.describe":
+            return handle_metadata_describe(params)
+        if method == "dl.inspect":
+            return handle_inspect(params)
+        if method == "auth.status":
+            return handle_status(params)
+        return _UNHANDLED
+
+    def _dispatch_web(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "drive_sync.plan":
+            return handle_drive_plan(params)
+        if method == "media_loader.plan":
+            return handle_media_plan(params)
         return _UNHANDLED
 
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:

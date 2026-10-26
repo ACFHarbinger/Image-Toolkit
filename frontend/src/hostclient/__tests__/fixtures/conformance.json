@@ -31,6 +31,12 @@
               "merge",
               "similarity",
               "extractor",
+              "auth",
+              "reverse_search",
+              "drive_sync",
+              "media_loader",
+              "dl",
+              "desk",
               "cloud_setup"
             ]
           }

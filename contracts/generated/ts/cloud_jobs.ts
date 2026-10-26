@@ -1,4 +1,4 @@
-// GENERATED — contract hash c9dc9d7141ed461cca53dea9e9cff60d7c77cf1731bb7b0c6ecd3e7a875df09f. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 11d82ceaf8037efde28126d5553743180fc68a3cda0403f18d9fb8b764f6b3df. Do not edit; edit the schema and regenerate.
 
 export interface CloudSubmitParams {
   readonly spec: JobSpecDocument;

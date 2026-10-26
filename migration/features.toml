@@ -287,17 +287,17 @@ os_checklist = []
 id = "web.drive-sync"
 kind = "page"
 title = "Cloud Synchronization"
-owner = "unclaimed"
+owner = "Grok"
 wave = "wave-5"
 issue = 908
 status = "pyside-only"
 routes = ["web.drive-sync"]
 route_map = { drive = "web.drive-sync" }
 pyside = ["gui/src/tabs/web/drive_sync_tab"]
-tauri = ["frontend/src/tabs/web/DriveSyncTab.tsx"]
-service = ""
-contract = ""
-docs = ""
+tauri = ["frontend/src/views/web/DriveSyncView.tsx"]
+service = "middleware/src/services/drive_sync/plan.py"
+contract = "drive_sync"
+docs = "docs/modules/drive_sync.md"
 scenarios = []
 os_checklist = []
 
@@ -305,17 +305,17 @@ os_checklist = []
 id = "web.media-loader"
 kind = "page"
 title = "Media Loader"
-owner = "unclaimed"
+owner = "Grok"
 wave = "wave-5"
 issue = 909
 status = "pyside-only"
 routes = ["web.media-loader"]
 route_map = {}
 pyside = ["gui/src/tabs/web/media_loader_tab"]
-tauri = []
-service = ""
-contract = ""
-docs = ""
+tauri = ["frontend/src/views/web/MediaLoaderView.tsx"]
+service = "middleware/src/services/media_loader/plan.py"
+contract = "media_loader"
+docs = "docs/modules/media_loader.md"
 scenarios = []
 os_checklist = []
 
@@ -323,18 +323,18 @@ os_checklist = []
 id = "web.reverse-search"
 kind = "page"
 title = "Reverse Search"
-owner = "unclaimed"
+owner = "Mistral"
 wave = "wave-5"
 issue = 910
-status = "pyside-only"
+status = "both"
 routes = ["web.reverse-search"]
 route_map = { revsearch = "web.reverse-search" }
 pyside = ["gui/src/tabs/web/reverse_search_tab.py"]
-tauri = ["frontend/src/tabs/web/ReverseSearchTab.tsx"]
-service = ""
-contract = ""
-docs = ""
-scenarios = []
+tauri = ["frontend/src/views/web/ReverseSearch.tsx"]
+service = "middleware/src/services/web/reverse_search.py"
+contract = "reverse_search"
+docs = "docs/modules/reverse_search.md"
+scenarios = ["migration/scenarios/web.reverse-search.json"]
 os_checklist = []
 
 [[feature]]
@@ -361,7 +361,7 @@ os_checklist = []
 id = "dl"
 kind = "workspace"
 title = "Deep Learning"
-owner = "unclaimed"
+owner = "Grok"
 wave = "wave-6"
 issue = 912
 status = "pyside-only"
@@ -382,10 +382,10 @@ pyside = [
     "gui/src/modules/dl_workspace.py",
     "gui/src/modules/comfy_workspace_controller.py",
 ]
-tauri = ["frontend/src/tabs/models"]
-service = ""
-contract = ""
-docs = ""
+tauri = ["frontend/src/views/dl/DlWorkspace.tsx"]
+service = "middleware/src/services/dl/inspect.py"
+contract = "dl"
+docs = "docs/modules/dl.md"
 scenarios = []
 os_checklist = []
 
@@ -549,17 +549,53 @@ os_checklist = []
 id = "window.auth"
 kind = "window"
 title = "Authentication / vault unlock"
-owner = "unclaimed"
+owner = "Grok"
 wave = "wave-9"
 issue = 918
 status = "pyside-only"
 routes = []
 route_map = {}
 pyside = ["gui/src/windows/authentication"]
-tauri = []
-service = ""
-contract = ""
-docs = ""
+tauri = ["frontend/src/components/dialogs/LoginDialog.tsx"]
+service = "middleware/src/services/auth/status.py"
+contract = "auth"
+docs = "docs/modules/auth.md"
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "developer.logs"
+kind = "page"
+title = "Logs"
+owner = "Grok"
+wave = "wave-9"
+issue = 919
+status = "pyside-only"
+routes = ["developer.logs"]
+route_map = { logs = "developer.logs" }
+pyside = ["gui/src/windows/logging"]
+tauri = ["frontend/src/views/windows/LogDeskView.tsx"]
+service = "middleware/src/services/desk/logs.py"
+contract = "desk"
+docs = "docs/modules/desk.md"
+scenarios = []
+os_checklist = []
+
+[[feature]]
+id = "developer.metadata"
+kind = "page"
+title = "File Metadata"
+owner = "Grok"
+wave = "wave-9"
+issue = 919
+status = "pyside-only"
+routes = ["developer.metadata"]
+route_map = { metadata = "developer.metadata" }
+pyside = ["gui/src/windows/metadata"]
+tauri = ["frontend/src/views/windows/MetadataDeskView.tsx"]
+service = "middleware/src/services/desk/logs.py"
+contract = "desk"
+docs = "docs/modules/desk.md"
 scenarios = []
 os_checklist = []
 
@@ -567,21 +603,22 @@ os_checklist = []
 id = "window.logging"
 kind = "window"
 title = "Logging and metadata windows"
-owner = "unclaimed"
+owner = "Grok"
 wave = "wave-9"
 issue = 919
 status = "pyside-only"
 routes = []
 route_map = {}
 pyside = [
-    "gui/src/windows/logging",
-    "gui/src/windows/metadata",
     "gui/src/modules/pilots",
 ]
-tauri = []
-service = ""
-contract = ""
-docs = ""
+tauri = [
+    "frontend/src/views/windows/LogDeskView.tsx",
+    "frontend/src/views/windows/MetadataDeskView.tsx",
+]
+service = "middleware/src/services/desk/logs.py"
+contract = "desk"
+docs = "docs/modules/desk.md"
 scenarios = []
 os_checklist = []
 
