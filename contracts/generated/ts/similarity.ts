@@ -1,4 +1,4 @@
-// GENERATED — contract hash 28918ce8760d36700226684cdf4b39a9465953292b3c3913b49e167c15ce7d55. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash fd88a7fef136d55677f1b54786db5f5cc6ad804b203c2f6e41cebc765dabefbd. Do not edit; edit the schema and regenerate.
 
 export interface CompareItem {
   readonly path: string;

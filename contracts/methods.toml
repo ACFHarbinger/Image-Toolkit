@@ -591,6 +591,18 @@ stability = "experimental"
 owner = 920
 
 [[method]]
+name = "stitch.status"
+capability = "stitch"
+summary = "Report one Image Stitching catalog route (#914). Does not start the stitch pipeline."
+params = "stitch.StitchStatusParams"
+result = "stitch.StitchStatusResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 914
+
+[[method]]
 name = "hie.open_document"
 capability = "hie"
 summary = "Open or initialize an image document session (E-02 / #915)."

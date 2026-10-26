@@ -66,6 +66,7 @@ def test_handshake_request_result_roundtrip() -> None:
         "similarity",
         "extractor",
         "hie",
+        "stitch",
         "prefs",
         "desk",
         "dl",

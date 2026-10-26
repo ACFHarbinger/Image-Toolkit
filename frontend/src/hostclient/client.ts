@@ -32,6 +32,7 @@ import type {
   AuthStatusResult,
   ProbeParams,
   ProbeResult,
+  StitchStatusResult,
   PrefsDescribeResult,
   LogsReadParams,
   LogsReadResult,
@@ -222,6 +223,9 @@ export class HostClient {
     return this.send<ProbeResult>("extractor.probe", params as unknown as Record<string, unknown>);
   }
 
+  async stitchStatus(route: string): Promise<StitchStatusResult> {
+    await this.connect();
+    return this.send<StitchStatusResult>("stitch.status", { route });
   async logsRead(params: LogsReadParams): Promise<LogsReadResult> {
     await this.connect();
     return this.send<LogsReadResult>("logs.read", params as unknown as Record<string, unknown>);
