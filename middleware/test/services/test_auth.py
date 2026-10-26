@@ -75,7 +75,7 @@ def test_missing_native_module_does_not_open_a_session(monkeypatch: pytest.Monke
         open_live_session("keeper", "secret")
 
 
-def test_live_vault_delegates_password_change_only_while_open(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_live_vault_refuses_password_change_without_library_rekey(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("middleware.src.constants.update_cryptographic_values", lambda _account: None)
     class Manager:
         def __init__(self) -> None:
@@ -89,8 +89,9 @@ def test_live_vault_delegates_password_change_only_while_open(monkeypatch: pytes
 
     manager = Manager()
     live = LiveVault("ada", manager, [])
-    live.update_account_password("ada", "next")
-    assert manager.calls == [("ada", "next")]
+    with pytest.raises(RuntimeError, match="library rekeying"):
+        live.update_account_password("ada", "next")
+    assert manager.calls == []
     with pytest.raises(RuntimeError, match="locked"):
         live.update_account_password("other", "next")
     live.shutdown()
@@ -160,7 +161,7 @@ def test_failed_unlock_restores_the_previous_account_paths(monkeypatch: pytest.M
         assert getattr(crypto, name) == f"/kept/ada/{name}"
 
 
-def test_password_update_rebinds_the_live_account_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_refused_password_update_leaves_account_paths_untouched(monkeypatch: pytest.MonkeyPatch) -> None:
     import middleware.src.constants as udef
 
     monkeypatch.setattr(udef, "KEYSTORE_FILE", "/other/bee/keystore")
@@ -185,9 +186,11 @@ def test_password_update_rebinds_the_live_account_paths(monkeypatch: pytest.Monk
 
     manager = Manager()
     live = LiveVault("ada", manager, [])
-    live.update_account_password("ada", "next")
-    assert bound == ["ada"]
-    assert manager.path == "/live/ada/keystore"
+    with pytest.raises(RuntimeError, match="library rekeying"):
+        live.update_account_password("ada", "next")
+    assert bound == []
+    assert manager.path == ""
+    assert udef.KEYSTORE_FILE == "/other/bee/keystore"
     with pytest.raises(RuntimeError, match="locked"):
         live.update_account_password("bee", "later")
-    assert bound == ["ada"]
+    assert bound == []

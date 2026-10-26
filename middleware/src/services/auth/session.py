@@ -54,10 +54,9 @@ class LiveVault:
         """Re-key only the account this process unlocked."""
         if not self.open or account_name != self.account:
             raise RuntimeError("C++ vault session locked")
-        # A failed unlock of another account leaves the global paths pointing
-        # at that account. The manager deletes and recreates those paths.
-        udef.update_cryptographic_values(self.account)
-        self._manager.update_account_password(account_name, new_raw_pass)
+        # The library key currently derives from this password. Rekeying only
+        # the vault would make that library unreadable on the next unlock.
+        raise RuntimeError("Password changes are unavailable until encrypted library rekeying is supported")
 
 
 def _require(account: str, password: str) -> tuple[str, str]:

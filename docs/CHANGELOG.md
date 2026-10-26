@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Refuse live master-password changes until the encrypted library can be rekeyed with the vault, preserving library access after logout.
+
 ### Changed
 
 - **HIE relocated out of `submodules/`** (W0-03 phase E, #1037 / #867): the Hybrid Image Editor engine now lives at `middleware/src/hie/` (imported as `middleware.src.hie`), tests at `middleware/test/hie/`, the timing script at `middleware/scripts/hie_benchmark_jobs.py`, editor config at `middleware/src/hie/settings` and `middleware/src/hie/config`, compiled C++ at `backend/src/hie/`, and reference docs at `docs/hie/` (linked from `docs/modules/hie.md`; the differing Hybrid-Image-Editor licence is copied to `docs/hie/LICENSE`). `HieService` imports `IpcService` from the canonical package inside the call, not via a submodule path root. No behavior change — Qt `submodules/HIE/gui`, unused `desktop/` and `infra/` copies, and the per-repo CI/pyproject remainder stay until the final `submodules/` removal PR. The parent build does not `add_subdirectory` `submodules/HIE/CMakeLists.txt`; that leftover file still names `logic/`.
