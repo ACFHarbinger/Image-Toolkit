@@ -16,3 +16,14 @@ frontend/src/tabs/database/ScanMetadataTab.tsx
 frontend/src/math/benchmark.ts
 frontend/src/tabs/core/ConvertTab.tsx
 frontend/src/App.tsx
+
+# Submodule integration exceptions salvaged in W0-03 (#1036, #1037, #1038)
+middleware/src/csg/integrations/krita/pykrita/cel_shaded_generator/docker.py
+middleware/src/stitching/core/pipeline/run_stage.py
+middleware/src/csg/project/service.py
+middleware/src/csg/integrations/krita/pykrita/cel_shaded_generator/color_docker.py
+middleware/src/csg/project/model.py
+middleware/src/stitching/alignment/bundle_adjust.py
+middleware/src/csg/integrations/krita/pykrita/cel_shaded_generator/exercise.py
+middleware/src/csg/learning/engine_protocol.py
+

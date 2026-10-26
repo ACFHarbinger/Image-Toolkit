@@ -20,7 +20,7 @@ def test_hide_on_close_is_the_labeled_webview_set() -> None:
     assert labels == ["main", "cloud-jobs", "library-preview"]
     kinds = {entry["id"]: entry["kind"] for entry in windows()}
     assert kinds["tray"] == "tray"
-    assert kinds["slideshow"] == "native"
+    assert kinds["slideshow"] == "webview"
 
 
 def test_cloud_jobs_is_a_main_popout_with_its_own_capability() -> None:

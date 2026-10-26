@@ -13,9 +13,32 @@ still loaded under an alias:
 from __future__ import annotations
 
 import contextlib
+import importlib.abc
 import importlib.util
 import os
 import sys
+
+class _SubmoduleAliasFinder(importlib.abc.MetaPathFinder):
+    def __init__(self, aliases: dict[str, str]) -> None:
+        self.aliases = aliases
+
+    def find_spec(self, fullname: str, path: object = None, target: object = None) -> object:
+        for prefix, target_prefix in self.aliases.items():
+            if fullname == prefix or fullname.startswith(prefix + "."):
+                real_name = target_prefix + fullname[len(prefix):]
+                real_spec = importlib.util.find_spec(real_name)
+                if real_spec and real_spec.origin:
+                    submodule_locations = (
+                        [os.path.dirname(real_spec.origin)]
+                        if real_spec.submodule_search_locations is not None
+                        else None
+                    )
+                    return importlib.util.spec_from_file_location(
+                        fullname,
+                        real_spec.origin,
+                        submodule_search_locations=submodule_locations,
+                    )
+        return None
 
 _ALIASES = {
     "asp_backend": ("ASP", "backend", "src"),
@@ -65,6 +88,14 @@ def _load_package(alias: str, src_dir: str) -> None:
 
 def register_submodule_packages(repo_root: str) -> None:
     """Idempotent -- safe to call from every entry point / conftest.py."""
+    if not any(isinstance(finder, _SubmoduleAliasFinder) for finder in sys.meta_path):
+        sys.meta_path.insert(
+            0,
+            _SubmoduleAliasFinder({
+                "asp_backend": "middleware.src.stitching",
+                "csg_backend": "middleware.src.csg",
+            }),
+        )
     for alias, parts in _ALIASES.items():
         if alias == "asp_backend":
             import middleware.src.stitching

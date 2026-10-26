@@ -41,17 +41,6 @@ def _load_package(alias: str, src_dir: Path) -> None:
     spec.loader.exec_module(module)
 
 
-class _AliasLoader:
-    def __init__(self, mod: object) -> None:
-        self.mod = mod
-
-    def create_module(self, spec: object) -> object:
-        return self.mod
-
-    def exec_module(self, module: object) -> None:
-        pass
-
-
 class _SubmoduleAliasFinder(importlib.abc.MetaPathFinder):
     def __init__(self, aliases: dict[str, str]) -> None:
         self.aliases = aliases
@@ -60,11 +49,18 @@ class _SubmoduleAliasFinder(importlib.abc.MetaPathFinder):
         for prefix, target_prefix in self.aliases.items():
             if fullname == prefix or fullname.startswith(prefix + "."):
                 real_name = target_prefix + fullname[len(prefix):]
-                try:
-                    real_mod = importlib.import_module(real_name)
-                    return importlib.util.spec_from_loader(fullname, _AliasLoader(real_mod))
-                except ImportError:
-                    return None
+                real_spec = importlib.util.find_spec(real_name)
+                if real_spec and real_spec.origin:
+                    submodule_locations = (
+                        [str(Path(real_spec.origin).parent)]
+                        if real_spec.submodule_search_locations is not None
+                        else None
+                    )
+                    return importlib.util.spec_from_file_location(
+                        fullname,
+                        real_spec.origin,
+                        submodule_search_locations=submodule_locations,
+                    )
         return None
 
 
