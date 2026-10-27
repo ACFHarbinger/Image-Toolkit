@@ -1,8 +1,10 @@
+import { invoke } from "@tauri-apps/api/core";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { WallpaperView } from "./WallpaperView";
 
 describe("WallpaperView", () => {
+  beforeEach(() => { vi.mocked(invoke).mockResolvedValue({ png_base64: "", error: "unavailable" }); });
   afterEach(() => {
     cleanup();
   });
@@ -83,6 +85,30 @@ describe("WallpaperView", () => {
     expect(await screen.findByText("Wallpaper applied successfully")).toBeInTheDocument();
   });
 
+  test("a thumbnail assigns the selected monitor", async () => {
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === "scan_files") {
+        return ["/home/user/wallpapers/sky.png"];
+      }
+      return {};
+    });
+    const hostClient = {
+      wallpaperGetMonitors: vi.fn().mockResolvedValue(mockMonitorsResult),
+      wallpaperSlideshowConfig: vi.fn().mockResolvedValue(mockConfigResult),
+      wallpaperSet: vi.fn(),
+      wallpaperSlideshowToggle: vi.fn(),
+    };
+    render(<WallpaperView hostClient={hostClient as any} />);
+    await screen.findByText("KDE Plasma");
+    fireEvent.change(screen.getByLabelText("Image directory"), { target: { value: "/home/user/wallpapers" } });
+    fireEvent.click(screen.getByRole("button", { name: "Scan" }));
+    fireEvent.click(await screen.findByRole("option", { name: "sky.png" }));
+    expect(screen.getByPlaceholderText("/absolute/path/to/wallpaper.png")).toHaveValue(
+      "/home/user/wallpapers/sky.png",
+    );
+    vi.mocked(invoke).mockReset();
+  });
+
   test("starts and stops the slideshow daemon", async () => {
     const hostClient = {
       wallpaperGetMonitors: vi.fn().mockResolvedValue(mockMonitorsResult),
@@ -98,6 +124,7 @@ describe("WallpaperView", () => {
     render(<WallpaperView hostClient={hostClient as any} />);
 
     await screen.findByText("KDE Plasma");
+    fireEvent.click(screen.getByRole("tab", { name: "Monitor Display" }));
 
     const toggleButton = screen.getByRole("button", { name: /Start Slideshow/i });
     fireEvent.click(toggleButton);
@@ -118,6 +145,7 @@ describe("WallpaperView", () => {
       wallpaperSlideshowToggle: vi.fn().mockResolvedValue({ running: false, message: "Stopped" }),
     };
     render(<WallpaperView hostClient={hostClient as any} />);
+    fireEvent.click(await screen.findByRole("tab", { name: "Monitor Display" }));
     fireEvent.click(await screen.findByRole("button", { name: /Stop Slideshow/i }));
     await waitFor(() => expect(hostClient.wallpaperSlideshowToggle).toHaveBeenCalledWith({ running: false }));
     expect(await screen.findByText("Stopped")).toBeInTheDocument();
@@ -139,6 +167,7 @@ describe("WallpaperView", () => {
     render(<WallpaperView hostClient={hostClient as any} />);
 
     await screen.findByText("KDE Plasma");
+    fireEvent.click(screen.getByRole("tab", { name: "Monitor Display" }));
 
     const intervalInput = screen.getByDisplayValue("300");
     fireEvent.change(intervalInput, { target: { value: "600" } });
@@ -159,5 +188,19 @@ describe("WallpaperView", () => {
     });
 
     expect(await screen.findByText("Slideshow configuration saved successfully")).toBeInTheDocument();
+  });
+
+  test("the graph shows the monitor queue as image nodes", async () => {
+    const hostClient = {
+      wallpaperGetMonitors: vi.fn().mockResolvedValue(mockMonitorsResult),
+      wallpaperSlideshowConfig: vi.fn().mockResolvedValue(mockConfigResult),
+      wallpaperSet: vi.fn(),
+      wallpaperSlideshowToggle: vi.fn(),
+    };
+    render(<WallpaperView hostClient={hostClient as any} />);
+    await screen.findByText("KDE Plasma");
+    fireEvent.click(screen.getByRole("tab", { name: "Graph" }));
+    expect(await screen.findByRole("button", { name: "nature.jpg" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "DisplayPort-1 graph" })).toBeInTheDocument();
   });
 });

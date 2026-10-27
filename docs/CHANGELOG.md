@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Shared galleries, wallpaper graphs, and merge tiles load bounded native previews outside the restricted asset scope; merge fitting keeps original source dimensions.
+- Codec re-encoding preserves the lossless CRF value of zero.
+
 - Canvas merges now composite translucent pixels correctly, reject source/output collisions, and preserve existing outputs when encoding fails.
 
 - Wallpaper settings restore the live daemon state on mount, offering Stop when a slideshow is already running.

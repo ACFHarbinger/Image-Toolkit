@@ -1,4 +1,6 @@
 mod auth_commands;
+mod media_commands;
+mod python_json;
 mod settings_commands;
 mod benchmark_commands;
 mod bridge_commands;
@@ -28,7 +30,8 @@ pub fn run() {
             // Authentication commands
             auth_commands::authenticate_user,
             auth_commands::create_user_account,
-            // Settings commands (#917). Vault unlock is auth.status, not a Rust command.
+            media_commands::media_subtab,
+            // Settings commands (#917). Account login is authenticate_user.
             settings_commands::load_user_settings,
             settings_commands::save_user_settings,
             settings_commands::update_master_password,
