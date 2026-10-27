@@ -6,8 +6,8 @@
 | **Service Package** | `middleware/src/services/cre/service.py` |
 | **Frontend View** | N/A (Core Recommendation Service) |
 | **Contract Schema** | `contracts/CONTRACTS.sha256` |
-| **Contract SHA-256** | `25bb1ff48ee734cd0ab7e3b3a0936c4ad12ee96988058c651d235a1188a48fd3` |
-| **Contract SHA-256** | `6a45b8f32749068100d96710e9ad83f596745d32b6cb9702fc61e1997c228ea4` |
+| **Contract SHA-256** | `0f49aea8dd625fc56b2e2aaefc29f91d6c8e55ea3e9a57354a03e5352c6ad9b5` |
+| **Contract SHA-256** | `0f49aea8dd625fc56b2e2aaefc29f91d6c8e55ea3e9a57354a03e5352c6ad9b5` |
 
 ## Overview
 

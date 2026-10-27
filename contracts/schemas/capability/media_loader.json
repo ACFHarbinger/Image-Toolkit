@@ -27,6 +27,30 @@
         "destination": { "type": "string" },
         "reason": { "type": "string" }
       }
+    },
+    "MediaFetchParams": {
+      "title": "MediaFetchParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "destination"],
+      "properties": {
+        "url": { "type": "string", "minLength": 1 },
+        "destination": { "type": "string", "minLength": 1 }
+      }
+    },
+    "MediaFetchResult": {
+      "title": "MediaFetchResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "url", "destination_path", "bytes_downloaded", "elapsed_seconds"],
+      "properties": {
+        "success": { "type": "boolean" },
+        "url": { "type": "string" },
+        "destination_path": { "type": "string" },
+        "bytes_downloaded": { "type": "integer", "minimum": 0 },
+        "elapsed_seconds": { "type": "number", "minimum": 0 },
+        "error": { "type": ["string", "null"] }
+      }
     }
   }
 }

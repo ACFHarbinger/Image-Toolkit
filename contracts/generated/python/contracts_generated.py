@@ -1,4 +1,4 @@
-# GENERATED — contract hash 25bb1ff48ee734cd0ab7e3b3a0936c4ad12ee96988058c651d235a1188a48fd3. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 0f49aea8dd625fc56b2e2aaefc29f91d6c8e55ea3e9a57354a03e5352c6ad9b5. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -447,6 +447,23 @@ class DlInspectResult:
 
 
 @dataclass(frozen=True)
+class DriveSyncExecuteParams:
+    provider: str
+    paths: list[str]
+    remote_folder: str | None = None
+    dry_run: bool | None = None
+
+
+@dataclass(frozen=True)
+class DriveSyncExecuteResult:
+    success: bool
+    provider: str
+    synced_count: int
+    elapsed_seconds: float
+    errors: list[str]
+
+
+@dataclass(frozen=True)
 class DriveSyncPlanParams:
     provider: str
     paths: list[str]
@@ -873,6 +890,22 @@ class FrameResult:
     height: int
     png_base64: str
     error: str
+
+
+@dataclass(frozen=True)
+class MediaFetchParams:
+    url: str
+    destination: str
+
+
+@dataclass(frozen=True)
+class MediaFetchResult:
+    success: bool
+    url: str
+    destination_path: str
+    bytes_downloaded: int
+    elapsed_seconds: float
+    error: (str | None) | None = None
 
 
 @dataclass(frozen=True)

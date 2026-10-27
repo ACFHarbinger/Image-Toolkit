@@ -138,6 +138,8 @@ class SidecarServer:
         recon_engine: Any | None = None,
         webreq_service: Any | None = None,
         hie_service: Any | None = None,
+        cloud_service: Any | None = None,
+        vault_session: Any | None = None,
     ) -> None:
         self.table = table or catalog()
         self.stdin = stdin or sys.stdin
@@ -155,9 +157,20 @@ class SidecarServer:
         self.webreq_service = webreq_service
         self.hie_service = hie_service or HieService()
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
-        self.cloud_service = None
+        self.cloud_service = cloud_service
+        self.vault_session = vault_session
         self._handshaken = False
         self._write_mu = threading.Lock()
+
+    def set_vault_session(self, vault_session: Any | None) -> None:
+        """Store the authenticated vault session used by drive sync."""
+        self.vault_session = vault_session
+
+    def _get_cloud_service(self) -> Any:
+        if self.cloud_service is None:
+            from middleware.src.services.cloud_jobs.fake_service import create_fake_cloud_service
+            self.cloud_service = create_fake_cloud_service()
+        return self.cloud_service
 
     @property
     def handshaken(self) -> bool:
@@ -282,11 +295,11 @@ class SidecarServer:
         if method == "cloud_jobs.preview":
             from middleware.src.sidecar.handlers.cloud_submit import handle_preview
 
-            return handle_preview(self.cloud_service, params)
+            return handle_preview(self._get_cloud_service(), params)
         if method == "cloud_jobs.submit":
             from middleware.src.sidecar.handlers.cloud_submit import handle_submit
 
-            return handle_submit(self.cloud_service, params)
+            return handle_submit(self._get_cloud_service(), params)
         if method == "cloud_offer.prefill":
             return handle_prefill(params)
         return _UNHANDLED
@@ -445,8 +458,16 @@ class SidecarServer:
     def _dispatch_web(self, method: str, params: dict[str, Any]) -> Any:
         if method == "drive_sync.plan":
             return handle_drive_plan(params)
+        if method == "drive_sync.sync":
+            from middleware.src.sidecar.handlers.drive_sync import handle_drive_sync
+
+            return handle_drive_sync(params, getattr(self, "vault_session", None))
         if method == "media_loader.plan":
             return handle_media_plan(params)
+        if method == "media_loader.fetch":
+            from middleware.src.sidecar.handlers.media_loader import handle_media_fetch
+
+            return handle_media_fetch(params)
         return _UNHANDLED
 
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:

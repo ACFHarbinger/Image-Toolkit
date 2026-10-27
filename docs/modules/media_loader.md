@@ -6,7 +6,7 @@
 | **Service Package** | `middleware/src/services/media_loader/` |
 | **Frontend View** | `frontend/src/views/web/MediaLoaderView.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/media_loader.json` |
-| **Contract SHA-256** | `d6c8697559a419a65d7b053d6cd586cea440d8142070baa6b4282935befeadee` |
+| **Contract SHA-256** | `a0e130c104f58e34a20e891f5b389b5cd2ae36a7b042437cb835c1a6743ca436` |
 
 ## Overview
 

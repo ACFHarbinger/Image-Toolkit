@@ -6,7 +6,7 @@
 | **Service Package** | `middleware/src/services/drive_sync/` |
 | **Frontend View** | `frontend/src/views/web/DriveSyncView.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/drive_sync.json` |
-| **Contract SHA-256** | `c2dc4701452535e4f38f04e44d69b8137dd9769d5ef9bb75dbb95417e4636e77` |
+| **Contract SHA-256** | `87f8297faa7efd0c5d5028cd8d14b7c1cfa9c23a9968dab7d7d4172f2afc9b95` |
 
 ## Overview
 
