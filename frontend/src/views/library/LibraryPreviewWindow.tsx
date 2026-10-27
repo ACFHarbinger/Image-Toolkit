@@ -88,6 +88,41 @@ function splitPaths(raw: string): string[] {
   return raw.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
 }
 
+/** Last non-empty "/" segment. Classic status uses the file basename. */
+function fileBasename(path: string): string {
+  const segments = path.split("/");
+  for (let index = segments.length - 1; index >= 0; index -= 1) {
+    if (segments[index] !== "") return segments[index];
+  }
+  return "";
+}
+
+function pngBlobFromBase64(base64: string): Blob {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: "image/png" });
+}
+
+/** Writes the current PNG. Missing clipboard APIs and failures leave the picture alone. */
+function copyPng(base64: string): Promise<boolean> {
+  const clipboard = navigator.clipboard;
+  if (typeof clipboard?.write !== "function" || typeof ClipboardItem !== "function") {
+    return Promise.resolve(false);
+  }
+  try {
+    const pending = clipboard.write([new ClipboardItem({ "image/png": pngBlobFromBase64(base64) })]);
+    return pending.then(
+      () => true,
+      () => false,
+    );
+  } catch {
+    return Promise.resolve(false);
+  }
+}
+
 /** Preview, compare, and drag-preview pop-out (#895). Pixels come from the sidecar. */
 export function LibraryPreviewWindow({ client }: { readonly client: PreviewClient }): React.ReactElement {
   const [rawPaths, setRawPaths] = useState("");
@@ -103,6 +138,7 @@ export function LibraryPreviewWindow({ client }: { readonly client: PreviewClien
   const [difference, setDifference] = useState<PreviewDifference | null>(null);
   const [boost, setBoost] = useState<DiffBoost>(1);
   const [notice, setNotice] = useState("");
+  const [copied, setCopied] = useState("");
   const paneRef = useRef<HTMLElement>(null);
 
   const current = items[index];
@@ -143,6 +179,9 @@ export function LibraryPreviewWindow({ client }: { readonly client: PreviewClien
   };
 
   const frameFor = (path: string | undefined) => (path ? frames[path] : undefined);
+  const currentFrame = frameFor(current?.path);
+  const copyDisabled =
+    currentFrame === undefined || currentFrame.error !== "" || currentFrame.png_base64 === "";
 
   return (
     <main data-testid="library-preview-window" className="flex min-h-screen flex-col gap-4 p-4">
@@ -232,7 +271,23 @@ export function LibraryPreviewWindow({ client }: { readonly client: PreviewClien
             >
               Rotate counter-clockwise
             </button>
+            <button
+              type="button"
+              data-testid="preview-copy"
+              disabled={copyDisabled}
+              onClick={() => {
+                if (copyDisabled || currentFrame === undefined) return;
+                const base64 = currentFrame.png_base64;
+                const path = current.path;
+                void copyPng(base64).then((ok) => {
+                  if (ok) setCopied(`Copied ${fileBasename(path)}`);
+                });
+              }}
+            >
+              Copy image
+            </button>
           </div>
+          {copied !== "" ? <p data-testid="preview-copied">{copied}</p> : null}
           <p data-testid="preview-zoom">{Math.round(zoom * 100)}%</p>
         </section>
       ) : null}

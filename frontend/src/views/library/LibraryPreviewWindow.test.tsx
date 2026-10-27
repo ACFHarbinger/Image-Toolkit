@@ -1,5 +1,5 @@
 import React from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import { LibraryPreviewWindow, type PreviewClient } from "./LibraryPreviewWindow";
 
@@ -120,4 +120,33 @@ test("compare asks for a difference and drag preview ignores pointer events", as
   expect(preview.className).toContain("pointer-events-none");
   fireEvent.pointerUp(screen.getByTestId("drag-source"));
   expect(screen.queryByTestId("drag-preview")).not.toBeInTheDocument();
+});
+
+test("preview copies the current frame png without refetching", async () => {
+  const view = client();
+  await inspect(view);
+  const frameCalls = vi.mocked(view.libraryPreviewFrame).mock.calls.length;
+  class ClipboardItem {
+    readonly items: object;
+    constructor(items: object) {
+      this.items = items;
+    }
+  }
+  const write = vi.fn().mockResolvedValue(undefined);
+  const nav = navigator as unknown as { clipboard?: { write: typeof write } };
+  const previousClipboard = nav.clipboard;
+  const previousClipboardItem = globalThis.ClipboardItem;
+  try {
+    globalThis.ClipboardItem = ClipboardItem as unknown as typeof globalThis.ClipboardItem;
+    nav.clipboard = { write };
+    fireEvent.click(screen.getByTestId("preview-copy"));
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    const written = write.mock.calls[0][0] as unknown[];
+    expect(written[0]).toBeInstanceOf(ClipboardItem);
+    expect(await screen.findByTestId("preview-copied")).toHaveTextContent("Copied left.png");
+    expect(vi.mocked(view.libraryPreviewFrame).mock.calls.length).toBe(frameCalls);
+  } finally {
+    nav.clipboard = previousClipboard;
+    globalThis.ClipboardItem = previousClipboardItem;
+  }
 });
