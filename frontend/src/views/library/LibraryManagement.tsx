@@ -1,9 +1,16 @@
 import { FormEvent, useEffect, useState } from "react";
 import type { CatalogResult, MutateAction, MutateParams, MutateResult } from "../../../../contracts/generated/ts";
 
+type RegistryImage = {
+  file_path: string;
+  group_name?: string;
+  subgroup_name?: string;
+};
+
 export interface ManagementClient {
   libraryAdminCatalog(): Promise<CatalogResult>;
   libraryAdminMutate(params: MutateParams): Promise<MutateResult>;
+  listLibraryImages?(params: { limit: number }): Promise<{ images: RegistryImage[] }>;
 }
 
 const ACTIONS: MutateAction[] = [
@@ -14,6 +21,10 @@ const ACTIONS: MutateAction[] = [
   "remove_subgroup",
   "remove_tag",
   "merge_tags",
+  "rename_group",
+  "rename_subgroup",
+  "rename_tag",
+  "update_tag",
 ];
 
 const TAG_CATEGORIES = ["Artist", "Copyright", "Character", "General", "Meta"];
@@ -28,6 +39,8 @@ export function LibraryManagement({ client }: { client: ManagementClient }) {
   const [category, setCategory] = useState("");
   const [destination, setDestination] = useState("");
   const [notice, setNotice] = useState("");
+  const [registry, setRegistry] = useState<RegistryImage[]>([]);
+  const [registryFilter, setRegistryFilter] = useState("");
 
   async function reload() {
     const next = await client.libraryAdminCatalog();
@@ -45,6 +58,30 @@ export function LibraryManagement({ client }: { client: ManagementClient }) {
       cancelled = true;
     };
   }, [client]);
+
+  useEffect(() => {
+    if (typeof client.listLibraryImages !== "function") {
+      return;
+    }
+    const listImages = client.listLibraryImages;
+    let cancelled = false;
+    listImages({ limit: 10000 }).then((result) => {
+      if (!cancelled) {
+        setRegistry(result.images);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
+
+  async function refreshRegistry() {
+    if (typeof client.listLibraryImages !== "function") {
+      return;
+    }
+    const result = await client.listLibraryImages({ limit: 10000 });
+    setRegistry(result.images);
+  }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -182,6 +219,40 @@ export function LibraryManagement({ client }: { client: ManagementClient }) {
         <p role="alert" data-testid="library-management-notice">
           {notice}
         </p>
+      )}
+      {typeof client.listLibraryImages === "function" && (
+        <div className="flex flex-col gap-2">
+          <label>
+            Registry filter
+            <input
+              aria-label="Registry filter"
+              value={registryFilter}
+              onChange={(event) => setRegistryFilter(event.target.value)}
+            />
+          </label>
+          <button type="button" onClick={() => void refreshRegistry()}>
+            Refresh registry
+          </button>
+          <ul data-testid="library-management-registry">
+            {registry
+              .filter((image) => {
+                const needle = registryFilter.trim().toLowerCase();
+                if (needle === "") {
+                  return true;
+                }
+                const haystack = [image.file_path, image.group_name ?? "", image.subgroup_name ?? ""]
+                  .join(" ")
+                  .toLowerCase();
+                return haystack.includes(needle);
+              })
+              .map((image) => {
+                const line = [image.file_path, image.group_name ?? "", image.subgroup_name ?? ""]
+                  .filter((part) => part !== "")
+                  .join(" ");
+                return <li key={line}>{line}</li>;
+              })}
+          </ul>
+        </div>
       )}
     </section>
   );

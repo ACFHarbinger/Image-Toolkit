@@ -41,6 +41,57 @@ test("management shows the unattached store and applies a create", async () => {
   expect(screen.queryByTestId("library-management-unavailable")).toBeNull();
 });
 
+test("management renames a group and updates a tag", async () => {
+  const calls: MutateParams[] = [];
+  const client = {
+    libraryAdminCatalog: async () => catalog(true),
+    libraryAdminMutate: async (params: MutateParams): Promise<MutateResult> => {
+      calls.push(params);
+      return { available: true, applied: 1, error: "" };
+    },
+  };
+  render(<LibraryManagement client={client} />);
+  expect(await screen.findByTestId("library-management-action")).toBeTruthy();
+  fireEvent.change(screen.getByTestId("library-management-action"), { target: { value: "rename_group" } });
+  fireEvent.change(screen.getByTestId("library-management-name"), { target: { value: "people" } });
+  fireEvent.change(screen.getByTestId("library-management-destination"), { target: { value: "folks" } });
+  fireEvent.click(screen.getByTestId("library-management-apply"));
+  expect((await screen.findByTestId("library-management-notice")).textContent).toBe("Applied 1");
+  expect(calls[0]).toMatchObject({ action: "rename_group", name: "people", destination: "folks" });
+
+  fireEvent.change(screen.getByTestId("library-management-action"), { target: { value: "update_tag" } });
+  fireEvent.change(screen.getByTestId("library-management-name"), { target: { value: "smile" } });
+  fireEvent.change(screen.getByTestId("library-management-category"), { target: { value: "Artist" } });
+  fireEvent.click(screen.getByTestId("library-management-apply"));
+  expect((await screen.findByText("Applied 1")).textContent).toBe("Applied 1");
+  expect(calls[1]).toMatchObject({ action: "update_tag", name: "smile", category: "Artist" });
+});
+
+test("the registry lists images, filters them, and refreshes", async () => {
+  const calls: Array<{ limit: number }> = [];
+  const client = {
+    libraryAdminCatalog: async () => catalog(true),
+    libraryAdminMutate: async (): Promise<MutateResult> => ({ available: true, applied: 0, error: "" }),
+    listLibraryImages: async (params: { limit: number }) => {
+      calls.push(params);
+      return {
+        images: [
+          { file_path: "/pics/a.png", group_name: "people", subgroup_name: "faces" },
+          { file_path: "/pics/b.png", group_name: "places", subgroup_name: "cities" },
+        ],
+      };
+    },
+  };
+  render(<LibraryManagement client={client} />);
+  expect(await screen.findByText("/pics/a.png people faces")).toBeTruthy();
+  expect(screen.getByText("/pics/b.png places cities")).toBeTruthy();
+  fireEvent.change(screen.getByRole("textbox", { name: "Registry filter" }), { target: { value: "PEOPLE" } });
+  expect(screen.getByText("/pics/a.png people faces")).toBeTruthy();
+  expect(screen.queryByText("/pics/b.png places cities")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Refresh registry" }));
+  expect(calls).toEqual([{ limit: 10000 }, { limit: 10000 }]);
+});
+
 test("the data browser pages by column equality", async () => {
   const calls: BrowseParams[] = [];
   const client = {
