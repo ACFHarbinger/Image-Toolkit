@@ -244,6 +244,45 @@ test("image rows show present file size and date added only", async () => {
   expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
 });
 
+test("rows show date modified and tags and can sort by date modified", async () => {
+  const client = stubClient();
+  client.listLibraryImages = vi.fn(async (): Promise<ListImagesResult> => ({
+    available: true,
+    images: [
+      {
+        id: 1,
+        file_path: "/pics/a.png",
+        filename: "a.png",
+        date_modified: "2020-03-03",
+        tags: ["night", "dawn"],
+      },
+      { id: 2, file_path: "/pics/b.jpg", filename: "b.jpg" },
+    ],
+  }));
+  render(<Listings hostClient={client as never} />);
+
+  expect(await screen.findByText("a.png")).toBeInTheDocument();
+  const rows = screen.getByTestId("library-listings-rows").children;
+  const first = rows[0]?.textContent ?? "";
+  const second = rows[1]?.textContent ?? "";
+  expect(first).toContain("2020-03-03");
+  expect(first).toContain("night, dawn");
+  expect(second).not.toContain("undefined");
+  expect(second).not.toContain("null");
+  expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
+  expect(client.listLibraryImages.mock.calls[0]?.[0]).not.toHaveProperty("sort");
+
+  fireEvent.change(screen.getByLabelText("Sort"), { target: { value: "date_modified" } });
+  fireEvent.change(screen.getByLabelText("Order"), { target: { value: "desc" } });
+
+  const after = screen.getByTestId("library-listings-rows").children;
+  expect(after).toHaveLength(2);
+  expect(after[0]?.textContent ?? "").toContain("a.png");
+  expect(after[1]?.textContent ?? "").toContain("b.jpg");
+  expect(screen.getByText("a.png")).toBeInTheDocument();
+  expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+});
+
 test("filename sort reorders loaded rows and does not send a sort field", async () => {
   const client = stubClient();
   client.listLibraryImages = vi.fn(async (): Promise<ListImagesResult> => ({

@@ -23,11 +23,17 @@ export interface ListingsProps {
 
 const PAGE_SIZE = 100;
 
-type SortKey = "returned" | "filename" | "date_added" | "size";
+type SortKey = "returned" | "filename" | "date_added" | "date_modified" | "size";
 type SortOrder = "asc" | "desc";
 
 function isSortKey(value: string): value is SortKey {
-  return value === "returned" || value === "filename" || value === "date_added" || value === "size";
+  return (
+    value === "returned" ||
+    value === "filename" ||
+    value === "date_added" ||
+    value === "date_modified" ||
+    value === "size"
+  );
 }
 
 function isSortOrder(value: string): value is SortOrder {
@@ -58,6 +64,18 @@ function visibleListingFacts(image: ImageRecord): string {
   if (typeof image.date_added === "string" && image.date_added !== "") {
     facts.push(image.date_added);
   }
+  if (typeof image.date_modified === "string" && image.date_modified !== "") {
+    facts.push(image.date_modified);
+  }
+  if (Array.isArray(image.tags)) {
+    const labels: string[] = [];
+    for (const tag of image.tags) {
+      if (typeof tag !== "string") continue;
+      const trimmed = tag.trim();
+      if (trimmed !== "") labels.push(trimmed);
+    }
+    if (labels.length > 0) facts.push(labels.join(", "));
+  }
   return facts.length > 0 ? " · " + facts.join(" · ") : "";
 }
 
@@ -70,10 +88,10 @@ function sortedImages(rows: readonly ImageRecord[], key: SortKey, order: SortOrd
       const ordered = left.filename.localeCompare(right.filename);
       return descending ? -ordered : ordered;
     }
-    if (key === "date_added") {
+    if (key === "date_added" || key === "date_modified") {
       return compareMissingLast(
-        left.date_added,
-        right.date_added,
+        key === "date_added" ? left.date_added : left.date_modified,
+        key === "date_added" ? right.date_added : right.date_modified,
         (a, b) => String(a).localeCompare(String(b)),
         descending,
       );
@@ -438,6 +456,7 @@ export function Listings({ hostClient }: ListingsProps) {
             <option value="returned">As returned</option>
             <option value="filename">Filename</option>
             <option value="date_added">Date added</option>
+            <option value="date_modified">Date modified</option>
             <option value="size">Size</option>
           </select>
           <select
