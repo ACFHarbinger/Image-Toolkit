@@ -87,6 +87,74 @@ test("management renames a group and updates a tag", async () => {
   expect(calls[1]).toMatchObject({ action: "update_tag", name: "smile", category: "Artist" });
 });
 
+test("Refresh list calls libraryAdminCatalog again and does not call libraryAdminMutate", async () => {
+  let catalogCalls = 0;
+  const calls: MutateParams[] = [];
+  const client = {
+    libraryAdminCatalog: async () => {
+      catalogCalls += 1;
+      if (catalogCalls === 1) {
+        return catalog(true);
+      }
+      return {
+        available: true,
+        groups: [{ name: "reloaded", subgroups: [] }],
+        tags: [],
+        tables: ["images"],
+      };
+    },
+    libraryAdminMutate: async (params: MutateParams): Promise<MutateResult> => {
+      calls.push(params);
+      return { available: true, applied: 1, error: "" };
+    },
+  };
+  render(<LibraryManagement client={client} />);
+  expect(await screen.findByText("people: faces")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Refresh list" }));
+  expect(await screen.findByText("reloaded", { selector: "li" })).toBeTruthy();
+  expect(catalogCalls).toBe(2);
+  expect(calls).toEqual([]);
+});
+
+test("Import tags from JSON creates each name in a tags array", async () => {
+  const calls: MutateParams[] = [];
+  const client = {
+    libraryAdminCatalog: async () => catalog(true),
+    libraryAdminMutate: async (params: MutateParams): Promise<MutateResult> => {
+      calls.push(params);
+      return { available: true, applied: 1, error: "" };
+    },
+  };
+  render(<LibraryManagement client={client} />);
+  expect(await screen.findByRole("button", { name: "Import tags from JSON" })).toBeTruthy();
+  fireEvent.change(screen.getByRole("textbox", { name: "Tag JSON" }), {
+    target: { value: '{"tags":["shore","pier"]}' },
+  });
+  fireEvent.change(screen.getByTestId("library-management-category"), { target: { value: "Artist" } });
+  fireEvent.click(screen.getByRole("button", { name: "Import tags from JSON" }));
+  expect((await screen.findByTestId("library-management-notice")).textContent).toBe("Applied 2");
+  expect(calls).toHaveLength(2);
+  expect(calls[0]).toMatchObject({ action: "create_tag", name: "shore", category: "Artist" });
+  expect(calls[1]).toMatchObject({ action: "create_tag", name: "pier", category: "Artist" });
+});
+
+test("Import tags from JSON rejects invalid JSON without mutating", async () => {
+  const calls: MutateParams[] = [];
+  const client = {
+    libraryAdminCatalog: async () => catalog(true),
+    libraryAdminMutate: async (params: MutateParams): Promise<MutateResult> => {
+      calls.push(params);
+      return { available: true, applied: 1, error: "" };
+    },
+  };
+  render(<LibraryManagement client={client} />);
+  expect(await screen.findByRole("textbox", { name: "Tag JSON" })).toBeTruthy();
+  fireEvent.change(screen.getByRole("textbox", { name: "Tag JSON" }), { target: { value: "not-json" } });
+  fireEvent.click(screen.getByRole("button", { name: "Import tags from JSON" }));
+  expect((await screen.findByTestId("library-management-notice")).textContent).toBe("Tag JSON is not valid.");
+  expect(calls).toEqual([]);
+});
+
 test("the registry lists images, filters them, and refreshes", async () => {
   const calls: Array<{ limit: number }> = [];
   const client = {

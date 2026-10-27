@@ -35,6 +35,39 @@ const SPLIT_CREATE: ReadonlySet<MutateAction> = new Set([
   "create_tag",
 ]);
 
+/** A JSON array of strings, or `{ tags: string[] }`. Non-strings are dropped. */
+function namesFromTagJson(text: string): string[] | null {
+  const trimmed = text.trim();
+  if (trimmed === "") {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+  let entries: unknown[] | null = null;
+  if (Array.isArray(parsed)) {
+    entries = parsed;
+  } else if (
+    parsed !== null &&
+    typeof parsed === "object" &&
+    "tags" in parsed &&
+    Array.isArray(parsed.tags)
+  ) {
+    entries = parsed.tags;
+  }
+  if (entries === null) {
+    return null;
+  }
+  const names = entries
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== "");
+  return names.length === 0 ? null : names;
+}
+
 /** Groups, subgroups, and tags. The store stays closed until the lease arrives. */
 export function LibraryManagement({ client }: { client: ManagementClient }) {
   const [catalog, setCatalog] = useState<CatalogResult | null>(null);
@@ -45,6 +78,7 @@ export function LibraryManagement({ client }: { client: ManagementClient }) {
   const [category, setCategory] = useState("");
   const [destination, setDestination] = useState("");
   const [notice, setNotice] = useState("");
+  const [tagJson, setTagJson] = useState("");
   const [registry, setRegistry] = useState<RegistryImage[]>([]);
   const [registryFilter, setRegistryFilter] = useState("");
 
@@ -125,6 +159,36 @@ export function LibraryManagement({ client }: { client: ManagementClient }) {
     await reload();
   }
 
+  async function importTags() {
+    const names = namesFromTagJson(tagJson);
+    if (names === null) {
+      setNotice("Tag JSON is not valid.");
+      return;
+    }
+    let applied = 0;
+    for (const tagName of names) {
+      const result = await client.libraryAdminMutate({
+        action: "create_tag",
+        name: tagName,
+        parent,
+        category,
+        destination,
+      });
+      if (!result.available) {
+        setNotice("");
+        return;
+      }
+      if (result.error !== "") {
+        setNotice(result.error);
+        return;
+      }
+      applied += result.applied;
+    }
+    setNotice(`Applied ${applied}`);
+    setTagJson("");
+    await reload();
+  }
+
   if (!catalog) {
     return <p data-testid="library-management-status">Loading the catalog…</p>;
   }
@@ -152,6 +216,9 @@ export function LibraryManagement({ client }: { client: ManagementClient }) {
           ))}
         </select>
       </label>
+      <button type="button" onClick={() => void reload()}>
+        Refresh list
+      </button>
       <ul data-testid="library-management-groups">
         {catalog.groups
           .filter((group) => groupFilter === "" || group.name === groupFilter)
@@ -241,6 +308,13 @@ export function LibraryManagement({ client }: { client: ManagementClient }) {
           Apply
         </button>
       </form>
+      <label>
+        Tag JSON
+        <textarea value={tagJson} onChange={(event) => setTagJson(event.target.value)} />
+      </label>
+      <button type="button" onClick={() => void importTags()}>
+        Import tags from JSON
+      </button>
       {notice && (
         <p role="alert" data-testid="library-management-notice">
           {notice}
