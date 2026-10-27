@@ -14,6 +14,7 @@ import type {
   ListGroupsResult,
   ListImagesResult,
   ListTagsResult,
+  TagRecord,
 } from "../../../../contracts/generated/ts";
 import type { HostClient } from "../../hostclient";
 
@@ -24,12 +25,47 @@ export interface ImageSearchProps {
 const FORMATS = ["png", "jpg", "jpeg", "webp", "avif", "bmp", "tiff", "gif"] as const;
 const PAGE_SIZE = 100;
 
+function categoryLabel(category: string): string {
+  return category === "" ? "(No Category)" : category;
+}
+
+function distinctCategories(tags: TagRecord[]): string[] {
+  const categories: string[] = [];
+  for (const tag of tags) {
+    const category = tag.category ?? "";
+    if (!categories.includes(category)) categories.push(category);
+  }
+  return categories;
+}
+
+function categoryAllows(name: string, catalog: TagRecord[] | null, unchecked: readonly string[]): boolean {
+  if (!catalog) return true;
+  const record = catalog.find((tag) => tag.name === name);
+  if (!record) return true;
+  return !unchecked.includes(record.category ?? "");
+}
+
+// Kept off the groups/tags Promise.all. A missing method, an unavailable
+// catalog, or a throw leaves every listLibraryTags name visible.
+async function readTagCatalog(hostClient: HostClient): Promise<TagRecord[] | null> {
+  if (typeof hostClient.libraryAdminCatalog !== "function") return null;
+  try {
+    const catalog = await hostClient.libraryAdminCatalog();
+    if (!catalog.available) return null;
+    return catalog.tags;
+  } catch {
+    return null;
+  }
+}
+
 export function ImageSearch({ hostClient }: ImageSearchProps) {
   const [groups, setGroups] = useState<GroupRecord[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [selectedSubgroups, setSelectedSubgroups] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [catalogTags, setCatalogTags] = useState<TagRecord[] | null>(null);
+  const [uncheckedCategories, setUncheckedCategories] = useState<string[]>([]);
   const [selectedFormats, setSelectedFormats] = useState<string[]>([]);
   const [pattern, setPattern] = useState("");
   const [images, setImages] = useState<ImageRecord[]>([]);
@@ -55,12 +91,19 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
     setReady(true);
   };
 
+  const acceptCatalog = (next: TagRecord[] | null) => {
+    setCatalogTags(next);
+    if (!next) return;
+    setSelectedTags((current) => current.filter((name) => categoryAllows(name, next, uncheckedCategories)));
+  };
+
   const loadFilters = async () => {
     const [groupsResult, tagsResult] = await Promise.all([
       hostClient.listLibraryGroups(),
       hostClient.listLibraryTags(),
     ]);
     applyFilters(groupsResult, tagsResult);
+    acceptCatalog(await readTagCatalog(hostClient));
   };
 
   useEffect(() => {
@@ -73,6 +116,9 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : String(err));
       });
+    void readTagCatalog(hostClient).then((next) => {
+      if (!cancelled) acceptCatalog(next);
+    });
     return () => {
       cancelled = true;
     };
@@ -98,6 +144,18 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
   };
 
   const visibleSubgroups = subgroupsFor(selectedGroups);
+
+  const setCategoryChecked = (category: string, checked: boolean) => {
+    const nextUnchecked = checked
+      ? uncheckedCategories.filter((item) => item !== category)
+      : uncheckedCategories.includes(category)
+        ? uncheckedCategories
+        : [...uncheckedCategories, category];
+    setUncheckedCategories(nextUnchecked);
+    if (!checked) {
+      setSelectedTags((current) => current.filter((name) => categoryAllows(name, catalogTags, nextUnchecked)));
+    }
+  };
 
   const toggleGroup = (name: string) => {
     const nextGroups = selectedGroups.includes(name)
@@ -258,8 +316,24 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
           ))}
         </div>
 
+        {catalogTags ? (
+          <div className="flex flex-wrap gap-2" data-testid="library-search-categories">
+            {distinctCategories(catalogTags).map((category) => (
+              <label key={category} className="flex items-center gap-1 text-xs text-it-text">
+                <input
+                  type="checkbox"
+                  checked={!uncheckedCategories.includes(category)}
+                  aria-label={categoryLabel(category)}
+                  onChange={(event) => setCategoryChecked(category, event.target.checked)}
+                />
+                {categoryLabel(category)}
+              </label>
+            ))}
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap gap-1" data-testid="library-search-tags">
-          {tags.map((tag) => (
+          {tags.filter((tag) => categoryAllows(tag, catalogTags, uncheckedCategories)).map((tag) => (
             <button
               key={tag}
               type="button"

@@ -199,3 +199,39 @@ test("add all formats sends every format and remove all formats omits input_form
     expect(client.listLibraryImages).toHaveBeenLastCalledWith({ limit: 10000 });
   });
 });
+
+test("unchecking a tag category hides its tags and drops them from search", async () => {
+  const client = stubClient();
+  const catalog = {
+    libraryAdminCatalog: vi.fn(async () => ({
+      available: true,
+      groups: [],
+      tables: [],
+      tags: [
+        { name: "night", category: "General" },
+        { name: "sunset", category: "Artist" },
+      ],
+    })),
+  };
+  render(<ImageSearch hostClient={{ ...client, ...catalog } as never} />);
+
+  expect(await screen.findByRole("button", { name: "night" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "sunset" })).toBeInTheDocument();
+  expect(await screen.findByRole("checkbox", { name: "General" })).toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "Artist" })).toBeChecked();
+
+  fireEvent.click(screen.getByRole("checkbox", { name: "General" }));
+  expect(screen.queryByRole("button", { name: "night" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "sunset" })).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "sunset" }));
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  await waitFor(() => {
+    expect(client.listLibraryImages).toHaveBeenCalledWith({
+      limit: 10000,
+      tags: ["sunset"],
+    });
+  });
+  const payload = client.listLibraryImages.mock.calls[0]?.[0] as { tags?: string[] };
+  expect(payload.tags ?? []).not.toContain("night");
+});
