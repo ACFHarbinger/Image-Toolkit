@@ -407,3 +407,62 @@ test("sorts the scanned file list by name without changing the scan request", as
     max_results: 50000,
   });
 });
+
+test("sorts the scanned file list by natural name without rescanning", async () => {
+  const client = stubClient({
+    scanDirectory: vi.fn(async () => ({
+      directory: "/pics",
+      total_found: 2,
+      database_available: true,
+      images: [
+        {
+          path: "/pics/file10.png",
+          filename: "file10.png",
+          extension: "png",
+          size_bytes: 2048,
+          in_database: false,
+        },
+        {
+          path: "/pics/file2.png",
+          filename: "file2.png",
+          extension: "png",
+          size_bytes: 1024,
+          in_database: false,
+        },
+      ],
+    })),
+  });
+  render(<ScanMetadataView hostClient={client} showModal={vi.fn()} />);
+
+  fireEvent.change(screen.getByPlaceholderText("/path/to/image/folder"), {
+    target: { value: "/pics" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /scan directory/i }));
+
+  await waitFor(() => {
+    const text = document.body.textContent || "";
+    expect(text.indexOf("file10.png")).toBeLessThan(text.indexOf("file2.png"));
+  });
+
+  fireEvent.change(screen.getByRole("combobox", { name: "Sort files" }), {
+    target: { value: "natural" },
+  });
+
+  const natural = document.body.textContent || "";
+  expect(natural.indexOf("file2.png")).toBeLessThan(natural.indexOf("file10.png"));
+  expect(client.scanDirectory).toHaveBeenCalledTimes(1);
+  expect(client.scanDirectory).toHaveBeenCalledWith({
+    directory: "/pics",
+    recursive: false,
+    formats: ["webp", "avif", "png", "jpg", "jpeg", "bmp", "gif", "tiff"],
+    max_results: 50000,
+  });
+
+  fireEvent.change(screen.getByRole("combobox", { name: "Sort files" }), {
+    target: { value: "name" },
+  });
+
+  const byName = document.body.textContent || "";
+  expect(byName.indexOf("file10.png")).toBeLessThan(byName.indexOf("file2.png"));
+  expect(client.scanDirectory).toHaveBeenCalledTimes(1);
+});

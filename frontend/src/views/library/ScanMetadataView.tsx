@@ -28,7 +28,63 @@ function uniqueNames(values: readonly string[]): string[] {
   return names;
 }
 
-type ScanFileSort = "scanned" | "name" | "size";
+type ScanFileSort = "scanned" | "name" | "size" | "natural";
+
+function stripLeadingZeros(digits: string): string {
+  let i = 0;
+  while (i < digits.length - 1 && digits.charAt(i) === "0") {
+    i += 1;
+  }
+  const stripped = digits.slice(i);
+  return stripped === "" ? "0" : stripped;
+}
+
+function isDigitToken(token: string): boolean {
+  if (token.length === 0) return false;
+  for (let i = 0; i < token.length; i += 1) {
+    const code = token.charCodeAt(i);
+    if (code < 48 || code > 57) return false;
+  }
+  return true;
+}
+
+function compareDigitTokens(left: string, right: string): number {
+  const a = stripLeadingZeros(left);
+  const b = stripLeadingZeros(right);
+  if (a.length !== b.length) return a.length - b.length;
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
+function compareNaturalNames(leftName: string, rightName: string): number {
+  const left = leftName.split(/(\d+)/);
+  const right = rightName.split(/(\d+)/);
+  const count = left.length < right.length ? left.length : right.length;
+  for (let i = 0; i < count; i += 1) {
+    const lt = left[i];
+    const rt = right[i];
+    const leftDigit = isDigitToken(lt);
+    const rightDigit = isDigitToken(rt);
+    let cmp = 0;
+    if (leftDigit && rightDigit) {
+      cmp = compareDigitTokens(lt, rt);
+    } else if (!leftDigit && !rightDigit) {
+      const ls = lt.toLowerCase();
+      const rs = rt.toLowerCase();
+      if (ls < rs) cmp = -1;
+      else if (ls > rs) cmp = 1;
+    } else {
+      // Mixed token kinds are strings so a digit run never throws against text.
+      const ls = leftDigit ? lt : lt.toLowerCase();
+      const rs = rightDigit ? rt : rt.toLowerCase();
+      if (ls < rs) cmp = -1;
+      else if (ls > rs) cmp = 1;
+    }
+    if (cmp !== 0) return cmp;
+  }
+  return left.length - right.length;
+}
 
 function sortDisplayedImages(rows: readonly ScannedImage[], sort: ScanFileSort): ScannedImage[] {
   if (sort === "scanned") {
@@ -37,6 +93,10 @@ function sortDisplayedImages(rows: readonly ScannedImage[], sort: ScanFileSort):
   const ordered = rows.slice();
   if (sort === "name") {
     ordered.sort((a, b) => a.filename.localeCompare(b.filename));
+    return ordered;
+  }
+  if (sort === "natural") {
+    ordered.sort((a, b) => compareNaturalNames(a.filename, b.filename));
     return ordered;
   }
   ordered.sort((a, b) => {
@@ -377,7 +437,7 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
                     value={fileSort}
                     onChange={(e) => {
                       const value = e.target.value;
-                      if (value === "scanned" || value === "name" || value === "size") {
+                      if (value === "scanned" || value === "name" || value === "size" || value === "natural") {
                         setFileSort(value);
                       }
                     }}
@@ -385,6 +445,7 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
                   >
                     <option value="scanned">As scanned</option>
                     <option value="name">Name</option>
+                    <option value="natural">Natural name</option>
                     <option value="size">Size</option>
                   </select>
                 </label>
