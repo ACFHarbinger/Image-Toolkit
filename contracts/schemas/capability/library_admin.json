@@ -38,7 +38,7 @@
       "title": "CatalogResult",
       "type": "object",
       "additionalProperties": false,
-      "required": ["available", "groups", "tags"],
+      "required": ["available", "groups", "tags", "tables"],
       "properties": {
         "available": { "type": "boolean" },
         "groups": {
@@ -48,6 +48,10 @@
         "tags": {
           "type": "array",
           "items": { "$ref": "#/$defs/TagRecord" }
+        },
+        "tables": {
+          "type": "array",
+          "items": { "type": "string" }
         }
       }
     },
@@ -61,7 +65,12 @@
         "remove_group",
         "remove_subgroup",
         "remove_tag",
-        "merge_tags"
+        "merge_tags",
+        "rename_group",
+        "rename_subgroup",
+        "rename_tag",
+        "update_tag",
+        "delete_image"
       ]
     },
     "MutateParams": {

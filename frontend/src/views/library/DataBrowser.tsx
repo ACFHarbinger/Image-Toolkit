@@ -1,7 +1,8 @@
-import { FormEvent, useState } from "react";
-import type { BrowseParams, BrowseResult } from "../../../../contracts/generated/ts";
+import { FormEvent, useEffect, useState } from "react";
+import type { BrowseParams, BrowseResult, CatalogResult } from "../../../../contracts/generated/ts";
 
 export interface BrowserClient {
+  libraryAdminCatalog(): Promise<CatalogResult>;
   libraryAdminBrowse(params: BrowseParams): Promise<BrowseResult>;
 }
 
@@ -10,10 +11,27 @@ const PAGE = 50;
 /** Paginated table view. Filters compare one column. No free-form SQL. */
 export function DataBrowser({ client }: { client: BrowserClient }) {
   const [table, setTable] = useState("images");
+  const [tables, setTables] = useState<string[]>([]);
   const [column, setColumn] = useState("");
   const [equals, setEquals] = useState("");
   const [offset, setOffset] = useState(0);
   const [page, setPage] = useState<BrowseResult | null>(null);
+  const [storeAvailable, setStoreAvailable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    client.libraryAdminCatalog().then((result) => {
+      if (cancelled) return;
+      setStoreAvailable(result.available);
+      setTables(result.tables);
+      setTable((current) =>
+        result.tables.length > 0 && !result.tables.includes(current) ? result.tables[0] : current,
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
 
   async function load(nextOffset: number, event?: FormEvent) {
     event?.preventDefault();
@@ -31,14 +49,25 @@ export function DataBrowser({ client }: { client: BrowserClient }) {
   return (
     <section data-testid="library-data-browser" className="flex flex-col gap-4 p-4">
       <h2>Data browser</h2>
+      {storeAvailable === false && (
+        <p role="status" data-testid="library-browser-unavailable">
+          The library store is not attached.
+        </p>
+      )}
       <form onSubmit={(event) => void load(0, event)} className="flex flex-wrap gap-2">
         <label>
           Table
-          <input
+          <select
             data-testid="library-browser-table"
             value={table}
             onChange={(event) => setTable(event.target.value)}
-          />
+          >
+            {(tables.length > 0 ? tables : [table]).map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Column
@@ -61,7 +90,7 @@ export function DataBrowser({ client }: { client: BrowserClient }) {
         </button>
       </form>
       {!page && <p data-testid="library-browser-status">Choose a table.</p>}
-      {page && !page.available && (
+      {page && !page.available && storeAvailable !== false && (
         <p role="status" data-testid="library-browser-unavailable">
           The library store is not attached.
         </p>

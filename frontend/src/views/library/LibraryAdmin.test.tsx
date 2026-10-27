@@ -13,6 +13,7 @@ function catalog(available: boolean): CatalogResult {
     available,
     groups: available ? [{ name: "people", subgroups: ["faces"] }] : [],
     tags: available ? [{ name: "smile", category: "mood" }] : [],
+    tables: available ? ["images"] : [],
   };
 }
 
@@ -40,6 +41,12 @@ test("management shows the unattached store and applies a create", async () => {
 test("the data browser pages by column equality", async () => {
   const calls: BrowseParams[] = [];
   const client = {
+    libraryAdminCatalog: async () => ({
+      available: true,
+      groups: [],
+      tags: [],
+      tables: ["groups", "images"],
+    }),
     libraryAdminBrowse: async (params: BrowseParams): Promise<BrowseResult> => {
       calls.push(params);
       if (!params.table) {

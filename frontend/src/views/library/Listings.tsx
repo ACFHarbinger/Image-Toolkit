@@ -6,11 +6,13 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import type {
+  CatalogResult,
   GroupRecord,
   ImageRecord,
   ListGroupsResult,
   ListImagesResult,
   ListTagsResult,
+  MutateParams,
 } from "../../../../contracts/generated/ts";
 import type { HostClient } from "../../hostclient";
 
@@ -19,6 +21,22 @@ export interface ListingsProps {
 }
 
 const PAGE_SIZE = 100;
+
+function categoriesFromCatalog(catalog: CatalogResult | null): Record<string, string> | null {
+  if (!catalog) return null;
+  const next: Record<string, string> = {};
+  for (const tag of catalog.tags) {
+    next[tag.name] = tag.category ?? "";
+  }
+  return next;
+}
+
+async function readTagCatalog(hostClient: HostClient): Promise<CatalogResult | null> {
+  if (typeof hostClient.libraryAdminCatalog !== "function") {
+    return null;
+  }
+  return hostClient.libraryAdminCatalog();
+}
 
 export function Listings({ hostClient }: ListingsProps) {
   const [groups, setGroups] = useState<GroupRecord[] | null>(null);
@@ -35,20 +53,35 @@ export function Listings({ hostClient }: ListingsProps) {
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [kind, setKind] = useState<"group" | "subgroup" | "tag" | "image">("group");
+  const [originalName, setOriginalName] = useState("");
+  const [editName, setEditName] = useState("");
+  const [editParent, setEditParent] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [originalCategory, setOriginalCategory] = useState("");
+  const [tagCategories, setTagCategories] = useState<Record<string, string>>({});
+  const [selectedPath, setSelectedPath] = useState("");
+  const [editGroup, setEditGroup] = useState("");
+  const [editSubgroup, setEditSubgroup] = useState("");
+  const [editTags, setEditTags] = useState("");
+  const [notice, setNotice] = useState("");
+  const [preview, setPreview] = useState<{ path: string; width: number; height: number; error: string; png: string } | null>(
+    null,
+  );
   const available = ready && rowsAvailable !== false;
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const [groupsResult, tagsResult]: [ListGroupsResult, ListTagsResult] = await Promise.all([
-          hostClient.listLibraryGroups(),
-          hostClient.listLibraryTags(),
-        ]);
+        const [groupsResult, tagsResult, catalog]: [ListGroupsResult, ListTagsResult, CatalogResult | null] =
+          await Promise.all([hostClient.listLibraryGroups(), hostClient.listLibraryTags(), readTagCatalog(hostClient)]);
         if (cancelled) return;
         setGroups(groupsResult.groups);
         setTags(groupsResult.available ? tagsResult.tags : []);
         setRowsAvailable(groupsResult.available);
+        const categories = categoriesFromCatalog(catalog);
+        if (categories) setTagCategories(categories);
         setReady(true);
       } catch (err) {
         if (cancelled) return;
@@ -97,6 +130,150 @@ export function Listings({ hostClient }: ListingsProps) {
     setSelectedTags((current) =>
       current.includes(name) ? current.filter((item) => item !== name) : [...current, name],
     );
+  };
+
+  const pickImage = (image: ImageRecord) => {
+    setKind("image");
+    setSelectedPath(image.file_path);
+    setEditGroup(image.group_name ?? "");
+    setEditSubgroup(image.subgroup_name ?? "");
+    setEditTags((image.tags ?? []).join(", "));
+    setPreview(null);
+  };
+
+  const reloadCatalog = async () => {
+    const [groupsResult, tagsResult, catalog]: [ListGroupsResult, ListTagsResult, CatalogResult | null] =
+      await Promise.all([hostClient.listLibraryGroups(), hostClient.listLibraryTags(), readTagCatalog(hostClient)]);
+    setGroups(groupsResult.groups);
+    setTags(groupsResult.available ? tagsResult.tags : []);
+    setRowsAvailable(groupsResult.available);
+    const categories = categoriesFromCatalog(catalog);
+    if (categories) setTagCategories(categories);
+  };
+
+  const saveRecord = async () => {
+    setNotice("");
+    if (kind === "image") {
+      if (!selectedPath) {
+        setNotice("Choose a record first.");
+        return;
+      }
+      const result = await hostClient.scanSaveMetadata({
+        items: [
+          {
+            path: selectedPath,
+            tags: editTags
+              .split(",")
+              .map((tag) => tag.trim())
+              .filter((tag) => tag.length > 0),
+            group_name: editGroup.trim() ? editGroup.trim() : null,
+            subgroup_name: editSubgroup.trim() ? editSubgroup.trim() : null,
+          },
+        ],
+      });
+      if (!result.database_available || !result.success) {
+        setNotice((result.errors && result.errors.join("; ")) || "Save failed. The database session is not attached.");
+        return;
+      }
+      setNotice(`Saved ${result.saved_count}`);
+      await search();
+      return;
+    }
+    if (!originalName.trim()) {
+      setNotice("Choose a record first.");
+      return;
+    }
+    const params: MutateParams[] = [];
+    if (kind === "group" && editName.trim() !== originalName) {
+      params.push({ action: "rename_group", name: originalName, destination: editName.trim() });
+    } else if (kind === "subgroup" && editName.trim() !== originalName) {
+      params.push({
+        action: "rename_subgroup",
+        name: originalName,
+        parent: editParent.trim(),
+        destination: editName.trim(),
+      });
+    } else if (kind === "tag") {
+      if (editName.trim() !== originalName) {
+        params.push({ action: "rename_tag", name: originalName, destination: editName.trim() });
+      }
+      if (editCategory !== originalCategory) {
+        params.push({ action: "update_tag", name: editName.trim(), category: editCategory });
+      }
+    }
+    if (params.length === 0) {
+      setNotice("No changes.");
+      return;
+    }
+    for (const paramsItem of params) {
+      const result = await hostClient.libraryAdminMutate(paramsItem);
+      if (!result.available) {
+        setNotice("The library store is not attached.");
+        return;
+      }
+      if (result.error || result.applied === 0) {
+        setNotice(result.error || "Save failed.");
+        return;
+      }
+    }
+    setOriginalName(editName.trim());
+    setOriginalCategory(editCategory);
+    setNotice("Saved");
+    await reloadCatalog();
+    await search();
+  };
+
+  const deleteRecord = async () => {
+    setNotice("");
+    let params: MutateParams | null = null;
+    if (kind === "image") {
+      if (!selectedPath) {
+        setNotice("Choose a record first.");
+        return;
+      }
+      params = { action: "delete_image", name: selectedPath };
+    } else if (!originalName.trim()) {
+      setNotice("Choose a record first.");
+      return;
+    } else if (kind === "group") {
+      params = { action: "remove_group", name: originalName };
+    } else if (kind === "subgroup") {
+      params = { action: "remove_subgroup", name: originalName, parent: editParent.trim() };
+    } else {
+      params = { action: "remove_tag", name: originalName };
+    }
+    const result = await hostClient.libraryAdminMutate(params);
+    if (!result.available) {
+      setNotice("The library store is not attached.");
+      return;
+    }
+    if (result.error || result.applied === 0) {
+      setNotice(result.error || "Delete failed.");
+      return;
+    }
+    setNotice("Deleted");
+    setOriginalName("");
+    setEditName("");
+    setSelectedPath("");
+    await reloadCatalog();
+    await search();
+  };
+
+  const openPreview = async () => {
+    if (!selectedPath) {
+      setNotice("Choose a record first.");
+      return;
+    }
+    const described = await hostClient.libraryPreviewDescribe({ paths: [selectedPath] });
+    const frame = await hostClient.libraryPreviewFrame({ path: selectedPath });
+    const item = described.items[0];
+    setPreview({
+      path: selectedPath,
+      width: item ? item.width : 0,
+      height: item ? item.height : 0,
+      error: (item && item.error) || frame.error,
+      png: frame.png_base64,
+    });
   };
 
   if (!ready && !error) {
@@ -202,11 +379,182 @@ export function Listings({ hostClient }: ListingsProps) {
           ))}
         </div>
 
+        <form
+          data-testid="library-listings-editor"
+          className="flex flex-col gap-2 rounded border border-it-border p-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void saveRecord();
+          }}
+        >
+          <label>
+            Record
+            <select
+              data-testid="library-listings-kind"
+              value={kind}
+              onChange={(event) => setKind(event.target.value as "group" | "subgroup" | "tag" | "image")}
+            >
+              <option value="group">Group</option>
+              <option value="subgroup">Subgroup</option>
+              <option value="tag">Tag</option>
+              <option value="image">Image</option>
+            </select>
+          </label>
+          {kind === "group" ? (
+            <select
+              aria-label="group to edit"
+              value={originalName}
+              onChange={(event) => {
+                setOriginalName(event.target.value);
+                setEditName(event.target.value);
+              }}
+            >
+              <option value="">Select a group</option>
+              {(groups ?? []).map((group) => (
+                <option key={group.name} value={group.name}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+          ) : null}
+          {kind === "tag" ? (
+            <select
+              aria-label="tag to edit"
+              value={originalName}
+              onChange={(event) => {
+                const name = event.target.value;
+                const category = name ? (tagCategories[name] ?? "") : "";
+                setOriginalName(name);
+                setEditName(name);
+                setEditCategory(category);
+                setOriginalCategory(category);
+              }}
+            >
+              <option value="">Select a tag</option>
+              {tags.map((tag) => (
+                <option key={tag} value={tag}>
+                  {tag}
+                </option>
+              ))}
+            </select>
+          ) : null}
+          {kind !== "image" ? (
+            <input
+              data-testid="library-listings-name"
+              aria-label="record name"
+              value={editName}
+              onChange={(event) => setEditName(event.target.value)}
+            />
+          ) : null}
+          {kind === "subgroup" ? (
+            <>
+              <select
+                aria-label="subgroup to edit"
+                value={originalName && editParent ? editParent + "\t" + originalName : ""}
+                onChange={(event) => {
+                  const parts = event.target.value.split("\t");
+                  setEditParent(parts[0] ?? "");
+                  setOriginalName(parts[1] ?? "");
+                  setEditName(parts[1] ?? "");
+                }}
+              >
+                <option value="">Select a subgroup</option>
+                {(groups ?? []).flatMap((group) =>
+                  group.subgroups.map((subgroup) => (
+                    <option key={group.name + "/" + subgroup} value={group.name + "\t" + subgroup}>
+                      {group.name} / {subgroup}
+                    </option>
+                  )),
+                )}
+              </select>
+              <input
+                data-testid="library-listings-parent"
+                aria-label="parent group"
+                value={editParent}
+                onChange={(event) => setEditParent(event.target.value)}
+              />
+            </>
+          ) : null}
+          {kind === "tag" ? (
+            <input
+              data-testid="library-listings-category"
+              aria-label="tag category"
+              value={editCategory}
+              onChange={(event) => setEditCategory(event.target.value)}
+            />
+          ) : null}
+          {kind === "image" ? (
+            <>
+              <select
+                aria-label="image to edit"
+                value={selectedPath}
+                onChange={(event) => {
+                  const image = images.find((item) => item.file_path === event.target.value);
+                  if (image) pickImage(image);
+                }}
+              >
+                <option value="">Select an image</option>
+                {images.map((image) => (
+                  <option key={image.id} value={image.file_path}>
+                    {image.filename}
+                  </option>
+                ))}
+              </select>
+              <input
+                data-testid="library-listings-group"
+                aria-label="image group"
+                value={editGroup}
+                onChange={(event) => setEditGroup(event.target.value)}
+              />
+              <input
+                data-testid="library-listings-subgroup"
+                aria-label="image subgroup"
+                value={editSubgroup}
+                onChange={(event) => setEditSubgroup(event.target.value)}
+              />
+              <input
+                data-testid="library-listings-tags-edit"
+                aria-label="image tags"
+                value={editTags}
+                onChange={(event) => setEditTags(event.target.value)}
+              />
+            </>
+          ) : null}
+          <div className="flex gap-2">
+            <button type="submit" data-testid="library-listings-save">
+              Save record
+            </button>
+            <button type="button" data-testid="library-listings-delete" onClick={() => void deleteRecord()}>
+              Delete record
+            </button>
+            {kind === "image" ? (
+              <button type="button" data-testid="library-listings-preview" onClick={() => void openPreview()}>
+                Preview
+              </button>
+            ) : null}
+          </div>
+          {notice ? (
+            <p role="status" data-testid="library-listings-notice">
+              {notice}
+            </p>
+          ) : null}
+          {preview ? (
+            <div data-testid="library-listings-preview-pane">
+              <p>
+                {preview.path} {preview.width}x{preview.height}
+              </p>
+              {preview.error ? <p role="alert">{preview.error}</p> : null}
+              {preview.png ? <img alt="Listing preview" src={"data:image/png;base64," + preview.png} /> : null}
+            </div>
+          ) : null}
+        </form>
+
         <div className="min-h-0 flex-1 overflow-y-auto rounded border border-it-border" data-testid="library-listings-rows">
           {pageImages.map((image) => (
             <div
               key={image.id}
               className="flex items-center justify-between gap-2 border-b border-it-border px-2 py-1 text-sm"
+              onClick={() => pickImage(image)}
             >
               <span className="truncate" title={image.file_path}>
                 {image.filename}

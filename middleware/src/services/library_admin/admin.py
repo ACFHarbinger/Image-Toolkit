@@ -51,19 +51,17 @@ class AdminStore(Protocol):
 def catalog_result(store: Optional[AdminStore]) -> dict[str, Any]:
     """Groups, their subgroups, and tags. Empty when no store is attached."""
     if store is None:
-        return {"available": False, "groups": [], "tags": []}
+        return {"available": False, "groups": [], "tags": [], "tables": []}
     subgroups: dict[str, list[str]] = {group: [] for group in store.get_all_groups()}
     for subgroup, parent in store.get_all_subgroups_detailed():
         subgroups.setdefault(str(parent), []).append(str(subgroup))
-    groups = [
-        {"name": name, "subgroups": sorted(members)}
-        for name, members in sorted(subgroups.items())
-    ]
+    groups = [{"name": name, "subgroups": sorted(members)} for name, members in sorted(subgroups.items())]
     tags = []
     for row in store.get_all_tags_with_categories():
         tags.append({"name": str(row.get("name", "")), "category": str(row.get("category") or "")})
     tags.sort(key=lambda item: item["name"])
-    return {"available": True, "groups": groups, "tags": tags}
+    tables = sorted(str(name) for name in store.list_tables()) if hasattr(store, "list_tables") else []
+    return {"available": True, "groups": groups, "tags": tags, "tables": tables}
 
 
 def mutate_result(store: Optional[AdminStore], params: Mapping[str, Any]) -> dict[str, Any]:
@@ -113,14 +111,14 @@ def browse_result(store: Optional[AdminStore], params: Mapping[str, Any]) -> dic
 def _apply(store: AdminStore, action: str, params: Mapping[str, Any]) -> int:
     names = _names(str(params["name"]), split=action in _CREATE_ACTIONS)
     parent = _optional(params.get("parent"))
-    category = _optional(params.get("category"))
+    category = _required_category(params) if action == "update_tag" else _optional(params.get("category"))
     destination = _optional(params.get("destination"))
-    if action == "create_subgroup" and not parent:
-        raise ValueError("parent group is required")
-    if action == "remove_subgroup" and not parent:
+    if action in {"create_subgroup", "remove_subgroup", "rename_subgroup"} and not parent:
         raise ValueError("parent group is required")
     if action == "merge_tags" and not destination:
         raise ValueError("destination tag is required")
+    if action in {"rename_group", "rename_subgroup", "rename_tag"} and not destination:
+        raise ValueError("destination name is required")
     for name in names:
         _one(store, action, name, parent, category, destination)
     return len(names)
@@ -148,8 +146,30 @@ def _one(
         store.delete_tag(name)
     elif action == "merge_tags":
         store.merge_tags(name, destination or "")
+    elif action == "rename_group":
+        _call(store, "rename_group", name, destination or "")
+    elif action == "rename_subgroup":
+        _call(store, "rename_subgroup", name, destination or "", parent or "")
+    elif action == "rename_tag":
+        _call(store, "rename_tag", name, destination or "")
+    elif action == "update_tag":
+        _call(store, "update_tag_category", name, category)
+    elif action == "delete_image":
+        if not _call(store, "delete_image_by_path", name):
+            raise ValueError("image not found")
     else:
         raise ValueError(f"unknown action: {action}")
+
+
+def _call(store: AdminStore, method: str, *args: Any) -> Any:
+    """Optional store methods. A missing method is an error, not a silent write."""
+    fn = getattr(store, method, None)
+    if not callable(fn):
+        raise ValueError(f"store does not support {method}")
+    try:
+        return fn(*args)
+    except KeyError as exc:
+        raise ValueError(str(exc)) from exc
 
 
 def _names(raw: str, *, split: bool) -> list[str]:
@@ -171,6 +191,14 @@ def _optional(value: Any) -> str | None:
     if value is None:
         return None
     text = str(value).strip()
+    return text or None
+
+
+def _required_category(params: Mapping[str, Any]) -> str | None:
+    """Omitted or null is an error. Present empty or whitespace clears the category."""
+    if "category" not in params or params.get("category") is None:
+        raise ValueError("category is required")
+    text = str(params.get("category")).strip()
     return text or None
 
 

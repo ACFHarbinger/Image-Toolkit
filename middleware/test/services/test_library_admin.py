@@ -64,7 +64,7 @@ class _Store:
 
 
 def test_catalog_without_a_store_is_unavailable() -> None:
-    assert catalog_result(None) == {"available": False, "groups": [], "tags": []}
+    assert catalog_result(None) == {"available": False, "groups": [], "tags": [], "tables": []}
 
 
 def test_catalog_lists_groups_and_tags() -> None:
@@ -72,6 +72,7 @@ def test_catalog_lists_groups_and_tags() -> None:
     assert result["available"] is True
     assert result["groups"] == [{"name": "people", "subgroups": ["faces"]}]
     assert result["tags"] == [{"name": "smile", "category": "mood"}]
+    assert result["tables"] == ["images"]
 
 
 def test_create_splits_comma_separated_groups() -> None:
@@ -79,6 +80,22 @@ def test_create_splits_comma_separated_groups() -> None:
     result = mutate_result(store, {"action": "create_group", "name": "a, b"})
     assert result == {"available": True, "applied": 2, "error": ""}
     assert store.groups[-2:] == ["a", "b"]
+
+
+def test_blank_update_tag_category_clears_and_a_missing_category_does_not() -> None:
+    from middleware.src.services.library.attach import MemoryLibraryStore
+
+    store = MemoryLibraryStore()
+    store.add_tag("night", "mood")
+    missing = mutate_result(store, {"action": "update_tag", "name": "night"})
+    assert missing["applied"] == 0
+    assert missing["error"] == "category is required"
+    assert store.tags["night"] == "mood"
+    cleared = mutate_result(store, {"action": "update_tag", "name": "night", "category": "   "})
+    assert cleared == {"available": True, "applied": 1, "error": ""}
+    assert store.tags["night"] == ""
+    explicit_null = mutate_result(store, {"action": "update_tag", "name": "night", "category": None})
+    assert explicit_null["error"] == "category is required"
 
 
 def test_subgroup_and_merge_require_their_fields() -> None:

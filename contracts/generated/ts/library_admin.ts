@@ -1,4 +1,4 @@
-// GENERATED — contract hash a4f0fd0f3b4e540630dddc3eaec3ec0e11e1e32419cff02dda892fb79373d8d4. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 169175762b264adb9d36a696a336f271756697110ca9654fd44b5bb0eb9ffe1b. Do not edit; edit the schema and regenerate.
 
 export type AdminEmptyParams = Record<string, unknown>;
 export interface AdminGroupRecord {
@@ -26,8 +26,9 @@ export interface CatalogResult {
   readonly available: boolean;
   readonly groups: Array<AdminGroupRecord>;
   readonly tags: Array<TagRecord>;
+  readonly tables: Array<string>;
 }
-export type MutateAction = "create_group" | "create_subgroup" | "create_tag" | "remove_group" | "remove_subgroup" | "remove_tag" | "merge_tags";
+export type MutateAction = "create_group" | "create_subgroup" | "create_tag" | "remove_group" | "remove_subgroup" | "remove_tag" | "merge_tags" | "rename_group" | "rename_subgroup" | "rename_tag" | "update_tag" | "delete_image";
 export interface MutateParams {
   readonly action: MutateAction;
   readonly name: string;

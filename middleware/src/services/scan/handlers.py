@@ -9,6 +9,7 @@ from typing import Any, Sequence
 
 from middleware.src.services.base import CommandValidationError, Handler
 from middleware.src.services.scan.commands import (
+    MetadataItemCommand,
     SaveMetadataCommand,
     SaveMetadataResult,
     ScanDirectoryCommand,
@@ -40,6 +41,15 @@ _STOPWORDS = frozenset(
         "edit",
     }
 )
+
+
+def _explicit_assignment(group_name: str | None, subgroup_name: str | None) -> tuple[str, str]:
+    """Blank clears the column. A cleared group cannot keep a subgroup."""
+    group = group_name.strip() if isinstance(group_name, str) else ""
+    subgroup = subgroup_name.strip() if isinstance(subgroup_name, str) else ""
+    if not group:
+        subgroup = ""
+    return group, subgroup
 
 
 def _extract_path_tokens(path_str: str) -> tuple[str, ...]:
@@ -87,7 +97,7 @@ class ScanDirectoryHandler(Handler[ScanDirectoryCommand, ScanDirectoryResult]):
         discovered_paths: list[Path] = []
         self._walk_dir(dir_path, discovered_paths, normalized_formats, command.recursive, command.max_results)
 
-        db_known_paths = self._query_db_paths(discovered_paths) if self._db_session else set()
+        db_known_paths = self._query_db_paths(discovered_paths) if self._db_session is not None else set()
 
         records: list[ScannedImageRecord] = []
         for path in discovered_paths:
@@ -162,9 +172,15 @@ class ScanDirectoryHandler(Handler[ScanDirectoryCommand, ScanDirectoryResult]):
             return
 
     def _query_db_paths(self, paths: Sequence[Path]) -> set[str]:
-        if not self._db_session:
+        if self._db_session is None:
             return set()
         str_paths = [str(p.resolve()) for p in paths]
+        known = getattr(self._db_session, "paths_in_db", None)
+        if callable(known):
+            return set(known(str_paths))
+        listed = getattr(self._db_session, "filter_known_paths", None)
+        if callable(listed):
+            return set(listed(str_paths))
         try:
             from middleware.src.database.unified.image_repo import ImageRepo
 
@@ -198,34 +214,73 @@ class SaveMetadataHandler(Handler[SaveMetadataCommand, SaveMetadataResult]):
 
         saved = 0
         errors: list[str] = []
-        try:
-            from middleware.src.database.unified.image_repo import ImageRepo
-
-            repo = ImageRepo(self._db_session)
-            for item in command.items:
-                try:
-                    image_id = repo.add_image(
-                        item.path,
-                        group_name=item.group_name,
-                        subgroup_name=item.subgroup_name,
-                        tags=list(item.tags),
-                    )
-                except Exception as exc:
-                    errors.append(f"Failed to save {item.path}: {exc}")
-                    continue
-                if image_id is None:
-                    errors.append(f"Failed to save {item.path}: write did not complete")
-                    continue
-                saved += 1
-        except Exception as exc:
-            errors.append(f"Persistence failed: {exc}")
+        for item in command.items:
+            try:
+                image_id = self._write_item(item)
+            except Exception as exc:
+                errors.append(f"Failed to save {item.path}: {exc}")
+                continue
+            if image_id is None:
+                errors.append(f"Failed to save {item.path}: write did not complete")
+                continue
+            saved += 1
 
         return SaveMetadataResult(
             saved_count=saved,
-            success=len(errors) == 0,
+            success=len(errors) == 0 and saved == len(command.items),
             database_available=True,
             errors=tuple(errors),
         )
+
+    def _write_item(self, item: MetadataItemCommand) -> int | None:
+        """Update an existing row in place. A new path still goes through ``add_image``."""
+        writer = getattr(self._db_session, "add_image", None)
+        if callable(writer):
+            existing = self._stored_image(item.path)
+            if existing is not None:
+                return self._update_existing(existing, item)
+            return writer(
+                item.path,
+                group_name=item.group_name,
+                subgroup_name=item.subgroup_name,
+                tags=list(item.tags),
+            )
+        from middleware.src.database.unified.image_repo import ImageRepo
+
+        repo = ImageRepo(self._db_session)
+        existing = repo.get_image_by_path(item.path) if callable(getattr(repo, "get_image_by_path", None)) else None
+        if isinstance(existing, dict) and "id" in existing:
+            return self._update_existing(existing, item, repo.update_image)
+        return repo.add_image(
+            item.path,
+            group_name=item.group_name,
+            subgroup_name=item.subgroup_name,
+            tags=list(item.tags),
+        )
+
+    def _stored_image(self, path: str) -> dict[str, Any] | None:
+        getter = getattr(self._db_session, "get_image_by_path", None)
+        if not callable(getter):
+            return None
+        found = getter(path)
+        if not isinstance(found, dict) or "id" not in found:
+            return None
+        return found
+
+    def _update_existing(
+        self,
+        existing: dict[str, Any],
+        item: MetadataItemCommand,
+        updater: Any = None,
+    ) -> int:
+        group, subgroup = _explicit_assignment(item.group_name, item.subgroup_name)
+        image_id = int(existing["id"])
+        if updater is None:
+            updater = getattr(self._db_session, "update_image", None)
+        if not callable(updater):
+            raise RuntimeError("store does not support update_image")
+        updater(image_id, group_name=group, subgroup_name=subgroup, tags=list(item.tags))
+        return image_id
 
 
 class SuggestTagsHandler(Handler[SuggestTagsCommand, SuggestTagsResult]):
