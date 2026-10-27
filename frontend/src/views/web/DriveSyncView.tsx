@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { deskButtonClass, deskControlClass, DeskField, DeskForm } from "../../components/common/DeskForm";
+import { ThumbnailGallery } from "../../components/common/ThumbnailGallery";
 
 export interface DrivePlanResult {
   readonly submitted: false;
@@ -31,26 +33,29 @@ export function DriveSyncView({ hostClient }: { readonly hostClient: DriveSyncCl
   }
 
   return (
-    <form data-testid="drive-sync-view" onSubmit={onSubmit}>
-      <label>
-        Provider
-        <select value={provider} onChange={(event) => setProvider(event.target.value)}>
+    <DeskForm testId="drive-sync-view" title="Cloud Synchronization" description="Record a sync plan. Nothing is uploaded." onSubmit={onSubmit}>
+      <DeskField label="Provider">
+        <select className={deskControlClass} value={provider} onChange={(event) => setProvider(event.target.value)}>
           <option value="google_drive">Google Drive</option>
           <option value="dropbox">Dropbox</option>
           <option value="onedrive">OneDrive</option>
         </select>
-      </label>
-      <label>
-        Paths
-        <textarea value={paths} onChange={(event) => setPaths(event.target.value)} />
-      </label>
-      <button type="submit">Plan</button>
-      {error ? <p role="alert">{error}</p> : null}
+      </DeskField>
+      <ThumbnailGallery
+        multiple
+        selected={paths.split("\n").map((line) => line.trim()).filter(Boolean)}
+        onSelectedChange={(next) => setPaths(next.join("\n"))}
+      />
+      <DeskField label="Paths">
+        <textarea className={deskControlClass} rows={4} value={paths} onChange={(event) => setPaths(event.target.value)} />
+      </DeskField>
+      <button type="submit" className={deskButtonClass}>Plan</button>
+      {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
       {result ? (
-        <p>
+        <p className="text-sm">
           {result.provider} {result.count} {result.reason}
         </p>
       ) : null}
-    </form>
+    </DeskForm>
   );
 }
