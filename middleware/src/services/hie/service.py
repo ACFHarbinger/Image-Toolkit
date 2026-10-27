@@ -285,6 +285,102 @@ class HieService(HieServiceProtocol):
             models_available=models,
         )
 
+    def render_viewport(
+        self,
+        document_id: str,
+        zoom: float | None = 1.0,
+        pan_x: float | None = 0.0,
+        pan_y: float | None = 0.0,
+        viewport_width: int | None = 800,
+        viewport_height: int | None = 600,
+    ) -> dict[str, Any]:
+        """Query layer metadata and viewport dimensions for canvas rendering."""
+        t0 = time.monotonic()
+        if not document_id.strip():
+            raise CommandValidationError("document_id must not be empty", field="document_id")
+
+        ipc = self._get_ipc()
+        if ipc is None:
+            return {
+                "success": False,
+                "document_id": document_id,
+                "width": 0,
+                "height": 0,
+                "layers": [],
+                "elapsed_seconds": _elapsed(t0),
+                "error": _IPC_UNAVAILABLE,
+            }
+
+        try:
+            res = _ipc_call(
+                ipc,
+                "export_document",
+                {"document_id": document_id},
+            )
+            if res.status != "ok":
+                return {
+                    "success": False,
+                    "document_id": document_id,
+                    "width": 0,
+                    "height": 0,
+                    "layers": [],
+                    "elapsed_seconds": _elapsed(t0),
+                    "error": res.error or "document not found",
+                }
+            payload = res.payload or {}
+            doc = payload.get("document") or payload
+            raw_layers = doc.get("layers") or []
+            layers = [
+                {
+                    "id": str(l.get("id", f"layer-{i}")),
+                    "name": str(l.get("name", f"Layer {i}")),
+                    "visible": bool(l.get("visible", True)),
+                    "opacity": float(l.get("opacity", 1.0)),
+                    "blend_mode": l.get("blend_mode"),
+                }
+                for i, l in enumerate(raw_layers)
+            ]
+            if not layers:
+                layers = [
+                    {
+                        "id": "layer-0",
+                        "name": "Background",
+                        "visible": True,
+                        "opacity": 1.0,
+                        "blend_mode": "normal",
+                    }
+                ]
+            src = _document_source(doc)
+            w, h = 800, 600
+            if src and os.path.isfile(src):
+                from PIL import Image
+
+                try:
+                    with Image.open(src) as img:
+                        w, h = img.size
+                except Exception:
+                    pass
+
+            return {
+                "success": True,
+                "document_id": document_id,
+                "width": int(w),
+                "height": int(h),
+                "layers": layers,
+                "elapsed_seconds": _elapsed(t0),
+                "error": None,
+            }
+        except Exception as exc:
+            return {
+                "success": False,
+                "document_id": document_id,
+                "width": 0,
+                "height": 0,
+                "layers": [],
+                "elapsed_seconds": _elapsed(t0),
+                "error": str(exc),
+            }
+
 
 def _elapsed(t0: float) -> float:
     return round(time.monotonic() - t0, 4)

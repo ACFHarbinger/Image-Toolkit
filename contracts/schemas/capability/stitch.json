@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "capability/stitch.json",
   "title": "StitchCapability",
-  "description": "Report one Image Stitching catalog route (#914). Does not start the stitch pipeline.",
+  "description": "Image Stitching operations over the Anime Stitch Pipeline (ASP) headless workers and panel status (#914 / #1110).",
   "type": "object",
   "$defs": {
     "StitchStatusParams": {
@@ -21,8 +21,68 @@
       "required": ["route", "started", "reason"],
       "properties": {
         "route": { "type": "string", "minLength": 1 },
-        "started": { "type": "boolean", "const": false },
-        "reason": { "type": "string", "const": "stitch pipeline is not started" }
+        "started": { "type": "boolean" },
+        "reason": { "type": "string" },
+        "panel": { "type": ["string", "null"] },
+        "stage": { "type": ["string", "null"] },
+        "canvas_width": { "type": ["integer", "null"] },
+        "canvas_height": { "type": ["integer", "null"] },
+        "frames_count": { "type": ["integer", "null"] }
+      }
+    },
+    "StitchRunParams": {
+      "title": "StitchRunParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input_dir"],
+      "properties": {
+        "input_dir": { "type": "string", "minLength": 1 },
+        "output_path": { "type": ["string", "null"] },
+        "preset": { "type": ["string", "null"] },
+        "blend_mode": { "type": ["string", "null"] }
+      }
+    },
+    "StitchRunResult": {
+      "title": "StitchRunResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "frames_processed", "elapsed_seconds"],
+      "properties": {
+        "success": { "type": "boolean" },
+        "output_path": { "type": ["string", "null"] },
+        "canvas_width": { "type": ["integer", "null"] },
+        "canvas_height": { "type": ["integer", "null"] },
+        "frames_processed": { "type": "integer", "minimum": 0 },
+        "elapsed_seconds": { "type": "number", "minimum": 0 },
+        "error": { "type": ["string", "null"] }
+      }
+    },
+    "StitchCanvasParams": {
+      "title": "StitchCanvasParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input_dir"],
+      "properties": {
+        "input_dir": { "type": "string", "minLength": 1 },
+        "preset": { "type": ["string", "null"] }
+      }
+    },
+    "StitchCanvasResult": {
+      "title": "StitchCanvasResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "num_frames", "elapsed_seconds"],
+      "properties": {
+        "success": { "type": "boolean" },
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 },
+        "num_frames": { "type": "integer", "minimum": 0 },
+        "frames": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "elapsed_seconds": { "type": "number", "minimum": 0 },
+        "error": { "type": ["string", "null"] }
       }
     }
   }

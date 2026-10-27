@@ -138,6 +138,7 @@ class SidecarServer:
         recon_engine: Any | None = None,
         webreq_service: Any | None = None,
         hie_service: Any | None = None,
+        stitch_service: Any | None = None,
     ) -> None:
         self.table = table or catalog()
         self.stdin = stdin or sys.stdin
@@ -154,10 +155,17 @@ class SidecarServer:
         self.recon_engine = recon_engine
         self.webreq_service = webreq_service
         self.hie_service = hie_service or HieService()
+        self.stitch_service = stitch_service
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self.cloud_service = None
         self._handshaken = False
         self._write_mu = threading.Lock()
+
+    def _get_stitch_service(self) -> Any:
+        if self.stitch_service is None:
+            from middleware.src.services.stitch.service import StitchService
+            self.stitch_service = StitchService()
+        return self.stitch_service
 
     @property
     def handshaken(self) -> bool:
@@ -421,6 +429,10 @@ class SidecarServer:
             return handle_export_document(self.hie_service, params)
         if method == "hie.list_capabilities":
             return handle_list_capabilities(self.hie_service, params)
+        if method == "hie.render_viewport":
+            from middleware.src.sidecar.handlers.hie import handle_render_viewport
+
+            return handle_render_viewport(self.hie_service, params)
         return _UNHANDLED
 
     def _dispatch_system_pages(self, method: str, params: dict[str, Any]) -> Any:
@@ -431,7 +443,17 @@ class SidecarServer:
         if method == "extractor.probe":
             return handle_probe(params)
         if method == "stitch.status":
-            return stitch_status(params["route"])
+            from middleware.src.sidecar.handlers.stitch import handle_stitch_status
+
+            return handle_stitch_status(self._get_stitch_service(), params)
+        if method == "stitch.run":
+            from middleware.src.sidecar.handlers.stitch import handle_stitch_run
+
+            return handle_stitch_run(self._get_stitch_service(), params)
+        if method == "stitch.canvas":
+            from middleware.src.sidecar.handlers.stitch import handle_stitch_canvas
+
+            return handle_stitch_canvas(self._get_stitch_service(), params)
         if method == "logs.read":
             return handle_logs_read(params)
         if method == "metadata.describe":
