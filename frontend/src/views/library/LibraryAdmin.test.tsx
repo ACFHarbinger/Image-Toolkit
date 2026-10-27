@@ -191,3 +191,34 @@ test("the data browser exports the current page as csv and json", async () => {
   expect(exported.textContent).toContain('"filename"');
   expect(exported.textContent).toContain('"a.png"');
 });
+
+test("the data browser sorts the current page by a column header", async () => {
+  let browseCalls = 0;
+  const client = {
+    libraryAdminCatalog: async () => ({
+      available: true,
+      groups: [],
+      tags: [],
+      tables: ["images"],
+    }),
+    libraryAdminBrowse: async (): Promise<BrowseResult> => {
+      browseCalls += 1;
+      return {
+        available: true,
+        columns: ["filename"],
+        rows: [{ cells: ["b.png"] }, { cells: ["a.png"] }],
+        row_count: 2,
+        error: "",
+      };
+    },
+  };
+  render(<DataBrowser client={client} />);
+  fireEvent.click(screen.getByTestId("library-browser-load"));
+  expect(await screen.findByText("b.png")).toBeTruthy();
+  const rowText = () => screen.getAllByTestId("library-browser-row").map((row) => row.textContent);
+  fireEvent.click(screen.getByRole("button", { name: "filename" }));
+  expect(rowText()).toEqual(["a.png", "b.png"]);
+  fireEvent.click(screen.getByRole("button", { name: "filename" }));
+  expect(rowText()[0]).toBe("b.png");
+  expect(browseCalls).toBe(1);
+});

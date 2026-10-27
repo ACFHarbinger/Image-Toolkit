@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import type { BrowseParams, BrowseResult, CatalogResult } from "../../../../contracts/generated/ts";
+import type { BrowseParams, BrowseResult, BrowseRow, CatalogResult } from "../../../../contracts/generated/ts";
 
 export interface BrowserClient {
   libraryAdminCatalog(): Promise<CatalogResult>;
@@ -7,6 +7,20 @@ export interface BrowserClient {
 }
 
 const PAGE = 50;
+
+/** Header click order for the rows already on this page. Null is server order. */
+type PageSort = { index: number; descending: boolean };
+
+function orderedRows(rows: readonly BrowseRow[], sort: PageSort | null): BrowseRow[] {
+  if (!sort) return rows.slice();
+  const index = sort.index;
+  const copy = rows.slice();
+  copy.sort((left, right) => {
+    const compared = (left.cells[index] ?? "").localeCompare(right.cells[index] ?? "");
+    return sort.descending ? -compared : compared;
+  });
+  return copy;
+}
 
 /** Paginated table view. Filters compare one column. No free-form SQL. */
 export function DataBrowser({ client }: { client: BrowserClient }) {
@@ -16,6 +30,7 @@ export function DataBrowser({ client }: { client: BrowserClient }) {
   const [equals, setEquals] = useState("");
   const [offset, setOffset] = useState(0);
   const [page, setPage] = useState<BrowseResult | null>(null);
+  const [sort, setSort] = useState<PageSort | null>(null);
   const [storeAvailable, setStoreAvailable] = useState<boolean | null>(null);
   const [exportText, setExportText] = useState("");
 
@@ -47,6 +62,7 @@ export function DataBrowser({ client }: { client: BrowserClient }) {
       equals: equalsFilter,
     });
     setOffset(nextOffset);
+    setSort(null);
     setPage(result);
   }
 
@@ -70,7 +86,7 @@ export function DataBrowser({ client }: { client: BrowserClient }) {
   function showCsv() {
     if (!page) return;
     const lines = [page.columns.map(quoteCsv).join(",")];
-    for (const row of page.rows) {
+    for (const row of orderedRows(page.rows, sort)) {
       lines.push(row.cells.map(quoteCsv).join(","));
     }
     setExportText(lines.join("\n"));
@@ -78,7 +94,7 @@ export function DataBrowser({ client }: { client: BrowserClient }) {
 
   function showJson() {
     if (!page) return;
-    const records = page.rows.map((row) => {
+    const records = orderedRows(page.rows, sort).map((row) => {
       const record: Record<string, string> = {};
       const count = Math.min(page.columns.length, row.cells.length);
       for (let index = 0; index < count; index += 1) {
@@ -90,6 +106,15 @@ export function DataBrowser({ client }: { client: BrowserClient }) {
   }
 
   const exportReady = Boolean(page?.available && page.error === "" && page.columns.length > 0);
+  const shownRows = page ? orderedRows(page.rows, sort) : [];
+
+  function toggleSort(index: number) {
+    setSort((current) =>
+      current?.index === index
+        ? { index, descending: !current.descending }
+        : { index, descending: false },
+    );
+  }
 
   function refreshCatalog() {
     void client.libraryAdminCatalog().then(applyCatalog);
@@ -174,13 +199,17 @@ export function DataBrowser({ client }: { client: BrowserClient }) {
           <table>
             <thead>
               <tr>
-                {page.columns.map((name) => (
-                  <th key={name}>{name}</th>
+                {page.columns.map((name, index) => (
+                  <th key={name}>
+                    <button type="button" onClick={() => toggleSort(index)}>
+                      {name}
+                    </button>
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {page.rows.map((row, index) => (
+              {shownRows.map((row, index) => (
                 <tr key={index} data-testid="library-browser-row">
                   {row.cells.map((cell, cellIndex) => (
                     <td key={cellIndex}>{cell}</td>
