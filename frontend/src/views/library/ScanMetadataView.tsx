@@ -178,6 +178,16 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
     setTags(tags.filter((t) => t !== tagToRemove));
   };
 
+  const toggleKnownTag = (name: string, checked: boolean) => {
+    if (checked) {
+      if (!tags.includes(name)) {
+        setTags([...tags, name]);
+      }
+      return;
+    }
+    setTags(tags.filter((t) => t !== name));
+  };
+
   const handleSuggestTags = async () => {
     if (selectedPaths.size === 0) {
       notify("Select at least one image to suggest tags.", "error");
@@ -481,6 +491,25 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
                 </button>
               </div>
             </div>
+
+            {tagOptions.length > 0 ? (
+              <div className="flex flex-col gap-1">
+                {tagOptions.map((name) => (
+                  <label
+                    key={name}
+                    className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={tags.includes(name)}
+                      onChange={(e) => toggleKnownTag(name, e.target.checked)}
+                      className="rounded text-violet-600"
+                    />
+                    {`Tag ${name}`}
+                  </label>
+                ))}
+              </div>
+            ) : null}
 
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-1">

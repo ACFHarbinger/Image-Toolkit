@@ -218,6 +218,67 @@ test("saves metadata for selected items", async () => {
   });
 });
 
+test("known tag checkbox writes the catalog name into saved tags", async () => {
+  const client = stubClient({
+    listLibraryGroups: vi.fn(async () => ({
+      available: true,
+      groups: [],
+    })),
+    listLibraryTags: vi.fn(async () => ({
+      available: true,
+      tags: ["scenery"],
+    })),
+  });
+  render(<ScanMetadataView hostClient={client} showModal={vi.fn()} />);
+
+  fireEvent.change(screen.getByPlaceholderText("/path/to/image/folder"), {
+    target: { value: "/test/photos" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /scan directory/i }));
+
+  await waitFor(() => {
+    expect(screen.getByText("a.png")).toBeInTheDocument();
+  });
+  fireEvent.click(screen.getByText("a.png"));
+
+  const scenery = screen.getByRole("checkbox", { name: "Tag scenery" });
+  expect(scenery).not.toBeChecked();
+  fireEvent.click(scenery);
+  expect(scenery).toBeChecked();
+
+  fireEvent.click(screen.getByRole("button", { name: /apply to selected/i }));
+
+  await waitFor(() => {
+    expect(client.scanSaveMetadata).toHaveBeenCalledWith({
+      items: [
+        {
+          path: "/test/photos/a.png",
+          tags: ["scenery"],
+          group_name: null,
+          subgroup_name: null,
+        },
+      ],
+    });
+  });
+
+  fireEvent.click(screen.getByRole("checkbox", { name: "Tag scenery" }));
+  expect(screen.getByRole("checkbox", { name: "Tag scenery" })).not.toBeChecked();
+  fireEvent.click(screen.getByRole("button", { name: /apply to selected/i }));
+
+  await waitFor(() => {
+    expect(client.scanSaveMetadata).toHaveBeenLastCalledWith({
+      items: [
+        {
+          path: "/test/photos/a.png",
+          tags: [],
+          group_name: null,
+          subgroup_name: null,
+        },
+      ],
+    });
+  });
+});
+
 test("displays offline database banner when database_available is false", async () => {
   const client = stubClient({
     scanDirectory: vi.fn(async () => ({
