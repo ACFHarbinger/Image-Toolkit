@@ -7,6 +7,7 @@
 // view shows its unavailable notice.
 
 import React, { useEffect, useState } from "react";
+import { LibraryThumb } from "./LibraryThumb";
 import type {
   GroupRecord,
   ImageRecord,
@@ -47,25 +48,31 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
     png: string;
   } | null>(null);
 
+  const applyFilters = (groupsResult: ListGroupsResult, tagsResult: ListTagsResult) => {
+    setGroups(groupsResult.groups);
+    setTags(groupsResult.available ? tagsResult.tags : []);
+    setAvailable(groupsResult.available);
+    setReady(true);
+  };
+
+  const loadFilters = async () => {
+    const [groupsResult, tagsResult] = await Promise.all([
+      hostClient.listLibraryGroups(),
+      hostClient.listLibraryTags(),
+    ]);
+    applyFilters(groupsResult, tagsResult);
+  };
+
   useEffect(() => {
     let cancelled = false;
-    const load = async () => {
-      try {
-        const [groupsResult, tagsResult]: [ListGroupsResult, ListTagsResult] = await Promise.all([
-          hostClient.listLibraryGroups(),
-          hostClient.listLibraryTags(),
-        ]);
-        if (cancelled) return;
-        setGroups(groupsResult.groups);
-        setTags(groupsResult.available ? tagsResult.tags : []);
-        setAvailable(groupsResult.available);
-        setReady(true);
-      } catch (err) {
+    void Promise.all([hostClient.listLibraryGroups(), hostClient.listLibraryTags()])
+      .then(([groupsResult, tagsResult]) => {
+        if (!cancelled) applyFilters(groupsResult, tagsResult);
+      })
+      .catch((err: unknown) => {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : String(err));
-      }
-    };
-    void load();
+      });
     return () => {
       cancelled = true;
     };
@@ -80,7 +87,7 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
     const seen = new Set<string>();
     const names: string[] = [];
     for (const group of groups) {
-      if (!selected.has(group.name)) continue;
+      if (selected.size > 0 && !selected.has(group.name)) continue;
       for (const subgroup of group.subgroups) {
         if (seen.has(subgroup)) continue;
         seen.add(subgroup);
@@ -106,6 +113,7 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
     setError("");
     try {
       const result: ListImagesResult = await hostClient.listLibraryImages({
+        limit: 10000,
         group_names: selectedGroups.length ? selectedGroups : undefined,
         ...(selectedSubgroups.length === 1
           ? { subgroup_name: selectedSubgroups[0] }
@@ -205,6 +213,9 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
             className="rounded border border-it-border px-3 py-1 text-it-text disabled:opacity-50"
           >
             {busy ? "Searching…" : "Search"}
+          </button>
+          <button type="button" onClick={() => void loadFilters().catch((err: unknown) => setError(String(err)))}>
+            Refresh
           </button>
           <span className="text-sm text-it-muted-text" data-testid="library-search-count">
             {images.length} image{images.length === 1 ? "" : "s"}
@@ -333,6 +344,7 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
                 key={image.id}
                 className="flex items-center justify-between gap-2 border-b border-it-border px-2 py-1 text-sm"
               >
+                <LibraryThumb path={image.file_path} hostClient={hostClient} />
                 <button
                   type="button"
                   className="truncate text-left"

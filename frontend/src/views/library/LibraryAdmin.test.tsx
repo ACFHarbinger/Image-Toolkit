@@ -70,6 +70,7 @@ test("the data browser pages by column equality", async () => {
   fireEvent.click(screen.getByTestId("library-browser-load"));
   expect(await screen.findByText("a.png")).toBeTruthy();
   expect(calls[0]).toMatchObject({ table: "images", column: "filename", equals: "a.png", offset: 0 });
+  expect(document.querySelector("#library-browser-columns option")?.getAttribute("value")).toBe("filename");
   fireEvent.click(screen.getByTestId("library-browser-next"));
   expect(await screen.findByText("b.png")).toBeTruthy();
   expect(calls[1].offset).toBe(50);

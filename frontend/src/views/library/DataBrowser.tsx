@@ -125,9 +125,15 @@ export function DataBrowser({ client }: { client: BrowserClient }) {
           Column
           <input
             data-testid="library-browser-column"
+            list="library-browser-columns"
             value={column}
             onChange={(event) => setColumn(event.target.value)}
           />
+          <datalist id="library-browser-columns">
+            {(page?.columns ?? []).map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
         </label>
         <label>
           Equals

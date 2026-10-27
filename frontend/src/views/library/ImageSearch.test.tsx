@@ -68,11 +68,27 @@ test("loads filter options and searches over list_images on submit", async () =>
 
   fireEvent.click(screen.getByRole("button", { name: "Search" }));
   await waitFor(() => {
-    expect(client.listLibraryImages).toHaveBeenCalledWith({});
+    expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
   });
   expect(await screen.findByText("a.png")).toBeInTheDocument();
   expect(screen.getByText("b.jpg")).toBeInTheDocument();
   expect(screen.getByTestId("library-search-count")).toHaveTextContent("2 images");
+});
+
+test("refresh reloads groups and tags, and every subgroup is offered", async () => {
+  const client = stubClient();
+  client.listLibraryGroups.mockResolvedValue({
+    available: true,
+    groups: [{ name: "Trips", subgroups: ["Beach"] }],
+  });
+  render(<ImageSearch hostClient={client as never} />);
+  expect(await screen.findByRole("button", { name: "Beach" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await waitFor(() => {
+    expect(client.listLibraryGroups).toHaveBeenCalledTimes(2);
+    expect(client.listLibraryTags).toHaveBeenCalledTimes(2);
+  });
+  expect(client.listLibraryImages).not.toHaveBeenCalled();
 });
 
 test("group, tag and format filters ride the search request", async () => {
@@ -88,6 +104,7 @@ test("group, tag and format filters ride the search request", async () => {
 
   await waitFor(() => {
     expect(client.listLibraryImages).toHaveBeenCalledWith({
+      limit: 10000,
       group_names: ["Trips"],
       tags: ["night"],
       input_formats: ["png"],
@@ -155,6 +172,9 @@ test("the filename pattern rides the request", async () => {
   fireEvent.change(screen.getByLabelText("filename filter"), { target: { value: "portrait" } });
   fireEvent.click(screen.getByRole("button", { name: "Search" }));
   await waitFor(() => {
-    expect(client.listLibraryImages).toHaveBeenCalledWith({ filename_pattern: "portrait" });
+    expect(client.listLibraryImages).toHaveBeenCalledWith({
+      limit: 10000,
+      filename_pattern: "portrait",
+    });
   });
 });
