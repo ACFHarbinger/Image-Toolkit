@@ -28,7 +28,7 @@ def run_merge(params: dict[str, Any]) -> dict[str, Any]:
     if not output_path:
         raise ValueError("output path is required")
     if direction == "canvas":
-        inputs = paths + [str(item.get("path") or "") for item in params.get("canvas_layout", []) if isinstance(item, dict)]
+        inputs = paths + [str(item.get("path") or "") for item in (params.get("canvas_layout") or []) if isinstance(item, dict)]
         destination = Path(output_path).resolve()
         if any(destination == Path(path).resolve() for path in inputs if path):
             raise ValueError("output matches an input")
