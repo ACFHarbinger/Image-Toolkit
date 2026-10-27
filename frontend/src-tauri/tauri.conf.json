@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../build",
     "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "npm --prefix .. start",
-    "beforeBuildCommand": "python3 scripts/stage_sidecar_runtime.py && npm --prefix .. run build"
+    "beforeDevCommand": "npm run start",
+    "beforeBuildCommand": "python3 src-tauri/scripts/stage_sidecar_runtime.py && npm run build"
   },
   "app": {
     "windows": [
