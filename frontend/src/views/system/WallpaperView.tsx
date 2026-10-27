@@ -277,6 +277,18 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
     setMonitorPaths((prev) => ({ ...prev, [galleryMonitorId]: paths[0] ?? "" }));
   };
 
+  const handleAddScannedImage = () => {
+    const path = galleryPath.trim();
+    if (!path || !galleryMonitorId) return;
+    setMonitorQueues((prev) => ({
+      ...prev,
+      [galleryMonitorId]: [...(prev[galleryMonitorId] || []), path],
+    }));
+    if (!monitors.some((monitor) => monitor.id === selectedMonitorQueue)) {
+      setSelectedMonitorQueue(galleryMonitorId);
+    }
+  };
+
   const handleMoveQueueItem = (idx: number, direction: "up" | "down") => {
     const currentList = [...(monitorQueues[selectedMonitorQueue] || [])];
     const targetIdx = direction === "up" ? idx - 1 : idx + 1;
@@ -382,6 +394,9 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
               selected={galleryPath ? [galleryPath] : []}
               onSelectedChange={handleGallerySelect}
             />
+            <button type="button" onClick={handleAddScannedImage} className="mt-2 px-3 py-1.5 bg-violet-600 text-white rounded text-xs font-semibold">
+              Add scanned image
+            </button>
           </div>
         </section>
 

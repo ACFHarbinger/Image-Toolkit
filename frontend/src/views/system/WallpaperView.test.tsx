@@ -227,4 +227,39 @@ describe("WallpaperView", () => {
     expect(hostClient.wallpaperSlideshowToggle).not.toHaveBeenCalled();
     vi.mocked(invoke).mockReset();
   });
+
+  test("adds a scanned image to the visible queue without applying", async () => {
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === "scan_files") {
+        return ["/pics/nature.jpg"];
+      }
+      return {};
+    });
+    const hostClient = {
+      wallpaperGetMonitors: vi.fn().mockResolvedValue(mockMonitorsResult),
+      wallpaperSlideshowConfig: vi.fn().mockResolvedValue(mockConfigResult),
+      wallpaperSet: vi.fn(),
+      wallpaperSlideshowToggle: vi.fn(),
+    };
+
+    render(<WallpaperView hostClient={hostClient as any} />);
+
+    const pathInput = await screen.findByPlaceholderText("/absolute/path/to/wallpaper.png");
+    expect(screen.getByText("Queue is empty")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Image directory"), { target: { value: "/pics" } });
+    fireEvent.click(screen.getByRole("button", { name: "Scan" }));
+    fireEvent.click(await screen.findByRole("option", { name: "nature.jpg" }));
+
+    expect(pathInput).toHaveValue("/pics/nature.jpg");
+    expect(hostClient.wallpaperSet).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add scanned image" }));
+
+    expect(screen.getByText("/pics/nature.jpg")).toBeInTheDocument();
+    expect(screen.queryByText("Queue is empty")).not.toBeInTheDocument();
+    expect(pathInput).toHaveValue("/pics/nature.jpg");
+    expect(hostClient.wallpaperSet).not.toHaveBeenCalled();
+    expect(hostClient.wallpaperSlideshowToggle).not.toHaveBeenCalled();
+    vi.mocked(invoke).mockReset();
+  });
 });
