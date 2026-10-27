@@ -351,6 +351,13 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
                   )}
                   Select All ({selectedPaths.size}/{displayedImages.length})
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaths(new Set())}
+                  className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                >
+                  Deselect all
+                </button>
                 <label className="ml-4 flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
                   <input
                     type="checkbox"

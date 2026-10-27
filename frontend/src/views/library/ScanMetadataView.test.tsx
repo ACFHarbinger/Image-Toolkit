@@ -181,6 +181,34 @@ test("toggles image selection and runs tag suggestion", async () => {
   });
 });
 
+test("deselect all clears a partial selection and does not save", async () => {
+  const client = stubClient();
+  render(<ScanMetadataView hostClient={client} showModal={vi.fn()} />);
+
+  fireEvent.change(screen.getByPlaceholderText("/path/to/image/folder"), {
+    target: { value: "/test/photos" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /scan directory/i }));
+
+  await waitFor(() => {
+    expect(screen.getByText("a.png")).toBeInTheDocument();
+  });
+
+  fireEvent.click(screen.getByText("a.png"));
+
+  expect(screen.getByRole("button", { name: /Select All \(1\// })).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Deselect all" }));
+
+  expect(screen.getByRole("button", { name: /Select All \(0\// })).toBeInTheDocument();
+  expect(screen.getByText("a.png")).toBeInTheDocument();
+  expect(screen.getByText("b.jpg")).toBeInTheDocument();
+  expect(client.scanSaveMetadata).not.toHaveBeenCalled();
+  expect(client.scanDirectory).toHaveBeenCalledTimes(1);
+  expect(client.scanSuggestTags).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: /apply to selected/i })).toBeDisabled();
+});
+
 test("saves metadata for selected items", async () => {
   const client = stubClient();
   const showModal = vi.fn();
@@ -196,7 +224,7 @@ test("saves metadata for selected items", async () => {
   });
 
   // Select All
-  fireEvent.click(screen.getByText(/select all/i));
+  fireEvent.click(screen.getByRole("button", { name: /^Select All/ }));
 
   // Add a manual tag
   const tagInput = screen.getByPlaceholderText("tag name");
