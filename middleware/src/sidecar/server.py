@@ -90,7 +90,12 @@ from middleware.src.sidecar.handlers.library_preview import (
 )
 from middleware.src.sidecar.handlers.media_loader import handle_media_plan
 from middleware.src.sidecar.handlers.merge import handle_concatenate, handle_place
-from middleware.src.sidecar.handlers.prefs import handle_prefs_describe
+from middleware.src.sidecar.handlers.prefs import bind_vault_session as bind_prefs_vault_session
+from middleware.src.sidecar.handlers.prefs import (
+    handle_prefs_describe,
+    handle_prefs_get,
+    handle_prefs_set,
+)
 from middleware.src.sidecar.handlers.reverse_search import (
     handle_reverse_search,
     handle_reverse_search_engines,
@@ -199,6 +204,7 @@ class SidecarServer:
             attach_library(self, library_session)
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self.cloud_service = None
+        self.vault_session: Any | None = None
         self._handshaken = False
         self._write_mu = threading.Lock()
         from middleware.src.services.library.lifecycle import register_server
@@ -272,6 +278,14 @@ class SidecarServer:
     @property
     def handshaken(self) -> bool:
         return self._handshaken
+
+    def bind_vault_session(self, session: Any | None) -> None:
+        # Prefs reads a process global. The server is the holder production code uses.
+        self.vault_session = session
+        bind_prefs_vault_session(session)
+
+    def clear_vault_session(self) -> None:
+        self.bind_vault_session(None)
 
     def serve(self) -> None:
         """Read frames until EOF; a bad line gets an error response, not a crash."""
@@ -414,6 +428,11 @@ class SidecarServer:
             return handle_settings_set_many(params)
         if method == "prefs.describe":
             return handle_prefs_describe(params)
+        if method == "prefs.get":
+            return handle_prefs_get(params)
+        if method == "prefs.set":
+            self.bind_vault_session(self.vault_session)
+            return handle_prefs_set(params)
         return _UNHANDLED
 
     def _dispatch_reverse_search(self, method: str, params: dict[str, Any]) -> Any:

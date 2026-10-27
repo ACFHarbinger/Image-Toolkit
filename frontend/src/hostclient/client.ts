@@ -74,6 +74,9 @@ import type {
   ExtractorCutParams,
   StitchStatusResult,
   PrefsDescribeResult,
+  PrefsGetResult,
+  PrefsSetParams,
+  PrefsSetResult,
   LogsReadParams,
   LogsReadResult,
   MetadataDescribeParams,
@@ -411,6 +414,18 @@ export class HostClient {
   async prefsDescribe(account: string): Promise<PrefsDescribeResult> {
     await this.connect();
     return this.send<PrefsDescribeResult>("prefs.describe", { account });
+  }
+
+  /** Read the settings window. Does not open the vault or the log directory. */
+  async prefsGet(account: string): Promise<PrefsGetResult> {
+    await this.connect();
+    return this.send<PrefsGetResult>("prefs.get", { account });
+  }
+
+  /** Write profiles, gallery, logging, and one shortcut override. */
+  async prefsSet(params: PrefsSetParams): Promise<PrefsSetResult> {
+    await this.connect();
+    return this.send<PrefsSetResult>("prefs.set", params as unknown as Record<string, unknown>);
   }
 
   async listLibraryImages(params: ListImagesParams = {}): Promise<ListImagesResult> {

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "capability/prefs.json",
   "title": "PrefsCapability",
-  "description": "Settings window description (#917). Does not open the vault or change credentials.",
+  "description": "Settings window (#1112). Reads and writes a Qt-free store. A master-password change is refused unless a C++ vault session is injected; this capability does not open a second vault.",
   "type": "object",
   "$defs": {
     "PrefsDescribeParams": {
@@ -28,7 +28,7 @@
           "uniqueItems": true,
           "items": {
             "type": "string",
-            "enum": ["appearance", "profiles", "shortcuts", "tab_config", "credentials", "reset"]
+            "enum": ["account", "profiles", "gallery", "logging", "shortcuts"]
           }
         },
         "credentials_changed": {
@@ -36,6 +36,132 @@
         },
         "reason": {
           "const": "credentials stay on the C++ vault session"
+        }
+      }
+    },
+    "PrefsProfiles": {
+      "title": "PrefsProfiles",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startup_category", "startup_tab"],
+      "properties": {
+        "startup_category": { "type": "string" },
+        "startup_tab": { "type": "string" }
+      }
+    },
+    "PrefsGallery": {
+      "title": "PrefsGallery",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["thumbnail_size", "page_size", "confirm_deletions", "recursive_scan"],
+      "properties": {
+        "thumbnail_size": { "type": "integer" },
+        "page_size": { "type": "integer" },
+        "confirm_deletions": { "type": "boolean" },
+        "recursive_scan": { "type": "boolean" }
+      }
+    },
+    "PrefsLogging": {
+      "title": "PrefsLogging",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "file_logging"],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["DEBUG", "INFO", "WARNING", "ERROR"]
+        },
+        "file_logging": { "type": "boolean" }
+      }
+    },
+    "PrefsShortcut": {
+      "title": "PrefsShortcut",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description", "scope", "default", "custom"],
+      "properties": {
+        "id": { "type": "string" },
+        "description": { "type": "string" },
+        "scope": { "type": "string" },
+        "default": { "type": "string" },
+        "custom": { "type": "string" }
+      }
+    },
+    "PrefsShortcutOverride": {
+      "title": "PrefsShortcutOverride",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "chord"],
+      "properties": {
+        "action": { "type": "string", "minLength": 1 },
+        "chord": { "type": "string", "description": "Empty removes the displayed custom binding; other bindings are preserved." }
+      }
+    },
+    "PrefsGetParams": {
+      "title": "PrefsGetParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["account"],
+      "properties": {
+        "account": { "type": "string", "minLength": 1 }
+      }
+    },
+    "PrefsGetResult": {
+      "title": "PrefsGetResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["account", "profiles", "gallery", "logging", "shortcuts"],
+      "properties": {
+        "account": { "type": "string" },
+        "profiles": { "$ref": "#/$defs/PrefsProfiles" },
+        "gallery": { "$ref": "#/$defs/PrefsGallery" },
+        "logging": { "$ref": "#/$defs/PrefsLogging" },
+        "shortcuts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/PrefsShortcut" }
+        }
+      }
+    },
+    "PrefsSetParams": {
+      "title": "PrefsSetParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["account", "profiles", "gallery", "logging"],
+      "properties": {
+        "account": { "type": "string", "minLength": 1 },
+        "current_password": { "type": "string" },
+        "new_password": { "type": "string" },
+        "profiles": { "$ref": "#/$defs/PrefsProfiles" },
+        "gallery": { "$ref": "#/$defs/PrefsGallery" },
+        "logging": { "$ref": "#/$defs/PrefsLogging" },
+        "shortcut": { "$ref": "#/$defs/PrefsShortcutOverride" }
+      }
+    },
+    "PrefsSetResult": {
+      "title": "PrefsSetResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "reason",
+        "credentials_changed",
+        "account",
+        "profiles",
+        "gallery",
+        "logging",
+        "shortcuts"
+      ],
+      "properties": {
+        "success": { "type": "boolean" },
+        "reason": { "type": "string" },
+        "credentials_changed": { "type": "boolean" },
+        "account": { "type": "string" },
+        "profiles": { "$ref": "#/$defs/PrefsProfiles" },
+        "gallery": { "$ref": "#/$defs/PrefsGallery" },
+        "logging": { "$ref": "#/$defs/PrefsLogging" },
+        "shortcuts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/PrefsShortcut" }
         }
       }
     }

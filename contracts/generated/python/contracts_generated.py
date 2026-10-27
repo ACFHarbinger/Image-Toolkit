@@ -1,4 +1,4 @@
-# GENERATED — contract hash 35537ebccd17268699e0134e7765a44288a13d2edf300ce1e33770aeee8d3856. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 3624089fd7d9b561e8900f0d7db9e39da11aa994b2d92e7cbee47cd74baee130. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -1016,6 +1016,78 @@ class PrefsDescribeResult:
     sections: list[str]
     credentials_changed: Literal[False]
     reason: Literal["credentials stay on the C++ vault session"]
+
+
+@dataclass(frozen=True)
+class PrefsGallery:
+    thumbnail_size: int
+    page_size: int
+    confirm_deletions: bool
+    recursive_scan: bool
+
+
+@dataclass(frozen=True)
+class PrefsGetParams:
+    account: str
+
+
+@dataclass(frozen=True)
+class PrefsGetResult:
+    account: str
+    profiles: PrefsProfiles
+    gallery: PrefsGallery
+    logging: PrefsLogging
+    shortcuts: list[PrefsShortcut]
+
+
+@dataclass(frozen=True)
+class PrefsLogging:
+    level: str
+    file_logging: bool
+
+
+@dataclass(frozen=True)
+class PrefsProfiles:
+    startup_category: str
+    startup_tab: str
+
+
+@dataclass(frozen=True)
+class PrefsSetParams:
+    account: str
+    profiles: PrefsProfiles
+    gallery: PrefsGallery
+    logging: PrefsLogging
+    current_password: str | None = None
+    new_password: str | None = None
+    shortcut: PrefsShortcutOverride | None = None
+
+
+@dataclass(frozen=True)
+class PrefsSetResult:
+    success: bool
+    reason: str
+    credentials_changed: bool
+    account: str
+    profiles: PrefsProfiles
+    gallery: PrefsGallery
+    logging: PrefsLogging
+    shortcuts: list[PrefsShortcut]
+
+
+@dataclass(frozen=True)
+class PrefsShortcut:
+    id: str
+    description: str
+    scope: str
+    default: str
+    custom: str
+
+
+@dataclass(frozen=True)
+class PrefsShortcutOverride:
+    action: str
+    chord: str
 
 
 @dataclass(frozen=True)

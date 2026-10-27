@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Route account creation to the current vault service through the bundled Python runtime, with credentials on stdin and execution off the desktop thread.
 
 - Refuse live master-password changes until the encrypted library can be rekeyed with the vault, preserving library access after logout.
+- Allow clearing the displayed custom shortcut without changing other bindings or the default-enabled setting.
+
+- Settings saves leave untouched shortcuts unchanged; editing the displayed chord preserves default enablement and additional custom bindings.
 
 ### Changed
 
