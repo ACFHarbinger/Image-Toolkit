@@ -25,6 +25,8 @@ function loaded(): PrefsGetResult {
 
 afterEach(() => {
   cleanup();
+  delete document.documentElement.dataset.theme;
+  document.documentElement.classList.remove("dark");
 });
 
 test("loads values, saves edits, and shows the saved document", async () => {
