@@ -149,11 +149,41 @@ test("a scanned sheet thumbnail fills the sheet image and does not start a job",
   };
   render(<ExtractorView hostClient={hostClient} />);
   fireEvent.change(screen.getByLabelText("Sheet directory"), { target: { value: "/sheets" } });
-  fireEvent.click(screen.getByRole("button", { name: "Scan" }));
+  const scans = screen.getAllByRole("button", { name: "Scan" });
+  fireEvent.click(scans[scans.length - 1]);
   fireEvent.click(await screen.findByRole("option", { name: "grid.png" }));
   expect(screen.getByLabelText("Sheet image")).toHaveValue("/sheets/grid.png");
   expect(hostClient.extractorCutSheet).not.toHaveBeenCalled();
   expect(hostClient.extractorSnapshot).not.toHaveBeenCalled();
   expect(hostClient.extractorExtractRange).not.toHaveBeenCalled();
+  vi.mocked(invoke).mockReset();
+});
+
+test("a scanned video thumbnail fills the video path and does not start a job", async () => {
+  vi.mocked(invoke).mockImplementation(async (command: string) => {
+    if (command === "scan_files") {
+      return ["/clips/clip.mp4"];
+    }
+    return {};
+  });
+  const hostClient = {
+    cancelJob: vi.fn(),
+    extractorProbe: vi.fn(),
+    extractorSnapshot: vi.fn(),
+    extractorExtractRange: vi.fn(),
+    extractorCutSheet: vi.fn(),
+    jobStatus: vi.fn(),
+  };
+  render(<ExtractorView hostClient={hostClient} />);
+  fireEvent.change(screen.getByLabelText("Video directory"), { target: { value: "/clips" } });
+  fireEvent.click(screen.getAllByRole("button", { name: "Scan" })[0]);
+  fireEvent.click(await screen.findByRole("option", { name: "clip.mp4" }));
+  expect(screen.getByLabelText("Video")).toHaveValue("/clips/clip.mp4");
+  expect(screen.getByLabelText("Sheet image")).toHaveValue("");
+  expect(hostClient.extractorProbe).not.toHaveBeenCalled();
+  expect(hostClient.extractorSnapshot).not.toHaveBeenCalled();
+  expect(hostClient.extractorExtractRange).not.toHaveBeenCalled();
+  expect(hostClient.extractorCutSheet).not.toHaveBeenCalled();
+  expect(hostClient.cancelJob).not.toHaveBeenCalled();
   vi.mocked(invoke).mockReset();
 });

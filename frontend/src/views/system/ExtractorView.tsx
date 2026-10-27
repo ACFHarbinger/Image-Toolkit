@@ -188,6 +188,13 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
 
   return (
     <form data-testid="extractor-view" onSubmit={onSubmit}>
+      <ThumbnailGallery
+        multiple={false}
+        directoryLabel="Video directory"
+        extensions={["mp4", "mkv", "webm", "mov", "avi"]}
+        selected={path ? [path] : []}
+        onSelectedChange={(paths) => setPath(paths[0] ?? "")}
+      />
       <label>
         Video
         <input value={path} onChange={(event) => setPath(event.target.value)} />
