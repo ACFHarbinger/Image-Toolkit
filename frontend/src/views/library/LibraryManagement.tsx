@@ -35,6 +35,11 @@ const SPLIT_CREATE: ReadonlySet<MutateAction> = new Set([
   "create_tag",
 ]);
 
+/** Only the fixed tag categories are selectable. Anything else is "(none)". */
+function listedCategory(category: string): string {
+  return TAG_CATEGORIES.indexOf(category) === -1 ? "" : category;
+}
+
 /** A JSON array of strings, or `{ tags: string[] }`. Non-strings are dropped. */
 function namesFromTagJson(text: string): string[] | null {
   const trimmed = text.trim();
@@ -224,16 +229,44 @@ export function LibraryManagement({ client }: { client: ManagementClient }) {
           .filter((group) => groupFilter === "" || group.name === groupFilter)
           .map((group) => (
             <li key={group.name}>
-              {group.name}
-              {group.subgroups.length > 0 ? `: ${group.subgroups.join(", ")}` : ""}
+              <span>
+                {group.name}
+                {group.subgroups.length > 0 ? `: ${group.subgroups.join(", ")}` : ""}
+              </span>
+              <button type="button" onClick={() => setName(group.name)}>
+                Use group {group.name}
+              </button>
+              {group.subgroups.map((subgroup) => (
+                <button
+                  key={subgroup}
+                  type="button"
+                  onClick={() => {
+                    setName(subgroup);
+                    setParent(group.name);
+                  }}
+                >
+                  Use subgroup {group.name} {subgroup}
+                </button>
+              ))}
             </li>
           ))}
       </ul>
       <ul data-testid="library-management-tags">
         {catalog.tags.map((tag) => (
           <li key={tag.name}>
-            {tag.name}
-            {tag.category ? ` (${tag.category})` : ""}
+            <span>
+              {tag.name}
+              {tag.category ? ` (${tag.category})` : ""}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setName(tag.name);
+                setCategory(listedCategory(tag.category));
+              }}
+            >
+              Use tag {tag.name}
+            </button>
           </li>
         ))}
       </ul>

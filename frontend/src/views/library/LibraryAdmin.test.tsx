@@ -111,7 +111,7 @@ test("Refresh list calls libraryAdminCatalog again and does not call libraryAdmi
   render(<LibraryManagement client={client} />);
   expect(await screen.findByText("people: faces")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Refresh list" }));
-  expect(await screen.findByText("reloaded", { selector: "li" })).toBeTruthy();
+  expect(await screen.findByRole("button", { name: "Use group reloaded" })).toBeTruthy();
   expect(catalogCalls).toBe(2);
   expect(calls).toEqual([]);
 });
@@ -178,6 +178,35 @@ test("the registry lists images, filters them, and refreshes", async () => {
   expect(screen.queryByText("/pics/b.png places cities")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Refresh registry" }));
   expect(calls).toEqual([{ limit: 10000 }, { limit: 10000 }]);
+});
+
+test("catalog use buttons fill the form and do not mutate", async () => {
+  const calls: MutateParams[] = [];
+  const client = {
+    libraryAdminCatalog: async (): Promise<CatalogResult> => ({
+      available: true,
+      groups: [{ name: "places", subgroups: ["cities"] }],
+      tags: [{ name: "night", category: "General" }],
+      tables: ["images"],
+    }),
+    libraryAdminMutate: async (params: MutateParams): Promise<MutateResult> => {
+      calls.push(params);
+      return { available: true, applied: 1, error: "" };
+    },
+  };
+  render(<LibraryManagement client={client} />);
+  expect(await screen.findByRole("button", { name: "Use group places" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Use group places" }));
+  expect((screen.getByTestId("library-management-name") as HTMLInputElement).value).toBe("places");
+  expect(calls).toEqual([]);
+  fireEvent.click(screen.getByRole("button", { name: "Use tag night" }));
+  expect((screen.getByTestId("library-management-name") as HTMLInputElement).value).toBe("night");
+  expect((screen.getByTestId("library-management-category") as HTMLSelectElement).value).toBe("General");
+  expect(calls).toEqual([]);
+  fireEvent.click(screen.getByRole("button", { name: "Use subgroup places cities" }));
+  expect((screen.getByTestId("library-management-name") as HTMLInputElement).value).toBe("cities");
+  expect((screen.getByTestId("library-management-parent") as HTMLSelectElement).value).toBe("places");
+  expect(calls).toEqual([]);
 });
 
 test("the data browser pages by column equality", async () => {
