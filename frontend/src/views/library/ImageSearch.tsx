@@ -45,10 +45,60 @@ function categoryAllows(name: string, catalog: TagRecord[] | null, unchecked: re
   return !unchecked.includes(record.category ?? "");
 }
 
+type SortKey = "returned" | "filename" | "date_added" | "size";
+type SortOrder = "asc" | "desc";
+
+function isSortKey(value: string): value is SortKey {
+  return value === "returned" || value === "filename" || value === "date_added" || value === "size";
+}
+
+function isSortOrder(value: string): value is SortOrder {
+  return value === "asc" || value === "desc";
+}
+
+function compareMissingLast(
+  left: string | number | null | undefined,
+  right: string | number | null | undefined,
+  comparePresent: (left: string | number, right: string | number) => number,
+  descending: boolean,
+): number {
+  const leftMissing = left == null || left === "";
+  const rightMissing = right == null || right === "";
+  if (leftMissing || rightMissing) {
+    if (leftMissing === rightMissing) return 0;
+    return leftMissing ? 1 : -1;
+  }
+  const ordered = comparePresent(left, right);
+  return descending ? -ordered : ordered;
+}
+
+function sortedImages(rows: readonly ImageRecord[], key: SortKey, order: SortOrder): ImageRecord[] {
+  if (key === "returned") return rows.slice();
+  const descending = order === "desc";
+  const copy = rows.slice();
+  copy.sort((left, right) => {
+    if (key === "filename") {
+      const ordered = left.filename.localeCompare(right.filename);
+      return descending ? -ordered : ordered;
+    }
+    if (key === "date_added") {
+      return compareMissingLast(
+        left.date_added,
+        right.date_added,
+        (a, b) => String(a).localeCompare(String(b)),
+        descending,
+      );
+    }
+    return compareMissingLast(left.file_size, right.file_size, (a, b) => Number(a) - Number(b), descending);
+  });
+  return copy;
+}
+
 function rowFactSuffix(image: ImageRecord): string {
   const facts: string[] = [];
   if (typeof image.file_size === "number") facts.push(`${image.file_size} B`);
   if (typeof image.date_added === "string" && image.date_added !== "") facts.push(image.date_added);
+  if (typeof image.date_modified === "string" && image.date_modified !== "") facts.push(image.date_modified);
   return facts.length ? ` · ${facts.join(" · ")}` : "";
 }
 
@@ -103,6 +153,8 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [page, setPage] = useState(0);
+  const [sortKey, setSortKey] = useState<SortKey>("returned");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [searched, setSearched] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [propertiesOpen, setPropertiesOpen] = useState(false);
@@ -268,7 +320,7 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
   };
 
   const pageCount = Math.max(1, Math.ceil(images.length / PAGE_SIZE));
-  const pageImages = images.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const pageImages = sortedImages(images, sortKey, sortOrder).slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const selected = images[selectedIndex];
 
   return (
@@ -467,6 +519,38 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
               {preview.png ? (
                 <img alt="Search preview" src={"data:image/png;base64," + preview.png} />
               ) : null}
+            </div>
+          ) : null}
+          {images.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                aria-label="Sort"
+                value={sortKey}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  if (!isSortKey(next)) return;
+                  setSortKey(next);
+                  setPage(0);
+                }}
+              >
+                <option value="returned">As returned</option>
+                <option value="filename">Filename</option>
+                <option value="date_added">Date added</option>
+                <option value="size">Size</option>
+              </select>
+              <select
+                aria-label="Order"
+                value={sortOrder}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  if (!isSortOrder(next)) return;
+                  setSortOrder(next);
+                  setPage(0);
+                }}
+              >
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+              </select>
             </div>
           ) : null}
           <div

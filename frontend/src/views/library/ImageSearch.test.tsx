@@ -325,3 +325,52 @@ test("result rows show present file size and date added only", async () => {
   expect(filename.textContent ?? "").not.toContain("0 B");
   expect(filename.textContent ?? "").not.toContain("2020-01-01");
 });
+
+test("sort by filename reorders rows and does not search again", async () => {
+  const client = stubClient();
+  client.listLibraryImages.mockResolvedValue({
+    available: true,
+    images: [
+      {
+        id: 2,
+        file_path: "/pics/b.jpg",
+        filename: "b.jpg",
+      },
+      {
+        id: 1,
+        file_path: "/pics/a.png",
+        filename: "a.png",
+        date_modified: "2020-02-02",
+      },
+    ],
+  });
+  render(<ImageSearch hostClient={client as never} />);
+  await screen.findByTestId("library-search");
+
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  await waitFor(() => {
+    expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+    expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
+  });
+
+  const rows = await screen.findByTestId("library-search-rows");
+  const returnedText = rows.textContent ?? "";
+  expect(returnedText.indexOf("b.jpg")).toBeGreaterThanOrEqual(0);
+  expect(returnedText.indexOf("b.jpg")).toBeLessThan(returnedText.indexOf("a.png"));
+
+  const filename = screen.getByRole("button", { name: "a.png" });
+  expect(filename).toHaveTextContent(/^a\.png$/);
+  expect(filename.closest("div")?.textContent ?? "").toContain("2020-02-02");
+
+  fireEvent.change(screen.getByRole("combobox", { name: "Sort" }), { target: { value: "filename" } });
+  const filenameText = screen.getByTestId("library-search-rows").textContent ?? "";
+  expect(filenameText.indexOf("a.png")).toBeGreaterThanOrEqual(0);
+  expect(filenameText.indexOf("a.png")).toBeLessThan(filenameText.indexOf("b.jpg"));
+  expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+
+  fireEvent.change(screen.getByRole("combobox", { name: "Order" }), { target: { value: "desc" } });
+  const descendingText = screen.getByTestId("library-search-rows").textContent ?? "";
+  expect(descendingText.indexOf("b.jpg")).toBeGreaterThanOrEqual(0);
+  expect(descendingText.indexOf("b.jpg")).toBeLessThan(descendingText.indexOf("a.png"));
+  expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+});
