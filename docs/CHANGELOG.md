@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Canvas merges now composite translucent pixels correctly, reject source/output collisions, and preserve existing outputs when encoding fails.
+
 - Wallpaper settings restore the live daemon state on mount, offering Stop when a slideshow is already running.
 - Slideshow bridge styles now use desktop mappings in the daemon, monitor discovery works without Qt geometry, and repeated Start requests retain the live daemon.
 - Remove the duplicate system-page dispatch traversal after the sidecar landing re-sync.
