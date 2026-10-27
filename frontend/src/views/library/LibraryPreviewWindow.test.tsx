@@ -43,6 +43,10 @@ test("preview steps through described paths and rotates", async () => {
   await inspect(view);
   expect(view.libraryPreviewFrame).toHaveBeenCalledWith({ path: LEFT });
   expect(screen.getByTestId("preview-zoom")).toHaveTextContent("100%");
+  fireEvent.click(screen.getByTestId("preview-zoom-out"));
+  expect(screen.getByTestId("preview-zoom")).toHaveTextContent("90%");
+  fireEvent.click(screen.getByTestId("preview-fit"));
+  expect(screen.getByTestId("preview-zoom")).toHaveTextContent("100%");
   fireEvent.click(screen.getByTestId("preview-zoom-in"));
   expect(screen.getByTestId("preview-zoom")).toHaveTextContent("110%");
   fireEvent.click(screen.getByTestId("preview-rotate"));

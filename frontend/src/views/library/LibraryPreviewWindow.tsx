@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 
 export interface PreviewItem {
   readonly path: string;
@@ -38,7 +38,30 @@ type Mode = "preview" | "compare" | "drag";
 type DiffBoost = 1 | 2 | 4 | 8;
 
 const ZOOM_STEP = 0.1;
+const ZOOM_MIN = 0.1;
+const ZOOM_MAX = 5;
 const DIFF_BOOSTS: readonly DiffBoost[] = [1, 2, 4, 8];
+
+function adjustZoom(current: number, delta: number): number {
+  const next = current + delta;
+  if (next < ZOOM_MIN) return ZOOM_MIN;
+  if (next > ZOOM_MAX) return ZOOM_MAX;
+  return next;
+}
+
+/** Classic fit: pane size minus control margins, never above 1×. */
+function fitScale(
+  pane: Pick<HTMLElement, "clientWidth" | "clientHeight"> | null,
+  imageWidth: number,
+  imageHeight: number,
+): number {
+  const usableWidth = (pane?.clientWidth ?? 0) - 100;
+  const usableHeight = (pane?.clientHeight ?? 0) - 50;
+  if (usableWidth <= 0 || usableHeight <= 0 || imageWidth === 0 || imageHeight === 0) {
+    return 1;
+  }
+  return Math.min(usableWidth / imageWidth, usableHeight / imageHeight, 1);
+}
 
 function diffBoost(value: string): DiffBoost {
   const parsed = Number(value);
@@ -66,6 +89,7 @@ export function LibraryPreviewWindow({ client }: { readonly client: PreviewClien
   const [difference, setDifference] = useState<PreviewDifference | null>(null);
   const [boost, setBoost] = useState<DiffBoost>(1);
   const [notice, setNotice] = useState("");
+  const paneRef = useRef<HTMLElement>(null);
 
   const current = items[index];
 
@@ -129,7 +153,7 @@ export function LibraryPreviewWindow({ client }: { readonly client: PreviewClien
       </button>
       {notice ? <p role="status">{notice}</p> : null}
       {mode === "preview" && current ? (
-        <section data-testid="preview-pane">
+        <section ref={paneRef} data-testid="preview-pane">
           <p data-testid="preview-path">{current.path}</p>
           {current.error ? <p role="alert">{current.error}</p> : null}
           {current.animated ? <p>Animation plays the first frame.</p> : null}
@@ -145,8 +169,21 @@ export function LibraryPreviewWindow({ client }: { readonly client: PreviewClien
             >
               Next
             </button>
-            <button type="button" data-testid="preview-zoom-in" onClick={() => setZoom((value) => value + ZOOM_STEP)}>
+            <button type="button" data-testid="preview-zoom-in" onClick={() => setZoom((value) => adjustZoom(value, ZOOM_STEP))}>
               Zoom in
+            </button>
+            <button type="button" data-testid="preview-zoom-out" onClick={() => setZoom((value) => adjustZoom(value, -ZOOM_STEP))}>
+              Zoom out
+            </button>
+            <button
+              type="button"
+              data-testid="preview-fit"
+              onClick={() => {
+                const frame = frameFor(current.path);
+                setZoom(fitScale(paneRef.current, frame?.width ?? 0, frame?.height ?? 0));
+              }}
+            >
+              Fit
             </button>
             <button type="button" data-testid="preview-rotate" onClick={() => setRotation((value) => (value + 90) % 360)}>
               Rotate
