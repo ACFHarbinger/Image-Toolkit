@@ -24,10 +24,10 @@ _print_header:
 commit message:
     git commit -m "{{message}}" -m "$(cat .gitmessage)"
 
-# Legacy alias for 'gui' — run Python/PySide6 app directly
+# Classic tabbed PySide6 shell. The experimental rail stays a saved preference.
 python args="":
-    @echo "🐍 Starting Python/PySide6 app..."
-    source .venv/bin/activate && python middleware/main.py {{args}}
+    @echo "🐍 Starting classic PySide6 app..."
+    source .venv/bin/activate && IMAGE_TOOLKIT_CLASSIC_SHELL=1 python middleware/main.py {{args}}
 
 # Print help menu of available commands
 help:

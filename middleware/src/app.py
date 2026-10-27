@@ -364,6 +364,28 @@ def _drain_gui_focus_request() -> None:
         _raise_main_window()
 
 
+_CLASSIC_SHELL_ENV = "IMAGE_TOOLKIT_CLASSIC_SHELL"
+
+
+def apply_classic_shell_override() -> bool:
+    """Force the classic tabbed Qt shell when IMAGE_TOOLKIT_CLASSIC_SHELL=1.
+
+    ``just python`` sets that variable. The saved account preference
+    ``experimental/runtime_shell`` is left unchanged. The frozen flag reader
+    is already bound inside the runtime-shell controller, so the override
+    replaces that binding before MainWindow chooses a shell.
+    """
+    if os.environ.get(_CLASSIC_SHELL_ENV) != "1":
+        return False
+    from gui.src.windows.main import _runtime_shell
+
+    def _classic_only(*_args: object, **_kwargs: object) -> bool:
+        return False
+
+    _runtime_shell.runtime_shell_enabled = _classic_only
+    return True
+
+
 def launch_app(opts):
     _setup_logging(log_level=logging.DEBUG if getattr(opts, "verbose", False) else logging.INFO)
     sys.excepthook = log_uncaught_exceptions
@@ -523,6 +545,7 @@ def _run_qt_app(opts):
             telemetry.emit("startup", "main_window.construction.start", tid=threading.get_ident())
             previous_window = active_window
             try:
+                apply_classic_shell_override()
                 active_window = MainWindow(
                     vault_manager=vault_manager,
                     dropdown=not opts.get("no_dropdown", False),

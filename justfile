@@ -543,7 +543,7 @@ check-constants: helper::_print_header
 commit message=commit_msg: helper::_print_header
     just helper::commit '{{message}}'
 
-# Legacy alias for 'gui' — run Python/PySide6 app directly
+# Classic tabbed PySide6 shell (experimental rail stays a saved preference)
 python *args: helper::_print_header
     just helper::python {{args}}
 
