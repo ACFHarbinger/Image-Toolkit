@@ -235,3 +235,50 @@ test("unchecking a tag category hides its tags and drops them from search", asyn
   const payload = client.listLibraryImages.mock.calls[0]?.[0] as { tags?: string[] };
   expect(payload.tags ?? []).not.toContain("night");
 });
+
+test("properties panel lists present fields on the selected result and toggles closed", async () => {
+  const client = stubClient();
+  client.listLibraryImages.mockResolvedValue({
+    available: true,
+    images: [
+      {
+        id: 1,
+        file_path: "/pics/a.png",
+        filename: "a.png",
+        file_size: 1200,
+        width: 10,
+        height: 20,
+        date_added: "2020-01-01",
+        group_name: "Trips",
+        tags: ["night"],
+      },
+    ],
+  });
+  render(<ImageSearch hostClient={client as never} />);
+  await screen.findByTestId("library-search");
+
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  await waitFor(() => {
+    expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: "Properties" }));
+  const panel = await screen.findByTestId("library-search-properties");
+  expect(panel).toHaveTextContent("File size");
+  expect(panel).toHaveTextContent("1200");
+  expect(panel).toHaveTextContent("Width");
+  expect(panel).toHaveTextContent("10");
+  expect(panel).toHaveTextContent("Height");
+  expect(panel).toHaveTextContent("20");
+  expect(panel).toHaveTextContent("Date added");
+  expect(panel).toHaveTextContent("2020-01-01");
+  expect(panel).toHaveTextContent("Group");
+  expect(panel).toHaveTextContent("Trips");
+  expect(panel).toHaveTextContent("Tags");
+  expect(panel).toHaveTextContent("night");
+  expect(panel).not.toHaveTextContent("undefined");
+  expect(panel).not.toHaveTextContent("null");
+
+  fireEvent.click(screen.getByRole("button", { name: "Properties" }));
+  expect(screen.queryByTestId("library-search-properties")).not.toBeInTheDocument();
+});

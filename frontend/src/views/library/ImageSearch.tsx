@@ -45,6 +45,28 @@ function categoryAllows(name: string, catalog: TagRecord[] | null, unchecked: re
   return !unchecked.includes(record.category ?? "");
 }
 
+function presentProperties(image: ImageRecord): Array<{ label: string; value: string }> {
+  const rows: Array<{ label: string; value: string }> = [];
+  const push = (label: string, value: string | number | null | undefined) => {
+    if (value === null || value === undefined) return;
+    rows.push({ label, value: String(value) });
+  };
+  push("Path", image.file_path);
+  push("Filename", image.filename);
+  push("Width", image.width);
+  push("Height", image.height);
+  push("File size", image.file_size);
+  push("Date added", image.date_added);
+  push("Date modified", image.date_modified);
+  push("Group", image.group_name);
+  push("Subgroup", image.subgroup_name);
+  if (image.tags != null) {
+    rows.push({ label: "Tags", value: image.tags.join(", ") });
+  }
+  push("Phash", image.phash);
+  return rows;
+}
+
 // Kept off the groups/tags Promise.all. A missing method, an unavailable
 // catalog, or a throw leaves every listLibraryTags name visible.
 async function readTagCatalog(hostClient: HostClient): Promise<TagRecord[] | null> {
@@ -76,6 +98,7 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
   const [page, setPage] = useState(0);
   const [searched, setSearched] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
   const [preview, setPreview] = useState<{
     path: string;
     width: number;
@@ -394,6 +417,13 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
             </button>
             <button
               type="button"
+              disabled={!selected}
+              onClick={() => setPropertiesOpen((open) => !open)}
+            >
+              Properties
+            </button>
+            <button
+              type="button"
               data-testid="library-search-prev"
               disabled={selectedIndex <= 0}
               onClick={() => moveSelection(-1)}
@@ -412,6 +442,15 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
               {selected ? `Selected: ${selected.filename}` : "None selected"}
             </span>
           </div>
+          {propertiesOpen && selected ? (
+            <dl data-testid="library-search-properties" className="text-sm">
+              {presentProperties(selected).map((row) => (
+                <div key={row.label}>
+                  <dt className="inline">{row.label}</dt> <dd className="inline">{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
           {preview ? (
             <div data-testid="library-search-preview">
               <p>
