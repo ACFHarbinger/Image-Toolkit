@@ -47,6 +47,13 @@ def resample(params: dict[str, Any]) -> dict[str, Any]:
         height = max(1, round(height * factor))
     if width < 1 or height < 1:
         raise ValueError("target size must be positive")
+    source = Path(input_path)
+    destination = Path(output_path)
+    try:
+        if destination.resolve() == source.resolve():
+            return {"success": False, "message": "Refusing to replace the source image."}
+    except OSError:
+        return {"success": False, "message": "Refusing to replace the source image."}
     algorithms = {
         "lanczos": Image.Resampling.LANCZOS,
         "bicubic": Image.Resampling.BICUBIC,
@@ -55,7 +62,7 @@ def resample(params: dict[str, Any]) -> dict[str, Any]:
     }
     algorithm = algorithms.get(str(params.get("algorithm") or "lanczos").lower(), Image.Resampling.LANCZOS)
     resized = image.resize((width, height), algorithm)
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    destination.parent.mkdir(parents=True, exist_ok=True)
     resized.save(output_path)
     return {"success": True, "message": f"Wrote {width}x{height} {output_path}", "width": width, "height": height}
 
