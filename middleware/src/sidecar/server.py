@@ -204,7 +204,6 @@ class SidecarServer:
             attach_library(self, library_session)
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self.cloud_service = None
-        self.vault_session: Any | None = None
         self._handshaken = False
         self._write_mu = threading.Lock()
         from middleware.src.services.library.lifecycle import register_server
@@ -220,6 +219,7 @@ class SidecarServer:
         the stores and do not raise.
         """
         self.vault_session = session
+        bind_prefs_vault_session(session)
         from middleware.src.services.library.attach import _is_facade, _is_ready_store, attach_library
 
         if session is not None and (_is_ready_store(session) or _is_facade(session)):
@@ -235,6 +235,7 @@ class SidecarServer:
     def clear_vault_session(self) -> None:
         """Drop the vault session. ``attach_library(None)`` clears the three stores."""
         self.vault_session = None
+        bind_prefs_vault_session(None)
         self._close_opened_library()
         from middleware.src.services.library.attach import attach_library
 
@@ -278,14 +279,6 @@ class SidecarServer:
     @property
     def handshaken(self) -> bool:
         return self._handshaken
-
-    def bind_vault_session(self, session: Any | None) -> None:
-        # Prefs reads a process global. The server is the holder production code uses.
-        self.vault_session = session
-        bind_prefs_vault_session(session)
-
-    def clear_vault_session(self) -> None:
-        self.bind_vault_session(None)
 
     def serve(self) -> None:
         """Read frames until EOF; a bad line gets an error response, not a crash."""
@@ -431,7 +424,7 @@ class SidecarServer:
         if method == "prefs.get":
             return handle_prefs_get(params)
         if method == "prefs.set":
-            self.bind_vault_session(self.vault_session)
+            bind_prefs_vault_session(self.vault_session)
             return handle_prefs_set(params)
         return _UNHANDLED
 
@@ -581,12 +574,9 @@ class SidecarServer:
             return handle_metadata_describe(params)
         if method == "dl.inspect":
             return handle_inspect(params)
-        if method == "auth.status":
-            return handle_status(self.auth, params)
-        if method == "auth.unlock":
-            return handle_unlock(self.auth, params)
-        if method == "auth.lock":
-            return handle_lock(self.auth, params)
+        auth_handler = {"auth.status": handle_status, "auth.unlock": handle_unlock, "auth.lock": handle_lock}.get(method)
+        if auth_handler is not None:
+            return auth_handler(self.auth, params)
         return _UNHANDLED
 
     def _dispatch_web(self, method: str, params: dict[str, Any]) -> Any:

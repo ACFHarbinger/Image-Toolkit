@@ -103,6 +103,7 @@ def test_unlock_forwards_the_opened_session_and_lock_forwards_none() -> None:
         calls.append(session)
 
     module.bind_vault_session = bind_vault_session
+    module.register_server = lambda server: None
     previous = sys.modules.get(module.__name__)
     sys.modules[module.__name__] = module
     try:

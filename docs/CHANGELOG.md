@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Integrate the reviewed shell, library, system, and settings deliveries while retaining both library and preferences bindings across vault unlock and lock.
+
 - Route account creation to the current vault service through the bundled Python runtime, with credentials on stdin and execution off the desktop thread.
 
 - Refuse live master-password changes until the encrypted library can be rekeyed with the vault, preserving library access after logout.
