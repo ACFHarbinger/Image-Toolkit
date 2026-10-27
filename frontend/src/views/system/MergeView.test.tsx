@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { MergeView } from "./MergeView";
@@ -61,4 +62,25 @@ test("placement sends stored rectangles", async () => {
     placements: [{ path: "/a.png", x: 1, y: 2, width: 8, height: 9 }],
     output_path: "/out.png",
   });
+});
+
+test("a scanned thumbnail fills the add-image field without merging", async () => {
+  vi.mocked(invoke).mockImplementation(async (command: string) => {
+    if (command === "scan_files") {
+      return ["/pics/tile.png"];
+    }
+    return {};
+  });
+  const hostClient = {
+    mergeConcatenate: vi.fn(),
+    mergePlace: vi.fn(),
+  };
+  render(<MergeView hostClient={hostClient} />);
+  fireEvent.change(screen.getByLabelText("Image directory"), { target: { value: "/pics" } });
+  fireEvent.click(screen.getByRole("button", { name: "Scan" }));
+  fireEvent.click(await screen.findByRole("option", { name: "tile.png" }));
+  expect(screen.getByLabelText("Add image")).toHaveValue("/pics/tile.png");
+  expect(hostClient.mergeConcatenate).not.toHaveBeenCalled();
+  expect(hostClient.mergePlace).not.toHaveBeenCalled();
+  vi.mocked(invoke).mockReset();
 });

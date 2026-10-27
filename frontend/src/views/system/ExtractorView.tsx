@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ThumbnailGallery } from "../../components/common/ThumbnailGallery";
 
 export interface ProbeResult {
   readonly available: boolean;
@@ -57,6 +58,7 @@ export interface ExtractorClient {
 /** One-path video probe (#905). Frame extraction stays on PySide6. */
 export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorClient }): React.ReactElement {
   const [cutJob, setCutJob] = useState<string | null>(null);
+  const [fileJob, setFileJob] = useState<string | null>(null);
   const [cutting, setCutting] = useState(false);
   const [path, setPath] = useState("");
   const [result, setResult] = useState<ProbeResult | null>(null);
@@ -100,10 +102,13 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
         time_seconds: snapshotAt,
         output_path: snapshotOut,
       });
+      setFileJob(started.job_id);
       await showFileJob(started.job_id);
     } catch (exc) {
       setActionNote("");
       setError(exc instanceof Error ? exc.message : "snapshot failed");
+    } finally {
+      setFileJob(null);
     }
   }
 
@@ -116,10 +121,13 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
         end_seconds: rangeEnd,
         output_path: rangeOut,
       });
+      setFileJob(started.job_id);
       await showFileJob(started.job_id);
     } catch (exc) {
       setActionNote("");
       setError(exc instanceof Error ? exc.message : "extract failed");
+    } finally {
+      setFileJob(null);
     }
   }
 
@@ -188,6 +196,9 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
       {cutJob ? <button type="button" onClick={() => {
         void hostClient.cancelJob(cutJob).catch((exc: unknown) => setError(String(exc)));
       }}>Cancel sheet cut</button> : null}
+      {fileJob ? <button type="button" onClick={() => {
+        void hostClient.cancelJob(fileJob).catch((exc: unknown) => setError(String(exc)));
+      }}>Cancel</button> : null}
       {error ? <p role="alert">{error}</p> : null}
       {result?.available ? (
         <p>
@@ -225,6 +236,12 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
       <button type="button" onClick={onRange}>
         Extract range
       </button>
+      <ThumbnailGallery
+        multiple={false}
+        directoryLabel="Sheet directory"
+        selected={sheetPath ? [sheetPath] : []}
+        onSelectedChange={(paths) => setSheetPath(paths[0] ?? "")}
+      />
       <label>
         Sheet image
         <input value={sheetPath} onChange={(event) => setSheetPath(event.target.value)} />

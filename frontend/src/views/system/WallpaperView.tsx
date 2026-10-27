@@ -15,6 +15,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import type { HostClient } from "../../hostclient";
+import { ThumbnailGallery } from "../../components/common/ThumbnailGallery";
 import type {
   MonitorInfo,
   SetWallpaperParams,
@@ -265,6 +266,17 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
     }
   };
 
+  // The queue picker starts at "0", which is not a monitor id until the user picks one.
+  const galleryMonitorId = monitors.some((monitor) => monitor.id === selectedMonitorQueue)
+    ? selectedMonitorQueue
+    : monitors[0]?.id;
+  const galleryPath = galleryMonitorId ? monitorPaths[galleryMonitorId] || "" : "";
+
+  const handleGallerySelect = (paths: string[]) => {
+    if (!galleryMonitorId) return;
+    setMonitorPaths((prev) => ({ ...prev, [galleryMonitorId]: paths[0] ?? "" }));
+  };
+
   const handleMoveQueueItem = (idx: number, direction: "up" | "down") => {
     const currentList = [...(monitorQueues[selectedMonitorQueue] || [])];
     const targetIdx = direction === "up" ? idx - 1 : idx + 1;
@@ -362,6 +374,14 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
                 </div>
               </div>
             ))}
+          </div>
+          <div className="mt-4">
+            <ThumbnailGallery
+              multiple={false}
+              directoryLabel="Image directory"
+              selected={galleryPath ? [galleryPath] : []}
+              onSelectedChange={handleGallerySelect}
+            />
           </div>
         </section>
 

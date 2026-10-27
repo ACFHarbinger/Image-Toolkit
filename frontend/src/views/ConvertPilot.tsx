@@ -1,6 +1,7 @@
 // Convert pilot view (#894) plus directory batch (#1107).
 // Injected HostClient instance (provided by the shell). No global declare.
 
+import { open } from "@tauri-apps/plugin-dialog";
 import React, { useRef, useState } from "react";
 import type { ConvertBatchParams, JobStatus } from "../../../contracts/generated/ts";
 import type { HostClient } from "../hostclient";
@@ -43,6 +44,7 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
   const [resampleWidth, setResampleWidth] = useState(64);
   const [resampleHeight, setResampleHeight] = useState(64);
   const [algorithm, setAlgorithm] = useState<(typeof ALGORITHMS)[number]>("lanczos");
+  const [keepOriginalFormat, setKeepOriginalFormat] = useState(true);
   const [videoCodec, setVideoCodec] = useState<(typeof VIDEO_CODECS)[number]>("h264");
   const [audioCodec, setAudioCodec] = useState<(typeof AUDIO_CODECS)[number]>("aac");
   const [crf, setCrf] = useState(28);
@@ -80,6 +82,20 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
       setStatus(result.success ? "ok" : `failed: ${result.error ?? "unknown"}`);
     } catch (err) {
       setStatus(`error: ${String(err)}`);
+    }
+  };
+
+  const browseInto = async (apply: (path: string) => void) => {
+    const picked = await open({ directory: true, multiple: false });
+    if (typeof picked === "string") {
+      apply(picked);
+    }
+  };
+
+  const browseFile = async (apply: (path: string) => void) => {
+    const picked = await open({ directory: false, multiple: false });
+    if (typeof picked === "string") {
+      apply(picked);
     }
   };
 
@@ -129,7 +145,7 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
     const params: ConvertBatchParams = {
       input_dir: directory,
       output_dir: outputDir,
-      output_format: outputFormat,
+      ...(action === "resample" && keepOriginalFormat ? {} : { output_format: outputFormat }),
       paths: chosen,
       action,
       quality: 95,
@@ -165,10 +181,16 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
         Input path{" "}
         <input value={inputPath} onChange={(e) => setInputPath(e.target.value)} />
       </label>
+      <button type="button" onClick={() => void browseFile(setInputPath)}>
+        Browse input file
+      </button>
       <label>
         Output path{" "}
         <input value={outputPath} onChange={(e) => onOutputPath(e.target.value)} />
       </label>
+      <button type="button" onClick={() => void browseFile(onOutputPath)}>
+        Browse output file
+      </button>
       <label>
         Format{" "}
         <select value={outputFormat} onChange={(e) => setOutputFormat(e.target.value as OutputFormat)}>
@@ -188,6 +210,9 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
         Directory{" "}
         <input value={directory} onChange={(event) => setDirectory(event.target.value)} />
       </label>
+      <button type="button" onClick={() => void browseInto(setDirectory)}>
+        Browse directory
+      </button>
       <button type="button" onClick={onList}>
         List files
       </button>
@@ -209,6 +234,9 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
         Output directory{" "}
         <input value={outputDir} onChange={(event) => setOutputDir(event.target.value)} />
       </label>
+      <button type="button" onClick={() => void browseInto(setOutputDir)}>
+        Browse output directory
+      </button>
       <label>
         Resample width{" "}
         <input
@@ -236,6 +264,14 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
             </option>
           ))}
         </select>
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={keepOriginalFormat}
+          onChange={(event) => setKeepOriginalFormat(event.target.checked)}
+        />{" "}
+        Keep original format
       </label>
       <label>
         Video codec{" "}

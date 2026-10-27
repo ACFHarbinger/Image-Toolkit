@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { ExtractorView } from "./ExtractorView";
@@ -112,4 +113,47 @@ test("sheet job can be cancelled while the worker is running", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Cancel sheet cut" }));
   expect(await screen.findByText("cancelled")).toBeInTheDocument();
   expect(hostClient.cancelJob).toHaveBeenCalledWith("cut-job");
+});
+
+test("snapshot job can be cancelled while the worker is running", async () => {
+  let cancelled = false;
+  const hostClient = {
+    extractorProbe: vi.fn(),
+    extractorSnapshot: vi.fn().mockResolvedValue({ job_id: "snap-job" }),
+    extractorExtractRange: vi.fn(),
+    extractorCutSheet: vi.fn(),
+    jobStatus: vi.fn().mockImplementation(async () => ({ state: cancelled ? "cancelled" : "running" })),
+    cancelJob: vi.fn().mockImplementation(async () => { cancelled = true; }),
+  };
+  render(<ExtractorView hostClient={hostClient} />);
+  fireEvent.click(screen.getByRole("button", { name: "Snapshot" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+  expect(await screen.findByText("cancelled")).toBeInTheDocument();
+  expect(hostClient.cancelJob).toHaveBeenCalledWith("snap-job");
+});
+
+test("a scanned sheet thumbnail fills the sheet image and does not start a job", async () => {
+  vi.mocked(invoke).mockImplementation(async (command: string) => {
+    if (command === "scan_files") {
+      return ["/sheets/grid.png"];
+    }
+    return {};
+  });
+  const hostClient = {
+    cancelJob: vi.fn(),
+    extractorProbe: vi.fn(),
+    extractorSnapshot: vi.fn(),
+    extractorExtractRange: vi.fn(),
+    extractorCutSheet: vi.fn(),
+    jobStatus: vi.fn(),
+  };
+  render(<ExtractorView hostClient={hostClient} />);
+  fireEvent.change(screen.getByLabelText("Sheet directory"), { target: { value: "/sheets" } });
+  fireEvent.click(screen.getByRole("button", { name: "Scan" }));
+  fireEvent.click(await screen.findByRole("option", { name: "grid.png" }));
+  expect(screen.getByLabelText("Sheet image")).toHaveValue("/sheets/grid.png");
+  expect(hostClient.extractorCutSheet).not.toHaveBeenCalled();
+  expect(hostClient.extractorSnapshot).not.toHaveBeenCalled();
+  expect(hostClient.extractorExtractRange).not.toHaveBeenCalled();
+  vi.mocked(invoke).mockReset();
 });

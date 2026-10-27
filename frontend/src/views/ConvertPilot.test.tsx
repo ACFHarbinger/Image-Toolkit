@@ -1,9 +1,49 @@
+import { open } from "@tauri-apps/plugin-dialog";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { ConvertPilot } from "./ConvertPilot";
 
 afterEach(() => {
   cleanup();
+});
+
+test("browse buttons fill directory fields without listing or converting", async () => {
+  const hostClient = {
+    convert: vi.fn(),
+    convertListDir: vi.fn(),
+    convertBatch: vi.fn(),
+    jobStatus: vi.fn(),
+    cancelJob: vi.fn(),
+  };
+  vi.mocked(open).mockResolvedValueOnce("/picked/in");
+  render(<ConvertPilot hostClient={hostClient as never} />);
+  fireEvent.click(screen.getByRole("button", { name: "Browse directory" }));
+  await waitFor(() => expect(screen.getByLabelText("Directory")).toHaveValue("/picked/in"));
+  expect(hostClient.convert).not.toHaveBeenCalled();
+  expect(hostClient.convertListDir).not.toHaveBeenCalled();
+  expect(hostClient.convertBatch).not.toHaveBeenCalled();
+  vi.mocked(open).mockResolvedValueOnce("/picked/out");
+  fireEvent.click(screen.getByRole("button", { name: "Browse output directory" }));
+  await waitFor(() => expect(screen.getByLabelText("Output directory")).toHaveValue("/picked/out"));
+});
+
+test("browse file buttons fill single-file paths without converting", async () => {
+  const hostClient = {
+    convert: vi.fn(),
+    convertListDir: vi.fn(),
+    convertBatch: vi.fn(),
+    jobStatus: vi.fn(),
+    cancelJob: vi.fn(),
+  };
+  vi.mocked(open).mockResolvedValueOnce("/pics/a.png").mockResolvedValueOnce("/tmp/out.png");
+  render(<ConvertPilot hostClient={hostClient as never} />);
+  fireEvent.click(screen.getByRole("button", { name: "Browse input file" }));
+  await waitFor(() => expect(screen.getByLabelText("Input path")).toHaveValue("/pics/a.png"));
+  fireEvent.click(screen.getByRole("button", { name: "Browse output file" }));
+  await waitFor(() => expect(screen.getByLabelText("Output path")).toHaveValue("/tmp/out.png"));
+  expect(hostClient.convert).not.toHaveBeenCalled();
+  expect(hostClient.convertListDir).not.toHaveBeenCalled();
+  expect(hostClient.convertBatch).not.toHaveBeenCalled();
 });
 
 test("single convert still calls convert.convert", async () => {
@@ -60,6 +100,11 @@ test("lists a directory and resamples the selection", async () => {
       algorithm: "lanczos",
     }),
   );
+  expect(hostClient.convertBatch.mock.calls[0]?.[0].output_format).toBeUndefined();
+  fireEvent.click(screen.getByRole("checkbox", { name: "Keep original format" }));
+  fireEvent.click(screen.getByRole("button", { name: "Resample Selected" }));
+  await waitFor(() => expect(hostClient.convertBatch).toHaveBeenCalledTimes(2));
+  expect(hostClient.convertBatch.mock.calls[1]?.[0].output_format).toBe("png");
 });
 
 test("a completed batch with file failures is not batch ok", async () => {

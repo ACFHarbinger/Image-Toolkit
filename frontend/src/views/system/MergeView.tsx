@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { MergeCanvasBoard } from "../../components/common/MergeCanvasBoard";
+import { ThumbnailGallery } from "../../components/common/ThumbnailGallery";
 
 export interface MergeResult {
   readonly written: boolean;
@@ -40,6 +42,7 @@ export function MergeView({ hostClient }: { readonly hostClient: MergeClient }):
   const [align, setAlign] = useState<"start" | "center" | "end">("start");
   const [result, setResult] = useState<MergeResult | null>(null);
   const [error, setError] = useState("");
+  const [selectedPath, setSelectedPath] = useState("");
 
   function addItem() {
     const path = draft.trim();
@@ -72,6 +75,28 @@ export function MergeView({ hostClient }: { readonly hostClient: MergeClient }):
 
   function removeItem(index: number) {
     setItems((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  function moveTile(path: string, x: number, y: number) {
+    setItems((current) => current.map((item) => (item.path === path ? { ...item, x, y } : item)));
+  }
+
+  function resizeTile(path: string, width: number, height: number) {
+    const nextWidth = Math.max(1, width);
+    const nextHeight = Math.max(1, height);
+    setItems((current) =>
+      current.map((item) => (item.path === path ? { ...item, width: nextWidth, height: nextHeight } : item)),
+    );
+  }
+
+  function removeTile(path: string) {
+    setItems((current) => {
+      const index = current.findIndex((item) => item.path === path);
+      if (index < 0) {
+        return current;
+      }
+      return current.filter((_, itemIndex) => itemIndex !== index);
+    });
   }
 
   async function onSubmit(event: React.FormEvent): Promise<void> {
@@ -109,6 +134,12 @@ export function MergeView({ hostClient }: { readonly hostClient: MergeClient }):
 
   return (
     <form data-testid="merge-view" onSubmit={onSubmit}>
+      <ThumbnailGallery
+        multiple={false}
+        directoryLabel="Image directory"
+        selected={draft ? [draft] : []}
+        onSelectedChange={(paths) => setDraft(paths[0] ?? "")}
+      />
       <label>
         Add image
         <input value={draft} onChange={(event) => setDraft(event.target.value)} />
@@ -174,6 +205,27 @@ export function MergeView({ hostClient }: { readonly hostClient: MergeClient }):
           </li>
         ))}
       </ol>
+      {mode === "placement" ? (
+        <MergeCanvasBoard
+          tiles={items.map((item) => ({
+            path: item.path,
+            x: item.x,
+            y: item.y,
+            w: item.width,
+            h: item.height,
+          }))}
+          canvasWidth={1920}
+          canvasHeight={1080}
+          background="transparent"
+          selectedPath={selectedPath}
+          onSelect={setSelectedPath}
+          onMove={moveTile}
+          onResize={resizeTile}
+          onFit={() => undefined}
+          onRemove={removeTile}
+          onClear={() => setItems([])}
+        />
+      ) : null}
       <label>
         Output
         <input
