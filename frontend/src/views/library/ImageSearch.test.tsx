@@ -178,3 +178,24 @@ test("the filename pattern rides the request", async () => {
     });
   });
 });
+
+test("add all formats sends every format and remove all formats omits input_formats", async () => {
+  const client = stubClient();
+  render(<ImageSearch hostClient={client as never} />);
+  await screen.findByTestId("library-search");
+
+  fireEvent.click(screen.getByRole("button", { name: "Add all formats" }));
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  await waitFor(() => {
+    expect(client.listLibraryImages).toHaveBeenCalledWith({
+      limit: 10000,
+      input_formats: ["png", "jpg", "jpeg", "webp", "avif", "bmp", "tiff", "gif"],
+    });
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: "Remove all formats" }));
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  await waitFor(() => {
+    expect(client.listLibraryImages).toHaveBeenLastCalledWith({ limit: 10000 });
+  });
+});

@@ -290,6 +290,20 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
               {format}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setSelectedFormats([...FORMATS])}
+            className="rounded-full border border-it-border px-2 py-0.5 text-xs text-it-text"
+          >
+            Add all formats
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedFormats([])}
+            className="rounded-full border border-it-border px-2 py-0.5 text-xs text-it-text"
+          >
+            Remove all formats
+          </button>
         </div>
       </form>
 
