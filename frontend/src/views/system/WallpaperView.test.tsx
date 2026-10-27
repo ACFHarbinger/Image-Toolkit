@@ -201,6 +201,65 @@ describe("WallpaperView", () => {
     expect(await screen.findByText("Graph saved /tmp/monitor-graph.json")).toBeInTheDocument();
   });
 
+  test("edits a graph node duration and removes it before the next save", async () => {
+    const hostClient = {
+      wallpaperGetMonitors: vi.fn().mockResolvedValue(mockMonitorsResult),
+      wallpaperSlideshowConfig: vi.fn().mockResolvedValue(mockConfigResult),
+      wallpaperSet: vi.fn(),
+      wallpaperSlideshowToggle: vi.fn(),
+      wallpaperMonitorGraph: vi.fn().mockResolvedValue({
+        path: "/tmp/monitor-graph.json",
+        nodes: [{ id: "n1", path: "/tmp/a.png", duration_seconds: 12 }],
+        edges: [],
+        end_behavior: "stay",
+        end_color: "#000000",
+        error: "",
+      }),
+    };
+    render(<WallpaperView hostClient={hostClient as any} />);
+    await screen.findByText("KDE Plasma");
+
+    fireEvent.change(screen.getByLabelText("Graph file"), { target: { value: "/tmp/monitor-graph.json" } });
+    fireEvent.change(screen.getByLabelText("Node path"), { target: { value: "/tmp/a.png" } });
+    fireEvent.change(screen.getByLabelText("Duration seconds"), { target: { value: "12" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add node" }));
+
+    const duration = screen.getByLabelText("Duration n1");
+    expect(duration).toHaveValue(12);
+    fireEvent.change(duration, { target: { value: "30" } });
+    fireEvent.change(screen.getByLabelText("End behavior"), { target: { value: "stay" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save graph" }));
+
+    await waitFor(() => {
+      expect(hostClient.wallpaperMonitorGraph).toHaveBeenCalledWith({
+        update: true,
+        path: "/tmp/monitor-graph.json",
+        nodes: [{ id: "n1", path: "/tmp/a.png", duration_seconds: 30 }],
+        edges: [],
+        end_behavior: "stay",
+        end_color: "#000000",
+      });
+    });
+    expect(hostClient.wallpaperSet).not.toHaveBeenCalled();
+    expect(await screen.findByText("Graph saved /tmp/monitor-graph.json")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove n1" }));
+    expect(screen.queryByLabelText("Duration n1")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save graph" }));
+
+    await waitFor(() => {
+      expect(hostClient.wallpaperMonitorGraph).toHaveBeenLastCalledWith({
+        update: true,
+        path: "/tmp/monitor-graph.json",
+        nodes: [],
+        edges: [],
+        end_behavior: "stay",
+        end_color: "#000000",
+      });
+    });
+    expect(hostClient.wallpaperSet).not.toHaveBeenCalled();
+  });
+
   test("a scanned thumbnail fills the selected monitor path without applying", async () => {
     vi.mocked(invoke).mockImplementation(async (command: string) => {
       if (command === "scan_files") {

@@ -203,6 +203,21 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
     setNodePath("");
   };
 
+  const handleGraphNodeDuration = (id: string, raw: string) => {
+    if (raw.trim() === "") return;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return;
+    const duration = Math.min(86400, Math.max(1, Math.floor(parsed)));
+    setGraphNodes((nodes) =>
+      nodes.map((node) => (node.id === id ? { ...node, duration_seconds: duration } : node)),
+    );
+  };
+
+  const handleRemoveGraphNode = (id: string) => {
+    setGraphNodes((nodes) => nodes.filter((node) => node.id !== id));
+    setGraphEdges((edges) => edges.filter((edge) => edge.source !== id && edge.target !== id));
+  };
+
   const handleAddGraphEdge = () => {
     if (!edgeFrom || !edgeTo) return;
     setGraphEdges([...graphEdges, { source: edgeFrom, target: edgeTo }]);
@@ -622,8 +637,26 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
             </div>
             <ul className="text-xs font-mono space-y-1">
               {graphNodes.map((node) => (
-                <li key={node.id}>
-                  {node.id} {node.path} {node.duration_seconds}s
+                <li key={node.id} className="flex flex-wrap items-center gap-2">
+                  <span>
+                    {node.id} {node.path} {node.duration_seconds}s
+                  </span>
+                  <input
+                    type="number"
+                    aria-label={`Duration ${node.id}`}
+                    min={1}
+                    max={86400}
+                    value={node.duration_seconds}
+                    onChange={(e) => handleGraphNodeDuration(node.id, e.target.value)}
+                    className="w-24 text-xs p-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveGraphNode(node.id)}
+                    className="px-2 py-1 border rounded text-xs"
+                  >
+                    {`Remove ${node.id}`}
+                  </button>
                 </li>
               ))}
             </ul>
