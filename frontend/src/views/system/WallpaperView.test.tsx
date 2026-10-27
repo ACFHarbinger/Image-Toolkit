@@ -490,4 +490,32 @@ describe("WallpaperView", () => {
     expect(hostClient.wallpaperSlideshowToggle).not.toHaveBeenCalled();
     vi.mocked(invoke).mockReset();
   });
+
+  test("clear queue drops the pending paths and does not apply wallpaper", async () => {
+    const hostClient = {
+      wallpaperGetMonitors: vi.fn().mockResolvedValue(mockMonitorsResult),
+      wallpaperSlideshowConfig: vi.fn().mockResolvedValue(mockConfigResult),
+      wallpaperSet: vi.fn(),
+      wallpaperSlideshowToggle: vi.fn(),
+      wallpaperMonitorGraph: vi.fn(),
+    };
+
+    render(<WallpaperView hostClient={hostClient as any} />);
+    await screen.findByText("KDE Plasma");
+
+    fireEvent.change(screen.getByPlaceholderText("/path/to/image.png"), {
+      target: { value: "/tmp/a.png" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(screen.getByText("/tmp/a.png")).toBeInTheDocument();
+
+    const configCalls = hostClient.wallpaperSlideshowConfig.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Clear queue" }));
+
+    expect(screen.queryByText("/tmp/a.png")).not.toBeInTheDocument();
+    expect(screen.getByText("Queue is empty")).toBeInTheDocument();
+    expect(hostClient.wallpaperSet).not.toHaveBeenCalled();
+    expect(hostClient.wallpaperSlideshowConfig.mock.calls.length).toBe(configCalls);
+    expect(hostClient.wallpaperMonitorGraph).not.toHaveBeenCalled();
+  });
 });

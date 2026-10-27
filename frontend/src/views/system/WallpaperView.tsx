@@ -198,6 +198,13 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
     setNewQueuePath("");
   };
 
+  const handleClearQueue = () => {
+    setMonitorQueues({
+      ...monitorQueues,
+      [selectedMonitorQueue]: [],
+    });
+  };
+
   const handleRemoveQueueItem = (idx: number) => {
     const currentList = monitorQueues[selectedMonitorQueue] || [];
     setMonitorQueues({
@@ -585,6 +592,13 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
                     className="px-3 py-1 bg-violet-600 text-white rounded text-xs font-semibold hover:bg-violet-700 flex items-center gap-1"
                   >
                     <Plus size={12} /> Add
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearQueue}
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-xs font-semibold hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    Clear queue
                   </button>
                 </div>
               </div>
