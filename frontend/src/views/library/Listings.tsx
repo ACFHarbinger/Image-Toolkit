@@ -50,6 +50,17 @@ function compareMissingLast(
   return descending ? -ordered : ordered;
 }
 
+function visibleListingFacts(image: ImageRecord): string {
+  const facts: string[] = [];
+  if (typeof image.file_size === "number") {
+    facts.push(image.file_size + " B");
+  }
+  if (typeof image.date_added === "string" && image.date_added !== "") {
+    facts.push(image.date_added);
+  }
+  return facts.length > 0 ? " · " + facts.join(" · ") : "";
+}
+
 function sortedImages(rows: readonly ImageRecord[], key: SortKey, order: SortOrder): ImageRecord[] {
   if (key === "returned") return rows.slice();
   const descending = order === "desc";
@@ -648,6 +659,7 @@ export function Listings({ hostClient }: ListingsProps) {
                 {image.group_name ?? "—"}
                 {image.subgroup_name ? ` / ${image.subgroup_name}` : ""}
                 {image.width && image.height ? ` · ${image.width}×${image.height}` : ""}
+                {visibleListingFacts(image)}
               </span>
             </div>
           ))}

@@ -215,6 +215,35 @@ test("tag filters and pagination are client-side over the returned rows", async 
   expect(screen.getByTestId("library-listings-page")).toHaveTextContent("Page 1 of 1");
 });
 
+test("image rows show present file size and date added only", async () => {
+  const client = stubClient();
+  client.listLibraryImages = vi.fn(async (): Promise<ListImagesResult> => ({
+    available: true,
+    images: [
+      {
+        id: 1,
+        file_path: "/pics/a.png",
+        filename: "a.png",
+        file_size: 1200,
+        date_added: "2020-01-01",
+      },
+      { id: 2, file_path: "/pics/b.jpg", filename: "b.jpg" },
+    ],
+  }));
+  render(<Listings hostClient={client as never} />);
+
+  expect(await screen.findByText("a.png")).toBeInTheDocument();
+  const rows = screen.getByTestId("library-listings-rows").children;
+  const first = rows[0]?.textContent ?? "";
+  const second = rows[1]?.textContent ?? "";
+  expect(first).toContain("1200 B");
+  expect(first).toContain("2020-01-01");
+  expect(second).not.toContain(" B");
+  expect(second).not.toContain("undefined");
+  expect(second).not.toContain("null");
+  expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
+});
+
 test("filename sort reorders loaded rows and does not send a sort field", async () => {
   const client = stubClient();
   client.listLibraryImages = vi.fn(async (): Promise<ListImagesResult> => ({
