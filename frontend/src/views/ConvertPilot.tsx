@@ -117,6 +117,17 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
     }
   };
 
+  const visibleFiles =
+    inputFormats.length === 0
+      ? files
+      : files.filter((file) => {
+          const dot = file.lastIndexOf(".");
+          if (dot < 0) {
+            return false;
+          }
+          return (inputFormats as readonly string[]).includes(file.slice(dot + 1).toLowerCase());
+        });
+
   const toggleFile = (file: string) => {
     setSelectedFiles((current) =>
       current.includes(file) ? current.filter((item) => item !== file) : [...current, file],
@@ -158,7 +169,7 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
   };
 
   const onBatch = async (action: BatchAction) => {
-    const chosen = files.filter((file) => selectedFiles.includes(file));
+    const chosen = visibleFiles.filter((file) => selectedFiles.includes(file));
     if (!directory || !outputDir) {
       setStatus("failed: directory and output directory are required");
       return;
@@ -250,7 +261,7 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
         List files
       </button>
       <ul>
-        {files.map((file) => (
+        {visibleFiles.map((file) => (
           <li key={file}>
             <label>
               <input

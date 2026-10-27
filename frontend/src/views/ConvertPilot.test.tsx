@@ -167,6 +167,37 @@ test("converts a directory without a file selection", async () => {
   expect(hostClient.convertBatch.mock.calls[2]?.[0].recursive).toBe(true);
 });
 
+test("filters listed files by the selected input format chips", async () => {
+  const hostClient = {
+    convert: vi.fn(),
+    convertListDir: vi.fn().mockResolvedValue({ files: ["/dir/a.png", "/dir/b.jpg"], error: "" }),
+    convertBatch: vi.fn().mockResolvedValue({ job_id: "job-filter" }),
+    jobStatus: vi.fn().mockResolvedValue({
+      job_id: "job-filter",
+      kind: "convert.batch",
+      state: "completed",
+      progress: { done: 1, total: 1 },
+    }),
+    cancelJob: vi.fn(),
+  };
+  render(<ConvertPilot hostClient={hostClient as never} />);
+  fireEvent.change(screen.getByLabelText("Directory"), { target: { value: "/dir" } });
+  fireEvent.change(screen.getByLabelText("Output directory"), { target: { value: "/out" } });
+  fireEvent.click(screen.getByRole("button", { name: "List files" }));
+  expect(await screen.findByLabelText("/dir/a.png")).toBeInTheDocument();
+  expect(screen.getByLabelText("/dir/b.jpg")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "png" }));
+  expect(screen.queryByLabelText("/dir/b.jpg")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("/dir/a.png")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Convert Selected" }));
+  await waitFor(() => expect(hostClient.convertBatch).toHaveBeenCalledTimes(1));
+  expect(hostClient.convertBatch.mock.calls[0]?.[0].paths).toEqual(["/dir/a.png"]);
+  expect(hostClient.convertListDir).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "Remove all input formats" }));
+  expect(screen.getByLabelText("/dir/b.jpg")).toBeInTheDocument();
+  expect(hostClient.convertListDir).toHaveBeenCalledTimes(1);
+});
+
 test("cancel asks the job to stop", async () => {
   let release: (value: unknown) => void = () => undefined;
   const pending = new Promise((resolve) => {
