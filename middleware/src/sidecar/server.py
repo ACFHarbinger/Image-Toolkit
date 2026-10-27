@@ -45,7 +45,7 @@ from middleware.src.sidecar.handlers.cloud_jobs import (
 )
 from middleware.src.sidecar.handlers.cloud_offer import handle_prefill
 from middleware.src.sidecar.handlers.cloud_setup import handle_cloud_setup_providers
-from middleware.src.sidecar.handlers.convert import handle_convert, start_convert_batch
+from middleware.src.sidecar.handlers.convert import handle_convert, handle_list_dir, start_convert_batch
 from middleware.src.sidecar.handlers.crawler import handle_crawl, handle_list_supported
 from middleware.src.sidecar.handlers.csg import (
     csg_service,
@@ -61,7 +61,12 @@ from middleware.src.sidecar.handlers.entity_recon import (
     handle_entity_recon_describe,
     handle_entity_recon_resolve,
 )
-from middleware.src.sidecar.handlers.extractor import handle_probe
+from middleware.src.sidecar.handlers.extractor import (
+    handle_probe,
+    start_extractor_cut_sheet,
+    start_extractor_extract_range,
+    start_extractor_snapshot,
+)
 from middleware.src.sidecar.handlers.hie import (
     handle_execute_edit,
     handle_export_document,
@@ -84,7 +89,7 @@ from middleware.src.sidecar.handlers.library_preview import (
     handle_frame,
 )
 from middleware.src.sidecar.handlers.media_loader import handle_media_plan
-from middleware.src.sidecar.handlers.merge import handle_concatenate
+from middleware.src.sidecar.handlers.merge import handle_concatenate, handle_place
 from middleware.src.sidecar.handlers.prefs import handle_prefs_describe
 from middleware.src.sidecar.handlers.reverse_search import (
     handle_reverse_search,
@@ -101,9 +106,10 @@ from middleware.src.sidecar.handlers.settings import (
     handle_settings_set,
     handle_settings_set_many,
 )
-from middleware.src.sidecar.handlers.similarity import handle_compare
+from middleware.src.sidecar.handlers.similarity import handle_compare, handle_scan
 from middleware.src.sidecar.handlers.wallpaper import (
     handle_get_monitors,
+    handle_monitor_graph,
     handle_set_wallpaper,
     handle_slideshow_config,
     handle_slideshow_toggle,
@@ -361,6 +367,8 @@ class SidecarServer:
             return self.jobs.cancel(params)
         if method == "convert.convert":
             return handle_convert(params)
+        if method == "convert.list_dir":
+            return handle_list_dir(params)
         if method == "convert.convert_batch":
             return start_convert_batch(self.jobs, params)
         return _UNHANDLED
@@ -493,6 +501,8 @@ class SidecarServer:
             return handle_slideshow_config(self.wallpaper_service, params)
         if method == "wallpaper.slideshow_toggle":
             return handle_slideshow_toggle(self.wallpaper_service, params)
+        if method == "wallpaper.monitor_graph":
+            return handle_monitor_graph(params)
         return _UNHANDLED
 
     def _dispatch_crawler(self, method: str, params: dict[str, Any]) -> Any:
@@ -530,10 +540,20 @@ class SidecarServer:
     def _dispatch_system_pages(self, method: str, params: dict[str, Any]) -> Any:
         if method == "merge.concatenate":
             return handle_concatenate(params)
+        if method == "merge.place":
+            return handle_place(params)
         if method == "similarity.compare":
             return handle_compare(params)
+        if method == "similarity.scan":
+            return handle_scan(params)
         if method == "extractor.probe":
             return handle_probe(params)
+        if method == "extractor.snapshot":
+            return start_extractor_snapshot(self.jobs, params)
+        if method == "extractor.extract_range":
+            return start_extractor_extract_range(self.jobs, params)
+        if method == "extractor.cut_sheet":
+            return start_extractor_cut_sheet(self.jobs, params)
         if method == "stitch.status":
             return stitch_status(params["route"])
         if method == "logs.read":

@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Codec re-encoding preserves the lossless CRF value of zero.
 
 - Canvas merges now composite translucent pixels correctly, reject source/output collisions, and preserve existing outputs when encoding fails.
+- Bound sheet extraction to 1,024 crops before allocation and run it as a cancellable job, publishing each crop only after a cancellation check.
 
 - Wallpaper settings restore the live daemon state on mount, offering Stop when a slideshow is already running.
 - Slideshow bridge styles now use desktop mappings in the daemon, monitor discovery works without Qt geometry, and repeated Start requests retain the live daemon.

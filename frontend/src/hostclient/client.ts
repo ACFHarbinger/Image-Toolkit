@@ -6,6 +6,8 @@ import type {
   SlideshowConfigResult,
   SlideshowToggleParams,
   SlideshowToggleResult,
+  WallpaperGraphParams,
+  WallpaperGraphResult,
 } from "../../../contracts/generated/ts";
 import type { ScanDirectoryParams, ScanDirectoryResult, SaveMetadataParams, SaveMetadataResult, SuggestTagsParams, SuggestTagsResult } from "../../../contracts/generated/ts";
 import type { ExecuteParams, ExecuteResult, SequenceParams, SequenceResult } from "../../../contracts/generated/ts";
@@ -38,6 +40,8 @@ import type {
   CancelResult,
   ConvertBatchParams,
   ConvertBatchResult,
+  ConvertListDirParams,
+  ConvertListDirResult,
   CloudSubmitParams,
   CloudSubmitResult,
   EntityReconDescribeResult,
@@ -52,16 +56,22 @@ import type {
   DifferenceResult,
   ConcatenateParams,
   ConcatenateResult,
+  MergePlaceParams,
   CompareParams,
   CompareResult,
   AuthLockParams,
   AuthLockResult,
+  SimilarityScanParams,
   AuthStatusParams,
   AuthStatusResult,
   AuthUnlockParams,
   AuthUnlockResult,
   ProbeParams,
   ProbeResult,
+  ExtractorSnapshotParams,
+  ExtractorRangeParams,
+  ExtractorJobResult,
+  ExtractorCutParams,
   StitchStatusResult,
   PrefsDescribeResult,
   LogsReadParams,
@@ -273,14 +283,39 @@ export class HostClient {
     return this.send<ConcatenateResult>("merge.concatenate", params as unknown as Record<string, unknown>);
   }
 
+  async mergePlace(params: MergePlaceParams): Promise<ConcatenateResult> {
+    await this.connect();
+    return this.send<ConcatenateResult>("merge.place", params as unknown as Record<string, unknown>);
+  }
+
   async similarityCompare(params: CompareParams): Promise<CompareResult> {
     await this.connect();
     return this.send<CompareResult>("similarity.compare", params as unknown as Record<string, unknown>);
   }
 
+  async similarityScan(params: SimilarityScanParams): Promise<CompareResult> {
+    await this.connect();
+    return this.send<CompareResult>("similarity.scan", params as unknown as Record<string, unknown>);
+  }
+
   async extractorProbe(params: ProbeParams): Promise<ProbeResult> {
     await this.connect();
     return this.send<ProbeResult>("extractor.probe", params as unknown as Record<string, unknown>);
+  }
+
+  async extractorSnapshot(params: ExtractorSnapshotParams): Promise<ExtractorJobResult> {
+    await this.connect();
+    return this.send<ExtractorJobResult>("extractor.snapshot", params as unknown as Record<string, unknown>);
+  }
+
+  async extractorExtractRange(params: ExtractorRangeParams): Promise<ExtractorJobResult> {
+    await this.connect();
+    return this.send<ExtractorJobResult>("extractor.extract_range", params as unknown as Record<string, unknown>);
+  }
+
+  async extractorCutSheet(params: ExtractorCutParams): Promise<ExtractorJobResult> {
+    await this.connect();
+    return this.send<ExtractorJobResult>("extractor.cut_sheet", params as unknown as Record<string, unknown>);
   }
 
   async stitchStatus(route: string): Promise<StitchStatusResult> {
@@ -336,6 +371,11 @@ export class HostClient {
   async convert(params: ConvertParams): Promise<ConvertResult> {
     await this.connect();
     return this.send<ConvertResult>("convert.convert", params as unknown as Record<string, unknown>);
+  }
+
+  async convertListDir(params: ConvertListDirParams): Promise<ConvertListDirResult> {
+    await this.connect();
+    return this.send<ConvertListDirResult>("convert.list_dir", params as unknown as Record<string, unknown>);
   }
 
   async convertBatch(params: ConvertBatchParams): Promise<ConvertBatchResult> {
@@ -452,6 +492,11 @@ export class HostClient {
   async wallpaperSlideshowToggle(params: SlideshowToggleParams): Promise<SlideshowToggleResult> {
     await this.connect();
     return this.send<SlideshowToggleResult>("wallpaper.slideshow_toggle", params as unknown as Record<string, unknown>);
+  }
+
+  async wallpaperMonitorGraph(params: WallpaperGraphParams): Promise<WallpaperGraphResult> {
+    await this.connect();
+    return this.send<WallpaperGraphResult>("wallpaper.monitor_graph", params as unknown as Record<string, unknown>);
   }
 
   async crawlerCrawl(params: CrawlParams): Promise<CrawlResult> {

@@ -148,6 +148,18 @@ stability = "experimental"
 owner = 894
 
 [[method]]
+name = "convert.list_dir"
+capability = "convert"
+summary = "List image and video files in one directory for the convert, resample, and re-encode selection (#1107)."
+params = "convert.ConvertListDirParams"
+result = "convert.ConvertListDirResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 1107
+
+[[method]]
 name = "cloud_jobs.preview"
 capability = "cloud_jobs"
 summary = "Run CloudJobService.preview and return the Plan & cost sheet (#850). Does not submit."
@@ -441,6 +453,18 @@ stability = "experimental"
 owner = 903
 
 [[method]]
+name = "merge.place"
+capability = "merge"
+summary = "Paste caller images at stored rectangles and write the canvas (#1107). Does not open library.db."
+params = "merge.MergePlaceParams"
+result = "merge.ConcatenateResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 1107
+
+[[method]]
 name = "similarity.compare"
 capability = "similarity"
 summary = "Average-hash pairs for caller images (#904). Does not open library.db or delete files."
@@ -453,6 +477,18 @@ stability = "experimental"
 owner = 904
 
 [[method]]
+name = "similarity.scan"
+capability = "similarity"
+summary = "Average-hash a directory of images and list pairs under a threshold (#1107). Does not delete files."
+params = "similarity.SimilarityScanParams"
+result = "similarity.CompareResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 1107
+
+[[method]]
 name = "extractor.probe"
 capability = "extractor"
 summary = "Duration, size, and codec for one caller video path (#905). Does not extract frames."
@@ -463,6 +499,42 @@ cancelable = false
 emits = []
 stability = "experimental"
 owner = 905
+
+[[method]]
+name = "extractor.snapshot"
+capability = "extractor"
+summary = "Write one video frame with ffmpeg (#1107). Missing ffmpeg is an error and does not invent a frame."
+params = "extractor.ExtractorSnapshotParams"
+result = "extractor.ExtractorJobResult"
+errors = []
+cancelable = true
+emits = []
+stability = "experimental"
+owner = 1107
+
+[[method]]
+name = "extractor.extract_range"
+capability = "extractor"
+summary = "Write a time range with ffmpeg (#1107). Missing ffmpeg is an error and does not invent media."
+params = "extractor.ExtractorRangeParams"
+result = "extractor.ExtractorJobResult"
+errors = []
+cancelable = true
+emits = []
+stability = "experimental"
+owner = 1107
+
+[[method]]
+name = "extractor.cut_sheet"
+capability = "extractor"
+summary = "Cut an image sheet using offset, spacing, and optional partial last frames (#1107)."
+params = "extractor.ExtractorCutParams"
+result = "extractor.ExtractorJobResult"
+errors = []
+cancelable = true
+emits = []
+stability = "experimental"
+owner = 1107
 
 [[method]]
 name = "auth.status"
@@ -842,3 +914,15 @@ cancelable = false
 emits = []
 stability = "experimental"
 owner = 913
+
+[[method]]
+name = "wallpaper.monitor_graph"
+capability = "wallpaper"
+summary = "Save or load a monitor-display graph at a caller path (#1107). Does not start the slideshow daemon."
+params = "wallpaper.WallpaperGraphParams"
+result = "wallpaper.WallpaperGraphResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 1107

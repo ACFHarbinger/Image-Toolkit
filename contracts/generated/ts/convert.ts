@@ -1,4 +1,4 @@
-// GENERATED — contract hash 169175762b264adb9d36a696a336f271756697110ca9654fd44b5bb0eb9ffe1b. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 35537ebccd17268699e0134e7765a44288a13d2edf300ce1e33770aeee8d3856. Do not edit; edit the schema and regenerate.
 
 export interface ConvertBatchParams {
   readonly input_dir: string;
@@ -8,9 +8,24 @@ export interface ConvertBatchParams {
   readonly quality?: 95;
   readonly recursive?: boolean;
   readonly overwrite?: boolean;
+  readonly paths?: Array<string>;
+  readonly action?: "convert" | "resample" | "reencode";
+  readonly width?: number;
+  readonly height?: number;
+  readonly algorithm?: "nearest" | "bilinear" | "bicubic" | "lanczos";
+  readonly video_codec?: "h264" | "hevc" | "av1" | "vp9" | "copy";
+  readonly audio_codec?: "aac" | "opus" | "mp3" | "flac" | "copy";
+  readonly crf?: number;
 }
 export interface ConvertBatchResult {
   readonly job_id: string;
+}
+export interface ConvertListDirParams {
+  readonly directory: string;
+}
+export interface ConvertListDirResult {
+  readonly files: Array<string>;
+  readonly error: string;
 }
 export interface ConvertParams {
   readonly input_path: string;

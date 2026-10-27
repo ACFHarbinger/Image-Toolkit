@@ -10,6 +10,7 @@ from middleware.src.services.wallpaper.commands import (
     SlideshowConfigCommand,
     SlideshowToggleCommand,
 )
+from middleware.src.services.wallpaper.graph import monitor_graph
 from middleware.src.services.wallpaper.service import WallpaperService
 
 
@@ -93,3 +94,8 @@ def handle_slideshow_toggle(
         "pid": result.pid,
         "message": result.message,
     }
+
+
+def handle_monitor_graph(params: dict[str, Any]) -> dict[str, Any]:
+    """Read or write a caller-supplied graph file. Does not start a daemon."""
+    return monitor_graph(params)

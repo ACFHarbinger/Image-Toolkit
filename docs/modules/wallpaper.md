@@ -6,7 +6,7 @@
 | **Service Package** | `middleware/src/services/wallpaper/` |
 | **Frontend View** | `frontend/src/views/system/WallpaperView.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/wallpaper.json` |
-| **Contract SHA-256** | `131289910c5109ab28b470690a8e564ebf28be35ca6b06998ef95f6f2147f609` |
+| **Contract SHA-256** | `bb17d5802196ba4787c738749f99cad45b0e9eb63adf9a4a7d82d40cbffe4098` |
 
 ## Overview
 
@@ -26,6 +26,7 @@ Slideshow state is stored canonically at `~/.image-toolkit/.slideshow_config.jso
   - `wallpaper.set`: applies wallpaper path mappings, scaling style, and background matte color.
   - `wallpaper.slideshow_config`: reads or updates slideshow interval, queues, and styling, and reports `running` only when the saved daemon pid is alive.
   - `wallpaper.slideshow_toggle`: starts or stops the background slideshow process.
+  - `wallpaper.monitor_graph`: saves or loads a caller-supplied graph file (nodes, directed edges, end behavior). It does not start the daemon.
 - **Frontend (`frontend/src/views/system/WallpaperView.tsx`):**
   - Modular React component providing per-monitor path assignment, preview details, queue reordering, and daemon control.
   - `frontend/src/shell/SlideshowPresenterWindow.tsx`: Companion presentation window for role `slideshow` providing per-monitor queue inspection, queue item addition/removal, reordering, and background daemon toggle.
@@ -39,6 +40,7 @@ Slideshow state is stored canonically at `~/.image-toolkit/.slideshow_config.jso
   - `wallpaper.set`
   - `wallpaper.slideshow_config`
   - `wallpaper.slideshow_toggle`
+  - `wallpaper.monitor_graph`
 - **Events:** none
 
 ## Accessibility & Known Gaps

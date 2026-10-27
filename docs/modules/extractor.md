@@ -6,22 +6,22 @@
 | **Service Package** | `middleware/src/services/extractor/` |
 | **Frontend View** | `frontend/src/views/system/ExtractorView.tsx` |
 | **Contract Schema** | `contracts/schemas/capability/extractor.json` |
-| **Contract SHA-256** | `5f01eac1cb76554610fa972abdedf2212bdf9d973c43fbe9c6e21307c16f4567` |
+| **Contract SHA-256** | `e1719e97c3a113be36178f4044b9b4aae8c69e8a46503d30ffee61756427461e` |
 
 ## Overview
 
-`extractor.probe` reports duration, size, and codec for one caller video path. ffprobe is run with an argument list. The call does not open `library.db` and does not extract frames. Frame extraction and the frame-slice canvas stay on PySide6. The Rust `video_commands` module is removed because the webview does not call it.
+`extractor.probe` reports duration, size, and codec for one caller video path. `extractor.snapshot` and `extractor.extract_range` shell out to ffmpeg when it is on `PATH` and return an error when it is not. `extractor.cut_sheet` crops a still using offset, spacing, and include-partial. Sheet cuts reject more than 1,024 crops before allocating rectangles. Snapshot, range, and sheet extraction return cancellable job IDs; results are read through `jobs.status`. Cancellation stops subsequent crops and preserves crops already published. The calls do not open `library.db`. The player, GIF and MP4 presets, and the overlay canvas stay on PySide6.
 
 ## Public Surface
 
-- **Python (`middleware/src/services/extractor/probe.py`):** `probe_video`.
-- **Sidecar:** `extractor.probe`.
+- **Python (`middleware/src/services/extractor/probe.py`, `actions.py`):** `probe_video`, `snapshot_frame`, `extract_range`, `cut_sheet`.
+- **Sidecar:** `extractor.probe`, `extractor.snapshot`, `extractor.extract_range`, `extractor.cut_sheet`.
 - **C++ Native Entrypoints:** none.
 
 ## Contract & Routing
 
 - **JSON Schema:** `contracts/schemas/capability/extractor.json`
-- **Methods:** `extractor.probe`
+- **Methods:** `extractor.probe`, `extractor.snapshot`, `extractor.extract_range`, `extractor.cut_sheet`
 - **Events:** none
 
 ## Accessibility & Known Gaps

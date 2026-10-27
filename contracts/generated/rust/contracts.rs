@@ -1,4 +1,4 @@
-// GENERATED — contract hash 169175762b264adb9d36a696a336f271756697110ca9654fd44b5bb0eb9ffe1b. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash 35537ebccd17268699e0134e7765a44288a13d2edf300ce1e33770aeee8d3856. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -312,11 +312,38 @@ pub struct ConvertBatchParams {
     pub recursive: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overwrite: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paths: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub algorithm: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video_codec: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_codec: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crf: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ConvertBatchResult {
     pub job_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ConvertListDirParams {
+    pub directory: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ConvertListDirResult {
+    pub files: Vec<String>,
+    pub error: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -642,6 +669,39 @@ pub struct BridgeEvent {
     pub durable: bool,
     pub ts: String,
     pub payload: std::collections::HashMap<String, serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ExtractorCutParams {
+    pub path: String,
+    pub output_dir: String,
+    pub arrangement: String,
+    pub frame_width: i64,
+    pub frame_height: i64,
+    pub offset_x: i64,
+    pub offset_y: i64,
+    pub spacing: i64,
+    pub include_partial: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ExtractorJobResult {
+    pub job_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ExtractorRangeParams {
+    pub path: String,
+    pub start_seconds: f64,
+    pub end_seconds: f64,
+    pub output_path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ExtractorSnapshotParams {
+    pub path: String,
+    pub time_seconds: f64,
+    pub output_path: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -1061,6 +1121,21 @@ pub struct ConcatenateResult {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MergePlaceParams {
+    pub placements: Vec<MergePlacement>,
+    pub output_path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MergePlacement {
+    pub path: String,
+    pub x: i64,
+    pub y: i64,
+    pub width: i64,
+    pub height: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct PrefsDescribeParams {
     pub account: String,
 }
@@ -1312,6 +1387,12 @@ pub struct CompareResult {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SimilarityScanParams {
+    pub directory: String,
+    pub threshold: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct StitchStatusParams {
     pub route: String,
 }
@@ -1440,6 +1521,43 @@ pub struct SlideshowToggleResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pid: Option<serde_json::Value>,
     pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct WallpaperGraphEdge {
+    pub source: String,
+    pub target: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct WallpaperGraphNode {
+    pub id: String,
+    pub path: String,
+    pub duration_seconds: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct WallpaperGraphParams {
+    pub update: bool,
+    pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nodes: Option<Vec<WallpaperGraphNode>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub edges: Option<Vec<WallpaperGraphEdge>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_behavior: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_color: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct WallpaperGraphResult {
+    pub path: String,
+    pub nodes: Vec<WallpaperGraphNode>,
+    pub edges: Vec<WallpaperGraphEdge>,
+    pub end_behavior: String,
+    pub end_color: String,
+    pub error: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

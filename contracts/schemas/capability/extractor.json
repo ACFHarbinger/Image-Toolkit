@@ -28,6 +28,94 @@
         "codec": { "type": "string" },
         "error": { "type": "string" }
       }
+    },
+    "ExtractorSnapshotParams": {
+      "title": "ExtractorSnapshotParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "time_seconds", "output_path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "time_seconds": { "type": "number", "minimum": 0 },
+        "output_path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "ExtractorRangeParams": {
+      "title": "ExtractorRangeParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "start_seconds", "end_seconds", "output_path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "start_seconds": { "type": "number", "minimum": 0 },
+        "end_seconds": { "type": "number", "minimum": 0 },
+        "output_path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "ExtractorFileResult": {
+      "title": "ExtractorFileResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["written", "output_path", "error"],
+      "properties": {
+        "written": { "type": "boolean" },
+        "output_path": { "type": "string" },
+        "error": { "type": "string" }
+      }
+    },
+    "ExtractorJobResult": {
+      "title": "ExtractorJobResult",
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Accepted extract. The file or sheet result is on jobs.status when the job finishes.",
+      "required": ["job_id"],
+      "properties": {
+        "job_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "ExtractorCutParams": {
+      "title": "ExtractorCutParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "output_dir",
+        "arrangement",
+        "frame_width",
+        "frame_height",
+        "offset_x",
+        "offset_y",
+        "spacing",
+        "include_partial"
+      ],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "output_dir": { "type": "string", "minLength": 1 },
+        "arrangement": { "type": "string", "enum": ["grid", "vertical", "horizontal"] },
+        "frame_width": { "type": "integer", "minimum": 1, "maximum": 8192 },
+        "frame_height": { "type": "integer", "minimum": 1, "maximum": 8192 },
+        "offset_x": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "offset_y": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "spacing": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "include_partial": { "type": "boolean" }
+      }
+    },
+    "ExtractorCutResult": {
+      "title": "ExtractorCutResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["written", "output_dir", "width", "height", "paths", "error"],
+      "properties": {
+        "written": { "type": "boolean" },
+        "output_dir": { "type": "string" },
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 },
+        "paths": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "error": { "type": "string" }
+      }
     }
   }
 }

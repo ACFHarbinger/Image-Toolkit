@@ -1,4 +1,4 @@
-# GENERATED — contract hash 169175762b264adb9d36a696a336f271756697110ca9654fd44b5bb0eb9ffe1b. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash 35537ebccd17268699e0134e7765a44288a13d2edf300ce1e33770aeee8d3856. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -289,11 +289,30 @@ class ConvertBatchParams:
     quality: Literal[95] | None = None
     recursive: bool | None = None
     overwrite: bool | None = None
+    paths: (list[str]) | None = None
+    action: str | None = None
+    width: int | None = None
+    height: int | None = None
+    algorithm: str | None = None
+    video_codec: str | None = None
+    audio_codec: str | None = None
+    crf: int | None = None
 
 
 @dataclass(frozen=True)
 class ConvertBatchResult:
     job_id: str
+
+
+@dataclass(frozen=True)
+class ConvertListDirParams:
+    directory: str
+
+
+@dataclass(frozen=True)
+class ConvertListDirResult:
+    files: list[str]
+    error: str
 
 
 @dataclass(frozen=True)
@@ -572,6 +591,39 @@ class BridgeEvent:
     durable: bool
     ts: str
     payload: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ExtractorCutParams:
+    path: str
+    output_dir: str
+    arrangement: str
+    frame_width: int
+    frame_height: int
+    offset_x: int
+    offset_y: int
+    spacing: int
+    include_partial: bool
+
+
+@dataclass(frozen=True)
+class ExtractorJobResult:
+    job_id: str
+
+
+@dataclass(frozen=True)
+class ExtractorRangeParams:
+    path: str
+    start_seconds: float
+    end_seconds: float
+    output_path: str
+
+
+@dataclass(frozen=True)
+class ExtractorSnapshotParams:
+    path: str
+    time_seconds: float
+    output_path: str
 
 
 @dataclass(frozen=True)
@@ -940,6 +992,21 @@ class ConcatenateResult:
 
 
 @dataclass(frozen=True)
+class MergePlaceParams:
+    placements: list[MergePlacement]
+    output_path: str
+
+
+@dataclass(frozen=True)
+class MergePlacement:
+    path: str
+    x: int
+    y: int
+    width: int
+    height: int
+
+
+@dataclass(frozen=True)
 class PrefsDescribeParams:
     account: str
 
@@ -1157,6 +1224,12 @@ class CompareResult:
 
 
 @dataclass(frozen=True)
+class SimilarityScanParams:
+    directory: str
+    threshold: int
+
+
+@dataclass(frozen=True)
 class StitchStatusParams:
     route: str
 
@@ -1270,6 +1343,39 @@ class SlideshowToggleResult:
     running: bool
     message: str
     pid: (int | None) | None = None
+
+
+@dataclass(frozen=True)
+class WallpaperGraphEdge:
+    source: str
+    target: str
+
+
+@dataclass(frozen=True)
+class WallpaperGraphNode:
+    id: str
+    path: str
+    duration_seconds: int
+
+
+@dataclass(frozen=True)
+class WallpaperGraphParams:
+    update: bool
+    path: str
+    nodes: (list[WallpaperGraphNode]) | None = None
+    edges: (list[WallpaperGraphEdge]) | None = None
+    end_behavior: str | None = None
+    end_color: str | None = None
+
+
+@dataclass(frozen=True)
+class WallpaperGraphResult:
+    path: str
+    nodes: list[WallpaperGraphNode]
+    edges: list[WallpaperGraphEdge]
+    end_behavior: str
+    end_color: str
+    error: str
 
 
 @dataclass(frozen=True)

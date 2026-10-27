@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from middleware.src.services.merge.concatenate import concatenate
+from middleware.src.services.merge.placement import place
 
 
 def handle_concatenate(params: dict[str, Any]) -> dict[str, Any]:
@@ -15,3 +16,8 @@ def handle_concatenate(params: dict[str, Any]) -> dict[str, Any]:
         int(params["spacing"]),
         str(params["align"]),
     )
+
+
+def handle_place(params: dict[str, Any]) -> dict[str, Any]:
+    placements = [dict(item) for item in params["placements"]]
+    return place(placements, str(params["output_path"]))
