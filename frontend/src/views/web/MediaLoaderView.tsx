@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { deskButtonClass, deskControlClass, DeskField, DeskForm } from "../../components/common/DeskForm";
 
 export interface MediaPlanResult {
   readonly accepted: boolean;
@@ -35,18 +36,16 @@ export function MediaLoaderView({ hostClient }: { readonly hostClient: MediaLoad
   }
 
   return (
-    <form data-testid="media-loader-view" onSubmit={onSubmit}>
-      <label>
-        URL
-        <input value={url} onChange={(event) => setUrl(event.target.value)} />
-      </label>
-      <label>
-        Destination
-        <input value={destination} onChange={(event) => setDestination(event.target.value)} />
-      </label>
-      <button type="submit">Plan</button>
-      {error ? <p role="alert">{error}</p> : null}
-      {result?.accepted ? <p>{result.reason}</p> : null}
-    </form>
+    <DeskForm testId="media-loader-view" title="Media Loader" description="Check a download plan. The URL is not fetched." onSubmit={onSubmit}>
+      <DeskField label="URL">
+        <input className={deskControlClass} value={url} onChange={(event) => setUrl(event.target.value)} />
+      </DeskField>
+      <DeskField label="Destination">
+        <input className={deskControlClass} value={destination} onChange={(event) => setDestination(event.target.value)} />
+      </DeskField>
+      <button type="submit" className={deskButtonClass}>Plan</button>
+      {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
+      {result?.accepted ? <p className="text-sm">{result.reason}</p> : null}
+    </DeskForm>
   );
 }
