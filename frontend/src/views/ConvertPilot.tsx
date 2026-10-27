@@ -11,11 +11,13 @@ export interface ConvertPilotProps {
 }
 
 const OUTPUT_FORMATS = ["png", "jpg", "jpeg", "webp", "bmp", "tiff", "tif", "ico", "gif"] as const;
+const INPUT_FORMATS = ["webp", "avif", "png", "jpg", "jpeg", "bmp", "gif", "tiff"] as const;
 const ALGORITHMS = ["lanczos", "bicubic", "bilinear", "nearest"] as const;
 const VIDEO_CODECS = ["h264", "hevc", "av1", "vp9", "copy"] as const;
 const AUDIO_CODECS = ["aac", "opus", "mp3", "flac", "copy"] as const;
 
 type OutputFormat = (typeof OUTPUT_FORMATS)[number];
+type InputFormat = (typeof INPUT_FORMATS)[number];
 type BatchAction = "convert" | "resample" | "reencode";
 
 function isOutputFormat(value: string): value is OutputFormat {
@@ -48,6 +50,8 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
   const [videoCodec, setVideoCodec] = useState<(typeof VIDEO_CODECS)[number]>("h264");
   const [audioCodec, setAudioCodec] = useState<(typeof AUDIO_CODECS)[number]>("aac");
   const [crf, setCrf] = useState(28);
+  const [recursive, setRecursive] = useState(false);
+  const [inputFormats, setInputFormats] = useState<readonly InputFormat[]>([]);
   const jobRef = useRef("");
 
   const onOutputPath = (value: string) => {
@@ -132,6 +136,27 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
     }
   };
 
+  const finishBatch = async (params: ConvertBatchParams, total: number) => {
+    setStatus("batch");
+    setProgress({ done: 0, total });
+    try {
+      const started = await hostClient.convertBatch(params);
+      jobRef.current = started.job_id;
+      const finished = await pollJob(hostClient, started.job_id, setProgress);
+      if (finished.state === "cancelled") {
+        setStatus("cancelled");
+      } else if (finished.state === "failed") {
+        setStatus("failed: batch");
+      } else if (finished.state === "completed") {
+        setStatus(completedBatchStatus(finished.result));
+      } else {
+        setStatus(finished.state);
+      }
+    } catch (err) {
+      setStatus(`error: ${String(err)}`);
+    }
+  };
+
   const onBatch = async (action: BatchAction) => {
     const chosen = files.filter((file) => selectedFiles.includes(file));
     if (!directory || !outputDir) {
@@ -153,24 +178,32 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
       ...(action === "resample" ? { width: resampleWidth, height: resampleHeight, algorithm } : {}),
       ...(action === "reencode" ? { video_codec: videoCodec, audio_codec: audioCodec, crf } : {}),
     };
-    setStatus("batch");
-    setProgress({ done: 0, total: chosen.length });
-    try {
-      const started = await hostClient.convertBatch(params);
-      jobRef.current = started.job_id;
-      const finished = await pollJob(hostClient, started.job_id, setProgress);
-      if (finished.state === "cancelled") {
-        setStatus("cancelled");
-      } else if (finished.state === "failed") {
-        setStatus("failed: batch");
-      } else if (finished.state === "completed") {
-        setStatus(completedBatchStatus(finished.result));
-      } else {
-        setStatus(finished.state);
-      }
-    } catch (err) {
-      setStatus(`error: ${String(err)}`);
+    await finishBatch(params, chosen.length);
+  };
+
+  const toggleInputFormat = (format: InputFormat) => {
+    setInputFormats((current) =>
+      current.includes(format) ? current.filter((item) => item !== format) : [...current, format],
+    );
+  };
+
+  const onConvertDirectory = async () => {
+    if (!directory || !outputDir) {
+      setStatus("failed: directory and output directory are required");
+      return;
     }
+    const formats = INPUT_FORMATS.filter((format) => inputFormats.includes(format));
+    const params: ConvertBatchParams = {
+      input_dir: directory,
+      output_dir: outputDir,
+      output_format: outputFormat,
+      quality: 95,
+      overwrite: true,
+      action: "convert",
+      recursive,
+      ...(formats.length > 0 ? { input_formats: [...formats] } : {}),
+    };
+    await finishBatch(params, 0);
   };
 
   return (
@@ -236,6 +269,33 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
       </label>
       <button type="button" onClick={() => void browseInto(setOutputDir)}>
         Browse output directory
+      </button>
+      <label>
+        <input
+          type="checkbox"
+          checked={recursive}
+          onChange={(event) => setRecursive(event.target.checked)}
+        />{" "}
+        Recursive
+      </label>
+      {INPUT_FORMATS.map((format) => (
+        <button
+          key={format}
+          type="button"
+          aria-pressed={inputFormats.includes(format)}
+          onClick={() => toggleInputFormat(format)}
+        >
+          {format}
+        </button>
+      ))}
+      <button type="button" onClick={() => setInputFormats([...INPUT_FORMATS])}>
+        Add all input formats
+      </button>
+      <button type="button" onClick={() => setInputFormats([])}>
+        Remove all input formats
+      </button>
+      <button type="button" onClick={() => onConvertDirectory()}>
+        Convert directory
       </button>
       <label>
         Resample width{" "}

@@ -130,6 +130,43 @@ test("a completed batch with file failures is not batch ok", async () => {
   expect(screen.queryByText("Status: batch ok")).not.toBeInTheDocument();
 });
 
+test("converts a directory without a file selection", async () => {
+  const hostClient = {
+    convert: vi.fn(),
+    convertListDir: vi.fn(),
+    convertBatch: vi.fn().mockResolvedValue({ job_id: "job-dir" }),
+    jobStatus: vi.fn().mockResolvedValue({
+      job_id: "job-dir",
+      kind: "convert.batch",
+      state: "completed",
+      progress: { done: 0, total: 0 },
+    }),
+    cancelJob: vi.fn(),
+  };
+  render(<ConvertPilot hostClient={hostClient as never} />);
+  fireEvent.change(screen.getByLabelText("Directory"), { target: { value: "/dir" } });
+  fireEvent.change(screen.getByLabelText("Output directory"), { target: { value: "/out" } });
+  fireEvent.click(screen.getByRole("button", { name: "Convert directory" }));
+  await waitFor(() => expect(hostClient.convertBatch).toHaveBeenCalledTimes(1));
+  expect(hostClient.convertBatch.mock.calls[0]?.[0]).toEqual({
+    input_dir: "/dir",
+    output_dir: "/out",
+    output_format: "png",
+    quality: 95,
+    overwrite: true,
+    action: "convert",
+    recursive: false,
+  });
+  fireEvent.click(screen.getByRole("button", { name: "png" }));
+  fireEvent.click(screen.getByRole("button", { name: "Convert directory" }));
+  await waitFor(() => expect(hostClient.convertBatch).toHaveBeenCalledTimes(2));
+  expect(hostClient.convertBatch.mock.calls[1]?.[0].input_formats).toEqual(["png"]);
+  fireEvent.click(screen.getByRole("checkbox", { name: "Recursive" }));
+  fireEvent.click(screen.getByRole("button", { name: "Convert directory" }));
+  await waitFor(() => expect(hostClient.convertBatch).toHaveBeenCalledTimes(3));
+  expect(hostClient.convertBatch.mock.calls[2]?.[0].recursive).toBe(true);
+});
+
 test("cancel asks the job to stop", async () => {
   let release: (value: unknown) => void = () => undefined;
   const pending = new Promise((resolve) => {
