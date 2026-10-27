@@ -150,6 +150,7 @@ export function Listings({ hostClient }: ListingsProps) {
     setBusy(true);
     try {
       const result: ListImagesResult = await hostClient.listLibraryImages({
+        limit: 10000,
         group_names: selectedGroups.length ? selectedGroups : undefined,
         subgroup_name: selectedSubgroup ?? undefined,
         tags: selectedTags.length ? selectedTags : undefined,
@@ -409,6 +410,9 @@ export function Listings({ hostClient }: ListingsProps) {
             className="rounded border border-it-border px-3 py-1 text-it-text"
           >
             Search
+          </button>
+          <button type="button" onClick={() => void search()}>
+            Refresh
           </button>
           <select
             aria-label="Sort"

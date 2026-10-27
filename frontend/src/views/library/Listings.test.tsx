@@ -66,7 +66,7 @@ test("loads groups and images over the library capability", async () => {
   expect(await screen.findByText("a.png")).toBeInTheDocument();
   expect(screen.getByText("b.jpg")).toBeInTheDocument();
   expect(screen.getByTestId("library-listings-count")).toHaveTextContent("2 images");
-  expect(client.listLibraryImages).toHaveBeenCalledWith({});
+  expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
 });
 
 test("group filters narrow the rows through list_images", async () => {
@@ -76,7 +76,7 @@ test("group filters narrow the rows through list_images", async () => {
 
   fireEvent.click(screen.getByLabelText("group Trips"));
   await waitFor(() => {
-    expect(client.listLibraryImages).toHaveBeenCalledWith({ group_names: ["Trips"] });
+    expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000, group_names: ["Trips"] });
   });
   await waitFor(() => {
     expect(screen.getByTestId("library-listings-count")).toHaveTextContent("1 image");
@@ -85,7 +85,7 @@ test("group filters narrow the rows through list_images", async () => {
 
   fireEvent.click(screen.getByLabelText("group Trips"));
   await waitFor(() => {
-    expect(client.listLibraryImages).toHaveBeenCalledWith({});
+    expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
   });
 });
 
@@ -95,7 +95,7 @@ test("an unavailable store shows the daemon-lease notice and no rows", async () 
 
   expect(await screen.findByTestId("library-listings-unavailable")).toBeInTheDocument();
   await waitFor(() => {
-    expect(client.listLibraryImages).toHaveBeenCalledWith({});
+    expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
   });
   expect(screen.queryByText("a.png")).not.toBeInTheDocument();
 });
@@ -210,7 +210,7 @@ test("tag filters and pagination are client-side over the returned rows", async 
 
   fireEvent.click(screen.getByRole("button", { name: "night" }));
   await waitFor(() => {
-    expect(client.listLibraryImages).toHaveBeenCalledWith({ tags: ["night"] });
+    expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000, tags: ["night"] });
   });
   expect(screen.getByTestId("library-listings-page")).toHaveTextContent("Page 1 of 1");
 });
@@ -235,5 +235,16 @@ test("filename sort reorders loaded rows and does not send a sort field", async 
   const after = screen.getByTestId("library-listings-rows").textContent ?? "";
   expect(after.indexOf("a.png")).toBeLessThan(after.indexOf("b.jpg"));
   expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
-  expect(client.listLibraryImages).toHaveBeenCalledWith({});
+  expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
+});
+
+test("refresh searches again with the same cap", async () => {
+  const client = stubClient();
+  render(<Listings hostClient={client as never} />);
+  await screen.findByText("a.png");
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await waitFor(() => {
+    expect(client.listLibraryImages).toHaveBeenCalledTimes(2);
+  });
+  expect(client.listLibraryImages).toHaveBeenLastCalledWith({ limit: 10000 });
 });
