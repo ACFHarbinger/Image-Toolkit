@@ -45,6 +45,13 @@ function categoryAllows(name: string, catalog: TagRecord[] | null, unchecked: re
   return !unchecked.includes(record.category ?? "");
 }
 
+function rowFactSuffix(image: ImageRecord): string {
+  const facts: string[] = [];
+  if (typeof image.file_size === "number") facts.push(`${image.file_size} B`);
+  if (typeof image.date_added === "string" && image.date_added !== "") facts.push(image.date_added);
+  return facts.length ? ` · ${facts.join(" · ")}` : "";
+}
+
 function presentProperties(image: ImageRecord): Array<{ label: string; value: string }> {
   const rows: Array<{ label: string; value: string }> = [];
   const push = (label: string, value: string | number | null | undefined) => {
@@ -484,6 +491,7 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
                 <span className="shrink-0 text-it-muted-text">
                   {image.group_name ?? "—"}
                   {image.width && image.height ? ` · ${image.width}×${image.height}` : ""}
+                  {rowFactSuffix(image)}
                 </span>
               </div>
             ))}

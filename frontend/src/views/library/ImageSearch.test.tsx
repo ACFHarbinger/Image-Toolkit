@@ -282,3 +282,46 @@ test("properties panel lists present fields on the selected result and toggles c
   fireEvent.click(screen.getByRole("button", { name: "Properties" }));
   expect(screen.queryByTestId("library-search-properties")).not.toBeInTheDocument();
 });
+
+test("result rows show present file size and date added only", async () => {
+  const client = stubClient();
+  client.listLibraryImages.mockResolvedValue({
+    available: true,
+    images: [
+      {
+        id: 1,
+        file_path: "/pics/a.png",
+        filename: "a.png",
+        file_size: 0,
+        date_added: "2020-01-01",
+      },
+      {
+        id: 2,
+        file_path: "/pics/b.jpg",
+        filename: "b.jpg",
+      },
+    ],
+  });
+  render(<ImageSearch hostClient={client as never} />);
+  await screen.findByTestId("library-search");
+
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  await waitFor(() => {
+    expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
+  });
+
+  const rows = await screen.findByTestId("library-search-rows");
+  expect(rows).toHaveTextContent("0 B");
+  expect(rows).toHaveTextContent("2020-01-01");
+
+  const rowElements = rows.querySelectorAll(":scope > div");
+  const bRow = Array.from(rowElements).find((row) => row.textContent?.includes("b.jpg"));
+  expect(bRow).toBeTruthy();
+  expect(bRow?.textContent ?? "").not.toContain("undefined");
+  expect(bRow?.textContent ?? "").not.toContain("null");
+
+  const filename = screen.getByRole("button", { name: "a.png" });
+  expect(filename).toHaveTextContent(/^a\.png$/);
+  expect(filename.textContent ?? "").not.toContain("0 B");
+  expect(filename.textContent ?? "").not.toContain("2020-01-01");
+});
