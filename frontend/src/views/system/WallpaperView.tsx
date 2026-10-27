@@ -319,6 +319,23 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
     : monitors[0]?.id;
   const galleryPath = galleryMonitorId ? monitorPaths[galleryMonitorId] || "" : "";
 
+  // In-memory exchange only. Apply and slideshow still push the display.
+  const handleSwapMonitors = (left: string, right: string) => {
+    if (left === right) return;
+    if (!monitors.some((monitor) => monitor.id === left)) return;
+    if (!monitors.some((monitor) => monitor.id === right)) return;
+    setMonitorPaths((prev) => ({
+      ...prev,
+      [left]: prev[right] ?? "",
+      [right]: prev[left] ?? "",
+    }));
+    setMonitorQueues((prev) => ({
+      ...prev,
+      [left]: [...(prev[right] ?? [])],
+      [right]: [...(prev[left] ?? [])],
+    }));
+  };
+
   // Marks the queue path as the monitor's assigned image. Apply still pushes it.
   const handleSetQueueActive = (idx: number) => {
     if (!galleryMonitorId) return;
@@ -439,6 +456,22 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
                     }
                     className="w-full text-xs p-2 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 font-mono outline-none focus:ring-1 focus:ring-violet-500"
                   />
+                  {monitors.length > 1 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {monitors
+                        .filter((other) => other.id !== m.id)
+                        .map((other) => (
+                          <button
+                            key={other.id}
+                            type="button"
+                            onClick={() => handleSwapMonitors(m.id, other.id)}
+                            className="px-2 py-1 border rounded text-xs"
+                          >
+                            {`Swap with ${other.id}`}
+                          </button>
+                        ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -536,6 +569,7 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
                     Monitor Queue Selection
                   </label>
                   <select
+                    aria-label="Monitor queue"
                     value={selectedMonitorQueue}
                     onChange={(e) => setSelectedMonitorQueue(e.target.value)}
                     className="w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white p-2 text-sm outline-none"

@@ -545,4 +545,81 @@ describe("WallpaperView", () => {
     expect(hostClient.wallpaperSlideshowConfig.mock.calls.length).toBe(configCalls);
     expect(hostClient.wallpaperMonitorGraph).not.toHaveBeenCalled();
   });
+
+  test("swaps assigned images and queues between two monitors without applying", async () => {
+    const hostClient = {
+      wallpaperGetMonitors: vi.fn().mockResolvedValue({
+        desktop_environment: "KDE Plasma",
+        monitors: [
+          {
+            id: "DP-1",
+            name: "DisplayPort-1",
+            width: 2560,
+            height: 1440,
+            x: 0,
+            y: 0,
+            is_primary: true,
+          },
+          {
+            id: "DP-2",
+            name: "DisplayPort-2",
+            width: 1920,
+            height: 1080,
+            x: 2560,
+            y: 0,
+            is_primary: false,
+          },
+        ],
+      }),
+      wallpaperSlideshowConfig: vi.fn().mockResolvedValue({
+        ...mockConfigResult,
+        monitor_queues: {
+          "DP-1": ["/tmp/q1.png"],
+          "DP-2": ["/tmp/q2.png"],
+        },
+        current_paths: {
+          "DP-1": "/tmp/a.png",
+          "DP-2": "/tmp/b.png",
+        },
+      }),
+      wallpaperSet: vi.fn(),
+      wallpaperSlideshowToggle: vi.fn(),
+      wallpaperMonitorGraph: vi.fn(),
+    };
+
+    render(<WallpaperView hostClient={hostClient as any} />);
+
+    expect(await screen.findByLabelText("Assigned image DP-1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Assigned image DP-2")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText("Assigned image DP-1")).toHaveValue("/tmp/a.png");
+      expect(screen.getByLabelText("Assigned image DP-2")).toHaveValue("/tmp/b.png");
+    });
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Monitor queue" }), {
+      target: { value: "DP-1" },
+    });
+    expect(screen.getByText("/tmp/q1.png")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Swap with DP-2" }));
+
+    expect(screen.getByLabelText("Assigned image DP-1")).toHaveValue("/tmp/b.png");
+    expect(screen.getByLabelText("Assigned image DP-2")).toHaveValue("/tmp/a.png");
+    expect(screen.getByText("/tmp/q2.png")).toBeInTheDocument();
+    expect(screen.queryByText("/tmp/q1.png")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Monitor queue" }), {
+      target: { value: "DP-2" },
+    });
+    expect(screen.getByText("/tmp/q1.png")).toBeInTheDocument();
+
+    expect(hostClient.wallpaperSet).not.toHaveBeenCalled();
+    expect(hostClient.wallpaperSlideshowConfig).toHaveBeenCalledTimes(1);
+    expect(hostClient.wallpaperSlideshowConfig).toHaveBeenCalledWith({ update: false });
+    expect(hostClient.wallpaperMonitorGraph).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Swap with DP-1" }));
+    expect(screen.getByLabelText("Assigned image DP-1")).toHaveValue("/tmp/a.png");
+    expect(screen.getByLabelText("Assigned image DP-2")).toHaveValue("/tmp/b.png");
+  });
 });
