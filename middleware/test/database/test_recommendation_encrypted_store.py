@@ -3,7 +3,7 @@ storage layer swapped onto an encrypted base.database.Database handle
 instead of a plaintext sqlite3 file, with the retrieval/scoring algorithm
 above it left completely untouched.
 
-Mirrors submodules/CRE/tests/test_store.py's coverage of
+Mirrors middleware/test/cre/test_store.py's coverage of
 SQLiteStore, against the same public API.
 """
 

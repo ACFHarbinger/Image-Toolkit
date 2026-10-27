@@ -38,7 +38,7 @@ MANIFEST = PluginManifest(
 
 _EVAL_PATHS = [
     Path("docs/website/public/data/asp_evaluations.json"),
-    Path("submodules/ASP/data/benchmarks/asp_evaluations_20260810.json"),
+    Path("data/asp/benchmarks/asp_evaluations_20260810.json"),
     Path("docs/website/public/data/human_ratings_summary.json"),
 ]
 

@@ -301,9 +301,6 @@ def cmd_wallpaper(args: Any) -> int:
     repo_root = str(Path(__file__).resolve().parents[3])
     if repo_root not in sys.path:
         sys.path.insert(0, repo_root)
-    from git.scripts._submodule_bootstrap import register_submodule_packages
-
-    register_submodule_packages(repo_root)
 
     from asp_backend.rendering.wallpaper.wallpaper_pipeline import (
         estimate_wallpaper_time,

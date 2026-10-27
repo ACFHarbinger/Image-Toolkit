@@ -4,8 +4,7 @@
 ``run()``, not ``QObject`` + ``moveToThread`` (JPype-JVM-safe pattern).
 
 Reuses the BGE-M3 ``Embedder`` already built and tested for the standalone
-``CRE`` sub-project (``submodules/CRE/
-src/data/embedder.py``) instead of loading a second copy of the model or
+``CRE`` sub-project (``middleware/src/cre/data/embedder.py``) instead of loading a second copy of the model or
 inventing a new embedding pathway -- same principle DB.7's image side used
 (reusing the Similarity tab's existing open_clip embedder).
 """

@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- **Delete `submodules/` and retire loaders** (Tauri migration W0-03 Phase E, #1039 / #867):
+  - Tagged `main` as `pre-submodules-removal` and removed the `submodules/` directory entirely (777 files).
+  - Deleted `middleware/src/services/_submodule_loader.py` and `git/scripts/_submodule_bootstrap.py`, and removed all registration calls and aliases across middleware, GUI entry points, and test harnesses.
+  - Pruned `submodules/**` from root `pyproject.toml` workspace members and `uv.lock`.
+  - Relocated ASP C++ base unit tests to `backend/tests/asp/` and updated `backend/tests/CMakeLists.txt`.
+  - Cleaned up lingering submodule references in `migration/features.toml`, `migration/README.md`, `docs/website/src/constants/submodules.ts`, `docs/website/public/docs/DEVELOPMENT.md`, `AGENTS.md`, and all `tools/*/justfile` and root `justfile` recipes.
+  - Closed Dependabot PR #1005.
+
 - **HIE relocated out of `submodules/`** (W0-03 phase E, #1037 / #867): the Hybrid Image Editor engine now lives at `middleware/src/hie/` (imported as `middleware.src.hie`), tests at `middleware/test/hie/`, the timing script at `middleware/scripts/hie_benchmark_jobs.py`, editor config at `middleware/src/hie/settings` and `middleware/src/hie/config`, compiled C++ at `backend/src/hie/`, and reference docs at `docs/hie/` (linked from `docs/modules/hie.md`; the differing Hybrid-Image-Editor licence is copied to `docs/hie/LICENSE`). `HieService` imports `IpcService` from the canonical package inside the call, not via a submodule path root. No behavior change — Qt `submodules/HIE/gui`, unused `desktop/` and `infra/` copies, and the per-repo CI/pyproject remainder stay until the final `submodules/` removal PR. The parent build does not `add_subdirectory` `submodules/HIE/CMakeLists.txt`; that leftover file still names `logic/`.
 - **CRE relocated out of `submodules/`** (W0-03 phase E, #1035 / #867): the Content Recommendation Engine now lives at `middleware/src/cre/` (engine), `middleware/test/cre/` (tests), `middleware/scripts/cre_{evaluate,sweep}.py` (offline eval scripts), `data/cre/` (sample corpora), and `docs/cre/` (architecture, roadmaps, research notes — linked from `docs/modules/cre.md`; the differing CRE licence is kept at `docs/cre/LICENSE`). Imports are the canonical `middleware.src.cre.*` everywhere; `CreService` and the GUI recommendation/embedding workers no longer go through the submodule `src` path hack, and `submodules/CRE` left the uv workspace (lock updated). No behavior change — the stale submodules/CRE tree (Qt-era configs, CI templates, per-repo pyproject) stays until the final `submodules/` removal PR.
 

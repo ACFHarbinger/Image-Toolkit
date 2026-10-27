@@ -12,7 +12,7 @@ Defines canonical development subsets for M0-M6:
    - Manual-selection oracle (asp_test14)
    - Structural alignment with GT (asp_test96)
 
-See ``submodules/ASP/docs/moon/asp_change_roadmap_2026q3.md`` §5 (M0d).
+See ``docs/asp/moon/asp_change_roadmap_2026q3.md`` §5 (M0d).
 """
 
 from __future__ import annotations

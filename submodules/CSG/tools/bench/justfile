@@ -1,6 +1,0 @@
-# tools/bench — no benchmark suite yet.
-
-set shell := ["bash", "-c"]
-
-all:
-    @echo "No benchmark suite defined yet for Cel-Shaded-Generator."

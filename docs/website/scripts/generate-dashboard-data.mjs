@@ -27,13 +27,13 @@ const REPO_ROOT = path.resolve(WEBSITE_ROOT, "../..");
 const OUT_DIR = path.join(WEBSITE_ROOT, "public", "data");
 
 const RUN_GLOBS = [
-  path.join(REPO_ROOT, "submodules/ASP/backend/benchmark/output"),
+  path.join(REPO_ROOT, "middleware/benchmark/asp/output"),
   path.join(REPO_ROOT, "middleware/benchmark/results"),
   path.join(REPO_ROOT, "middleware/benchmark/output"),
 ];
 
 const EVAL_DIRS = [
-  path.join(REPO_ROOT, "submodules/ASP/data/benchmarks"),
+  path.join(REPO_ROOT, "data/asp/benchmarks"),
   path.join(REPO_ROOT, "data/benchmarks"),
 ];
 
@@ -282,11 +282,11 @@ function main() {
   // Generate M2.5a (#32) Per-Defect & Stage-Attributed Correlation Matrix
   const defectAuditScript = path.join(
     REPO_ROOT,
-    "submodules/ASP/backend/benchmark/audit_defect_correlation.py"
+    "middleware/benchmark/asp/audit_defect_correlation.py"
   );
   const subsetSelectionScript = path.join(
     REPO_ROOT,
-    "submodules/ASP/backend/benchmark/subset_selection.py"
+    "middleware/benchmark/asp/subset_selection.py"
   );
   const primaryRunFile = runFiles.find((f) => path.basename(f) === "anime_stitch_20260807_045552.json") || runFiles[0];
   if (primaryRunFile && latestEvalPath) {
@@ -342,7 +342,7 @@ function main() {
 
     const coherenceV2Script = path.join(
       REPO_ROOT,
-      "submodules/ASP/backend/benchmark/bench_coherence_v2_ab.py"
+      "middleware/benchmark/asp/bench_coherence_v2_ab.py"
     );
     if (fs.existsSync(coherenceV2Script)) {
       try {

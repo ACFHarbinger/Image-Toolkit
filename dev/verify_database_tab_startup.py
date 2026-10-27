@@ -28,9 +28,7 @@ with contextlib.suppress(OSError):
 repo_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(repo_root))
 
-from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa: E402
 
-register_submodule_packages(repo_root)
 
 from middleware.src.qt_runtime_env import pin_qt_media_backend  # noqa: E402
 
