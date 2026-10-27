@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { open } from "@tauri-apps/plugin-dialog";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { ExtractorView } from "./ExtractorView";
 
@@ -186,4 +187,31 @@ test("a scanned video thumbnail fills the video path and does not start a job", 
   expect(hostClient.extractorCutSheet).not.toHaveBeenCalled();
   expect(hostClient.cancelJob).not.toHaveBeenCalled();
   vi.mocked(invoke).mockReset();
+});
+
+test("browse output dialogs fill snapshot and sheet fields without starting a job", async () => {
+  const hostClient = {
+    cancelJob: vi.fn(),
+    extractorProbe: vi.fn(),
+    extractorSnapshot: vi.fn(),
+    extractorExtractRange: vi.fn(),
+    extractorCutSheet: vi.fn(),
+    jobStatus: vi.fn(),
+  };
+  render(<ExtractorView hostClient={hostClient} />);
+  vi.mocked(open).mockResolvedValueOnce("/frames/shot.png");
+  fireEvent.click(screen.getByRole("button", { name: "Browse snapshot output" }));
+  await waitFor(() => expect(screen.getByLabelText("Snapshot output")).toHaveValue("/frames/shot.png"));
+  expect(open).toHaveBeenCalledWith({ directory: false, multiple: false });
+  expect(hostClient.extractorProbe).not.toHaveBeenCalled();
+  expect(hostClient.extractorSnapshot).not.toHaveBeenCalled();
+  expect(hostClient.extractorExtractRange).not.toHaveBeenCalled();
+  expect(hostClient.extractorCutSheet).not.toHaveBeenCalled();
+  expect(hostClient.cancelJob).not.toHaveBeenCalled();
+  vi.mocked(open).mockResolvedValueOnce("/frames");
+  fireEvent.click(screen.getByRole("button", { name: "Browse sheet output" }));
+  await waitFor(() => expect(screen.getByLabelText("Sheet output")).toHaveValue("/frames"));
+  expect(open).toHaveBeenLastCalledWith({ directory: true, multiple: false });
+  vi.mocked(open).mockReset();
+  vi.mocked(open).mockImplementation(() => Promise.resolve(null));
 });

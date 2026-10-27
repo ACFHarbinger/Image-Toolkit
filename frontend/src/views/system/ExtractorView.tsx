@@ -1,3 +1,4 @@
+import { open } from "@tauri-apps/plugin-dialog";
 import React, { useState } from "react";
 import { ThumbnailGallery } from "../../components/common/ThumbnailGallery";
 
@@ -78,6 +79,17 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
   const [spacing, setSpacing] = useState(0);
   const [includePartial, setIncludePartial] = useState(false);
   const [actionNote, setActionNote] = useState("");
+
+  async function pickInto(directory: boolean, apply: (path: string) => void): Promise<void> {
+    try {
+      const picked = await open({ directory, multiple: false });
+      if (typeof picked === "string" && picked.length > 0) {
+        apply(picked);
+      }
+    } catch {
+      // A thrown dialog leaves the field unchanged and does not submit.
+    }
+  }
 
   async function onSubmit(event: React.FormEvent): Promise<void> {
     event.preventDefault();
@@ -225,6 +237,9 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
         Snapshot output
         <input value={snapshotOut} onChange={(event) => setSnapshotOut(event.target.value)} />
       </label>
+      <button type="button" onClick={() => void pickInto(false, setSnapshotOut)}>
+        Browse snapshot output
+      </button>
       <button type="button" onClick={onSnapshot}>
         Snapshot
       </button>
@@ -240,6 +255,9 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
         Range output
         <input value={rangeOut} onChange={(event) => setRangeOut(event.target.value)} />
       </label>
+      <button type="button" onClick={() => void pickInto(false, setRangeOut)}>
+        Browse range output
+      </button>
       <button type="button" onClick={onRange}>
         Extract range
       </button>
@@ -257,6 +275,9 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
         Sheet output
         <input value={sheetDir} onChange={(event) => setSheetDir(event.target.value)} />
       </label>
+      <button type="button" onClick={() => void pickInto(true, setSheetDir)}>
+        Browse sheet output
+      </button>
       <label>
         Arrangement
         <select
