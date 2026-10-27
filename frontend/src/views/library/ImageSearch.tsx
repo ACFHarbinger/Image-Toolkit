@@ -24,6 +24,9 @@ export interface ImageSearchProps {
 
 const FORMATS = ["png", "jpg", "jpeg", "webp", "avif", "bmp", "tiff", "gif"] as const;
 const PAGE_SIZE = 100;
+const PAGE_SIZE_CHOICES = [20, 50, 100, 150, 250, 500, 1000] as const;
+
+type PageSize = number | "all";
 
 function categoryLabel(category: string): string {
   return category === "" ? "(No Category)" : category;
@@ -54,6 +57,15 @@ function isSortKey(value: string): value is SortKey {
 
 function isSortOrder(value: string): value is SortOrder {
   return value === "asc" || value === "desc";
+}
+
+function pageSizeChoice(value: string): PageSize | null {
+  if (value === "All") return "all";
+  const floored = Math.floor(Number(value));
+  for (const size of PAGE_SIZE_CHOICES) {
+    if (size === floored) return size;
+  }
+  return null;
 }
 
 function compareMissingLast(
@@ -153,6 +165,7 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState<PageSize>(PAGE_SIZE);
   const [sortKey, setSortKey] = useState<SortKey>("returned");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [searched, setSearched] = useState(false);
@@ -319,8 +332,9 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
     }
   };
 
-  const pageCount = Math.max(1, Math.ceil(images.length / PAGE_SIZE));
-  const pageImages = sortedImages(images, sortKey, sortOrder).slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const pageLength = pageSize === "all" ? Math.max(1, images.length) : Math.floor(pageSize);
+  const pageCount = Math.max(1, Math.ceil(images.length / pageLength));
+  const pageImages = sortedImages(images, sortKey, sortOrder).slice(page * pageLength, (page + 1) * pageLength);
   const selected = images[selectedIndex];
 
   return (
@@ -550,6 +564,23 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
               >
                 <option value="asc">Ascending</option>
                 <option value="desc">Descending</option>
+              </select>
+              <select
+                aria-label="Images per page"
+                value={pageSize === "all" ? "All" : String(pageSize)}
+                onChange={(event) => {
+                  const next = pageSizeChoice(event.target.value);
+                  if (next == null) return;
+                  setPageSize(next);
+                  setPage(0);
+                }}
+              >
+                {PAGE_SIZE_CHOICES.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+                <option value="All">All</option>
               </select>
             </div>
           ) : null}

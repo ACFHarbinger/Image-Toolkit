@@ -374,3 +374,39 @@ test("sort by filename reorders rows and does not search again", async () => {
   expect(descendingText.indexOf("b.jpg")).toBeLessThan(descendingText.indexOf("a.png"));
   expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
 });
+
+test("images per page splits the loaded results without searching again", async () => {
+  const client = stubClient();
+  client.listLibraryImages.mockResolvedValue({
+    available: true,
+    images: Array.from({ length: 21 }, (_, index) => {
+      const filename = `p${String(index).padStart(2, "0")}.png`;
+      return { id: index, file_path: `/pics/${filename}`, filename };
+    }),
+  });
+  render(<ImageSearch hostClient={client as never} />);
+  await screen.findByTestId("library-search");
+
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  await waitFor(() => {
+    expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+    expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
+  });
+
+  expect(screen.getByRole("button", { name: "p00.png" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "p19.png" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "p20.png" })).toBeInTheDocument();
+
+  fireEvent.change(screen.getByRole("combobox", { name: "Images per page" }), {
+    target: { value: "20" },
+  });
+  expect(screen.queryByRole("button", { name: "p20.png" })).not.toBeInTheDocument();
+  expect(screen.getByTestId("library-search-page")).toHaveTextContent("Page 1 of 2");
+  expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  expect(screen.getByRole("button", { name: "p20.png" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "p00.png" })).not.toBeInTheDocument();
+  expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+  expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
+});
