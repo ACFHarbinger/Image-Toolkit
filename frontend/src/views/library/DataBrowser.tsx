@@ -92,6 +92,17 @@ export function DataBrowser({ client }: { client: BrowserClient }) {
     setExportText(lines.join("\n"));
   }
 
+  function copyExport(): void {
+    if (exportText === "") return;
+    const clipboard = navigator.clipboard;
+    if (typeof clipboard?.writeText !== "function") return;
+    try {
+      void Promise.resolve(clipboard.writeText(exportText)).catch(() => undefined);
+    } catch {
+      // A failed copy leaves the export text on screen.
+    }
+  }
+
   function showJson() {
     if (!page) return;
     const records = orderedRows(page.rows, sort).map((row) => {
@@ -179,6 +190,9 @@ export function DataBrowser({ client }: { client: BrowserClient }) {
         </button>
         <button type="button" disabled={!exportReady} onClick={showJson}>
           Export JSON
+        </button>
+        <button type="button" disabled={exportText === ""} onClick={copyExport}>
+          Copy export
         </button>
       </form>
       <pre data-testid="library-browser-export">{exportText}</pre>

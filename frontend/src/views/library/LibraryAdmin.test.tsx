@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, expect, test } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, expect, test, vi } from "vitest";
 import type { BrowseParams, BrowseResult, CatalogResult, MutateParams, MutateResult } from "../../../../contracts/generated/ts";
 import { DataBrowser } from "./DataBrowser";
 import { LibraryManagement } from "./LibraryManagement";
@@ -307,6 +307,17 @@ test("the data browser exports the current page as csv and json", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Export JSON" }));
   expect(exported.textContent).toContain('"filename"');
   expect(exported.textContent).toContain('"a.png"');
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  const previous = navigator.clipboard;
+  navigator.clipboard = { writeText } as Clipboard;
+  try {
+    fireEvent.click(screen.getByRole("button", { name: "Copy export" }));
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(exported.textContent);
+    });
+  } finally {
+    navigator.clipboard = previous;
+  }
 });
 
 test("the data browser sorts the current page by a column header", async () => {
