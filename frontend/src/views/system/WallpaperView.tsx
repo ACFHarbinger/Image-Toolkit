@@ -60,6 +60,7 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
   const [endColor, setEndColor] = useState<string>("#000000");
   const [nodePath, setNodePath] = useState<string>("");
   const [nodeDuration, setNodeDuration] = useState<number>(10);
+  const [graphViewBox, setGraphViewBox] = useState<string>("0 0 480 72");
   const [edgeFrom, setEdgeFrom] = useState<string>("");
   const [edgeTo, setEdgeTo] = useState<string>("");
 
@@ -253,6 +254,16 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
   const handleClearGraph = () => {
     setGraphNodes([]);
     setGraphEdges([]);
+  };
+
+  const handleFitView = () => {
+    if (graphNodes.length === 0) {
+      setGraphViewBox("0 0 480 72");
+      return;
+    }
+    const rightEdge = 24 + (graphNodes.length - 1) * 110 + 88 + 24;
+    const width = Math.max(480, rightEdge);
+    setGraphViewBox(`0 0 ${width} 72`);
   };
 
   const handleSaveGraph = async () => {
@@ -819,7 +830,7 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
                 />
               </label>
             )}
-            <svg data-testid="monitor-graph" width="480" height="72" role="img" aria-label="Monitor display graph">
+            <svg data-testid="monitor-graph" width="480" height="72" viewBox={graphViewBox} role="img" aria-label="Monitor display graph">
               {graphEdges.map((edge, index) => {
                 const source = graphNodes.findIndex((node) => node.id === edge.source);
                 const target = graphNodes.findIndex((node) => node.id === edge.target);
@@ -848,6 +859,9 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
               </button>
               <button type="button" onClick={handleClearGraph} className="px-3 py-1.5 border rounded text-xs">
                 Clear graph
+              </button>
+              <button type="button" onClick={handleFitView} className="px-3 py-1.5 border rounded text-xs">
+                Fit view
               </button>
               <button type="button" onClick={handleLoadGraph} disabled={loading} className="px-3 py-1.5 border rounded text-xs">
                 Load graph

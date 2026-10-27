@@ -622,4 +622,35 @@ describe("WallpaperView", () => {
     expect(screen.getByLabelText("Assigned image DP-1")).toHaveValue("/tmp/a.png");
     expect(screen.getByLabelText("Assigned image DP-2")).toHaveValue("/tmp/b.png");
   });
+
+  test("fit view widens the graph viewBox and resets when the graph is empty", async () => {
+    const hostClient = {
+      wallpaperGetMonitors: vi.fn().mockResolvedValue(mockMonitorsResult),
+      wallpaperSlideshowConfig: vi.fn().mockResolvedValue(mockConfigResult),
+      wallpaperSet: vi.fn(),
+      wallpaperSlideshowToggle: vi.fn(),
+      wallpaperMonitorGraph: vi.fn(),
+    };
+    render(<WallpaperView hostClient={hostClient as any} />);
+    await screen.findByText("KDE Plasma");
+
+    const graph = screen.getByTestId("monitor-graph");
+    expect(graph).toHaveAttribute("viewBox", "0 0 480 72");
+
+    for (let index = 0; index < 6; index += 1) {
+      fireEvent.change(screen.getByLabelText("Node path"), { target: { value: "/tmp/a.png" } });
+      fireEvent.click(screen.getByRole("button", { name: "Add node" }));
+    }
+    expect(graph).toHaveAttribute("viewBox", "0 0 480 72");
+
+    fireEvent.click(screen.getByRole("button", { name: "Fit view" }));
+    expect(graph).toHaveAttribute("viewBox", "0 0 686 72");
+    expect(hostClient.wallpaperMonitorGraph).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear graph" }));
+    expect(graph).toHaveAttribute("viewBox", "0 0 686 72");
+    fireEvent.click(screen.getByRole("button", { name: "Fit view" }));
+    expect(graph).toHaveAttribute("viewBox", "0 0 480 72");
+    expect(hostClient.wallpaperMonitorGraph).not.toHaveBeenCalled();
+  });
 });
