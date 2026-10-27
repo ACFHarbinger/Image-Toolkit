@@ -283,6 +283,38 @@ test("rows show date modified and tags and can sort by date modified", async () 
   expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
 });
 
+test("extension sort reorders loaded rows and does not send a sort field", async () => {
+  const client = stubClient();
+  client.listLibraryImages = vi.fn(async (): Promise<ListImagesResult> => ({
+    available: true,
+    images: [
+      { id: 2, file_path: "/pics/b.jpg", filename: "b.jpg" },
+      { id: 1, file_path: "/pics/a.PNG", filename: "a.PNG" },
+    ],
+  }));
+  render(<Listings hostClient={client as never} />);
+
+  await screen.findByText("b.jpg");
+  const before = screen.getByTestId("library-listings-rows").textContent ?? "";
+  expect(before.indexOf("b.jpg")).toBeLessThan(before.indexOf("a.PNG"));
+  expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+  expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
+  expect(client.listLibraryImages.mock.calls[0]?.[0]).not.toHaveProperty("sort");
+
+  fireEvent.change(screen.getByLabelText("Sort"), { target: { value: "extension" } });
+
+  const ascending = screen.getByTestId("library-listings-rows").textContent ?? "";
+  expect(ascending.indexOf("b.jpg")).toBeLessThan(ascending.indexOf("a.PNG"));
+
+  fireEvent.change(screen.getByLabelText("Order"), { target: { value: "desc" } });
+
+  const descending = screen.getByTestId("library-listings-rows").textContent ?? "";
+  expect(descending.indexOf("a.PNG")).toBeLessThan(descending.indexOf("b.jpg"));
+  expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+  expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
+  expect(client.listLibraryImages.mock.calls[0]?.[0]).not.toHaveProperty("sort");
+});
+
 test("filename sort reorders loaded rows and does not send a sort field", async () => {
   const client = stubClient();
   client.listLibraryImages = vi.fn(async (): Promise<ListImagesResult> => ({

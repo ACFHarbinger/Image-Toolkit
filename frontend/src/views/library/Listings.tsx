@@ -23,13 +23,14 @@ export interface ListingsProps {
 
 const PAGE_SIZE = 100;
 
-type SortKey = "returned" | "filename" | "date_added" | "date_modified" | "size";
+type SortKey = "returned" | "filename" | "extension" | "date_added" | "date_modified" | "size";
 type SortOrder = "asc" | "desc";
 
 function isSortKey(value: string): value is SortKey {
   return (
     value === "returned" ||
     value === "filename" ||
+    value === "extension" ||
     value === "date_added" ||
     value === "date_modified" ||
     value === "size"
@@ -79,6 +80,12 @@ function visibleListingFacts(image: ImageRecord): string {
   return facts.length > 0 ? " · " + facts.join(" · ") : "";
 }
 
+function fileExtension(filename: string): string {
+  const index = filename.lastIndexOf(".");
+  if (index <= 0) return "";
+  return filename.slice(index).toLowerCase();
+}
+
 function sortedImages(rows: readonly ImageRecord[], key: SortKey, order: SortOrder): ImageRecord[] {
   if (key === "returned") return rows.slice();
   const descending = order === "desc";
@@ -86,6 +93,10 @@ function sortedImages(rows: readonly ImageRecord[], key: SortKey, order: SortOrd
   copy.sort((left, right) => {
     if (key === "filename") {
       const ordered = left.filename.localeCompare(right.filename);
+      return descending ? -ordered : ordered;
+    }
+    if (key === "extension") {
+      const ordered = fileExtension(left.filename).localeCompare(fileExtension(right.filename));
       return descending ? -ordered : ordered;
     }
     if (key === "date_added" || key === "date_modified") {
@@ -455,6 +466,7 @@ export function Listings({ hostClient }: ListingsProps) {
           >
             <option value="returned">As returned</option>
             <option value="filename">Filename</option>
+            <option value="extension">Extension</option>
             <option value="date_added">Date added</option>
             <option value="date_modified">Date modified</option>
             <option value="size">Size</option>
