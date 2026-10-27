@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { ThumbnailGallery } from "../../components/common/ThumbnailGallery";
+import { deskButtonClass, deskControlClass, DeskField, DeskForm } from "../../components/common/DeskForm";
 
 export interface MetadataDescribeResult {
   readonly found: boolean;
@@ -31,19 +33,24 @@ export function MetadataDeskView({ hostClient }: { readonly hostClient: Metadata
   }
 
   return (
-    <form data-testid="metadata-desk" onSubmit={onSubmit}>
-      <label>
-        Path
-        <input value={path} onChange={(event) => setPath(event.target.value)} />
-      </label>
-      <button type="submit">Describe</button>
-      {error ? <p role="alert">{error}</p> : null}
-      {result ? <p>{result.reason}</p> : null}
+    <DeskForm testId="metadata-desk" title="File Metadata" description="Name and size of a file. The library database is not opened." onSubmit={onSubmit}>
+      <ThumbnailGallery
+        multiple={false}
+        directoryLabel="Image directory"
+        selected={path ? [path] : []}
+        onSelectedChange={(paths) => setPath(paths[0] ?? "")}
+      />
+      <DeskField label="Path">
+        <input className={deskControlClass} value={path} onChange={(event) => setPath(event.target.value)} />
+      </DeskField>
+      <button type="submit" className={deskButtonClass}>Describe</button>
+      {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
+      {result ? <p className="text-sm">{result.reason}</p> : null}
       {result?.found ? (
-        <p>
+        <p className="text-sm">
           {result.name} {result.size} {result.suffix}
         </p>
       ) : null}
-    </form>
+    </DeskForm>
   );
 }

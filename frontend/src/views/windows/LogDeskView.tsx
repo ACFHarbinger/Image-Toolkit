@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { deskButtonClass, deskControlClass, DeskField, DeskForm } from "../../components/common/DeskForm";
+import { ThumbnailGallery } from "../../components/common/ThumbnailGallery";
 
 export interface LogsReadResult {
   readonly found: boolean;
@@ -31,31 +33,37 @@ export function LogDeskView({ hostClient }: { readonly hostClient: LogsClient })
   }
 
   return (
-    <form data-testid="log-desk" onSubmit={onSubmit}>
-      <label>
-        Path
-        <input value={path} onChange={(event) => setPath(event.target.value)} />
-      </label>
-      <label>
-        Limit
+    <DeskForm testId="log-desk" title="Logs" description="Last lines of a log file. The file is not followed." onSubmit={onSubmit}>
+      <ThumbnailGallery
+        extensions={["log", "txt"]}
+        multiple={false}
+        directoryLabel="Log directory"
+        selected={path ? [path] : []}
+        onSelectedChange={(paths) => setPath(paths[0] ?? "")}
+      />
+      <DeskField label="Path">
+        <input className={deskControlClass} value={path} onChange={(event) => setPath(event.target.value)} />
+      </DeskField>
+      <DeskField label="Limit">
         <input
+          className={deskControlClass}
           type="number"
           min={1}
           max={200}
           value={limit}
           onChange={(event) => setLimit(Number(event.target.value))}
         />
-      </label>
-      <button type="submit">Read</button>
-      {error ? <p role="alert">{error}</p> : null}
-      {result ? <p>{result.reason}</p> : null}
+      </DeskField>
+      <button type="submit" className={deskButtonClass}>Read</button>
+      {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
+      {result ? <p className="text-sm">{result.reason}</p> : null}
       {result ? (
-        <ul>
+        <ul className="space-y-1 font-mono text-xs">
           {result.lines.map((line, index) => (
             <li key={`${index}:${line}`}>{line}</li>
           ))}
         </ul>
       ) : null}
-    </form>
+    </DeskForm>
   );
 }
