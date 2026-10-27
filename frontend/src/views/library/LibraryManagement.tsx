@@ -16,12 +16,15 @@ const ACTIONS: MutateAction[] = [
   "merge_tags",
 ];
 
+const TAG_CATEGORIES = ["Artist", "Copyright", "Character", "General", "Meta"];
+
 /** Groups, subgroups, and tags. The store stays closed until the lease arrives. */
 export function LibraryManagement({ client }: { client: ManagementClient }) {
   const [catalog, setCatalog] = useState<CatalogResult | null>(null);
   const [action, setAction] = useState<MutateAction>("create_group");
   const [name, setName] = useState("");
   const [parent, setParent] = useState("");
+  const [groupFilter, setGroupFilter] = useState("");
   const [category, setCategory] = useState("");
   const [destination, setDestination] = useState("");
   const [notice, setNotice] = useState("");
@@ -71,13 +74,30 @@ export function LibraryManagement({ client }: { client: ManagementClient }) {
           The library store is not attached.
         </p>
       )}
+      <label>
+        Show group
+        <select
+          data-testid="library-management-filter"
+          value={groupFilter}
+          onChange={(event) => setGroupFilter(event.target.value)}
+        >
+          <option value="">(all)</option>
+          {catalog.groups.map((group) => (
+            <option key={group.name} value={group.name}>
+              {group.name}
+            </option>
+          ))}
+        </select>
+      </label>
       <ul data-testid="library-management-groups">
-        {catalog.groups.map((group) => (
-          <li key={group.name}>
-            {group.name}
-            {group.subgroups.length > 0 ? `: ${group.subgroups.join(", ")}` : ""}
-          </li>
-        ))}
+        {catalog.groups
+          .filter((group) => groupFilter === "" || group.name === groupFilter)
+          .map((group) => (
+            <li key={group.name}>
+              {group.name}
+              {group.subgroups.length > 0 ? `: ${group.subgroups.join(", ")}` : ""}
+            </li>
+          ))}
       </ul>
       <ul data-testid="library-management-tags">
         {catalog.tags.map((tag) => (
@@ -112,27 +132,47 @@ export function LibraryManagement({ client }: { client: ManagementClient }) {
         </label>
         <label>
           Parent group
-          <input
+          <select
             data-testid="library-management-parent"
             value={parent}
             onChange={(event) => setParent(event.target.value)}
-          />
+          >
+            <option value="">(none)</option>
+            {catalog.groups.map((group) => (
+              <option key={group.name} value={group.name}>
+                {group.name}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Category
-          <input
+          <select
             data-testid="library-management-category"
             value={category}
             onChange={(event) => setCategory(event.target.value)}
-          />
+          >
+            <option value="">(none)</option>
+            {TAG_CATEGORIES.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Merge into
           <input
             data-testid="library-management-destination"
             value={destination}
+            list="library-management-tag-options"
             onChange={(event) => setDestination(event.target.value)}
           />
+          <datalist id="library-management-tag-options">
+            {catalog.tags.map((tag) => (
+              <option key={tag.name} value={tag.name} />
+            ))}
+          </datalist>
         </label>
         <button type="submit" data-testid="library-management-apply">
           Apply

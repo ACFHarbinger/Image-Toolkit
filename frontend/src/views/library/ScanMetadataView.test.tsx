@@ -1,6 +1,8 @@
+import { open } from "@tauri-apps/plugin-dialog";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
+import type { FrameParams, FrameResult } from "../../../../contracts/generated/ts";
 import type { HostClient } from "../../hostclient";
 import { ScanMetadataView } from "./ScanMetadataView";
 
@@ -56,6 +58,46 @@ function stubClient(overrides: Partial<HostClient> = {}) {
   } as unknown as HostClient;
 }
 
+test("browse sets the directory without scanning", async () => {
+  const client = stubClient();
+  vi.mocked(open).mockResolvedValueOnce("/picked/dir");
+  render(<ScanMetadataView hostClient={client} showModal={vi.fn()} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Browse" }));
+
+  await waitFor(() => {
+    expect(screen.getByPlaceholderText("/path/to/image/folder")).toHaveValue("/picked/dir");
+  });
+  expect(client.scanDirectory).not.toHaveBeenCalled();
+});
+
+test("shows one preview image for a readable frame", async () => {
+  const client = stubClient({
+    libraryPreviewFrame: vi.fn(async (params: FrameParams): Promise<FrameResult> => {
+      if (params.path === "/test/photos/a.png") {
+        return { path: params.path, width: 1, height: 1, png_base64: "QQ==", error: "" };
+      }
+      return { path: params.path, width: 1, height: 1, png_base64: "", error: "unreadable" };
+    }),
+  });
+  const { container } = render(<ScanMetadataView hostClient={client} showModal={vi.fn()} />);
+
+  fireEvent.change(screen.getByPlaceholderText("/path/to/image/folder"), {
+    target: { value: "/test/photos" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /scan directory/i }));
+
+  await waitFor(() => {
+    expect(screen.getByText("a.png")).toBeInTheDocument();
+    expect(screen.getByText("b.jpg")).toBeInTheDocument();
+  });
+  await waitFor(() => {
+    const imgs = container.querySelectorAll("img");
+    expect(imgs).toHaveLength(1);
+    expect(imgs[0]).toHaveAttribute("src", "data:image/png;base64,QQ==");
+  });
+});
+
 test("renders scan directory input and executes scan", async () => {
   const client = stubClient();
   const showModal = vi.fn();
@@ -75,6 +117,34 @@ test("renders scan directory input and executes scan", async () => {
     expect(screen.getByText("a.png")).toBeInTheDocument();
     expect(screen.getByText("b.jpg")).toBeInTheDocument();
   });
+});
+
+test("show only in DB filters to in-database rows and yields to new only", async () => {
+  const client = stubClient();
+  render(<ScanMetadataView hostClient={client} showModal={vi.fn()} />);
+
+  fireEvent.change(screen.getByPlaceholderText("/path/to/image/folder"), {
+    target: { value: "/test/photos" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /scan directory/i }));
+
+  await waitFor(() => {
+    expect(client.scanDirectory).toHaveBeenCalledWith({
+      directory: "/test/photos",
+      recursive: false,
+    });
+    expect(screen.getByText("a.png")).toBeInTheDocument();
+    expect(screen.getByText("b.jpg")).toBeInTheDocument();
+  });
+
+  fireEvent.click(screen.getByRole("checkbox", { name: "Show only in DB" }));
+  expect(screen.getByText("a.png")).toBeInTheDocument();
+  expect(screen.queryByText("b.jpg")).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("checkbox", { name: "New Only" }));
+  expect(screen.getByRole("checkbox", { name: "Show only in DB" })).not.toBeChecked();
+  expect(screen.getByText("b.jpg")).toBeInTheDocument();
+  expect(screen.queryByText("a.png")).not.toBeInTheDocument();
 });
 
 test("toggles image selection and runs tag suggestion", async () => {
@@ -172,5 +242,73 @@ test("displays offline database banner when database_available is false", async 
   await waitFor(() => {
     expect(screen.getByText(/No database session is attached/i)).toBeInTheDocument();
     expect(screen.queryByText(/queue/i)).not.toBeInTheDocument();
+  });
+});
+
+test("offers library catalog names as editable datalist suggestions", async () => {
+  const client = stubClient({
+    listLibraryGroups: vi.fn(async () => ({
+      available: true,
+      groups: [{ name: "Anime", subgroups: ["Wallpapers"] }],
+    })),
+    listLibraryTags: vi.fn(async () => ({
+      available: true,
+      tags: ["scenery"],
+    })),
+  });
+  const { container } = render(<ScanMetadataView hostClient={client} showModal={vi.fn()} />);
+
+  await waitFor(() => {
+    expect(container.querySelector("datalist#scan-group-options option")).toHaveTextContent("Anime");
+    expect(container.querySelector("datalist#scan-subgroup-options option")).toHaveTextContent("Wallpapers");
+    expect(container.querySelector("datalist#scan-tag-options option")).toHaveTextContent("scenery");
+  });
+});
+
+test("sorts the scanned file list by name without changing the scan request", async () => {
+  const client = stubClient({
+    scanDirectory: vi.fn(async () => ({
+      directory: "/test/photos",
+      total_found: 2,
+      database_available: true,
+      images: [
+        {
+          path: "/test/photos/b.jpg",
+          filename: "b.jpg",
+          extension: "jpg",
+          size_bytes: 1024,
+          in_database: false,
+        },
+        {
+          path: "/test/photos/a.png",
+          filename: "a.png",
+          extension: "png",
+          size_bytes: 2048,
+          in_database: true,
+        },
+      ],
+    })),
+  });
+  render(<ScanMetadataView hostClient={client} showModal={vi.fn()} />);
+
+  fireEvent.change(screen.getByPlaceholderText("/path/to/image/folder"), {
+    target: { value: "/test/photos" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /scan directory/i }));
+
+  await waitFor(() => {
+    const text = document.body.textContent || "";
+    expect(text.indexOf("b.jpg")).toBeLessThan(text.indexOf("a.png"));
+  });
+
+  fireEvent.change(screen.getByRole("combobox", { name: "Sort files" }), {
+    target: { value: "name" },
+  });
+
+  const sorted = document.body.textContent || "";
+  expect(sorted.indexOf("a.png")).toBeLessThan(sorted.indexOf("b.jpg"));
+  expect(client.scanDirectory).toHaveBeenCalledWith({
+    directory: "/test/photos",
+    recursive: false,
   });
 });

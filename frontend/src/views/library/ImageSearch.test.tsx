@@ -82,6 +82,7 @@ test("group, tag and format filters ride the search request", async () => {
 
   fireEvent.click(screen.getByRole("button", { name: "Trips" }));
   fireEvent.click(screen.getByRole("button", { name: "night" }));
+  expect(screen.getByRole("button", { name: "avif" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "png" }));
   fireEvent.click(screen.getByRole("button", { name: "Search" }));
 

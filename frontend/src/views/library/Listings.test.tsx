@@ -214,3 +214,26 @@ test("tag filters and pagination are client-side over the returned rows", async 
   });
   expect(screen.getByTestId("library-listings-page")).toHaveTextContent("Page 1 of 1");
 });
+
+test("filename sort reorders loaded rows and does not send a sort field", async () => {
+  const client = stubClient();
+  client.listLibraryImages = vi.fn(async (): Promise<ListImagesResult> => ({
+    available: true,
+    images: [
+      { id: 2, file_path: "/pics/b.jpg", filename: "b.jpg" },
+      { id: 1, file_path: "/pics/a.png", filename: "a.png" },
+    ],
+  }));
+  render(<Listings hostClient={client as never} />);
+
+  await screen.findByText("b.jpg");
+  const before = screen.getByTestId("library-listings-rows").textContent ?? "";
+  expect(before.indexOf("b.jpg")).toBeLessThan(before.indexOf("a.png"));
+
+  fireEvent.change(screen.getByLabelText("Sort"), { target: { value: "filename" } });
+
+  const after = screen.getByTestId("library-listings-rows").textContent ?? "";
+  expect(after.indexOf("a.png")).toBeLessThan(after.indexOf("b.jpg"));
+  expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+  expect(client.listLibraryImages).toHaveBeenCalledWith({});
+});

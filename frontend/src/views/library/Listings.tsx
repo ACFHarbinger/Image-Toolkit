@@ -2,7 +2,7 @@
 // filename filters, and the image rows over `library.list_images`.
 // The store reader arrives with the daemon lease; until then the results
 // stay `available: false` and the view shows its unavailable notice.
-// Thumbnails are L-01's surface (asset:// viewers, #895); this view lists.
+// Stills come from library_preview.frame. The asset protocol only serves the render cache.
 
 import React, { useCallback, useEffect, useState } from "react";
 import type {
@@ -15,12 +15,62 @@ import type {
   MutateParams,
 } from "../../../../contracts/generated/ts";
 import type { HostClient } from "../../hostclient";
+import { LibraryThumb } from "./LibraryThumb";
 
 export interface ListingsProps {
   hostClient: HostClient;
 }
 
 const PAGE_SIZE = 100;
+
+type SortKey = "returned" | "filename" | "date_added" | "size";
+type SortOrder = "asc" | "desc";
+
+function isSortKey(value: string): value is SortKey {
+  return value === "returned" || value === "filename" || value === "date_added" || value === "size";
+}
+
+function isSortOrder(value: string): value is SortOrder {
+  return value === "asc" || value === "desc";
+}
+
+function compareMissingLast(
+  left: string | number | null | undefined,
+  right: string | number | null | undefined,
+  comparePresent: (left: string | number, right: string | number) => number,
+  descending: boolean,
+): number {
+  const leftMissing = left == null || left === "";
+  const rightMissing = right == null || right === "";
+  if (leftMissing || rightMissing) {
+    if (leftMissing === rightMissing) return 0;
+    return leftMissing ? 1 : -1;
+  }
+  const ordered = comparePresent(left, right);
+  return descending ? -ordered : ordered;
+}
+
+function sortedImages(rows: readonly ImageRecord[], key: SortKey, order: SortOrder): ImageRecord[] {
+  if (key === "returned") return rows.slice();
+  const descending = order === "desc";
+  const copy = rows.slice();
+  copy.sort((left, right) => {
+    if (key === "filename") {
+      const ordered = left.filename.localeCompare(right.filename);
+      return descending ? -ordered : ordered;
+    }
+    if (key === "date_added") {
+      return compareMissingLast(
+        left.date_added,
+        right.date_added,
+        (a, b) => String(a).localeCompare(String(b)),
+        descending,
+      );
+    }
+    return compareMissingLast(left.file_size, right.file_size, (a, b) => Number(a) - Number(b), descending);
+  });
+  return copy;
+}
 
 function categoriesFromCatalog(catalog: CatalogResult | null): Record<string, string> | null {
   if (!catalog) return null;
@@ -48,6 +98,8 @@ export function Listings({ hostClient }: ListingsProps) {
   const [images, setImages] = useState<ImageRecord[]>([]);
   const [rowsAvailable, setRowsAvailable] = useState<boolean | null>(null);
   const [page, setPage] = useState(0);
+  const [sortKey, setSortKey] = useState<SortKey>("returned");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   // `ready` flips once, when the initial groups/tags load answers; the
   // search effect keys off it, so a search never re-triggers itself.
   const [ready, setReady] = useState(false);
@@ -294,7 +346,7 @@ export function Listings({ hostClient }: ListingsProps) {
   }
 
   const pageCount = Math.max(1, Math.ceil(images.length / PAGE_SIZE));
-  const pageImages = images.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const pageImages = sortedImages(images, sortKey, sortOrder).slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const visibleSubgroups = (groups ?? []).find((group) => selectedGroups.length === 1 && group.name === selectedGroups[0]);
 
   return (
@@ -358,6 +410,34 @@ export function Listings({ hostClient }: ListingsProps) {
           >
             Search
           </button>
+          <select
+            aria-label="Sort"
+            value={sortKey}
+            onChange={(event) => {
+              const next = event.target.value;
+              if (!isSortKey(next)) return;
+              setSortKey(next);
+              setPage(0);
+            }}
+          >
+            <option value="returned">As returned</option>
+            <option value="filename">Filename</option>
+            <option value="date_added">Date added</option>
+            <option value="size">Size</option>
+          </select>
+          <select
+            aria-label="Order"
+            value={sortOrder}
+            onChange={(event) => {
+              const next = event.target.value;
+              if (!isSortOrder(next)) return;
+              setSortOrder(next);
+              setPage(0);
+            }}
+          >
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
+          </select>
           <span className="text-sm text-it-muted-text" data-testid="library-listings-count">
             {images.length} image{images.length === 1 ? "" : "s"}
           </span>
@@ -556,8 +636,9 @@ export function Listings({ hostClient }: ListingsProps) {
               className="flex items-center justify-between gap-2 border-b border-it-border px-2 py-1 text-sm"
               onClick={() => pickImage(image)}
             >
-              <span className="truncate" title={image.file_path}>
-                {image.filename}
+              <span className="flex min-w-0 items-center gap-2" title={image.file_path}>
+                <LibraryThumb path={image.file_path} hostClient={hostClient} />
+                <span className="truncate">{image.filename}</span>
               </span>
               <span className="shrink-0 text-it-muted-text">
                 {image.group_name ?? "—"}

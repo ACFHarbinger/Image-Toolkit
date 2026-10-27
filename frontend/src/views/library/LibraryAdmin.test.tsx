@@ -34,6 +34,9 @@ test("management shows the unattached store and applies a create", async () => {
   fireEvent.click(screen.getByTestId("library-management-apply"));
   expect((await screen.findByTestId("library-management-notice")).textContent).toBe("Applied 1");
   expect(screen.getByText("people: faces")).toBeTruthy();
+  expect(document.querySelector("#library-management-tag-options option")?.getAttribute("value")).toBe(
+    "smile",
+  );
   expect(calls[0]).toMatchObject({ action: "create_group", name: "places" });
   expect(screen.queryByTestId("library-management-unavailable")).toBeNull();
 });
@@ -56,7 +59,7 @@ test("the data browser pages by column equality", async () => {
         available: true,
         columns: ["filename"],
         rows: [{ cells: [params.offset === 0 ? "a.png" : "b.png"] }],
-        row_count: 2,
+        row_count: 60,
         error: "",
       };
     },
@@ -70,4 +73,69 @@ test("the data browser pages by column equality", async () => {
   fireEvent.click(screen.getByTestId("library-browser-next"));
   expect(await screen.findByText("b.png")).toBeTruthy();
   expect(calls[1].offset).toBe(50);
+  expect(screen.getByTestId("library-browser-next")).toBeDisabled();
+  expect(screen.getByTestId("library-browser-page").textContent).toBe("Page 2");
+});
+
+test("the data browser clears filters and refreshes the catalog", async () => {
+  const calls: BrowseParams[] = [];
+  let catalogCalls = 0;
+  const client = {
+    libraryAdminCatalog: async () => {
+      catalogCalls += 1;
+      return {
+        available: true,
+        groups: [],
+        tags: [],
+        tables: ["images"],
+      };
+    },
+    libraryAdminBrowse: async (params: BrowseParams): Promise<BrowseResult> => {
+      calls.push(params);
+      return {
+        available: true,
+        columns: ["filename"],
+        rows: [{ cells: ["a.png"] }],
+        row_count: 1,
+        error: "",
+      };
+    },
+  };
+  render(<DataBrowser client={client} />);
+  fireEvent.change(screen.getByTestId("library-browser-column"), { target: { value: "filename" } });
+  fireEvent.change(screen.getByTestId("library-browser-equals"), { target: { value: "a.png" } });
+  fireEvent.click(screen.getByTestId("library-browser-load"));
+  expect(await screen.findByText("a.png")).toBeTruthy();
+  fireEvent.click(screen.getByTestId("library-browser-clear"));
+  expect(calls[1]).toMatchObject({ table: "images", column: "", equals: "", offset: 0 });
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  expect(catalogCalls).toBe(2);
+});
+
+test("the data browser exports the current page as csv and json", async () => {
+  const client = {
+    libraryAdminCatalog: async () => ({
+      available: true,
+      groups: [],
+      tags: [],
+      tables: ["images"],
+    }),
+    libraryAdminBrowse: async (): Promise<BrowseResult> => ({
+      available: true,
+      columns: ["filename"],
+      rows: [{ cells: ["a.png"] }],
+      row_count: 1,
+      error: "",
+    }),
+  };
+  render(<DataBrowser client={client} />);
+  fireEvent.click(screen.getByTestId("library-browser-load"));
+  expect(await screen.findByText("a.png")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Export CSV" }));
+  const exported = screen.getByTestId("library-browser-export");
+  expect(exported.textContent).toContain("filename");
+  expect(exported.textContent).toContain("a.png");
+  fireEvent.click(screen.getByRole("button", { name: "Export JSON" }));
+  expect(exported.textContent).toContain('"filename"');
+  expect(exported.textContent).toContain('"a.png"');
 });

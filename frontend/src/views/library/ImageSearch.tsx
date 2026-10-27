@@ -20,13 +20,14 @@ export interface ImageSearchProps {
   hostClient: HostClient;
 }
 
-const FORMATS = ["png", "jpg", "jpeg", "webp", "bmp", "tiff", "gif"] as const;
+const FORMATS = ["png", "jpg", "jpeg", "webp", "avif", "bmp", "tiff", "gif"] as const;
 const PAGE_SIZE = 100;
 
 export function ImageSearch({ hostClient }: ImageSearchProps) {
   const [groups, setGroups] = useState<GroupRecord[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [selectedSubgroups, setSelectedSubgroups] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedFormats, setSelectedFormats] = useState<string[]>([]);
   const [pattern, setPattern] = useState("");
@@ -74,12 +75,43 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
     setList(list.includes(name) ? list.filter((item) => item !== name) : [...list, name]);
   };
 
+  const subgroupsFor = (groupNames: string[]): string[] => {
+    const selected = new Set(groupNames);
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const group of groups) {
+      if (!selected.has(group.name)) continue;
+      for (const subgroup of group.subgroups) {
+        if (seen.has(subgroup)) continue;
+        seen.add(subgroup);
+        names.push(subgroup);
+      }
+    }
+    return names;
+  };
+
+  const visibleSubgroups = subgroupsFor(selectedGroups);
+
+  const toggleGroup = (name: string) => {
+    const nextGroups = selectedGroups.includes(name)
+      ? selectedGroups.filter((item) => item !== name)
+      : [...selectedGroups, name];
+    const allowed = new Set(subgroupsFor(nextGroups));
+    setSelectedGroups(nextGroups);
+    setSelectedSubgroups((current) => current.filter((item) => allowed.has(item)));
+  };
+
   const search = async () => {
     setBusy(true);
     setError("");
     try {
       const result: ListImagesResult = await hostClient.listLibraryImages({
         group_names: selectedGroups.length ? selectedGroups : undefined,
+        ...(selectedSubgroups.length === 1
+          ? { subgroup_name: selectedSubgroups[0] }
+          : selectedSubgroups.length > 1
+            ? { subgroup_names: selectedSubgroups }
+            : {}),
         tags: selectedTags.length ? selectedTags : undefined,
         input_formats: selectedFormats.length ? selectedFormats : undefined,
         filename_pattern: pattern.trim() ? pattern.trim() : undefined,
@@ -184,7 +216,7 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
             <button
               key={group.name}
               type="button"
-              onClick={() => toggle(group.name, selectedGroups, setSelectedGroups)}
+              onClick={() => toggleGroup(group.name)}
               aria-pressed={selectedGroups.includes(group.name)}
               className={`rounded-full px-2 py-0.5 text-xs ${
                 selectedGroups.includes(group.name)
@@ -193,6 +225,24 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
               }`}
             >
               {group.name}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap gap-1" data-testid="library-search-subgroups">
+          {visibleSubgroups.map((subgroup) => (
+            <button
+              key={subgroup}
+              type="button"
+              onClick={() => toggle(subgroup, selectedSubgroups, setSelectedSubgroups)}
+              aria-pressed={selectedSubgroups.includes(subgroup)}
+              className={`rounded-full px-2 py-0.5 text-xs ${
+                selectedSubgroups.includes(subgroup)
+                  ? "bg-it-accent text-it-window-bg"
+                  : "border border-it-border text-it-text"
+              }`}
+            >
+              {subgroup}
             </button>
           ))}
         </div>

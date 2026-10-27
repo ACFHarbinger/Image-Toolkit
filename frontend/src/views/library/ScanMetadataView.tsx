@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import {
   FolderOpen,
   RefreshCcw,
@@ -12,7 +13,57 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import type { HostClient } from "../../hostclient";
-import type { ScannedImage } from "../../../../contracts/generated/ts";
+import type { GroupRecord, ScannedImage } from "../../../../contracts/generated/ts";
+import { LibraryThumb } from "./LibraryThumb";
+
+function uniqueNames(values: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (let i = 0; i < values.length; i += 1) {
+    const value = values[i];
+    if (seen.has(value)) continue;
+    seen.add(value);
+    names.push(value);
+  }
+  return names;
+}
+
+type ScanFileSort = "scanned" | "name" | "size";
+
+function sortDisplayedImages(rows: readonly ScannedImage[], sort: ScanFileSort): ScannedImage[] {
+  if (sort === "scanned") {
+    return rows.slice();
+  }
+  const ordered = rows.slice();
+  if (sort === "name") {
+    ordered.sort((a, b) => a.filename.localeCompare(b.filename));
+    return ordered;
+  }
+  ordered.sort((a, b) => {
+    if (a.size_bytes !== b.size_bytes) {
+      return a.size_bytes - b.size_bytes;
+    }
+    return a.filename.localeCompare(b.filename);
+  });
+  return ordered;
+}
+
+function subgroupOptions(groups: readonly GroupRecord[], groupName: string): string[] {
+  const trimmed = groupName.trim();
+  for (let i = 0; i < groups.length; i += 1) {
+    if (groups[i].name === trimmed) {
+      return uniqueNames(groups[i].subgroups);
+    }
+  }
+  const all: string[] = [];
+  for (let i = 0; i < groups.length; i += 1) {
+    const subgroups = groups[i].subgroups;
+    for (let j = 0; j < subgroups.length; j += 1) {
+      all.push(subgroups[j]);
+    }
+  }
+  return uniqueNames(all);
+}
 
 export interface ScanMetadataViewProps {
   hostClient: HostClient;
@@ -33,12 +84,60 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [filterNewOnly, setFilterNewOnly] = useState(false);
+  const [filterInDb, setFilterInDb] = useState(false);
+  const [fileSort, setFileSort] = useState<ScanFileSort>("scanned");
   const [previewText, setPreviewText] = useState("");
   const [previewPng, setPreviewPng] = useState("");
+  const [catalogGroups, setCatalogGroups] = useState<GroupRecord[]>([]);
+  const [knownTags, setKnownTags] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadCatalog = async () => {
+      if (
+        typeof hostClient.listLibraryGroups !== "function" ||
+        typeof hostClient.listLibraryTags !== "function"
+      ) {
+        return;
+      }
+      try {
+        const [groupsResult, tagsResult] = await Promise.all([
+          hostClient.listLibraryGroups(),
+          hostClient.listLibraryTags(),
+        ]);
+        if (cancelled) return;
+        setCatalogGroups(groupsResult.available ? groupsResult.groups : []);
+        setKnownTags(tagsResult.available ? tagsResult.tags : []);
+      } catch {
+        if (cancelled) return;
+        setCatalogGroups([]);
+        setKnownTags([]);
+      }
+    };
+    void loadCatalog();
+    return () => {
+      cancelled = true;
+    };
+  }, [hostClient]);
+
+  const groupOptions = uniqueNames(catalogGroups.map((group) => group.name));
+  const subgroupOptionNames = subgroupOptions(catalogGroups, groupName);
+  const tagOptions = uniqueNames(knownTags);
 
   const notify = (msg: string, type: "info" | "error" | "success" = "info") => {
     if (showModal) {
       showModal(msg, type);
+    }
+  };
+
+  const handleBrowse = async () => {
+    try {
+      const picked = await open({ directory: true, multiple: false, defaultPath: directory || undefined });
+      if (typeof picked === "string" && picked) {
+        setDirectory(picked);
+      }
+    } catch {
+      // The text field still edits the path when the dialog plugin is absent.
     }
   };
 
@@ -156,7 +255,12 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
     setSelectedPaths(next);
   };
 
-  const displayedImages = filterNewOnly ? images.filter((img) => !img.in_database) : images;
+  const displayedImages = filterNewOnly
+    ? images.filter((img) => !img.in_database)
+    : filterInDb
+      ? images.filter((img) => img.in_database)
+      : images;
+  const listedImages = sortDisplayedImages(displayedImages, fileSort);
 
   const toggleSelectAll = () => {
     if (selectedPaths.size === displayedImages.length && displayedImages.length > 0) {
@@ -205,6 +309,9 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
           />
           Recursive
         </label>
+        <button type="button" onClick={() => void handleBrowse()}>
+          Browse
+        </button>
         <button
           type="submit"
           disabled={scanning}
@@ -236,10 +343,43 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
                   <input
                     type="checkbox"
                     checked={filterNewOnly}
-                    onChange={(e) => setFilterNewOnly(e.target.checked)}
+                    onChange={(e) => {
+                      setFilterNewOnly(e.target.checked);
+                      if (e.target.checked) setFilterInDb(false);
+                    }}
                     className="rounded text-violet-600"
                   />
                   New Only
+                </label>
+                <label className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
+                  Sort files
+                  <select
+                    aria-label="Sort files"
+                    value={fileSort}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === "scanned" || value === "name" || value === "size") {
+                        setFileSort(value);
+                      }
+                    }}
+                    className="rounded border border-gray-300 bg-white px-1 py-0.5 dark:border-gray-600 dark:bg-gray-800"
+                  >
+                    <option value="scanned">As scanned</option>
+                    <option value="name">Name</option>
+                    <option value="size">Size</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
+                  <input
+                    type="checkbox"
+                    checked={filterInDb}
+                    onChange={(e) => {
+                      setFilterInDb(e.target.checked);
+                      if (e.target.checked) setFilterNewOnly(false);
+                    }}
+                    className="rounded text-violet-600"
+                  />
+                  Show only in DB
                 </label>
               </div>
               <span className="text-xs text-gray-500">
@@ -248,7 +388,7 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-1 pr-1">
-              {displayedImages.map((img) => {
+              {listedImages.map((img) => {
                 const isSelected = selectedPaths.has(img.path);
                 return (
                   <div
@@ -266,6 +406,7 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
                       ) : (
                         <Square size={15} className="text-gray-400 flex-shrink-0" />
                       )}
+                      <LibraryThumb path={img.path} hostClient={hostClient} />
                       <ImageIcon size={16} className="text-gray-400 flex-shrink-0" />
                       <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{img.filename}</span>
                       <span className="text-gray-400">
@@ -300,6 +441,7 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
                 placeholder="e.g. Anime"
+                list="scan-group-options"
                 className="rounded-lg border border-gray-300 bg-transparent px-2.5 py-1.5 text-xs dark:border-gray-600 dark:text-white"
               />
             </div>
@@ -311,6 +453,7 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
                 value={subgroupName}
                 onChange={(e) => setSubgroupName(e.target.value)}
                 placeholder="e.g. Wallpapers"
+                list="scan-subgroup-options"
                 className="rounded-lg border border-gray-300 bg-transparent px-2.5 py-1.5 text-xs dark:border-gray-600 dark:text-white"
               />
             </div>
@@ -324,6 +467,7 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddTag())}
                   placeholder="tag name"
+                  list="scan-tag-options"
                   className="flex-1 rounded-lg border border-gray-300 bg-transparent px-2.5 py-1.5 text-xs dark:border-gray-600 dark:text-white"
                 />
                 <button
@@ -395,6 +539,27 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
           </div>
         </div>
       )}
+      <datalist id="scan-group-options">
+        {groupOptions.map((name) => (
+          <option key={name} value={name}>
+            {name}
+          </option>
+        ))}
+      </datalist>
+      <datalist id="scan-subgroup-options">
+        {subgroupOptionNames.map((name) => (
+          <option key={name} value={name}>
+            {name}
+          </option>
+        ))}
+      </datalist>
+      <datalist id="scan-tag-options">
+        {tagOptions.map((name) => (
+          <option key={name} value={name}>
+            {name}
+          </option>
+        ))}
+      </datalist>
     </div>
   );
 }
