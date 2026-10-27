@@ -89,6 +89,40 @@ test("left and right scans compare their union", async () => {
   });
 });
 
+test("clear reference drops paths only in the right scan", async () => {
+  vi.mocked(invoke).mockImplementation(async (command: string, args?: unknown) => {
+    if (command !== "scan_files") {
+      return {};
+    }
+    const directory = (args as { directory?: string } | undefined)?.directory;
+    if (directory === "/left") {
+      return ["/left/a.png", "/shared.png"];
+    }
+    if (directory === "/right") {
+      return ["/shared.png", "/right/b.png"];
+    }
+    return [];
+  });
+  const hostClient = {
+    similarityCompare: vi.fn().mockResolvedValue({ items: [], pairs: [] }),
+    similarityScan: vi.fn(),
+  };
+  render(<SimilarityView hostClient={hostClient} />);
+  fireEvent.change(screen.getByLabelText("Left directory"), { target: { value: "/left" } });
+  fireEvent.change(screen.getByLabelText("Right directory"), { target: { value: "/right" } });
+  const scans = screen.getAllByRole("button", { name: "Scan" });
+  fireEvent.click(scans[0]);
+  fireEvent.click(scans[1]);
+  await waitFor(() => {
+    expect(screen.getByLabelText("Images")).toHaveValue("/left/a.png\n/shared.png\n/right/b.png");
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Clear reference" }));
+  expect(screen.getByLabelText("Images")).toHaveValue("/left/a.png\n/shared.png");
+  expect(hostClient.similarityCompare).not.toHaveBeenCalled();
+  expect(hostClient.similarityScan).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: /delete/i })).toBeNull();
+});
+
 test("selected extensions filter compare paths until cleared", async () => {
   const hostClient = {
     similarityCompare: vi.fn().mockResolvedValue({ items: [], pairs: [] }),

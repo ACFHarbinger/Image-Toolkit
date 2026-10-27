@@ -68,6 +68,18 @@ function unionPaths(left: readonly string[], right: readonly string[]): string[]
   return paths;
 }
 
+/** Drop a path only when it is in the right scan and absent from the left scan. */
+function dropRightOnlyPaths(raw: string, left: readonly string[], right: readonly string[]): string[] {
+  const leftMembers = new Set(left);
+  const rightOnly = new Set<string>();
+  for (const path of right) {
+    if (!leftMembers.has(path)) {
+      rightOnly.add(path);
+    }
+  }
+  return splitPaths(raw).filter((path) => !rightOnly.has(path));
+}
+
 function pathsInScan(raw: string, scan: readonly string[]): string[] {
   if (scan.length === 0) {
     return [];
@@ -198,6 +210,13 @@ export function SimilarityView({ hostClient }: { readonly hostClient: Similarity
     setRawPaths(merged.join("\n"));
   }
 
+  function clearReference(): void {
+    const kept = dropRightOnlyPaths(rawPaths, leftScanRef.current, rightScanRef.current);
+    rightScanRef.current = [];
+    setRightScan([]);
+    setRawPaths(kept.join("\n"));
+  }
+
   async function onSubmit(event: React.FormEvent): Promise<void> {
     event.preventDefault();
     setError("");
@@ -271,6 +290,9 @@ export function SimilarityView({ hostClient }: { readonly hostClient: Similarity
         onSelectedChange={(paths) => applySideSelection(rightScan, paths, "right")}
         onScanned={(paths) => rememberScan("right", paths)}
       />
+      <button type="button" className={deskButtonClass} onClick={clearReference}>
+        Clear reference
+      </button>
       <DeskField label="Images">
         <textarea
           className={deskControlClass}
