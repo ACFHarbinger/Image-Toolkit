@@ -122,3 +122,41 @@ test("a scanned thumbnail fills the add-image field without merging", async () =
   expect(hostClient.mergePlace).not.toHaveBeenCalled();
   vi.mocked(invoke).mockReset();
 });
+
+test("selecting both scanned thumbnails queues them and pages without merging", async () => {
+  vi.mocked(invoke).mockImplementation(async (command: string) => {
+    if (command === "scan_files") {
+      return ["/pics/a.png", "/pics/b.png"];
+    }
+    return {};
+  });
+  const hostClient = {
+    mergeConcatenate: vi.fn(),
+    mergePlace: vi.fn(),
+  };
+  render(<MergeView hostClient={hostClient} />);
+  fireEvent.change(screen.getByLabelText("Image directory"), { target: { value: "/pics" } });
+  fireEvent.click(screen.getByRole("button", { name: "Scan" }));
+  fireEvent.click(await screen.findByRole("option", { name: "a.png" }));
+  fireEvent.click(screen.getByRole("option", { name: "b.png" }));
+  expect(screen.getByRole("option", { name: "a.png" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByRole("option", { name: "b.png" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByText("/pics/a.png")).toBeInTheDocument();
+  expect(screen.getByText("/pics/b.png")).toBeInTheDocument();
+  expect(hostClient.mergeConcatenate).not.toHaveBeenCalled();
+  expect(hostClient.mergePlace).not.toHaveBeenCalled();
+
+  fireEvent.change(screen.getByLabelText("Queue page size"), { target: { value: "1" } });
+  expect(screen.getByText("/pics/a.png")).toBeInTheDocument();
+  expect(screen.queryByText("/pics/b.png")).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  expect(screen.getByText("Items 2\u20132 of 2")).toBeInTheDocument();
+  expect(screen.getByText("/pics/b.png")).toBeInTheDocument();
+  expect(screen.queryByText("/pics/a.png")).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+  expect(screen.getByText("/pics/a.png")).toBeInTheDocument();
+  expect(screen.queryByText("/pics/b.png")).not.toBeInTheDocument();
+  vi.mocked(invoke).mockReset();
+});
