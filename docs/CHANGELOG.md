@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Route account creation to the current vault service through the bundled Python runtime, with credentials on stdin and execution off the desktop thread.
+
+- Refuse live master-password changes until the encrypted library can be rekeyed with the vault, preserving library access after logout.
+
 ### Changed
 
 - **Delete `submodules/` and retire loaders** (Tauri migration W0-03 Phase E, #1039 / #867):

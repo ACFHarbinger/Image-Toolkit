@@ -1,4 +1,4 @@
-# GENERATED — contract hash 25bb1ff48ee734cd0ab7e3b3a0936c4ad12ee96988058c651d235a1188a48fd3. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash a4f0fd0f3b4e540630dddc3eaec3ec0e11e1e32419cff02dda892fb79373d8d4. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -10,15 +10,39 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 @dataclass(frozen=True)
+class AuthLockParams:
+    account: str
+
+
+@dataclass(frozen=True)
+class AuthLockResult:
+    success: bool
+    account: str
+
+
+@dataclass(frozen=True)
 class AuthStatusParams:
     account: str
 
 
 @dataclass(frozen=True)
 class AuthStatusResult:
-    unlocked: Literal[False]
+    unlocked: bool
     account: str
-    reason: Literal["unlock stays on the C++ session"]
+    reason: str
+
+
+@dataclass(frozen=True)
+class AuthUnlockParams:
+    account: str
+    password: str
+
+
+@dataclass(frozen=True)
+class AuthUnlockResult:
+    success: bool
+    account: str
+    message: str
 
 
 @dataclass(frozen=True)

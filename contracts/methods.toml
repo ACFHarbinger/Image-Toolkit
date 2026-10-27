@@ -467,14 +467,38 @@ owner = 905
 [[method]]
 name = "auth.status"
 capability = "auth"
-summary = "Report a locked session (#918). Unlocked stays false and the vault is not opened."
+summary = "Report the sidecar's live C++ vault session (#1106). Does not return a key or password."
 params = "auth.AuthStatusParams"
 result = "auth.AuthStatusResult"
 errors = []
 cancelable = false
 emits = []
 stability = "experimental"
-owner = 918
+owner = 1106
+
+[[method]]
+name = "auth.unlock"
+capability = "auth"
+summary = "Open the C++ vault session in this sidecar process (#1106). The password is a parameter only."
+params = "auth.AuthUnlockParams"
+result = "auth.AuthUnlockResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 1106
+
+[[method]]
+name = "auth.lock"
+capability = "auth"
+summary = "Lock the sidecar's C++ vault session and drop it (#1106)."
+params = "auth.AuthLockParams"
+result = "auth.AuthLockResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 1106
 
 [[method]]
 name = "csg.colorize_scribble"

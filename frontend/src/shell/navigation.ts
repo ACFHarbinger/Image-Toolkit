@@ -7,6 +7,14 @@ import {
 
 const FRONTEND_SURFACE = "frontend";
 
+/** Stitch panels share the editor rail. The catalog still records them as Image Stitching. */
+export const EDITOR_CATEGORY = "Image Editor";
+const STITCH_CATEGORY = "Image Stitching";
+
+export function railCategory(category: string): string {
+  return category === STITCH_CATEGORY ? EDITOR_CATEGORY : category;
+}
+
 /**
  * Alias gates that are on for this shell. `experimental-dl` stays off:
  * the classic `ml.*` pages remain the views until that workspace is the
@@ -35,24 +43,35 @@ export function defaultPageId(entries: readonly CatalogEntry[]): string {
 export function categoriesInOrder(entries: readonly CatalogEntry[]): string[] {
   const seen: string[] = [];
   for (const entry of entries) {
-    if (entry.kind === "route") {
+    if (entry.kind === "route" || entry.category === STITCH_CATEGORY) {
       continue;
     }
-    if (!seen.includes(entry.category)) {
-      seen.push(entry.category);
+    const category = railCategory(entry.category);
+    if (!seen.includes(category)) {
+      seen.push(category);
     }
   }
   return seen;
 }
 
 /**
- * Drawer rows for one category. Routes stay off the rail; they belong
- * on the workspace ribbon. Selecting a category only repaints this list.
+ * Drawer rows for one category. Routes stay off the rail and belong on
+ * the workspace ribbon, except the stitch panels, which are the editor
+ * tabs. The stitch workspace row is only a container, so it stays hidden.
  */
 export function drawerEntries(
   entries: readonly CatalogEntry[],
   category: string,
 ): CatalogEntry[] {
+  if (category === EDITOR_CATEGORY) {
+    const pages = entries.filter(
+      (entry) => entry.category === EDITOR_CATEGORY && entry.kind === "page",
+    );
+    const stitchTabs = entries
+      .filter((entry) => entry.category === STITCH_CATEGORY && entry.kind === "route")
+      .sort((left, right) => left.order_index - right.order_index);
+    return [...pages, ...stitchTabs];
+  }
   return entries.filter(
     (entry) => entry.category === category && entry.kind !== "route",
   );
@@ -81,6 +100,27 @@ export function ribbonRoutes(
   return entries
     .filter((entry) => entry.kind === "route" && entry.workspace_id === workspaceId)
     .sort((left, right) => left.order_index - right.order_index);
+}
+
+/** Pages and workspaces for one classic category. Stitch's workspace sits under Image Editor. */
+export function classicPages(
+  entries: readonly CatalogEntry[],
+  category: string,
+): CatalogEntry[] {
+  return entries.filter(
+    (entry) => railCategory(entry.category) === category && entry.kind !== "route",
+  );
+}
+
+/** Child routes of a workspace page. Ordinary pages have none. */
+export function classicSubtabs(
+  entries: readonly CatalogEntry[],
+  page: CatalogEntry | undefined,
+): CatalogEntry[] {
+  if (!page || page.kind !== "workspace") {
+    return [];
+  }
+  return ribbonRoutes(entries, page.id);
 }
 
 export function resolveAlias(

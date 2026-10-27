@@ -54,8 +54,12 @@ import type {
   ConcatenateResult,
   CompareParams,
   CompareResult,
+  AuthLockParams,
+  AuthLockResult,
   AuthStatusParams,
   AuthStatusResult,
+  AuthUnlockParams,
+  AuthUnlockResult,
   ProbeParams,
   ProbeResult,
   StitchStatusResult,
@@ -312,6 +316,16 @@ export class HostClient {
   async authStatus(params: AuthStatusParams): Promise<AuthStatusResult> {
     await this.connect();
     return this.send<AuthStatusResult>("auth.status", params as unknown as Record<string, unknown>);
+  }
+
+  async authUnlock(params: AuthUnlockParams): Promise<AuthUnlockResult> {
+    await this.connect();
+    return this.send<AuthUnlockResult>("auth.unlock", params as unknown as Record<string, unknown>);
+  }
+
+  async authLock(params: AuthLockParams): Promise<AuthLockResult> {
+    await this.connect();
+    return this.send<AuthLockResult>("auth.lock", params as unknown as Record<string, unknown>);
   }
 
   async cloudOfferPrefill(params: PrefillParams): Promise<PrefillResult> {
