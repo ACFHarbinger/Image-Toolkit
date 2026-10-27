@@ -518,4 +518,31 @@ describe("WallpaperView", () => {
     expect(hostClient.wallpaperSlideshowConfig.mock.calls.length).toBe(configCalls);
     expect(hostClient.wallpaperMonitorGraph).not.toHaveBeenCalled();
   });
+
+  test("set active copies a queue path into the monitor field and does not apply", async () => {
+    const hostClient = {
+      wallpaperGetMonitors: vi.fn().mockResolvedValue(mockMonitorsResult),
+      wallpaperSlideshowConfig: vi.fn().mockResolvedValue(mockConfigResult),
+      wallpaperSet: vi.fn(),
+      wallpaperSlideshowToggle: vi.fn(),
+      wallpaperMonitorGraph: vi.fn(),
+    };
+
+    render(<WallpaperView hostClient={hostClient as any} />);
+    await screen.findByText("KDE Plasma");
+
+    fireEvent.change(screen.getByPlaceholderText("/path/to/image.png"), {
+      target: { value: "/tmp/a.png" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    const configCalls = hostClient.wallpaperSlideshowConfig.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Set active 0" }));
+
+    expect(screen.getByLabelText("Assigned image DP-1")).toHaveValue("/tmp/a.png");
+    expect(screen.getByText("/tmp/a.png")).toBeInTheDocument();
+    expect(hostClient.wallpaperSet).not.toHaveBeenCalled();
+    expect(hostClient.wallpaperSlideshowConfig.mock.calls.length).toBe(configCalls);
+    expect(hostClient.wallpaperMonitorGraph).not.toHaveBeenCalled();
+  });
 });

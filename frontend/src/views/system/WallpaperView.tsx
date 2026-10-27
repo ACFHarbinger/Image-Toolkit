@@ -319,6 +319,14 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
     : monitors[0]?.id;
   const galleryPath = galleryMonitorId ? monitorPaths[galleryMonitorId] || "" : "";
 
+  // Marks the queue path as the monitor's assigned image. Apply still pushes it.
+  const handleSetQueueActive = (idx: number) => {
+    if (!galleryMonitorId) return;
+    const path = (monitorQueues[selectedMonitorQueue] || [])[idx];
+    if (path === undefined) return;
+    setMonitorPaths((prev) => ({ ...prev, [galleryMonitorId]: path }));
+  };
+
   const handleGallerySelect = (paths: string[]) => {
     if (!galleryMonitorId) return;
     setMonitorPaths((prev) => ({ ...prev, [galleryMonitorId]: paths[0] ?? "" }));
@@ -424,6 +432,7 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
                   <input
                     type="text"
                     placeholder="/absolute/path/to/wallpaper.png"
+                    aria-label={`Assigned image ${m.id}`}
                     value={monitorPaths[m.id] || ""}
                     onChange={(e) =>
                       setMonitorPaths({ ...monitorPaths, [m.id]: e.target.value })
@@ -547,6 +556,13 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
                     >
                       <span className="truncate max-w-[200px] font-mono">{path}</span>
                       <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleSetQueueActive(idx)}
+                          className="px-1 hover:text-violet-500"
+                        >
+                          Set active {idx}
+                        </button>
                         <button
                           onClick={() => handleMoveQueueItem(idx, "up")}
                           disabled={idx === 0}
