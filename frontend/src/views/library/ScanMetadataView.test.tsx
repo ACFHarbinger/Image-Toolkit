@@ -113,6 +113,8 @@ test("renders scan directory input and executes scan", async () => {
     expect(client.scanDirectory).toHaveBeenCalledWith({
       directory: "/test/photos",
       recursive: false,
+      formats: ["webp", "avif", "png", "jpg", "jpeg", "bmp", "gif", "tiff"],
+      max_results: 50000,
     });
     expect(screen.getByText("a.png")).toBeInTheDocument();
     expect(screen.getByText("b.jpg")).toBeInTheDocument();
@@ -132,6 +134,8 @@ test("show only in DB filters to in-database rows and yields to new only", async
     expect(client.scanDirectory).toHaveBeenCalledWith({
       directory: "/test/photos",
       recursive: false,
+      formats: ["webp", "avif", "png", "jpg", "jpeg", "bmp", "gif", "tiff"],
+      max_results: 50000,
     });
     expect(screen.getByText("a.png")).toBeInTheDocument();
     expect(screen.getByText("b.jpg")).toBeInTheDocument();
@@ -310,5 +314,7 @@ test("sorts the scanned file list by name without changing the scan request", as
   expect(client.scanDirectory).toHaveBeenCalledWith({
     directory: "/test/photos",
     recursive: false,
+    formats: ["webp", "avif", "png", "jpg", "jpeg", "bmp", "gif", "tiff"],
+    max_results: 50000,
   });
 });

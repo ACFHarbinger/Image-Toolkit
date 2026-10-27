@@ -152,6 +152,8 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
       const res = await hostClient.scanDirectory({
         directory: directory.trim(),
         recursive,
+        formats: ["webp", "avif", "png", "jpg", "jpeg", "bmp", "gif", "tiff"],
+        max_results: 50000,
       });
       setImages(res.images);
       setDbAvailable(res.database_available);
