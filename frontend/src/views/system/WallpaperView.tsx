@@ -223,6 +223,10 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
     setGraphEdges([...graphEdges, { source: edgeFrom, target: edgeTo }]);
   };
 
+  const handleRemoveGraphEdge = (index: number) => {
+    setGraphEdges((edges) => edges.filter((_, i) => i !== index));
+  };
+
   const handleSaveGraph = async () => {
     const path = graphPath.trim();
     if (!path) {
@@ -683,6 +687,22 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
                 Add edge
               </button>
             </div>
+            <ul className="text-xs font-mono space-y-1">
+              {graphEdges.map((edge, index) => (
+                <li key={`${edge.source}-${edge.target}-${index}`} className="flex flex-wrap items-center gap-2">
+                  <span>
+                    {edge.source} {edge.target}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveGraphEdge(index)}
+                    className="px-2 py-1 border rounded text-xs"
+                  >
+                    {`Remove edge ${index}`}
+                  </button>
+                </li>
+              ))}
+            </ul>
             <label className="block text-xs">
               End behavior
               <select
