@@ -79,6 +79,9 @@ test("compare asks for a difference and drag preview ignores pointer events", as
   fireEvent.click(screen.getByTestId("compare-difference"));
   expect(await screen.findByTestId("difference-result")).toHaveTextContent("size mismatch");
   expect(view.libraryPreviewDifference).toHaveBeenCalledWith({ left: LEFT, right: RIGHT, boost: 1 });
+  fireEvent.change(screen.getByRole("combobox", { name: "Diff amplification" }), { target: { value: "4" } });
+  fireEvent.click(screen.getByTestId("compare-difference"));
+  expect(view.libraryPreviewDifference).toHaveBeenLastCalledWith({ left: LEFT, right: RIGHT, boost: 4 });
   fireEvent.click(screen.getByTestId("mode-drag"));
   fireEvent.pointerDown(screen.getByTestId("drag-source"), { clientX: 4, clientY: 6 });
   const preview = screen.getByTestId("drag-preview");

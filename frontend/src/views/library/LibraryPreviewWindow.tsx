@@ -35,8 +35,18 @@ export interface PreviewClient {
 }
 
 type Mode = "preview" | "compare" | "drag";
+type DiffBoost = 1 | 2 | 4 | 8;
 
 const ZOOM_STEP = 0.1;
+const DIFF_BOOSTS: readonly DiffBoost[] = [1, 2, 4, 8];
+
+function diffBoost(value: string): DiffBoost {
+  const parsed = Number(value);
+  if (parsed === 2 || parsed === 4 || parsed === 8) {
+    return parsed;
+  }
+  return 1;
+}
 
 function splitPaths(raw: string): string[] {
   return raw.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
@@ -54,6 +64,7 @@ export function LibraryPreviewWindow({ client }: { readonly client: PreviewClien
   const [opacity, setOpacity] = useState(50);
   const [dragAt, setDragAt] = useState<{ x: number; y: number } | null>(null);
   const [difference, setDifference] = useState<PreviewDifference | null>(null);
+  const [boost, setBoost] = useState<DiffBoost>(1);
   const [notice, setNotice] = useState("");
 
   const current = items[index];
@@ -87,7 +98,7 @@ export function LibraryPreviewWindow({ client }: { readonly client: PreviewClien
     const result = await client.libraryPreviewDifference({
       left: items[0].path,
       right: items[1].path,
-      boost: 1,
+      boost,
     });
     setDifference(result);
     setMode("compare");
@@ -169,6 +180,16 @@ export function LibraryPreviewWindow({ client }: { readonly client: PreviewClien
               <FrameImage frame={frameFor(items[0].path)} zoom={1} rotation={0} />
             </div>
           </div>
+          <label>
+            Diff amplification
+            <select value={boost} onChange={(event) => setBoost(diffBoost(event.target.value))}>
+              {DIFF_BOOSTS.map((level) => (
+                <option key={level} value={level}>
+                  {level}×
+                </option>
+              ))}
+            </select>
+          </label>
           <button type="button" data-testid="compare-difference" onClick={() => void showDifference()}>
             Difference
           </button>
