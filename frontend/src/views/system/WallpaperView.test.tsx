@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { WallpaperView } from "./WallpaperView";
@@ -402,6 +403,30 @@ describe("WallpaperView", () => {
       });
     });
     expect(hostClient.wallpaperSet).not.toHaveBeenCalled();
+  });
+
+  test("browse node fills the path and does not save the graph", async () => {
+    vi.mocked(open).mockResolvedValueOnce("/tmp/node.png");
+    const hostClient = {
+      wallpaperGetMonitors: vi.fn().mockResolvedValue(mockMonitorsResult),
+      wallpaperSlideshowConfig: vi.fn().mockResolvedValue(mockConfigResult),
+      wallpaperSet: vi.fn(),
+      wallpaperSlideshowToggle: vi.fn(),
+      wallpaperMonitorGraph: vi.fn(),
+    };
+    render(<WallpaperView hostClient={hostClient as any} />);
+    await screen.findByText("KDE Plasma");
+
+    fireEvent.click(screen.getByRole("button", { name: "Browse node" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Node path")).toHaveValue("/tmp/node.png");
+    });
+    expect(screen.queryByRole("button", { name: "Remove n1" })).not.toBeInTheDocument();
+    expect(hostClient.wallpaperMonitorGraph).not.toHaveBeenCalled();
+    expect(hostClient.wallpaperSet).not.toHaveBeenCalled();
+    vi.mocked(open).mockReset();
+    vi.mocked(open).mockImplementation(() => Promise.resolve(null));
   });
 
   test("a scanned thumbnail fills the selected monitor path without applying", async () => {

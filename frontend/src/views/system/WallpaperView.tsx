@@ -1,3 +1,4 @@
+import { open } from "@tauri-apps/plugin-dialog";
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Monitor as MonitorIcon,
@@ -22,6 +23,16 @@ import type {
   WallpaperGraphEdge,
   WallpaperGraphNode,
 } from "../../../../contracts/generated/ts";
+
+/** Classic node dialog browse: a picked file fills the path and does not save the graph. */
+async function pickNodePath(apply: (path: string) => void): Promise<void> {
+  try {
+    const picked = await open({ directory: false, multiple: false });
+    if (typeof picked === "string" && picked.length > 0) apply(picked);
+  } catch {
+    // Leave the node path unchanged when the dialog fails.
+  }
+}
 
 export interface WallpaperViewProps {
   hostClient: HostClient;
@@ -634,6 +645,9 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
                   className="block mt-1 text-xs p-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 font-mono"
                 />
               </label>
+              <button type="button" onClick={() => void pickNodePath(setNodePath)} className="px-3 py-1.5 border rounded text-xs">
+                Browse node
+              </button>
               <label className="text-xs">
                 Duration seconds
                 <input
