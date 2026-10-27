@@ -32,6 +32,29 @@ export function LogDeskView({ hostClient }: { readonly hostClient: LogsClient })
     }
   }
 
+  function onCopyAll(): void {
+    if (!result) {
+      return;
+    }
+    const clipboard = navigator.clipboard;
+    if (typeof clipboard?.writeText !== "function") {
+      return;
+    }
+    try {
+      // A failed copy leaves the lines on screen and does not reread.
+      void Promise.resolve(clipboard.writeText(result.lines.join("\n"))).catch(() => undefined);
+    } catch {
+      // writeText threw synchronously.
+    }
+  }
+
+  function onClear(): void {
+    if (!result) {
+      return;
+    }
+    setResult({ ...result, lines: [] });
+  }
+
   return (
     <DeskForm testId="log-desk" title="Logs" description="Last lines of a log file. The file is not followed." onSubmit={onSubmit}>
       <ThumbnailGallery
@@ -55,6 +78,8 @@ export function LogDeskView({ hostClient }: { readonly hostClient: LogsClient })
         />
       </DeskField>
       <button type="submit" className={deskButtonClass}>Read</button>
+      <button type="button" className={deskButtonClass} onClick={onCopyAll}>Copy all</button>
+      <button type="button" className={deskButtonClass} onClick={onClear}>Clear</button>
       {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
       {result ? <p className="text-sm">{result.reason}</p> : null}
       {result ? (
