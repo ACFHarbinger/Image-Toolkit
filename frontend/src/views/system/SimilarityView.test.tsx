@@ -89,6 +89,24 @@ test("left and right scans compare their union", async () => {
   });
 });
 
+test("selected extensions filter compare paths until cleared", async () => {
+  const hostClient = {
+    similarityCompare: vi.fn().mockResolvedValue({ items: [], pairs: [] }),
+  };
+  render(<SimilarityView hostClient={hostClient} />);
+  fireEvent.change(screen.getByLabelText("Images"), { target: { value: "/a.png\n/b.jpg" } });
+  fireEvent.click(screen.getByRole("button", { name: "png" }));
+  fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+  expect(hostClient.similarityCompare).toHaveBeenCalledWith({ paths: ["/a.png"], threshold: 8 });
+  expect(screen.queryByRole("button", { name: /delete/i })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Remove all extensions" }));
+  fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+  expect(hostClient.similarityCompare).toHaveBeenLastCalledWith({
+    paths: ["/a.png", "/b.jpg"],
+    threshold: 8,
+  });
+});
+
 test("compare shows a still only for a readable preview frame", async () => {
   const hostClient = {
     similarityCompare: vi.fn().mockResolvedValue({

@@ -30,11 +30,29 @@ export interface SimilarityClient {
 
 const COMPARE_PATH_CAP = 32;
 
+const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "bmp", "gif"] as const;
+
 function splitPaths(raw: string): string[] {
   return raw
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
+}
+
+function extensionOf(path: string): string {
+  const dot = path.lastIndexOf(".");
+  if (dot < 0) {
+    return "";
+  }
+  return path.slice(dot + 1).toLowerCase();
+}
+
+/** An empty selection is no filter. A path with no dot is dropped only while a filter is active. */
+function filterComparePaths(paths: string[], selected: ReadonlySet<string>): string[] {
+  if (selected.size === 0) {
+    return paths;
+  }
+  return paths.filter((path) => selected.has(extensionOf(path)));
 }
 
 function unionPaths(left: readonly string[], right: readonly string[]): string[] {
@@ -100,6 +118,7 @@ export function SimilarityView({ hostClient }: { readonly hostClient: Similarity
   const [rawPaths, setRawPaths] = useState("");
   const [directory, setDirectory] = useState("");
   const [threshold, setThreshold] = useState(8);
+  const [selectedExtensions, setSelectedExtensions] = useState<ReadonlySet<string>>(() => new Set());
   const [pairs, setPairs] = useState<SimilarityPair[]>([]);
   const [items, setItems] = useState<SimilarityItem[]>([]);
   const [frames, setFrames] = useState<Record<string, string>>({});
@@ -147,6 +166,18 @@ export function SimilarityView({ hostClient }: { readonly hostClient: Similarity
     };
   }, [hostClient, pairs]);
 
+  function toggleExtension(extension: string): void {
+    setSelectedExtensions((current) => {
+      const next = new Set(current);
+      if (next.has(extension)) {
+        next.delete(extension);
+      } else {
+        next.add(extension);
+      }
+      return next;
+    });
+  }
+
   function rememberScan(side: "left" | "right", paths: string[]): void {
     if (side === "left") {
       leftScanRef.current = paths;
@@ -171,7 +202,10 @@ export function SimilarityView({ hostClient }: { readonly hostClient: Similarity
     event.preventDefault();
     setError("");
     try {
-      const result = await hostClient.similarityCompare({ paths: splitPaths(rawPaths), threshold });
+      const result = await hostClient.similarityCompare({
+        paths: filterComparePaths(splitPaths(rawPaths), selectedExtensions),
+        threshold,
+      });
       setFrames({});
       setItems(result.items);
       setPairs(result.pairs);
@@ -249,6 +283,25 @@ export function SimilarityView({ hostClient }: { readonly hostClient: Similarity
         />
       </DeskField>
       {truncated ? <p className="text-xs text-it-muted-text">The list was truncated to 32 images.</p> : null}
+      <div className="flex flex-wrap gap-2">
+        {IMAGE_EXTENSIONS.map((extension) => (
+          <button
+            key={extension}
+            type="button"
+            className={deskButtonClass}
+            aria-pressed={selectedExtensions.has(extension)}
+            onClick={() => toggleExtension(extension)}
+          >
+            {extension}
+          </button>
+        ))}
+        <button type="button" className={deskButtonClass} onClick={() => setSelectedExtensions(new Set(IMAGE_EXTENSIONS))}>
+          Add all extensions
+        </button>
+        <button type="button" className={deskButtonClass} onClick={() => setSelectedExtensions(new Set())}>
+          Remove all extensions
+        </button>
+      </div>
       <DeskField label="Threshold">
         <input
           className={deskControlClass}
