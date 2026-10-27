@@ -14,6 +14,7 @@
 | `gui/src/legacy/csg_gui/tabs/reference_coloring_tab.py` | 677 | 0 | 146 | 823 |
 | `middleware/src/csg/project/model.py` | 593 | 0 | 59 | 652 |
 | `middleware/src/csg/integrations/krita/pykrita/cel_shaded_generator/exercise.py` | 587 | 0 | 10 | 597 |
+| `middleware/src/sidecar/server.py` | 557 | 1 | 16 | 574 |
 | `middleware/src/stitching/alignment/bundle_adjust.py` | 543 | 24 | 61 | 628 |
 | `middleware/src/csg/learning/engine_protocol.py` | 523 | 0 | 3 | 526 |
 | `gui/src/legacy/asp_gui/elements/dialog/seam_diagnostic_dialog.py` | 508 | 41 | 79 | 628 |
@@ -34,7 +35,6 @@
 | `gui/src/tabs/core/wallpaper_tab/graph/wallpaper_graph_scene.py` | 456 | 22 | 29 | 507 |
 | `gui/src/tabs/models/review_tools_page.py` | 455 | 1 | 8 | 464 |
 | `middleware/src/core/vault_manager.py` | 453 | 32 | 84 | 569 |
-| `middleware/src/sidecar/server.py` | 447 | 1 | 6 | 454 |
 | `middleware/src/csg/integrations/krita/pykrita/cel_shaded_generator/engine_client.py` | 442 | 0 | 1 | 443 |
 | `gui/src/tabs/core/extractor_tab/_media_player.py` | 439 | 114 | 29 | 582 |
 | `gui/src/components/dialogs/asp_advanced_config_dialog.py` | 437 | 21 | 8 | 466 |
@@ -56,4 +56,4 @@
 | `gui/src/windows/image_preview_window.py` | 402 | 67 | 42 | 511 |
 | `gui/src/windows/settings/_appearance.py` | 400 | 31 | 18 | 449 |
 | `gui/src/windows/main/_session_recovery.py` | 400 | 31 | 28 | 459 |
-| **TOTALS** | **167402** | **9164** | **18860** | **195426** |
+| **TOTALS** | **169795** | **9168** | **18976** | **197939** |
