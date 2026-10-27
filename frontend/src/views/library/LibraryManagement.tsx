@@ -73,6 +73,19 @@ function namesFromTagJson(text: string): string[] | null {
   return names.length === 0 ? null : names;
 }
 
+/** Copies the file path only. A missing clipboard API or a failed write leaves the row alone. */
+function copyRegistryPath(filePath: string): void {
+  const clipboard = navigator.clipboard;
+  if (typeof clipboard?.writeText !== "function") {
+    return;
+  }
+  try {
+    void Promise.resolve(clipboard.writeText(filePath)).catch(() => undefined);
+  } catch {
+    // A thrown write or a rejected promise must not change the registry.
+  }
+}
+
 /** Groups, subgroups, and tags. The store stays closed until the lease arrives. */
 export function LibraryManagement({ client }: { client: ManagementClient }) {
   const [catalog, setCatalog] = useState<CatalogResult | null>(null);
@@ -382,7 +395,14 @@ export function LibraryManagement({ client }: { client: ManagementClient }) {
                 const line = [image.file_path, image.group_name ?? "", image.subgroup_name ?? ""]
                   .filter((part) => part !== "")
                   .join(" ");
-                return <li key={line}>{line}</li>;
+                return (
+                  <li key={line}>
+                    <span>{line}</span>
+                    <button type="button" onClick={() => copyRegistryPath(image.file_path)}>
+                      Copy path {image.file_path}
+                    </button>
+                  </li>
+                );
               })}
           </ul>
         </div>

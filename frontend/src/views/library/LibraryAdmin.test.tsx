@@ -180,6 +180,44 @@ test("the registry lists images, filters them, and refreshes", async () => {
   expect(calls).toEqual([{ limit: 10000 }, { limit: 10000 }]);
 });
 
+test("the registry copies a path and does not mutate or reload", async () => {
+  const calls: Array<{ limit: number }> = [];
+  const mutations: MutateParams[] = [];
+  const client = {
+    libraryAdminCatalog: async () => catalog(true),
+    libraryAdminMutate: async (params: MutateParams): Promise<MutateResult> => {
+      mutations.push(params);
+      return { available: true, applied: 0, error: "" };
+    },
+    listLibraryImages: async (params: { limit: number }) => {
+      calls.push(params);
+      return {
+        images: [
+          { file_path: "/pics/a.png", group_name: "people", subgroup_name: "faces" },
+          { file_path: "/pics/b.png", group_name: "places", subgroup_name: "cities" },
+        ],
+      };
+    },
+  };
+  render(<LibraryManagement client={client} />);
+  expect(await screen.findByText("/pics/b.png places cities")).toBeTruthy();
+  const listed = calls.length;
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  const previous = navigator.clipboard;
+  navigator.clipboard = { writeText } as Clipboard;
+  try {
+    fireEvent.click(screen.getByRole("button", { name: "Copy path /pics/b.png" }));
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledTimes(1);
+    });
+    expect(writeText).toHaveBeenCalledWith("/pics/b.png");
+    expect(mutations).toEqual([]);
+    expect(calls.length).toBe(listed);
+  } finally {
+    navigator.clipboard = previous;
+  }
+});
+
 test("catalog use buttons fill the form and do not mutate", async () => {
   const calls: MutateParams[] = [];
   const client = {
