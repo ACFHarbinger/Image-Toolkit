@@ -54,7 +54,20 @@ from middleware.src.sidecar.handlers.csg import (
     handle_propagate_sequence,
 )
 from middleware.src.sidecar.handlers.desk import handle_logs_read, handle_metadata_describe
-from middleware.src.sidecar.handlers.dl import handle_inspect
+from middleware.src.sidecar.handlers.dl import (
+    handle_cancel,
+    handle_comfy_queue,
+    handle_comfy_run_status,
+    handle_comfy_start,
+    handle_comfy_status,
+    handle_comfy_stop,
+    handle_evaluate,
+    handle_generate,
+    handle_infer,
+    handle_inspect,
+    handle_status as handle_dl_status,
+    handle_train,
+)
 from middleware.src.sidecar.handlers.drive_sync import handle_drive_plan
 from middleware.src.sidecar.handlers.entity_recon import (
     handle_entity_recon_describe,
@@ -138,6 +151,7 @@ class SidecarServer:
         recon_engine: Any | None = None,
         webreq_service: Any | None = None,
         hie_service: Any | None = None,
+        dl_service: Any | None = None,
     ) -> None:
         self.table = table or catalog()
         self.stdin = stdin or sys.stdin
@@ -154,6 +168,7 @@ class SidecarServer:
         self.recon_engine = recon_engine
         self.webreq_service = webreq_service
         self.hie_service = hie_service or HieService()
+        self.dl_service = dl_service
         self.jobs = JobRegistry(table=self.table, event_sink=self._write_event)
         self.cloud_service = None
         self._handshaken = False
@@ -438,9 +453,38 @@ class SidecarServer:
             return handle_metadata_describe(params)
         if method == "dl.inspect":
             return handle_inspect(params)
+        if method == "dl.train":
+            return handle_train(self._get_dl_service(), params)
+        if method == "dl.status":
+            return handle_dl_status(self._get_dl_service(), params)
+        if method == "dl.cancel":
+            return handle_cancel(self._get_dl_service(), params)
+        if method == "dl.generate":
+            return handle_generate(self._get_dl_service(), params)
+        if method == "dl.evaluate":
+            return handle_evaluate(self._get_dl_service(), params)
+        if method == "dl.infer":
+            return handle_infer(self._get_dl_service(), params)
+        if method == "dl.comfy_status":
+            return handle_comfy_status(self._get_dl_service(), params)
+        if method == "dl.comfy_start":
+            return handle_comfy_start(self._get_dl_service(), params)
+        if method == "dl.comfy_stop":
+            return handle_comfy_stop(self._get_dl_service(), params)
+        if method == "dl.comfy_queue":
+            return handle_comfy_queue(self._get_dl_service(), params)
+        if method == "dl.comfy_run_status":
+            return handle_comfy_run_status(self._get_dl_service(), params)
         if method == "auth.status":
             return handle_status(params)
         return _UNHANDLED
+
+    def _get_dl_service(self) -> Any:
+        if self.dl_service is None:
+            from middleware.src.services.dl.service import DeepLearningService
+
+            self.dl_service = DeepLearningService()
+        return self.dl_service
 
     def _dispatch_web(self, method: str, params: dict[str, Any]) -> Any:
         if method == "drive_sync.plan":

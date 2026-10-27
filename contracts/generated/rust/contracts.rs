@@ -1,4 +1,4 @@
-// GENERATED — contract hash 25bb1ff48ee734cd0ab7e3b3a0936c4ad12ee96988058c651d235a1188a48fd3. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash ea722120ad8fa351bac3b321f84c91a7ef6452903f1eab7771fe53292a7ece8f. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
@@ -491,6 +491,151 @@ pub struct MetadataDescribeResult {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlCancelParams {
+    pub run_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlCancelResult {
+    pub run_id: String,
+    pub canceled: bool,
+    pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlComfyQueueParams {
+    pub workflow: std::collections::HashMap<String, serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub overrides: Option<std::collections::HashMap<String, serde_json::Value>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlComfyQueueResult {
+    pub prompt_id: String,
+    pub queued: bool,
+    pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlComfyRunStatusParams {
+    pub prompt_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlComfyRunStatusResult {
+    pub prompt_id: String,
+    pub status: String,
+    pub completed: bool,
+    pub output_images: Vec<String>,
+    pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlComfyStartParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub port: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enable_manager: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlComfyStartResult {
+    pub port: i64,
+    pub url: String,
+    pub state: String,
+    pub success: bool,
+    pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlComfyStatusParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub probe: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlComfyStatusResult {
+    pub state: String,
+    pub url: String,
+    pub port: i64,
+    pub owns_server: bool,
+    pub ready: bool,
+}
+
+pub type DlComfyStopParams = std::collections::HashMap<String, serde_json::Value>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlComfyStopResult {
+    pub stopped: bool,
+    pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlEvaluateParams {
+    pub model_path: String,
+    pub dataset_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metrics: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config: Option<std::collections::HashMap<String, serde_json::Value>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlEvaluateResult {
+    pub job_id: String,
+    pub status: String,
+    pub scores: std::collections::HashMap<String, f64>,
+    pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlGenerateParams {
+    pub model_architecture: String,
+    pub output_dir: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub negative_prompt: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub num_images: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seed: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config: Option<std::collections::HashMap<String, serde_json::Value>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlGenerateResult {
+    pub job_id: String,
+    pub status: String,
+    pub output_images: Vec<String>,
+    pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlInferParams {
+    pub model_version: String,
+    pub image_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prompts: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config: Option<std::collections::HashMap<String, serde_json::Value>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlInferResult {
+    pub job_id: String,
+    pub predictions: Vec<DlPrediction>,
+    pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct DlInspectParams {
     pub run_dir: String,
 }
@@ -507,6 +652,59 @@ pub struct DlInspectResult {
     /// must be false (enforced by the framing layer, #875)
     pub started: bool,
     pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlPrediction {
+    pub label: String,
+    pub score: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlStatusParams {
+    pub run_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run_dir: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlStatusResult {
+    pub run_id: String,
+    pub status: String,
+    pub step: i64,
+    pub total_steps: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub loss: Option<f64>,
+    pub events_count: i64,
+    pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlTrainParams {
+    pub model_architecture: String,
+    pub dataset_path: String,
+    pub output_dir: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epochs: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub batch_size: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub learning_rate: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config: Option<std::collections::HashMap<String, serde_json::Value>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DlTrainResult {
+    pub run_id: String,
+    pub run_dir: String,
+    pub status: String,
+    pub started: bool,
+    pub message: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

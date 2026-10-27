@@ -1,4 +1,4 @@
-# GENERATED — contract hash 25bb1ff48ee734cd0ab7e3b3a0936c4ad12ee96988058c651d235a1188a48fd3. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash ea722120ad8fa351bac3b321f84c91a7ef6452903f1eab7771fe53292a7ece8f. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -429,6 +429,133 @@ class MetadataDescribeResult:
 
 
 @dataclass(frozen=True)
+class DlCancelParams:
+    run_id: str
+
+
+@dataclass(frozen=True)
+class DlCancelResult:
+    run_id: str
+    canceled: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class DlComfyQueueParams:
+    workflow: dict[str, Any]
+    client_id: str | None = None
+    overrides: (dict[str, Any]) | None = None
+
+
+@dataclass(frozen=True)
+class DlComfyQueueResult:
+    prompt_id: str
+    queued: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class DlComfyRunStatusParams:
+    prompt_id: str
+
+
+@dataclass(frozen=True)
+class DlComfyRunStatusResult:
+    prompt_id: str
+    status: str
+    completed: bool
+    output_images: list[str]
+    message: str
+
+
+@dataclass(frozen=True)
+class DlComfyStartParams:
+    port: int | None = None
+    enable_manager: bool | None = None
+    external: bool | None = None
+
+
+@dataclass(frozen=True)
+class DlComfyStartResult:
+    port: int
+    url: str
+    state: str
+    success: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class DlComfyStatusParams:
+    probe: bool | None = None
+
+
+@dataclass(frozen=True)
+class DlComfyStatusResult:
+    state: str
+    url: str
+    port: int
+    owns_server: bool
+    ready: bool
+
+
+@dataclass(frozen=True)
+class DlComfyStopResult:
+    stopped: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class DlEvaluateParams:
+    model_path: str
+    dataset_path: str
+    metrics: (list[str]) | None = None
+    config: (dict[str, Any]) | None = None
+
+
+@dataclass(frozen=True)
+class DlEvaluateResult:
+    job_id: str
+    status: str
+    scores: dict[str, float]
+    message: str
+
+
+@dataclass(frozen=True)
+class DlGenerateParams:
+    model_architecture: str
+    output_dir: str
+    prompt: str | None = None
+    negative_prompt: str | None = None
+    model_path: str | None = None
+    num_images: int | None = None
+    seed: int | None = None
+    config: (dict[str, Any]) | None = None
+
+
+@dataclass(frozen=True)
+class DlGenerateResult:
+    job_id: str
+    status: str
+    output_images: list[str]
+    message: str
+
+
+@dataclass(frozen=True)
+class DlInferParams:
+    model_version: str
+    image_path: str
+    prompts: (list[str]) | None = None
+    config: (dict[str, Any]) | None = None
+
+
+@dataclass(frozen=True)
+class DlInferResult:
+    job_id: str
+    predictions: list[DlPrediction]
+    message: str
+
+
+@dataclass(frozen=True)
 class DlInspectParams:
     run_dir: str
 
@@ -444,6 +571,51 @@ class DlInspectResult:
     event_count: int
     started: Literal[False]
     reason: str
+
+
+@dataclass(frozen=True)
+class DlPrediction:
+    label: str
+    score: float
+
+
+@dataclass(frozen=True)
+class DlStatusParams:
+    run_id: str
+    run_dir: str | None = None
+
+
+@dataclass(frozen=True)
+class DlStatusResult:
+    run_id: str
+    status: str
+    step: int
+    total_steps: int
+    events_count: int
+    message: str
+    loss: float | None = None
+
+
+@dataclass(frozen=True)
+class DlTrainParams:
+    model_architecture: str
+    dataset_path: str
+    output_dir: str
+    output_name: str | None = None
+    epochs: int | None = None
+    batch_size: int | None = None
+    learning_rate: float | None = None
+    device: str | None = None
+    config: (dict[str, Any]) | None = None
+
+
+@dataclass(frozen=True)
+class DlTrainResult:
+    run_id: str
+    run_dir: str
+    status: str
+    started: bool
+    message: str
 
 
 @dataclass(frozen=True)
@@ -1321,6 +1493,9 @@ CloudSetupEmptyParams = dict[str, Any]
 
 
 CrawlerSupportedParams = dict[str, Any]
+
+
+DlComfyStopParams = dict[str, Any]
 
 
 EntityReconEmptyParams = dict[str, Any]
