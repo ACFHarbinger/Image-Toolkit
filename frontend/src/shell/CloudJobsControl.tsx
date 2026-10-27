@@ -1,5 +1,5 @@
 import React from "react";
-import { Settings } from "lucide-react";
+import { Cpu } from "lucide-react";
 
 interface CloudJobsControlProps {
   badge: string;
@@ -7,7 +7,7 @@ interface CloudJobsControlProps {
   onOpenCompute: () => void;
 }
 
-/** One header control. Click opens Cloud Jobs. The gear, or shift-click, opens Cloud Compute. */
+/** Click opens Cloud Jobs. The compute button, or shift-click, opens Cloud Compute. */
 export function CloudJobsControl({
   badge,
   onOpenJobs,
@@ -37,7 +37,7 @@ export function CloudJobsControl({
         className="rounded-lg p-2 hover:bg-violet-600"
         onClick={onOpenCompute}
       >
-        <Settings size={16} />
+        <Cpu size={16} aria-hidden="true" />
       </button>
     </div>
   );

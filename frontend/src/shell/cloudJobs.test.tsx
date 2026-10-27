@@ -76,7 +76,7 @@ test("formats the running count and reserved spend", () => {
   expect(formatCloudBadge({ running: 0, reserved_usd: 0, available: false })).toBe("—");
 });
 
-test("click opens jobs and shift-click or the gear opens compute", () => {
+test("click opens jobs and shift-click or the compute button opens compute", () => {
   const onOpenJobs = vi.fn();
   const onOpenCompute = vi.fn();
   render(<CloudJobsControl badge="1 · $1.00" onOpenJobs={onOpenJobs} onOpenCompute={onOpenCompute} />);
