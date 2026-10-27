@@ -41,6 +41,26 @@ test("management shows the unattached store and applies a create", async () => {
   expect(screen.queryByTestId("library-management-unavailable")).toBeNull();
 });
 
+test("management creates each comma-separated group name", async () => {
+  const calls: MutateParams[] = [];
+  const client = {
+    libraryAdminCatalog: async () => catalog(true),
+    libraryAdminMutate: async (params: MutateParams): Promise<MutateResult> => {
+      calls.push(params);
+      return { available: true, applied: 1, error: "" };
+    },
+  };
+  render(<LibraryManagement client={client} />);
+  expect(await screen.findByTestId("library-management-action")).toBeTruthy();
+  fireEvent.change(screen.getByTestId("library-management-action"), { target: { value: "create_group" } });
+  fireEvent.change(screen.getByTestId("library-management-name"), { target: { value: "shore, pier" } });
+  fireEvent.click(screen.getByTestId("library-management-apply"));
+  expect((await screen.findByTestId("library-management-notice")).textContent).toBe("Applied 2");
+  expect(calls.map((call) => call.name)).toEqual(["shore", "pier"]);
+  expect(calls[0]).toMatchObject({ action: "create_group", name: "shore" });
+  expect(calls[1]).toMatchObject({ action: "create_group", name: "pier" });
+});
+
 test("management renames a group and updates a tag", async () => {
   const calls: MutateParams[] = [];
   const client = {

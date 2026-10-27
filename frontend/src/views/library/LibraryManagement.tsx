@@ -29,6 +29,12 @@ const ACTIONS: MutateAction[] = [
 
 const TAG_CATEGORIES = ["Artist", "Copyright", "Character", "General", "Meta"];
 
+const SPLIT_CREATE: ReadonlySet<MutateAction> = new Set([
+  "create_group",
+  "create_subgroup",
+  "create_tag",
+]);
+
 /** Groups, subgroups, and tags. The store stays closed until the lease arrives. */
 export function LibraryManagement({ client }: { client: ManagementClient }) {
   const [catalog, setCatalog] = useState<CatalogResult | null>(null);
@@ -85,18 +91,38 @@ export function LibraryManagement({ client }: { client: ManagementClient }) {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
-    const result = await client.libraryAdminMutate({
-      action,
-      name,
-      parent,
-      category,
-      destination,
-    });
-    setNotice(result.available ? result.error || `Applied ${result.applied}` : "");
-    if (result.available && result.error === "") {
-      setName("");
-      await reload();
+    const pieces = SPLIT_CREATE.has(action)
+      ? name
+          .split(",")
+          .map((piece) => piece.trim())
+          .filter((piece) => piece !== "")
+      : [name];
+    if (pieces.length === 0) {
+      setNotice("Name is required.");
+      return;
     }
+    let applied = 0;
+    for (const piece of pieces) {
+      const result = await client.libraryAdminMutate({
+        action,
+        name: piece,
+        parent,
+        category,
+        destination,
+      });
+      if (!result.available) {
+        setNotice("");
+        return;
+      }
+      if (result.error !== "") {
+        setNotice(result.error);
+        return;
+      }
+      applied += result.applied;
+    }
+    setNotice(`Applied ${applied}`);
+    setName("");
+    await reload();
   }
 
   if (!catalog) {
