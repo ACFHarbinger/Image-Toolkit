@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { open } from "@tauri-apps/plugin-dialog";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { MergeView } from "./MergeView";
 
@@ -41,6 +42,43 @@ test("concatenate sends the queue in order", async () => {
     align: "start",
   });
   expect(hostClient.mergePlace).not.toHaveBeenCalled();
+});
+
+test("empty output folder keeps the filename and a browsed folder joins its last segment", async () => {
+  const hostClient = {
+    mergeConcatenate: vi.fn().mockResolvedValue(written),
+    mergePlace: vi.fn(),
+  };
+  render(<MergeView hostClient={hostClient} />);
+  fireEvent.change(screen.getByPlaceholderText(/Output Filename/i), { target: { value: "/out.png" } });
+  fireEvent.click(screen.getByRole("button", { name: "Concatenate" }));
+  expect(await screen.findByText("4x2 /out.png")).toBeInTheDocument();
+  expect(hostClient.mergeConcatenate).toHaveBeenCalledWith({
+    paths: [],
+    output_path: "/out.png",
+    direction: "horizontal",
+    spacing: 0,
+    align: "start",
+  });
+  expect(hostClient.mergePlace).not.toHaveBeenCalled();
+
+  vi.mocked(open).mockResolvedValueOnce("/exports");
+  fireEvent.click(screen.getByRole("button", { name: "Browse output folder" }));
+  await waitFor(() => expect(screen.getByLabelText("Output folder")).toHaveValue("/exports"));
+  expect(open).toHaveBeenCalledWith({ directory: true, multiple: false });
+  expect(hostClient.mergeConcatenate).toHaveBeenCalledTimes(1);
+  expect(hostClient.mergePlace).not.toHaveBeenCalled();
+
+  fireEvent.change(screen.getByPlaceholderText(/Output Filename/i), { target: { value: "merged.png" } });
+  fireEvent.click(screen.getByRole("button", { name: "Concatenate" }));
+  expect(hostClient.mergeConcatenate).toHaveBeenLastCalledWith({
+    paths: [],
+    output_path: "/exports/merged.png",
+    direction: "horizontal",
+    spacing: 0,
+    align: "start",
+  });
+  vi.mocked(open).mockReset();
 });
 
 test("placement sends stored rectangles", async () => {

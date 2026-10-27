@@ -1,3 +1,4 @@
+import { open } from "@tauri-apps/plugin-dialog";
 import React, { useState } from "react";
 import { MergeCanvasBoard } from "../../components/common/MergeCanvasBoard";
 import { ThumbnailGallery } from "../../components/common/ThumbnailGallery";
@@ -32,10 +33,26 @@ export interface MergeClient {
 
 type QueueItem = MergePlacement;
 
+/** Empty folder keeps the filename verbatim. Otherwise join the folder to the filename's last segment. */
+function outputPathForMerge(folder: string, filename: string): string {
+  if (folder.length === 0) {
+    return filename;
+  }
+  let end = folder.length;
+  while (end > 0 && folder[end - 1] === "/") {
+    end -= 1;
+  }
+  const directory = folder.slice(0, end);
+  const slash = filename.lastIndexOf("/");
+  const name = slash < 0 ? filename : filename.slice(slash + 1);
+  return `${directory}/${name}`;
+}
+
 /** Ordered queue. Placement stores a rectangle per image; other modes concatenate. */
 export function MergeView({ hostClient }: { readonly hostClient: MergeClient }): React.ReactElement {
   const [draft, setDraft] = useState("");
   const [items, setItems] = useState<QueueItem[]>([]);
+  const [outputFolder, setOutputFolder] = useState("");
   const [outputPath, setOutputPath] = useState("");
   const [mode, setMode] = useState<"horizontal" | "vertical" | "placement">("horizontal");
   const [spacing, setSpacing] = useState(0);
@@ -99,9 +116,21 @@ export function MergeView({ hostClient }: { readonly hostClient: MergeClient }):
     });
   }
 
+  async function browseOutputFolder(): Promise<void> {
+    try {
+      const picked = await open({ directory: true, multiple: false });
+      if (typeof picked === "string" && picked.length > 0) {
+        setOutputFolder(picked);
+      }
+    } catch {
+      // A thrown dialog leaves the folder unchanged and does not submit.
+    }
+  }
+
   async function onSubmit(event: React.FormEvent): Promise<void> {
     event.preventDefault();
     setError("");
+    const destination = outputPathForMerge(outputFolder, outputPath);
     try {
       const next =
         mode === "placement"
@@ -113,11 +142,11 @@ export function MergeView({ hostClient }: { readonly hostClient: MergeClient }):
                 width: item.width,
                 height: item.height,
               })),
-              output_path: outputPath,
+              output_path: destination,
             })
           : await hostClient.mergeConcatenate({
               paths: items.map((item) => item.path),
-              output_path: outputPath,
+              output_path: destination,
               direction: mode,
               spacing,
               align,
@@ -226,6 +255,13 @@ export function MergeView({ hostClient }: { readonly hostClient: MergeClient }):
           onClear={() => setItems([])}
         />
       ) : null}
+      <label>
+        Output folder
+        <input value={outputFolder} onChange={(event) => setOutputFolder(event.target.value)} />
+      </label>
+      <button type="button" onClick={() => void browseOutputFolder()}>
+        Browse output folder
+      </button>
       <label>
         Output
         <input
