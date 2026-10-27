@@ -42,11 +42,24 @@ const ZOOM_MIN = 0.1;
 const ZOOM_MAX = 5;
 const DIFF_BOOSTS: readonly DiffBoost[] = [1, 2, 4, 8];
 
+function clampZoom(value: number): number {
+  if (value < ZOOM_MIN) return ZOOM_MIN;
+  if (value > ZOOM_MAX) return ZOOM_MAX;
+  return value;
+}
+
 function adjustZoom(current: number, delta: number): number {
-  const next = current + delta;
-  if (next < ZOOM_MIN) return ZOOM_MIN;
-  if (next > ZOOM_MAX) return ZOOM_MAX;
-  return next;
+  return clampZoom(current + delta);
+}
+
+/** One axis of the pane, clamped to 0.1–5. A non-positive measure stays at 1×. */
+function fitAxis(usable: number, imageSize: number): number {
+  if (usable <= 0 || imageSize <= 0) return 1;
+  return clampZoom(usable / imageSize);
+}
+
+function wrapDegrees(degrees: number): number {
+  return ((degrees % 360) + 360) % 360;
 }
 
 /** Classic fit: pane size minus control margins, never above 1×. */
@@ -85,6 +98,7 @@ export function LibraryPreviewWindow({ client }: { readonly client: PreviewClien
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [opacity, setOpacity] = useState(50);
+  const [overlayFlipped, setOverlayFlipped] = useState(false);
   const [dragAt, setDragAt] = useState<{ x: number; y: number } | null>(null);
   const [difference, setDifference] = useState<PreviewDifference | null>(null);
   const [boost, setBoost] = useState<DiffBoost>(1);
@@ -185,8 +199,38 @@ export function LibraryPreviewWindow({ client }: { readonly client: PreviewClien
             >
               Fit
             </button>
+            <button
+              type="button"
+              data-testid="preview-fit-width"
+              onClick={() => {
+                const frame = frameFor(current.path);
+                setZoom(fitAxis((paneRef.current?.clientWidth ?? 0) - 100, frame?.width ?? 0));
+              }}
+            >
+              Fit to width
+            </button>
+            <button
+              type="button"
+              data-testid="preview-fit-height"
+              onClick={() => {
+                const frame = frameFor(current.path);
+                setZoom(fitAxis((paneRef.current?.clientHeight ?? 0) - 50, frame?.height ?? 0));
+              }}
+            >
+              Fit to height
+            </button>
+            <button type="button" data-testid="preview-actual-size" onClick={() => setZoom(1)}>
+              Actual size
+            </button>
             <button type="button" data-testid="preview-rotate" onClick={() => setRotation((value) => (value + 90) % 360)}>
               Rotate
+            </button>
+            <button
+              type="button"
+              data-testid="preview-rotate-ccw"
+              onClick={() => setRotation((value) => wrapDegrees(value - 90))}
+            >
+              Rotate counter-clockwise
             </button>
           </div>
           <p data-testid="preview-zoom">{Math.round(zoom * 100)}%</p>
@@ -209,12 +253,15 @@ export function LibraryPreviewWindow({ client }: { readonly client: PreviewClien
               onChange={(event) => setOpacity(Number(event.target.value))}
             />
           </label>
+          <button type="button" data-testid="compare-flip" onClick={() => setOverlayFlipped((value) => !value)}>
+            Flip overlay
+          </button>
           <div className="relative h-40" data-testid="compare-overlay">
             <div className="absolute inset-0">
-              <FrameImage frame={frameFor(items[1].path)} zoom={1} rotation={0} />
+              <FrameImage frame={frameFor((overlayFlipped ? items[0] : items[1]).path)} zoom={1} rotation={0} />
             </div>
             <div className="absolute inset-0" style={{ opacity: opacity / 100 }}>
-              <FrameImage frame={frameFor(items[0].path)} zoom={1} rotation={0} />
+              <FrameImage frame={frameFor((overlayFlipped ? items[1] : items[0]).path)} zoom={1} rotation={0} />
             </div>
           </div>
           <label>

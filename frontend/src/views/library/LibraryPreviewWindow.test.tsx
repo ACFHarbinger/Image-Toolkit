@@ -56,6 +56,20 @@ test("preview steps through described paths and rotates", async () => {
   expect(screen.getByRole("alert")).toHaveTextContent("not a file");
 });
 
+test("preview actual size, counter-clockwise rotate, and fit-to-width at zero pane width", async () => {
+  const view = client();
+  await inspect(view);
+  fireEvent.click(screen.getByTestId("preview-zoom-in"));
+  expect(screen.getByTestId("preview-zoom")).toHaveTextContent("110%");
+  fireEvent.click(screen.getByTestId("preview-actual-size"));
+  expect(screen.getByTestId("preview-zoom")).toHaveTextContent("100%");
+  fireEvent.click(screen.getByTestId("preview-rotate-ccw"));
+  expect(screen.getByTestId("preview-frame")).toHaveStyle({ transform: "scale(1) rotate(270deg)" });
+  fireEvent.click(screen.getByTestId("preview-zoom-in"));
+  fireEvent.click(screen.getByTestId("preview-fit-width"));
+  expect(screen.getByTestId("preview-zoom")).toHaveTextContent("100%");
+});
+
 test("compare asks for a difference and drag preview ignores pointer events", async () => {
   const view = client();
   view.libraryPreviewDescribe = vi.fn().mockResolvedValue({
@@ -80,6 +94,19 @@ test("compare asks for a difference and drag preview ignores pointer events", as
     expect(frame.parentElement?.className).toContain("absolute");
     expect(frame.parentElement?.className).toContain("inset-0");
   }
+  expect(frames[0]).toHaveAttribute("alt", RIGHT);
+  expect(frames[1]).toHaveAttribute("alt", LEFT);
+  fireEvent.click(screen.getByRole("button", { name: "Flip overlay" }));
+  const flipped = overlay.querySelectorAll("[data-testid=preview-frame]");
+  expect(flipped[0]).toHaveAttribute("alt", LEFT);
+  expect(flipped[1]).toHaveAttribute("alt", RIGHT);
+  fireEvent.click(screen.getByRole("button", { name: "Flip overlay" }));
+  const restored = overlay.querySelectorAll("[data-testid=preview-frame]");
+  expect(restored[0]).toHaveAttribute("alt", RIGHT);
+  expect(restored[1]).toHaveAttribute("alt", LEFT);
+  const rowFrames = screen.getByTestId("compare-pane").firstElementChild?.querySelectorAll("[data-testid=preview-frame]");
+  expect(rowFrames?.[0]).toHaveAttribute("alt", LEFT);
+  expect(rowFrames?.[1]).toHaveAttribute("alt", RIGHT);
   fireEvent.click(screen.getByTestId("compare-difference"));
   expect(await screen.findByTestId("difference-result")).toHaveTextContent("size mismatch");
   expect(view.libraryPreviewDifference).toHaveBeenCalledWith({ left: LEFT, right: RIGHT, boost: 1 });
