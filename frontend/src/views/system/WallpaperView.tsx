@@ -223,8 +223,18 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
     setGraphEdges([...graphEdges, { source: edgeFrom, target: edgeTo }]);
   };
 
+  const handleSelfEdge = () => {
+    if (!edgeFrom || !graphNodes.some((node) => node.id === edgeFrom)) return;
+    setGraphEdges([...graphEdges, { source: edgeFrom, target: edgeFrom }]);
+  };
+
   const handleRemoveGraphEdge = (index: number) => {
     setGraphEdges((edges) => edges.filter((_, i) => i !== index));
+  };
+
+  const handleClearGraph = () => {
+    setGraphNodes([]);
+    setGraphEdges([]);
   };
 
   const handleSaveGraph = async () => {
@@ -686,6 +696,9 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
               <button type="button" onClick={handleAddGraphEdge} className="px-3 py-1.5 border rounded text-xs">
                 Add edge
               </button>
+              <button type="button" onClick={handleSelfEdge} className="px-3 py-1.5 border rounded text-xs">
+                Self-edge
+              </button>
             </div>
             <ul className="text-xs font-mono space-y-1">
               {graphEdges.map((edge, index) => (
@@ -754,6 +767,9 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
             <div className="flex gap-2">
               <button type="button" onClick={handleSaveGraph} disabled={loading} className="px-3 py-1.5 bg-violet-600 text-white rounded text-xs">
                 Save graph
+              </button>
+              <button type="button" onClick={handleClearGraph} className="px-3 py-1.5 border rounded text-xs">
+                Clear graph
               </button>
               <button type="button" onClick={handleLoadGraph} disabled={loading} className="px-3 py-1.5 border rounded text-xs">
                 Load graph

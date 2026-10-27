@@ -313,6 +313,97 @@ describe("WallpaperView", () => {
     expect(hostClient.wallpaperSet).not.toHaveBeenCalled();
   });
 
+  test("clear graph drops nodes and edges before the next save", async () => {
+    const hostClient = {
+      wallpaperGetMonitors: vi.fn().mockResolvedValue(mockMonitorsResult),
+      wallpaperSlideshowConfig: vi.fn().mockResolvedValue(mockConfigResult),
+      wallpaperSet: vi.fn(),
+      wallpaperSlideshowToggle: vi.fn(),
+      wallpaperMonitorGraph: vi.fn().mockResolvedValue({
+        path: "/tmp/monitor-graph.json",
+        nodes: [],
+        edges: [],
+        end_behavior: "repeat",
+        end_color: "#000000",
+        error: "",
+      }),
+    };
+    render(<WallpaperView hostClient={hostClient as any} />);
+    await screen.findByText("KDE Plasma");
+
+    fireEvent.change(screen.getByLabelText("Graph file"), { target: { value: "/tmp/monitor-graph.json" } });
+    fireEvent.change(screen.getByLabelText("Node path"), { target: { value: "/tmp/a.png" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add node" }));
+    fireEvent.change(screen.getByLabelText("Node path"), { target: { value: "/tmp/b.png" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add node" }));
+    fireEvent.change(screen.getByLabelText("Edge from"), { target: { value: "n1" } });
+    fireEvent.change(screen.getByLabelText("Edge to"), { target: { value: "n2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add edge" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear graph" }));
+
+    expect(screen.queryByRole("button", { name: "Remove n1" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove edge 0" })).not.toBeInTheDocument();
+    expect(hostClient.wallpaperMonitorGraph).not.toHaveBeenCalled();
+    expect(hostClient.wallpaperSet).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save graph" }));
+
+    await waitFor(() => {
+      expect(hostClient.wallpaperMonitorGraph).toHaveBeenCalledWith({
+        update: true,
+        path: "/tmp/monitor-graph.json",
+        nodes: [],
+        edges: [],
+        end_behavior: "repeat",
+        end_color: "#000000",
+      });
+    });
+    expect(hostClient.wallpaperSet).not.toHaveBeenCalled();
+  });
+
+  test("self-edge stays in memory until save", async () => {
+    const hostClient = {
+      wallpaperGetMonitors: vi.fn().mockResolvedValue(mockMonitorsResult),
+      wallpaperSlideshowConfig: vi.fn().mockResolvedValue(mockConfigResult),
+      wallpaperSet: vi.fn(),
+      wallpaperSlideshowToggle: vi.fn(),
+      wallpaperMonitorGraph: vi.fn().mockResolvedValue({
+        path: "/tmp/monitor-graph.json",
+        nodes: [{ id: "n1", path: "/tmp/a.png", duration_seconds: 10 }],
+        edges: [{ source: "n1", target: "n1" }],
+        end_behavior: "repeat",
+        end_color: "#000000",
+        error: "",
+      }),
+    };
+    render(<WallpaperView hostClient={hostClient as any} />);
+    await screen.findByText("KDE Plasma");
+
+    fireEvent.change(screen.getByLabelText("Node path"), { target: { value: "/tmp/a.png" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add node" }));
+    fireEvent.change(screen.getByLabelText("Edge from"), { target: { value: "n1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Self-edge" }));
+
+    expect(screen.getByText("n1 n1")).toBeInTheDocument();
+    expect(hostClient.wallpaperMonitorGraph).not.toHaveBeenCalled();
+    expect(hostClient.wallpaperSet).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Graph file"), { target: { value: "/tmp/monitor-graph.json" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save graph" }));
+
+    await waitFor(() => {
+      expect(hostClient.wallpaperMonitorGraph).toHaveBeenCalledWith({
+        update: true,
+        path: "/tmp/monitor-graph.json",
+        nodes: [{ id: "n1", path: "/tmp/a.png", duration_seconds: 10 }],
+        edges: [{ source: "n1", target: "n1" }],
+        end_behavior: "repeat",
+        end_color: "#000000",
+      });
+    });
+    expect(hostClient.wallpaperSet).not.toHaveBeenCalled();
+  });
+
   test("a scanned thumbnail fills the selected monitor path without applying", async () => {
     vi.mocked(invoke).mockImplementation(async (command: string) => {
       if (command === "scan_files") {
