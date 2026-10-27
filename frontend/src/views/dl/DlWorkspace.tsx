@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { deskButtonClass, deskControlClass, DeskField, DeskForm } from "../../components/common/DeskForm";
 
 export type DlRoute = "train" | "generate" | "review" | "runs";
 
@@ -43,19 +44,18 @@ export function DlWorkspace({
 
   return (
     <section data-testid="dl-workspace" data-route={route}>
-      <form onSubmit={onSubmit}>
-        <label>
-          Run directory
-          <input value={runDir} onChange={(event) => setRunDir(event.target.value)} />
-        </label>
-        <button type="submit">Inspect</button>
-      </form>
-      {error ? <p role="alert">{error}</p> : null}
-      {result ? (
-        <p>
-          {result.run_id} {result.status} {result.engine} {result.event_count} {result.reason}
-        </p>
-      ) : null}
+      <DeskForm testId="dl-inspect" title={route} description="Read a run directory. This page never starts a job." onSubmit={onSubmit}>
+        <DeskField label="Run directory">
+          <input className={deskControlClass} value={runDir} onChange={(event) => setRunDir(event.target.value)} />
+        </DeskField>
+        <button type="submit" className={deskButtonClass}>Inspect</button>
+        {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
+        {result ? (
+          <p className="text-sm">
+            {result.run_id} {result.status} {result.engine} {result.event_count} {result.reason}
+          </p>
+        ) : null}
+      </DeskForm>
     </section>
   );
 }
