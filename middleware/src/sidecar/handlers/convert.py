@@ -141,8 +141,21 @@ def resolve_output_format(output_path: str, explicit: str | None) -> str:
     return fmt
 
 
+_TIFF = frozenset({"tif", "tiff"})
+
+
+def _input_formats(params: dict[str, Any]) -> tuple[str, ...]:
+    raw = params.get("input_formats")
+    if not raw:
+        return tuple(sorted(SUPPORTED_FORMATS))
+    formats = {str(fmt).lower().lstrip(".") for fmt in raw}
+    if formats & _TIFF:
+        formats |= _TIFF
+    return tuple(sorted(formats))
+
+
 def _batch_command(params: dict[str, Any]) -> BatchConvertCommand:
-    formats = params.get("input_formats", ["webp", "png", "jpg", "jpeg"])
+    formats = _input_formats(params)
     output_format = params.get("output_format", "png")
     if not isinstance(output_format, str):
         raise CommandValidationError("Unsupported output format", field="output_format")

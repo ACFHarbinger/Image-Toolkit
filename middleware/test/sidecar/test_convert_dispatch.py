@@ -30,6 +30,22 @@ def _ready() -> SidecarServer:
     return server
 
 
+def test_omitted_directory_formats_include_every_supported_extension() -> None:
+    from middleware.src.sidecar.handlers.convert import _batch_command
+
+    omitted = _batch_command({"input_dir": "/in", "output_dir": "/out", "output_format": "png"})
+    assert {"bmp", "gif", "tif", "tiff"} <= set(omitted.input_formats)
+    tiff_only = _batch_command(
+        {
+            "input_dir": "/in",
+            "output_dir": "/out",
+            "output_format": "png",
+            "input_formats": ["tiff"],
+        }
+    )
+    assert set(tiff_only.input_formats) == {"tif", "tiff"}
+
+
 def test_missing_input_is_a_validated_convert_result() -> None:
     server = _ready()
     response = _request(
