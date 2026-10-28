@@ -368,6 +368,11 @@ test("sort by filename reorders rows and does not search again", async () => {
   expect(filenameText.indexOf("a.png")).toBeLessThan(filenameText.indexOf("b.jpg"));
   expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
 
+  fireEvent.click(screen.getByRole("button", { name: "a.png" }));
+  expect(screen.getByTestId("library-search-selected")).toHaveTextContent("Selected: a.png");
+  fireEvent.click(screen.getByTestId("library-search-next"));
+  expect(screen.getByTestId("library-search-selected")).toHaveTextContent("Selected: b.jpg");
+
   fireEvent.change(screen.getByRole("combobox", { name: "Order" }), { target: { value: "desc" } });
   const descendingText = screen.getByTestId("library-search-rows").textContent ?? "";
   expect(descendingText.indexOf("b.jpg")).toBeGreaterThanOrEqual(0);

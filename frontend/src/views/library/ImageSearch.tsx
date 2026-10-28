@@ -332,8 +332,14 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
     );
   }
 
+  const orderedImages = sortedImages(images, sortKey, sortOrder);
+  const pageLength = pageSize === "all" ? Math.max(1, orderedImages.length) : Math.floor(pageSize);
+  const pageCount = Math.max(1, Math.ceil(orderedImages.length / pageLength));
+  const pageImages = orderedImages.slice(page * pageLength, (page + 1) * pageLength);
+  const selected = orderedImages[selectedIndex];
+
   const openPreview = async (index: number) => {
-    const image = images[index];
+    const image = orderedImages[index];
     if (!image) return;
     setSelectedIndex(index);
     const described = await hostClient.libraryPreviewDescribe({ paths: [image.file_path] });
@@ -349,18 +355,24 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
   };
 
   const moveSelection = (delta: number) => {
-    if (images.length === 0) return;
-    const next = Math.min(images.length - 1, Math.max(0, selectedIndex + delta));
+    if (orderedImages.length === 0) return;
+    const next = Math.min(orderedImages.length - 1, Math.max(0, selectedIndex + delta));
     setSelectedIndex(next);
+    const nextPage = Math.floor(next / pageLength);
+    if (nextPage !== page) setPage(nextPage);
     if (preview) {
       void openPreview(next);
     }
   };
 
-  const pageLength = pageSize === "all" ? Math.max(1, images.length) : Math.floor(pageSize);
-  const pageCount = Math.max(1, Math.ceil(images.length / pageLength));
-  const pageImages = sortedImages(images, sortKey, sortOrder).slice(page * pageLength, (page + 1) * pageLength);
-  const selected = images[selectedIndex];
+  const keepSelection = (nextKey: typeof sortKey, nextOrder: typeof sortOrder) => {
+    const current = orderedImages[selectedIndex];
+    const resorted = sortedImages(images, nextKey, nextOrder);
+    const index = current ? resorted.indexOf(current) : 0;
+    const nextIndex = index < 0 ? 0 : index;
+    setSelectedIndex(nextIndex);
+    setPage(Math.floor(nextIndex / pageLength));
+  };
 
   return (
     <div data-testid="library-search" className="flex min-h-0 flex-1 flex-col gap-3 p-4">
@@ -568,8 +580,8 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
                 onChange={(event) => {
                   const next = event.target.value;
                   if (!isSortKey(next)) return;
+                  keepSelection(next, sortOrder);
                   setSortKey(next);
-                  setPage(0);
                 }}
               >
                 <option value="returned">As returned</option>
@@ -585,8 +597,8 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
                 onChange={(event) => {
                   const next = event.target.value;
                   if (!isSortOrder(next)) return;
+                  keepSelection(sortKey, next);
                   setSortOrder(next);
-                  setPage(0);
                 }}
               >
                 <option value="asc">Ascending</option>
@@ -626,7 +638,7 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
                   className="truncate text-left"
                   title={image.file_path}
                   aria-pressed={selected?.file_path === image.file_path}
-                  onClick={() => setSelectedIndex(images.indexOf(image))}
+                  onClick={() => setSelectedIndex(orderedImages.indexOf(image))}
                 >
                   {image.filename}
                 </button>
