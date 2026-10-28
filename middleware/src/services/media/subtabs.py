@@ -35,6 +35,14 @@ def resample(params: dict[str, Any]) -> dict[str, Any]:
     output_path = str(params.get("output_path") or "")
     if not input_path or not output_path:
         raise ValueError("input and output paths are required")
+    batch = params.get("batch") or [{"input_path": input_path, "output_path": output_path}]
+    sources = {Path(item["input_path"]).resolve() for item in batch}
+    sources.add(Path(input_path).resolve())
+    destinations = [Path(item["output_path"]).resolve() for item in batch]
+    if Path(output_path).resolve() in sources or sources.intersection(destinations):
+        return {"success": False, "message": "Refusing to replace a selected source image."}
+    if len(destinations) != len(set(destinations)):
+        return {"success": False, "message": "Multiple inputs have the same output path."}
     image = Image.open(input_path)
     width, height = image.size
     mode = str(params.get("mode") or "factor")

@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Sampler validates the complete output plan against every selected source before writing, including native path aliases and duplicate destinations.
+- Library registry loading keeps the HostClient receiver, and wallpaper graph nodes keep unique IDs after removals.
+- Clipboard test doubles preserve the readonly browser API type during frontend checking.
+
 - Integrate the reviewed shell, library, system, and settings deliveries while retaining both library and preferences bindings across vault unlock and lock.
 
 - Route account creation to the current vault service through the bundled Python runtime, with credentials on stdin and execution off the desktop thread.

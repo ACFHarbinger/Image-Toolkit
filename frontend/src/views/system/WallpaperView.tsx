@@ -217,8 +217,11 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
   const handleAddGraphNode = () => {
     const path = nodePath.trim();
     if (!path) return;
-    const id = `n${graphNodes.length + 1}`;
-    setGraphNodes([...graphNodes, { id, path, duration_seconds: Math.max(1, Math.floor(nodeDuration) || 1) }]);
+    setGraphNodes((nodes) => {
+      let suffix = nodes.length + 1;
+      while (nodes.some((node) => node.id === `n${suffix}`)) suffix += 1;
+      return [...nodes, { id: `n${suffix}`, path, duration_seconds: Math.max(1, Math.floor(nodeDuration) || 1) }];
+    });
     setNodePath("");
   };
 
@@ -235,10 +238,12 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
   const handleRemoveGraphNode = (id: string) => {
     setGraphNodes((nodes) => nodes.filter((node) => node.id !== id));
     setGraphEdges((edges) => edges.filter((edge) => edge.source !== id && edge.target !== id));
+    setEdgeFrom((value) => value === id ? "" : value);
+    setEdgeTo((value) => value === id ? "" : value);
   };
 
   const handleAddGraphEdge = () => {
-    if (!edgeFrom || !edgeTo) return;
+    if (![edgeFrom, edgeTo].every((id) => graphNodes.some((node) => node.id === id))) return;
     setGraphEdges([...graphEdges, { source: edgeFrom, target: edgeTo }]);
   };
 
@@ -254,6 +259,8 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
   const handleClearGraph = () => {
     setGraphNodes([]);
     setGraphEdges([]);
+    setEdgeFrom("");
+    setEdgeTo("");
   };
 
   const handleFitView = () => {

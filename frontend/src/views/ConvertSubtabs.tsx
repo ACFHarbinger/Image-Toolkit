@@ -155,15 +155,23 @@ export function SamplerPanel() {
     }
     setStatus("resampling");
     try {
-      for (const inputPath of selected) {
-        const destination = resampleDestination(inputPath, outputPath, selected.length);
-        if (pathsEqual(destination, inputPath)) {
-          setStatus("failed: refusing to replace the source");
-          return;
-        }
+      const batch = selected.map((input_path) => ({
+        input_path,
+        output_path: resampleDestination(input_path, outputPath, selected.length),
+      }));
+      if (batch.some((item) => selected.some((source) => pathsEqual(item.output_path, source)))) {
+        setStatus("failed: refusing to replace a selected source");
+        return;
+      }
+      if (batch.some((item, index) => batch.slice(0, index).some((previous) => pathsEqual(previous.output_path, item.output_path)))) {
+        setStatus("failed: multiple inputs have the same output path");
+        return;
+      }
+      for (const { input_path: inputPath, output_path: destination } of batch) {
         const result = await runMedia("resample", {
           input_path: inputPath,
           output_path: destination,
+          batch,
           mode,
           factor,
           width,

@@ -27,11 +27,17 @@ test("resamples every selected still beside the source when output is empty", as
   expect(invoke).toHaveBeenCalledTimes(2);
   expect(invoke).toHaveBeenNthCalledWith(1, "media_subtab", {
     action: "resample",
-    params: { input_path: "/pics/a.png", output_path: "/pics/a_resampled.png", ...resampleParams },
+    params: { input_path: "/pics/a.png", output_path: "/pics/a_resampled.png", ...resampleParams, batch: [
+      { input_path: "/pics/a.png", output_path: "/pics/a_resampled.png" },
+      { input_path: "/pics/b.jpg", output_path: "/pics/b_resampled.jpg" },
+    ] },
   });
   expect(invoke).toHaveBeenNthCalledWith(2, "media_subtab", {
     action: "resample",
-    params: { input_path: "/pics/b.jpg", output_path: "/pics/b_resampled.jpg", ...resampleParams },
+    params: { input_path: "/pics/b.jpg", output_path: "/pics/b_resampled.jpg", ...resampleParams, batch: [
+      { input_path: "/pics/a.png", output_path: "/pics/a_resampled.png" },
+      { input_path: "/pics/b.jpg", output_path: "/pics/b_resampled.jpg" },
+    ] },
   });
 });
 
@@ -45,7 +51,7 @@ test("one path uses the output field as the exact output path", async () => {
   expect(invoke).toHaveBeenCalledTimes(1);
   expect(invoke).toHaveBeenCalledWith("media_subtab", {
     action: "resample",
-    params: { input_path: "/pics/a.png", output_path: "/out/custom.png", ...resampleParams },
+    params: { input_path: "/pics/a.png", output_path: "/out/custom.png", ...resampleParams, batch: [{ input_path: "/pics/a.png", output_path: "/out/custom.png" }] },
   });
 });
 
@@ -57,7 +63,7 @@ test("an output directory that is the source directory does not replace the file
   });
   fireEvent.change(screen.getByLabelText("Output"), { target: { value: "/pics" } });
   fireEvent.click(screen.getByRole("button", { name: "Resample" }));
-  expect(await screen.findByText("Status: failed: refusing to replace the source")).toBeInTheDocument();
+  expect(await screen.findByText("Status: failed: refusing to replace a selected source")).toBeInTheDocument();
   expect(invoke).not.toHaveBeenCalled();
 });
 
@@ -66,4 +72,22 @@ test("empty input does not resample", () => {
   fireEvent.click(screen.getByRole("button", { name: "Resample" }));
   expect(invoke).not.toHaveBeenCalled();
   expect(screen.getByText("Status: error: input required")).toBeInTheDocument();
+});
+
+test("preflights every destination against every selected source", async () => {
+  render(<SamplerPanel />);
+  fireEvent.change(screen.getByLabelText("Input"), { target: { value: "/in/a.png\n/out/a.png" } });
+  fireEvent.change(screen.getByLabelText("Output"), { target: { value: "/out" } });
+  fireEvent.click(screen.getByRole("button", { name: "Resample" }));
+  expect(await screen.findByText("Status: failed: refusing to replace a selected source")).toBeInTheDocument();
+  expect(invoke).not.toHaveBeenCalled();
+});
+
+test("rejects two inputs that would share one output", async () => {
+  render(<SamplerPanel />);
+  fireEvent.change(screen.getByLabelText("Input"), { target: { value: "/in/a.png\n/other/a.png" } });
+  fireEvent.change(screen.getByLabelText("Output"), { target: { value: "/out" } });
+  fireEvent.click(screen.getByRole("button", { name: "Resample" }));
+  expect(await screen.findByText("Status: failed: multiple inputs have the same output path")).toBeInTheDocument();
+  expect(invoke).not.toHaveBeenCalled();
 });

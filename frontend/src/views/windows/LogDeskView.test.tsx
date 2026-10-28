@@ -46,7 +46,7 @@ test("a scanned log file fills Path", async () => {
 });
 
 test("copy all copies the lines and clear empties them without reading again", async () => {
-  const previous = navigator.clipboard;
+  const previous = Object.getOwnPropertyDescriptor(navigator, "clipboard");
   const hostClient = {
     logsRead: vi.fn().mockResolvedValue({
       found: true,
@@ -64,7 +64,7 @@ test("copy all copies the lines and clear empties them without reading again", a
   expect(screen.getByText("ERROR boom")).toBeInTheDocument();
   expect(screen.getByText("done")).toBeInTheDocument();
   const writeText = vi.fn().mockResolvedValue(undefined);
-  navigator.clipboard = { writeText } as Clipboard;
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
   try {
     fireEvent.click(screen.getByRole("button", { name: "Copy all" }));
     await waitFor(() => {
@@ -78,6 +78,7 @@ test("copy all copies the lines and clear empties them without reading again", a
     expect(screen.getByLabelText("Path")).toHaveValue("/tmp/app.log");
     expect(hostClient.logsRead).toHaveBeenCalledTimes(1);
   } finally {
-    navigator.clipboard = previous;
+    if (previous) Object.defineProperty(navigator, "clipboard", previous);
+    else Reflect.deleteProperty(navigator, "clipboard");
   }
 });

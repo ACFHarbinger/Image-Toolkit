@@ -654,3 +654,29 @@ describe("WallpaperView", () => {
     expect(hostClient.wallpaperMonitorGraph).not.toHaveBeenCalled();
   });
 });
+
+test("adding after a removal keeps graph IDs unique and clears removed endpoints", async () => {
+  const hostClient = {
+    wallpaperGetMonitors: vi.fn().mockResolvedValue({ desktop_environment: "test", monitors: [] }),
+    wallpaperSlideshowConfig: vi.fn().mockResolvedValue({ interval_seconds: 300, style: "fill", monitor_queues: {}, current_paths: {} }),
+    wallpaperSet: vi.fn(), wallpaperSlideshowToggle: vi.fn(),
+    wallpaperMonitorGraph: vi.fn().mockResolvedValue({ path: "/graph.json", error: "" }),
+  };
+  render(<WallpaperView hostClient={hostClient as any} />);
+  await screen.findByText("test");
+  fireEvent.change(screen.getByLabelText("Graph file"), { target: { value: "/graph.json" } });
+  for (const path of ["/a.png", "/b.png"]) {
+    fireEvent.change(screen.getByLabelText("Node path"), { target: { value: path } });
+    fireEvent.click(screen.getByRole("button", { name: "Add node" }));
+  }
+  fireEvent.change(screen.getByLabelText("Edge from"), { target: { value: "n1" } });
+  fireEvent.change(screen.getByLabelText("Edge to"), { target: { value: "n2" } });
+  fireEvent.click(screen.getByRole("button", { name: "Remove n1" }));
+  expect(screen.getByLabelText("Edge from")).toHaveValue("");
+  fireEvent.change(screen.getByLabelText("Node path"), { target: { value: "/c.png" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add node" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save graph" }));
+  await waitFor(() => expect(hostClient.wallpaperMonitorGraph).toHaveBeenCalled());
+  const nodes = hostClient.wallpaperMonitorGraph.mock.calls[0][0].nodes;
+  expect(nodes.map((node: {id: string}) => node.id)).toEqual(["n2", "n3"]);
+});

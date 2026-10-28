@@ -121,12 +121,13 @@ export function LibraryManagement({ client }: { client: ManagementClient }) {
     if (typeof client.listLibraryImages !== "function") {
       return;
     }
-    const listImages = client.listLibraryImages;
     let cancelled = false;
-    listImages({ limit: 10000 }).then((result) => {
+    client.listLibraryImages({ limit: 10000 }).then((result) => {
       if (!cancelled) {
         setRegistry(result.images);
       }
+    }).catch((error: unknown) => {
+      if (!cancelled) setNotice(error instanceof Error ? error.message : String(error));
     });
     return () => {
       cancelled = true;

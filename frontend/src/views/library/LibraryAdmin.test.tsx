@@ -203,8 +203,8 @@ test("the registry copies a path and does not mutate or reload", async () => {
   expect(await screen.findByText("/pics/b.png places cities")).toBeTruthy();
   const listed = calls.length;
   const writeText = vi.fn().mockResolvedValue(undefined);
-  const previous = navigator.clipboard;
-  navigator.clipboard = { writeText } as Clipboard;
+  const previous = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
   try {
     fireEvent.click(screen.getByRole("button", { name: "Copy path /pics/b.png" }));
     await waitFor(() => {
@@ -214,7 +214,8 @@ test("the registry copies a path and does not mutate or reload", async () => {
     expect(mutations).toEqual([]);
     expect(calls.length).toBe(listed);
   } finally {
-    navigator.clipboard = previous;
+    if (previous) Object.defineProperty(navigator, "clipboard", previous);
+    else Reflect.deleteProperty(navigator, "clipboard");
   }
 });
 
@@ -346,15 +347,16 @@ test("the data browser exports the current page as csv and json", async () => {
   expect(exported.textContent).toContain('"filename"');
   expect(exported.textContent).toContain('"a.png"');
   const writeText = vi.fn().mockResolvedValue(undefined);
-  const previous = navigator.clipboard;
-  navigator.clipboard = { writeText } as Clipboard;
+  const previous = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
   try {
     fireEvent.click(screen.getByRole("button", { name: "Copy export" }));
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(exported.textContent);
     });
   } finally {
-    navigator.clipboard = previous;
+    if (previous) Object.defineProperty(navigator, "clipboard", previous);
+    else Reflect.deleteProperty(navigator, "clipboard");
   }
 });
 
@@ -387,4 +389,15 @@ test("the data browser sorts the current page by a column header", async () => {
   fireEvent.click(screen.getByRole("button", { name: "filename" }));
   expect(rowText()[0]).toBe("b.png");
   expect(browseCalls).toBe(1);
+});
+
+test("registry loading retains the client receiver", async () => {
+  class Client {
+    rows = [{ file_path: "/photos/bound.png" }];
+    async libraryAdminCatalog() { return catalog(true); }
+    async libraryAdminMutate(): Promise<MutateResult> { return { available: true, applied: 0, error: "" }; }
+    async listLibraryImages() { return { images: this.rows }; }
+  }
+  render(<LibraryManagement client={new Client()} />);
+  expect(await screen.findByRole("button", { name: "Copy path /photos/bound.png" })).toBeInTheDocument();
 });
