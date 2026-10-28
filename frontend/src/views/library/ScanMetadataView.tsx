@@ -334,12 +334,20 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
       : images;
   const listedImages = sortDisplayedImages(displayedImages, fileSort);
 
+  const visiblePaths = displayedImages.map((img) => img.path);
+  const allVisibleSelected =
+    visiblePaths.length > 0 && visiblePaths.every((path) => selectedPaths.has(path));
+
   const toggleSelectAll = () => {
-    if (selectedPaths.size === displayedImages.length && displayedImages.length > 0) {
-      setSelectedPaths(new Set());
-    } else {
-      setSelectedPaths(new Set(displayedImages.map((img) => img.path)));
-    }
+    setSelectedPaths((current) => {
+      const next = new Set(current);
+      if (allVisibleSelected) {
+        for (const path of visiblePaths) next.delete(path);
+      } else {
+        for (const path of visiblePaths) next.add(path);
+      }
+      return next;
+    });
   };
 
   return (
@@ -404,7 +412,7 @@ export function ScanMetadataView({ hostClient, showModal }: ScanMetadataViewProp
                   onClick={toggleSelectAll}
                   className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
                 >
-                  {selectedPaths.size === displayedImages.length && displayedImages.length > 0 ? (
+                  {allVisibleSelected ? (
                     <CheckSquare size={16} className="text-violet-600" />
                   ) : (
                     <Square size={16} />

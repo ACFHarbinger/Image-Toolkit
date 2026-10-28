@@ -209,6 +209,36 @@ test("deselect all clears a partial selection and does not save", async () => {
   expect(screen.getByRole("button", { name: /apply to selected/i })).toBeDisabled();
 });
 
+test("select all adds the visible rows and leaves hidden rows selected", async () => {
+  const client = stubClient();
+  render(<ScanMetadataView hostClient={client} showModal={vi.fn()} />);
+  fireEvent.change(screen.getByPlaceholderText("/path/to/image/folder"), {
+    target: { value: "/test/photos" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /scan directory/i }));
+  await waitFor(() => {
+    expect(screen.getByText("a.png")).toBeInTheDocument();
+  });
+
+  fireEvent.click(screen.getByText("a.png"));
+  fireEvent.click(screen.getByRole("checkbox", { name: "New Only" }));
+  expect(screen.queryByText("a.png")).not.toBeInTheDocument();
+  expect(screen.getByText("b.jpg")).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: /^Select All/ }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "New Only" }));
+
+  fireEvent.click(screen.getByRole("button", { name: /apply to selected/i }));
+  await waitFor(() => {
+    expect(client.scanSaveMetadata).toHaveBeenCalledWith({
+      items: expect.arrayContaining([
+        expect.objectContaining({ path: "/test/photos/a.png" }),
+        expect.objectContaining({ path: "/test/photos/b.jpg" }),
+      ]),
+    });
+  });
+});
+
 test("saves metadata for selected items", async () => {
   const client = stubClient();
   const showModal = vi.fn();
