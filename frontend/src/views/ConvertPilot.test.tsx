@@ -107,6 +107,33 @@ test("lists a directory and resamples the selection", async () => {
   expect(hostClient.convertBatch.mock.calls[1]?.[0].output_format).toBe("png");
 });
 
+test("select all unions visible files and deselect all clears the selection", async () => {
+  const hostClient = {
+    convert: vi.fn(),
+    convertListDir: vi.fn().mockResolvedValue({ files: ["/dir/a.png", "/dir/b.png"], error: "" }),
+    convertBatch: vi.fn(),
+    jobStatus: vi.fn(),
+    cancelJob: vi.fn(),
+  };
+  render(<ConvertPilot hostClient={hostClient as never} />);
+  fireEvent.change(screen.getByLabelText("Directory"), { target: { value: "/dir" } });
+  fireEvent.change(screen.getByLabelText("Output directory"), { target: { value: "/out" } });
+  fireEvent.click(screen.getByRole("button", { name: "List files" }));
+  expect(await screen.findByRole("checkbox", { name: "/dir/a.png" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("checkbox", { name: "/dir/b.png" }));
+  expect(screen.getByRole("checkbox", { name: "/dir/b.png" })).not.toBeChecked();
+  fireEvent.click(screen.getByRole("button", { name: "Select All" }));
+  expect(screen.getByRole("checkbox", { name: "/dir/a.png" })).toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "/dir/b.png" })).toBeChecked();
+  expect(hostClient.convertListDir).toHaveBeenCalledTimes(1);
+  expect(hostClient.convertBatch).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Deselect All" }));
+  expect(screen.getByRole("checkbox", { name: "/dir/a.png" })).not.toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "/dir/b.png" })).not.toBeChecked();
+  expect(hostClient.convertBatch).not.toHaveBeenCalled();
+  expect(hostClient.convertListDir).toHaveBeenCalledTimes(1);
+});
+
 test("a completed batch with file failures is not batch ok", async () => {
   const hostClient = {
     convert: vi.fn(),

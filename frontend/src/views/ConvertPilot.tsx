@@ -134,6 +134,22 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
     );
   };
 
+  const selectAll = () => {
+    setSelectedFiles((current) => {
+      const next = [...current];
+      for (const file of visibleFiles) {
+        if (!next.includes(file)) {
+          next.push(file);
+        }
+      }
+      return next;
+    });
+  };
+
+  const deselectAll = () => {
+    setSelectedFiles([]);
+  };
+
   const onCancelBatch = async () => {
     const jobId = jobRef.current;
     if (!jobId) {
@@ -274,6 +290,12 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
           </li>
         ))}
       </ul>
+      <button type="button" onClick={selectAll}>
+        Select All
+      </button>
+      <button type="button" onClick={deselectAll}>
+        Deselect All
+      </button>
       <label>
         Output directory{" "}
         <input value={outputDir} onChange={(event) => setOutputDir(event.target.value)} />
