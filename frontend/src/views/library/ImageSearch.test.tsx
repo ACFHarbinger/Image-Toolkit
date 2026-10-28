@@ -410,3 +410,86 @@ test("images per page splits the loaded results without searching again", async 
   expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
   expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
 });
+
+test("sort by extension reorders rows and does not search again", async () => {
+  const client = stubClient();
+  client.listLibraryImages.mockResolvedValue({
+    available: true,
+    images: [
+      {
+        id: 2,
+        file_path: "/pics/b.jpg",
+        filename: "b.jpg",
+      },
+      {
+        id: 1,
+        file_path: "/pics/a.PNG",
+        filename: "a.PNG",
+      },
+    ],
+  });
+  render(<ImageSearch hostClient={client as never} />);
+  await screen.findByTestId("library-search");
+
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  await waitFor(() => {
+    expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+    expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
+  });
+  const payload = client.listLibraryImages.mock.calls[0]?.[0] as Record<string, unknown>;
+  expect(payload).not.toHaveProperty("sort");
+
+  fireEvent.change(screen.getByRole("combobox", { name: "Sort" }), { target: { value: "extension" } });
+  const extensionText = screen.getByTestId("library-search-rows").textContent ?? "";
+  expect(extensionText.indexOf("b.jpg")).toBeGreaterThanOrEqual(0);
+  expect(extensionText.indexOf("b.jpg")).toBeLessThan(extensionText.indexOf("a.PNG"));
+  expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+
+  fireEvent.change(screen.getByRole("combobox", { name: "Order" }), { target: { value: "desc" } });
+  const descendingText = screen.getByTestId("library-search-rows").textContent ?? "";
+  expect(descendingText.indexOf("a.PNG")).toBeGreaterThanOrEqual(0);
+  expect(descendingText.indexOf("a.PNG")).toBeLessThan(descendingText.indexOf("b.jpg"));
+  expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+  expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
+});
+
+test("sort by date modified keeps missing values last and does not search again", async () => {
+  const client = stubClient();
+  client.listLibraryImages.mockResolvedValue({
+    available: true,
+    images: [
+      {
+        id: 1,
+        file_path: "/pics/dated.png",
+        filename: "dated.png",
+        date_modified: "2020-01-02",
+      },
+      {
+        id: 2,
+        file_path: "/pics/bare.png",
+        filename: "bare.png",
+        date_modified: null,
+      },
+    ],
+  });
+  render(<ImageSearch hostClient={client as never} />);
+  await screen.findByTestId("library-search");
+
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  await waitFor(() => {
+    expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+    expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
+  });
+
+  fireEvent.change(screen.getByRole("combobox", { name: "Sort" }), { target: { value: "date_modified" } });
+  const ascendingText = screen.getByTestId("library-search-rows").textContent ?? "";
+  expect(ascendingText.indexOf("dated.png")).toBeGreaterThanOrEqual(0);
+  expect(ascendingText.indexOf("dated.png")).toBeLessThan(ascendingText.indexOf("bare.png"));
+  expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+
+  fireEvent.change(screen.getByRole("combobox", { name: "Order" }), { target: { value: "desc" } });
+  const descendingText = screen.getByTestId("library-search-rows").textContent ?? "";
+  expect(descendingText.indexOf("dated.png")).toBeGreaterThanOrEqual(0);
+  expect(descendingText.indexOf("dated.png")).toBeLessThan(descendingText.indexOf("bare.png"));
+  expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+});

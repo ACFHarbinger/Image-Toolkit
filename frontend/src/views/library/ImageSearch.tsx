@@ -48,11 +48,18 @@ function categoryAllows(name: string, catalog: TagRecord[] | null, unchecked: re
   return !unchecked.includes(record.category ?? "");
 }
 
-type SortKey = "returned" | "filename" | "date_added" | "size";
+type SortKey = "returned" | "filename" | "date_added" | "size" | "date_modified" | "extension";
 type SortOrder = "asc" | "desc";
 
 function isSortKey(value: string): value is SortKey {
-  return value === "returned" || value === "filename" || value === "date_added" || value === "size";
+  return (
+    value === "returned" ||
+    value === "filename" ||
+    value === "date_added" ||
+    value === "size" ||
+    value === "date_modified" ||
+    value === "extension"
+  );
 }
 
 function isSortOrder(value: string): value is SortOrder {
@@ -84,6 +91,12 @@ function compareMissingLast(
   return descending ? -ordered : ordered;
 }
 
+function fileExtension(filename: string): string {
+  const dot = filename.lastIndexOf(".");
+  if (dot <= 0) return "";
+  return filename.slice(dot).toLowerCase();
+}
+
 function sortedImages(rows: readonly ImageRecord[], key: SortKey, order: SortOrder): ImageRecord[] {
   if (key === "returned") return rows.slice();
   const descending = order === "desc";
@@ -100,6 +113,18 @@ function sortedImages(rows: readonly ImageRecord[], key: SortKey, order: SortOrd
         (a, b) => String(a).localeCompare(String(b)),
         descending,
       );
+    }
+    if (key === "date_modified") {
+      return compareMissingLast(
+        left.date_modified,
+        right.date_modified,
+        (a, b) => String(a).localeCompare(String(b)),
+        descending,
+      );
+    }
+    if (key === "extension") {
+      const ordered = fileExtension(left.filename).localeCompare(fileExtension(right.filename));
+      return descending ? -ordered : ordered;
     }
     return compareMissingLast(left.file_size, right.file_size, (a, b) => Number(a) - Number(b), descending);
   });
@@ -551,6 +576,8 @@ export function ImageSearch({ hostClient }: ImageSearchProps) {
                 <option value="filename">Filename</option>
                 <option value="date_added">Date added</option>
                 <option value="size">Size</option>
+                <option value="date_modified">Date modified</option>
+                <option value="extension">Extension</option>
               </select>
               <select
                 aria-label="Order"
