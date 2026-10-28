@@ -12,6 +12,7 @@ export interface ConvertPilotProps {
 
 const OUTPUT_FORMATS = ["png", "jpg", "jpeg", "webp", "bmp", "tiff", "tif", "ico", "gif"] as const;
 const INPUT_FORMATS = ["webp", "avif", "png", "jpg", "jpeg", "bmp", "gif", "tiff"] as const;
+const DIRECTORY_FORMATS = ["webp", "avif", "png", "jpg", "jpeg", "bmp", "gif", "tiff", "tif", "ico"] as const;
 const ALGORITHMS = ["lanczos", "bicubic", "bilinear", "nearest"] as const;
 const VIDEO_CODECS = ["h264", "hevc", "av1", "vp9", "copy"] as const;
 const AUDIO_CODECS = ["aac", "opus", "mp3", "flac", "copy"] as const;
@@ -22,6 +23,30 @@ type BatchAction = "convert" | "resample" | "reencode";
 
 function isOutputFormat(value: string): value is OutputFormat {
   return (OUTPUT_FORMATS as readonly string[]).includes(value);
+}
+
+function directoryInputFormats(selected: readonly string[]): string[] {
+  if (selected.length === 0) {
+    return [...DIRECTORY_FORMATS];
+  }
+  const formats = new Set(selected);
+  if (formats.has("tiff") || formats.has("tif")) {
+    formats.add("tiff");
+    formats.add("tif");
+  }
+  return [...formats];
+}
+
+function listedExtension(file: string, formats: readonly string[]): boolean {
+  const dot = file.lastIndexOf(".");
+  if (dot < 0) {
+    return false;
+  }
+  const extension = file.slice(dot + 1).toLowerCase();
+  if ((formats as readonly string[]).includes(extension)) {
+    return true;
+  }
+  return (extension === "tif" && formats.includes("tiff")) || (extension === "tiff" && formats.includes("tif"));
 }
 
 function extensionOf(path: string): string | undefined {
@@ -118,15 +143,7 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
   };
 
   const visibleFiles =
-    inputFormats.length === 0
-      ? files
-      : files.filter((file) => {
-          const dot = file.lastIndexOf(".");
-          if (dot < 0) {
-            return false;
-          }
-          return (inputFormats as readonly string[]).includes(file.slice(dot + 1).toLowerCase());
-        });
+    inputFormats.length === 0 ? files : files.filter((file) => listedExtension(file, inputFormats));
 
   const toggleFile = (file: string) => {
     setSelectedFiles((current) =>
@@ -228,7 +245,7 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
       overwrite: true,
       action: "convert",
       recursive,
-      ...(formats.length > 0 ? { input_formats: [...formats] } : {}),
+      input_formats: directoryInputFormats(formats),
     };
     await finishBatch(params, 0);
   };

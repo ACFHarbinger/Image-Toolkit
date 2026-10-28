@@ -183,6 +183,7 @@ test("converts a directory without a file selection", async () => {
     overwrite: true,
     action: "convert",
     recursive: false,
+    input_formats: ["webp", "avif", "png", "jpg", "jpeg", "bmp", "gif", "tiff", "tif", "ico"],
   });
   fireEvent.click(screen.getByRole("button", { name: "png" }));
   fireEvent.click(screen.getByRole("button", { name: "Convert directory" }));
