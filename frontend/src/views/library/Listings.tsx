@@ -22,9 +22,21 @@ export interface ListingsProps {
 }
 
 const PAGE_SIZE = 100;
+const PAGE_CHOICES = [20, 50, 100, 150, 250, 500, 1000] as const;
 
 type SortKey = "returned" | "filename" | "extension" | "date_added" | "date_modified" | "size";
 type SortOrder = "asc" | "desc";
+type NumericPageSize = (typeof PAGE_CHOICES)[number];
+type PageSize = NumericPageSize | "all";
+
+function pageSizeFromChoice(value: string): PageSize | null {
+  if (value === "All") return "all";
+  const floored = Math.floor(Number(value));
+  for (const choice of PAGE_CHOICES) {
+    if (choice === floored) return choice;
+  }
+  return null;
+}
 
 function isSortKey(value: string): value is SortKey {
   return (
@@ -138,6 +150,7 @@ export function Listings({ hostClient }: ListingsProps) {
   const [images, setImages] = useState<ImageRecord[]>([]);
   const [rowsAvailable, setRowsAvailable] = useState<boolean | null>(null);
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState<PageSize>(PAGE_SIZE);
   const [sortKey, setSortKey] = useState<SortKey>("returned");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   // `ready` flips once, when the initial groups/tags load answers; the
@@ -386,8 +399,9 @@ export function Listings({ hostClient }: ListingsProps) {
     );
   }
 
-  const pageCount = Math.max(1, Math.ceil(images.length / PAGE_SIZE));
-  const pageImages = sortedImages(images, sortKey, sortOrder).slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const pageLength = pageSize === "all" ? Math.max(1, images.length) : pageSize;
+  const pageCount = Math.max(1, Math.ceil(images.length / pageLength));
+  const pageImages = sortedImages(images, sortKey, sortOrder).slice(page * pageLength, (page + 1) * pageLength);
   const visibleSubgroups = (groups ?? []).find((group) => selectedGroups.length === 1 && group.name === selectedGroups[0]);
 
   return (
@@ -470,6 +484,25 @@ export function Listings({ hostClient }: ListingsProps) {
             <option value="date_added">Date added</option>
             <option value="date_modified">Date modified</option>
             <option value="size">Size</option>
+          </select>
+          <select
+            aria-label="Images per page"
+            value={pageSize === "all" ? "All" : String(pageSize)}
+            onChange={(event) => {
+              const next = pageSizeFromChoice(event.target.value);
+              if (next == null) return;
+              setPageSize(next);
+              setPage(0);
+            }}
+          >
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="150">150</option>
+            <option value="250">250</option>
+            <option value="500">500</option>
+            <option value="1000">1000</option>
+            <option value="All">All</option>
           </select>
           <select
             aria-label="Order"

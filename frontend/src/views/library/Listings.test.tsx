@@ -338,6 +338,37 @@ test("filename sort reorders loaded rows and does not send a sort field", async 
   expect(client.listLibraryImages).toHaveBeenCalledWith({ limit: 10000 });
 });
 
+test("images per page slices loaded rows without listing again", async () => {
+  const client = stubClient();
+  client.listLibraryImages = vi.fn(async (): Promise<ListImagesResult> => ({
+    available: true,
+    images: Array.from({ length: 21 }, (_, id) => {
+      const filename = "p" + String(id).padStart(2, "0") + ".png";
+      return { id, file_path: "/pics/" + filename, filename };
+    }),
+  }));
+  render(<Listings hostClient={client as never} />);
+
+  expect(await screen.findByText("p00.png")).toBeInTheDocument();
+  expect(screen.getByText("p20.png")).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("Images per page"), { target: { value: "20" } });
+
+  expect(screen.queryByText("p20.png")).not.toBeInTheDocument();
+  expect(screen.getByTestId("library-listings-page")).toHaveTextContent("Page 1 of 2");
+  expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+  expect(screen.getByText("p20.png")).toBeInTheDocument();
+  expect(screen.queryByText("p00.png")).not.toBeInTheDocument();
+  expect(client.listLibraryImages).toHaveBeenCalledTimes(1);
+  for (const call of client.listLibraryImages.mock.calls) {
+    expect(call[0]).toEqual({ limit: 10000 });
+    expect(call[0]).not.toHaveProperty("sort");
+  }
+});
+
 test("refresh searches again with the same cap", async () => {
   const client = stubClient();
   render(<Listings hostClient={client as never} />);
