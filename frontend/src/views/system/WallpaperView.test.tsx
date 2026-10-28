@@ -473,7 +473,7 @@ describe("WallpaperView", () => {
     render(<WallpaperView hostClient={hostClient as any} />);
 
     const pathInput = await screen.findByPlaceholderText("/absolute/path/to/wallpaper.png");
-    expect(screen.getByText("Queue is empty")).toBeInTheDocument();
+    expect(screen.getByText("/home/user/wallpapers/nature.jpg")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Image directory"), { target: { value: "/pics" } });
     fireEvent.click(screen.getByRole("button", { name: "Scan" }));
     fireEvent.click(await screen.findByRole("option", { name: "nature.jpg" }));
@@ -522,7 +522,7 @@ describe("WallpaperView", () => {
   test("set active copies a queue path into the monitor field and does not apply", async () => {
     const hostClient = {
       wallpaperGetMonitors: vi.fn().mockResolvedValue(mockMonitorsResult),
-      wallpaperSlideshowConfig: vi.fn().mockResolvedValue(mockConfigResult),
+      wallpaperSlideshowConfig: vi.fn().mockResolvedValue({ ...mockConfigResult, monitor_queues: {} }),
       wallpaperSet: vi.fn(),
       wallpaperSlideshowToggle: vi.fn(),
       wallpaperMonitorGraph: vi.fn(),

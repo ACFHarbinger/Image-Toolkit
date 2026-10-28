@@ -50,7 +50,7 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
   const [status, setStatus] = useState<string>("");
   const [statusType, setStatusType] = useState<"info" | "error" | "success">("info");
   const [loading, setLoading] = useState<boolean>(false);
-  const [selectedMonitorQueue, setSelectedMonitorQueue] = useState<string>("0");
+  const [selectedMonitorQueue, setSelectedMonitorQueue] = useState<string>("");
   const [monitorQueues, setMonitorQueues] = useState<Record<string, string[]>>({});
   const [newQueuePath, setNewQueuePath] = useState<string>("");
   const [graphPath, setGraphPath] = useState<string>("");
@@ -71,7 +71,9 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
       setMonitors(res.monitors);
       setDesktopEnv(res.desktop_environment);
       if (res.monitors.length > 0) {
-        setSelectedMonitorQueue((prev) => (prev ? prev : res.monitors[0].id));
+        setSelectedMonitorQueue((prev) =>
+          res.monitors.some((monitor) => monitor.id === prev) ? prev : res.monitors[0].id,
+        );
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -189,28 +191,34 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
     }
   };
 
+  const queueId = monitors.some((monitor) => monitor.id === selectedMonitorQueue)
+    ? selectedMonitorQueue
+    : (monitors[0]?.id ?? "");
+
   const handleAddQueueItem = () => {
-    if (!newQueuePath.trim()) return;
-    const currentList = monitorQueues[selectedMonitorQueue] || [];
+    if (!newQueuePath.trim() || !queueId) return;
+    const currentList = monitorQueues[queueId] || [];
     setMonitorQueues({
       ...monitorQueues,
-      [selectedMonitorQueue]: [...currentList, newQueuePath.trim()],
+      [queueId]: [...currentList, newQueuePath.trim()],
     });
     setNewQueuePath("");
   };
 
   const handleClearQueue = () => {
+    if (!queueId) return;
     setMonitorQueues({
       ...monitorQueues,
-      [selectedMonitorQueue]: [],
+      [queueId]: [],
     });
   };
 
   const handleRemoveQueueItem = (idx: number) => {
-    const currentList = monitorQueues[selectedMonitorQueue] || [];
+    if (!queueId) return;
+    const currentList = monitorQueues[queueId] || [];
     setMonitorQueues({
       ...monitorQueues,
-      [selectedMonitorQueue]: currentList.filter((_, i) => i !== idx),
+      [queueId]: currentList.filter((_, i) => i !== idx),
     });
   };
 
@@ -331,11 +339,7 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
     }
   };
 
-  // The queue picker starts at "0", which is not a monitor id until the user picks one.
-  const galleryMonitorId = monitors.some((monitor) => monitor.id === selectedMonitorQueue)
-    ? selectedMonitorQueue
-    : monitors[0]?.id;
-  const galleryPath = galleryMonitorId ? monitorPaths[galleryMonitorId] || "" : "";
+  const galleryPath = queueId ? monitorPaths[queueId] || "" : "";
 
   // In-memory exchange only. Apply and slideshow still push the display.
   const handleSwapMonitors = (left: string, right: string) => {
@@ -356,38 +360,39 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
 
   // Marks the queue path as the monitor's assigned image. Apply still pushes it.
   const handleSetQueueActive = (idx: number) => {
-    if (!galleryMonitorId) return;
-    const path = (monitorQueues[selectedMonitorQueue] || [])[idx];
+    if (!queueId) return;
+    const path = (monitorQueues[queueId] || [])[idx];
     if (path === undefined) return;
-    setMonitorPaths((prev) => ({ ...prev, [galleryMonitorId]: path }));
+    setMonitorPaths((prev) => ({ ...prev, [queueId]: path }));
   };
 
   const handleGallerySelect = (paths: string[]) => {
-    if (!galleryMonitorId) return;
-    setMonitorPaths((prev) => ({ ...prev, [galleryMonitorId]: paths[0] ?? "" }));
+    if (!queueId) return;
+    setMonitorPaths((prev) => ({ ...prev, [queueId]: paths[0] ?? "" }));
   };
 
   const handleAddScannedImage = () => {
     const path = galleryPath.trim();
-    if (!path || !galleryMonitorId) return;
+    if (!path || !queueId) return;
     setMonitorQueues((prev) => ({
       ...prev,
-      [galleryMonitorId]: [...(prev[galleryMonitorId] || []), path],
+      [queueId]: [...(prev[queueId] || []), path],
     }));
-    if (!monitors.some((monitor) => monitor.id === selectedMonitorQueue)) {
-      setSelectedMonitorQueue(galleryMonitorId);
+    if (selectedMonitorQueue !== queueId) {
+      setSelectedMonitorQueue(queueId);
     }
   };
 
   const handleMoveQueueItem = (idx: number, direction: "up" | "down") => {
-    const currentList = [...(monitorQueues[selectedMonitorQueue] || [])];
+    if (!queueId) return;
+    const currentList = [...(monitorQueues[queueId] || [])];
     const targetIdx = direction === "up" ? idx - 1 : idx + 1;
     if (targetIdx < 0 || targetIdx >= currentList.length) return;
     const [item] = currentList.splice(idx, 1);
     currentList.splice(targetIdx, 0, item);
     setMonitorQueues({
       ...monitorQueues,
-      [selectedMonitorQueue]: currentList,
+      [queueId]: currentList,
     });
   };
 
@@ -588,7 +593,7 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
                   </label>
                   <select
                     aria-label="Monitor queue"
-                    value={selectedMonitorQueue}
+                    value={queueId}
                     onChange={(e) => setSelectedMonitorQueue(e.target.value)}
                     className="w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white p-2 text-sm outline-none"
                   >
@@ -601,7 +606,7 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
                 </div>
                 {/* Queue list */}
                 <div className="space-y-1.5 max-h-36 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded p-2 text-xs">
-                  {(monitorQueues[selectedMonitorQueue] || []).map((path, idx) => (
+                  {(monitorQueues[queueId] || []).map((path, idx) => (
                     <div
                       key={idx}
                       className="flex items-center justify-between bg-gray-100 dark:bg-gray-700/60 p-1.5 rounded"
@@ -625,7 +630,7 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
                         </button>
                         <button
                           onClick={() => handleMoveQueueItem(idx, "down")}
-                          disabled={idx === (monitorQueues[selectedMonitorQueue]?.length || 0) - 1}
+                          disabled={idx === (monitorQueues[queueId]?.length || 0) - 1}
                           className="p-1 hover:text-violet-500 disabled:opacity-30"
                           title="Move down"
                         >
@@ -641,8 +646,7 @@ export function WallpaperView({ hostClient, showModal }: WallpaperViewProps) {
                       </div>
                     </div>
                   ))}
-                  {(!monitorQueues[selectedMonitorQueue] ||
-                    monitorQueues[selectedMonitorQueue].length === 0) && (
+                  {(!monitorQueues[queueId] || monitorQueues[queueId].length === 0) && (
                     <div className="text-gray-400 text-center py-2">Queue is empty</div>
                   )}
                 </div>
