@@ -50,7 +50,7 @@ test("preview steps through described paths and rotates", async () => {
   fireEvent.click(screen.getByTestId("preview-zoom-in"));
   expect(screen.getByTestId("preview-zoom")).toHaveTextContent("110%");
   fireEvent.click(screen.getByTestId("preview-rotate"));
-  expect(screen.getByTestId("preview-frame")).toHaveStyle({ transform: "scale(1.1) rotate(90deg)" });
+  expect(screen.getByTestId("preview-frame")).toHaveStyle({ width: "1.1px", height: "2.2px", transform: "rotate(90deg)" });
   fireEvent.click(screen.getByTestId("preview-next"));
   expect(screen.getByTestId("preview-path")).toHaveTextContent(RIGHT);
   expect(screen.getByRole("alert")).toHaveTextContent("not a file");
@@ -64,7 +64,7 @@ test("preview actual size, counter-clockwise rotate, and fit-to-width at zero pa
   fireEvent.click(screen.getByTestId("preview-actual-size"));
   expect(screen.getByTestId("preview-zoom")).toHaveTextContent("100%");
   fireEvent.click(screen.getByTestId("preview-rotate-ccw"));
-  expect(screen.getByTestId("preview-frame")).toHaveStyle({ transform: "scale(1) rotate(270deg)" });
+  expect(screen.getByTestId("preview-frame")).toHaveStyle({ width: "1px", height: "2px", transform: "rotate(270deg)" });
   fireEvent.click(screen.getByTestId("preview-zoom-in"));
   fireEvent.click(screen.getByTestId("preview-fit-width"));
   expect(screen.getByTestId("preview-zoom")).toHaveTextContent("100%");

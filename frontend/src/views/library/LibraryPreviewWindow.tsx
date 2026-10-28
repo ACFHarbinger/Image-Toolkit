@@ -62,18 +62,25 @@ function wrapDegrees(degrees: number): number {
   return ((degrees % 360) + 360) % 360;
 }
 
-/** Classic fit: pane size minus control margins, never above 1×. */
+function orientedSize(width: number, height: number, rotation: number): { width: number; height: number } {
+  const turned = wrapDegrees(rotation) % 180 !== 0;
+  return turned ? { width: height, height: width } : { width, height };
+}
+
+/** Classic fit: pane size minus control margins, never above 1×, never below the zoom floor. */
 function fitScale(
   pane: Pick<HTMLElement, "clientWidth" | "clientHeight"> | null,
   imageWidth: number,
   imageHeight: number,
+  rotation = 0,
 ): number {
+  const oriented = orientedSize(imageWidth, imageHeight, rotation);
   const usableWidth = (pane?.clientWidth ?? 0) - 100;
   const usableHeight = (pane?.clientHeight ?? 0) - 50;
-  if (usableWidth <= 0 || usableHeight <= 0 || imageWidth === 0 || imageHeight === 0) {
+  if (usableWidth <= 0 || usableHeight <= 0 || oriented.width === 0 || oriented.height === 0) {
     return 1;
   }
-  return Math.min(usableWidth / imageWidth, usableHeight / imageHeight, 1);
+  return clampZoom(Math.min(usableWidth / oriented.width, usableHeight / oriented.height, 1));
 }
 
 function diffBoost(value: string): DiffBoost {
@@ -233,7 +240,7 @@ export function LibraryPreviewWindow({ client }: { readonly client: PreviewClien
               data-testid="preview-fit"
               onClick={() => {
                 const frame = frameFor(current.path);
-                setZoom(fitScale(paneRef.current, frame?.width ?? 0, frame?.height ?? 0));
+                setZoom(fitScale(paneRef.current, frame?.width ?? 0, frame?.height ?? 0, rotation));
               }}
             >
               Fit
@@ -243,7 +250,8 @@ export function LibraryPreviewWindow({ client }: { readonly client: PreviewClien
               data-testid="preview-fit-width"
               onClick={() => {
                 const frame = frameFor(current.path);
-                setZoom(fitAxis((paneRef.current?.clientWidth ?? 0) - 100, frame?.width ?? 0));
+                const oriented = orientedSize(frame?.width ?? 0, frame?.height ?? 0, rotation);
+                setZoom(fitAxis((paneRef.current?.clientWidth ?? 0) - 100, oriented.width));
               }}
             >
               Fit to width
@@ -253,7 +261,8 @@ export function LibraryPreviewWindow({ client }: { readonly client: PreviewClien
               data-testid="preview-fit-height"
               onClick={() => {
                 const frame = frameFor(current.path);
-                setZoom(fitAxis((paneRef.current?.clientHeight ?? 0) - 50, frame?.height ?? 0));
+                const oriented = orientedSize(frame?.width ?? 0, frame?.height ?? 0, rotation);
+                setZoom(fitAxis((paneRef.current?.clientHeight ?? 0) - 50, oriented.height));
               }}
             >
               Fit to height
@@ -382,12 +391,18 @@ function FrameImage({
   readonly rotation: number;
 }): React.ReactElement | null {
   if (!frame || frame.error || !frame.png_base64) return null;
+  const oriented = orientedSize(frame.width, frame.height, rotation);
   return (
     <img
       alt={frame.path}
       data-testid="preview-frame"
       src={`data:image/png;base64,${frame.png_base64}`}
-      style={{ transform: `scale(${zoom}) rotate(${rotation}deg)` }}
+      style={{
+        width: oriented.width * zoom,
+        height: oriented.height * zoom,
+        transform: `rotate(${rotation}deg)`,
+        transformOrigin: "top left",
+      }}
     />
   );
 }
