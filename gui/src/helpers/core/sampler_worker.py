@@ -30,6 +30,7 @@ class SamplerWorker(BaseQThreadWorker):
         self._process_lock = threading.Lock()
         self._progress_lock = threading.Lock()
         self._file_ticks: Dict[int, int] = {}
+        self._summaries: List[str] = []
         self._active_procs: set = set()
 
     def cancel(self):
@@ -60,6 +61,7 @@ class SamplerWorker(BaseQThreadWorker):
 
             with self._progress_lock:
                 self._file_ticks.clear()
+                self._summaries.clear()
             self.progress_update.emit(0, total * 100)
 
             if use_multicore and total > 1:
@@ -101,7 +103,10 @@ class SamplerWorker(BaseQThreadWorker):
                     msg += "\n\nFirst error: " + failures[0]
                 return (done, msg)
             else:
-                return (done, f"Resampled {done} file(s) successfully!")
+                summary = f"Resampled {done} file(s) successfully!"
+                if self._summaries:
+                    summary = f"{summary}\n" + "\n".join(self._summaries)
+                return (done, summary)
 
         except Exception as exc:
             self.progress_update.emit(0, 0)
@@ -158,6 +163,13 @@ class SamplerWorker(BaseQThreadWorker):
             self.progress_update.emit(done_ticks, file_count * 100)
             if text:
                 self.stage_update.emit(text)
+
+    def _remember_summary(self, message: object) -> None:
+        text = str(message or "").strip()
+        if not text:
+            return
+        with self._progress_lock:
+            self._summaries.append(text)
 
     def _build_output_path(
         self, input_path: str, idx: int, total: int, src_ext: str
@@ -232,6 +244,7 @@ class SamplerWorker(BaseQThreadWorker):
 
         if self.config.get("delete_original") and os.path.exists(out_path) and os.path.abspath(in_path) != os.path.abspath(out_path):
             os.remove(in_path)
+        self._remember_summary(result.get("message"))
         return True
 
     # ------------------------------------------------------------------
@@ -251,6 +264,7 @@ class SamplerWorker(BaseQThreadWorker):
 
         if self.config.get("delete_original") and os.path.exists(out_path) and os.path.abspath(in_path) != os.path.abspath(out_path):
             os.remove(in_path)
+        self._remember_summary(result.get("message"))
         return True
 
     # ------------------------------------------------------------------
@@ -339,7 +353,9 @@ class SamplerWorker(BaseQThreadWorker):
 # Decode and encode bookend the bar. Scaling is the long stretch of one GIF.
 _STAGE_TICKS = {
     "decode": (0, 8),
+    "palette": (4, 8),
     "scale": (8, 90),
+    "scale_encode": (8, 100),
     "encode": (90, 100),
 }
 
@@ -354,11 +370,15 @@ def _stage_ticks(stage: str, done: int, total: int) -> int:
 
 
 def _stage_text(stage: str, done: int, total: int) -> str:
-    if stage == "scale" and total > 0:
+    if stage in {"scale", "scale_encode"} and total > 0:
         frame_no = total if done >= total else done + 1
+        if stage == "scale_encode":
+            return f"Scaling & encoding frame {frame_no}/{total}"
         return f"Scaling frame {frame_no}/{total}"
     if stage == "encode":
         return "Encoding"
+    if stage == "palette":
+        return "Building palette"
     if stage == "decode":
         return "Decoding"
     return stage or "Resampling"
