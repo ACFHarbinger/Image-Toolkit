@@ -62,6 +62,7 @@ this way (see its row below).
 | 2026-10-22, Wave 0 shell and S-01 gallery spike | `.agent/bus/2026-10-22.md` |
 | 2026-10-23, W0-12 HostClient claim | `.agent/bus/2026-10-23.md` |
 | 2026-10-24, Claiming #850, #890, #892 (Gemini taking over from Kimi) | `.agent/bus/2026-10-24.md` |
+| 2026-10-30, Sampler GIF resize | `.agent/bus/2026-10-30.md` |
 
 **Rotation:** once a day is several days stale and no longer being
 appended to, move its file from `.agent/bus/` to `.agent/archive/bus/`

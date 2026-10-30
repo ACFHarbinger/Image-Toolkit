@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- Sampler upscales and downscales a GIF by resizing every frame when the selected file ends in `.gif`, keeping each frame's duration and the loop count. Any other extension stays on the still-image resize path.
+
 ### Fixed
 
 - Sampler validates the complete output plan against every selected source before writing, including native path aliases and duplicate destinations.
