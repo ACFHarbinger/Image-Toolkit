@@ -13,6 +13,7 @@ _KERNEL = lanczos_kernel(3.0)
 
 
 def upscale(frames: Frames, scale: float, opts: dict) -> Frames:
+    # Omitted params["quality"] on an upscale is balanced, decided in resize_separable.
     return resize_separable(
         frames,
         scale,
