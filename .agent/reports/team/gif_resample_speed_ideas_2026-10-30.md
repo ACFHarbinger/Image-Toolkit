@@ -221,13 +221,33 @@ _(Add a dated reply under your own name; do not edit other sections.)_
 
 | # | Question | Asked by | Answer | Answered by | Date |
 |---|---|---|---|---|---|
-| | | | | | |
+| 1 | Must the new path be bit-identical to the current output, or is "within 1/255" acceptable? | Claude | Approximate is acceptable. | Harbinger | 2026-10-30 |
+| 2 | Is a GPU result that differs from the CPU one by rounding acceptable as the default? | Claude | Yes. | Harbinger | 2026-10-30 |
+| 3 | May we add a native C++ kernel to the existing `backend` extension? | Claude | Yes. | Harbinger | 2026-10-30 |
+| 4 | Should `workers` be per request, global, or both? | Claude | Global setting. | Harbinger | 2026-10-30 |
+| 5 | Is a slightly different palette acceptable if it removes a whole decode pass? | Claude | Yes, but it must be a setting. | Harbinger | 2026-10-30 |
+| 6 | Is delta-region scaling in scope given the exactness risk? | Claude | Yes, but any high-exactness-risk optimization must be a setting or parameter. | Harbinger | 2026-10-30 |
+| 7 | Target wall time for the 326 MB GIF, and on which hardware? | Claude | This machine only; expects "a couple of minutes". | Harbinger | 2026-10-30 |
+| 8 | "A couple of minutes" is the whole job, decode to written file, for 2232 frames at 2x with `lanczos3-dering`? Roughly 120 to 180 s, so about 50 to 80 ms per frame end to end. | Claude | _(open)_ | | |
+| 9 | Should the settings be grouped as one quality/speed mode (for example `exact`, `balanced`, `fast`) with the individual switches under an advanced section, or only individual switches? | Claude | _(open)_ | | |
+| 10 | `workers` global default: `auto` (all cores minus one) or a fixed fraction? Should the GUI stay responsive by default (leave cores free)? | Claude | _(open)_ | | |
+| 11 | When a GPU is present, should the GPU path be the automatic default, with a global setting to force CPU? And a cap on how much VRAM one job may take (default)? | Claude | _(open)_ | | |
+| 12 | The native C++ kernel needs the `backend` extension built. If it is missing, fall back to NumPy with a visible warning, or refuse the job? | Claude | _(open)_ | | |
+| 13 | Should the app show which path ran (GPU / native / NumPy, palette mode, delta mode) in the finish message so results are explainable? | Claude | _(open)_ | | |
+|
 
 ## 8. Decision log
 
 | # | Decision | Options considered | Reason | Decided by | Date |
 |---|---|---|---|---|---|
-| | | | | | |
+| D1 | Output may be approximate (not bit-identical). Each option still states its tolerance and how it was checked. | Q1 | Speed matters more than bit-exactness. | Harbinger | 2026-10-30 |
+| D2 | GPU may be the default when present, with rounding differences vs CPU accepted. | Q2 | Large measured gain. | Harbinger | 2026-10-30 |
+| D3 | A native C++ kernel in `backend` is allowed. | Q3 | Best CPU-only result. | Harbinger | 2026-10-30 |
+| D4 | `workers` is a global setting (not per request). | Q4 | Simpler UI. | Harbinger | 2026-10-30 |
+| D5 | A reduced-pass palette is allowed, controlled by a setting. | Q5 | Removes a decode pass; changes colors slightly. | Harbinger | 2026-10-30 |
+| D6 | Delta-region scaling and any other high-exactness-risk optimization is in scope, but gated behind a setting or parameter; the safe path stays available. | Q6 | Keep a trustworthy fallback. | Harbinger | 2026-10-30 |
+| D7 | Performance target: about 2 minutes for the 326 MB test GIF on this machine (pending Q8 for exact scope). | Q7 | Defines "fast enough". | Harbinger | 2026-10-30 |
+|
 
 ## 9. Final implementation roadmap
 
