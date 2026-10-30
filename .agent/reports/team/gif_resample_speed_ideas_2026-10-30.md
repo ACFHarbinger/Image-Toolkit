@@ -714,13 +714,13 @@ resize as a Lanczos replacement, float16 intermediates, sparse-matrix form (no m
 | 20 | Keys in the window: Enter = accept the chosen worker count, Esc/close = cancel, and you said Shift+Tab = continue without more workers. Shift+Tab is normally "previous field" in Qt and web, so it may fight focus navigation. Keep Shift+Tab as written, or use another shortcut (for example Shift+Enter) and show it on the button label? | Claude | Use Shift+Enter instead of Shift+Tab to continue without more workers; show the shortcut on the button label. | Harbinger | 2026-10-30 |
 | 21 | (G-Q1, Gemini) Should the streaming progress bar report scaling and encoding together ("Scaling & encoding frame N/total") and/or put per-stage timings (decode, palette, scale, index/dither, LZW write) in the finish summary? | Gemini | Both. | Harbinger | 2026-10-30 |
 | 22 | (G-Q2, Gemini) Is a 7-bit (128^3) color lookup table acceptable as the default palette indexing in `balanced`/`fast` modes, with exact lookup kept for `exact`? | Gemini | Yes. | Harbinger | 2026-10-30 |
-| 23 | (Gk-Q1) For `balanced`, keep the float kernel plus the cheaper OpenCV clamp (Gemini's path, about 41 to 49 ms, 4e-7 off today's output) instead of Pillow's uint8 Lanczos (15 ms but up to 38/255 off and no dering)? Recommendation: yes, float path; Pillow resize is not used for Lanczos. | Grok / Claude | _(open)_ | | |
-| 24 | (Gk-Q2) The fast scale path covers all upscales (any ratio, tap tables are general); downscales and anything the 6x6 window does not cover keep today's per-tap mask path (or the downscale suite). Agree? | Grok / Claude | _(open)_ | | |
-| 25 | (Mis-Q1) Is Numba allowed as a core dependency? It is only a transitive package today. Recommendation: no, because the OpenCV/BLAS path already meets the budget and native code is covered by D3. | Mistral / Claude | _(open)_ | | |
-| 26 | (Mis-Q2) Tolerance for `balanced`: at most 1/255 per channel on visible pixels, plus reported decoded-GIF color error and temporal stability (Codex's acceptance list). Fixed-point/native kernels held to the same bound. Agree? | Mistral / Codex / Claude | _(open)_ | | |
-| 27 | (Mis-Q3) Is the dering clamp always on? Recommendation: on in `exact` and `balanced`; `fast` may use a dering-strength setting (0 = off, 1 = today's clamp, per Grok Gk-G). Mis-T1a/T1b (skip below 1.5x, adaptive by contrast) are not adopted. | Mistral / Claude | _(open)_ | | |
-| 28 | Delta-region scaling (Gemini T1e) stays opt-in and experimental, in a later phase, after global output coordinates, Bayer phase and exact halo are specified and tested (Codex's caveats). Agree? | Claude | _(open)_ | | |
-| 29 | Section 5.1, 5.3 to 5.7 never got written. Proceed to the roadmap with what we have, or ask those lanes again (especially a GPU index/dither measurement, which only Gemini and Codex discuss and nobody has measured)? Recommendation: proceed, and make GPU index/dither a measured first task of the GPU phase. | Claude | _(open)_ | | |
+| 23 | (Gk-Q1) For `balanced`, keep the float kernel plus the cheaper OpenCV clamp (Gemini's path, about 41 to 49 ms, 4e-7 off today's output) instead of Pillow's uint8 Lanczos (15 ms but up to 38/255 off and no dering)? Recommendation: yes, float path; Pillow resize is not used for Lanczos. | Grok / Claude | Yes: `balanced` keeps the float kernel plus the cheaper OpenCV clamp; Pillow's Lanczos is not used. | Harbinger | 2026-10-30 |
+| 24 | (Gk-Q2) The fast scale path covers all upscales (any ratio, tap tables are general); downscales and anything the 6x6 window does not cover keep today's per-tap mask path (or the downscale suite). Agree? | Grok / Claude | Agree: the fast scale path covers all upscales; downscales and uncovered cases keep today's path. | Harbinger | 2026-10-30 |
+| 25 | (Mis-Q1) Is Numba allowed as a core dependency? It is only a transitive package today. Recommendation: no, because the OpenCV/BLAS path already meets the budget and native code is covered by D3. | Mistral / Claude | Numba is allowed for testing/experiments only (dev/test dependency group). It becomes a core dependency if it proves itself in at least one stage; otherwise it is permanently removed. | Harbinger | 2026-10-30 |
+| 26 | (Mis-Q2) Tolerance for `balanced`: at most 1/255 per channel on visible pixels, plus reported decoded-GIF color error and temporal stability (Codex's acceptance list). Fixed-point/native kernels held to the same bound. Agree? | Mistral / Codex / Claude | Agree (at most 1/255 per channel on visible pixels; decoded-GIF color error and temporal stability reported separately). | Harbinger | 2026-10-30 |
+| 27 | (Mis-Q3) Is the dering clamp always on? Recommendation: on in `exact` and `balanced`; `fast` may use a dering-strength setting (0 = off, 1 = today's clamp, per Grok Gk-G). Mis-T1a/T1b (skip below 1.5x, adaptive by contrast) are not adopted. | Mistral / Claude | Agree (dering on in `exact` and `balanced`; strength setting in `fast`; skip-below-1.5x and contrast-adaptive variants not adopted). | Harbinger | 2026-10-30 |
+| 28 | Delta-region scaling (Gemini T1e) stays opt-in and experimental, in a later phase, after global output coordinates, Bayer phase and exact halo are specified and tested (Codex's caveats). Agree? | Claude | Yes: opt-in, experimental, later phase. | Harbinger | 2026-10-30 |
+| 29 | Section 5.1, 5.3 to 5.7 never got written. Proceed to the roadmap with what we have, or ask those lanes again (especially a GPU index/dither measurement, which only Gemini and Codex discuss and nobody has measured)? Recommendation: proceed, and make GPU index/dither a measured first task of the GPU phase. | Claude | Yes, proceed. Also seriously consider any other GPU optimization: Harbinger has just bought 4 extra RTX 3090 / 3090 Ti cards, so the rig will have more VRAM than RAM (it is an AI rig). | Harbinger | 2026-10-30 |
 
 ## 8. Decision log
 
@@ -748,40 +748,78 @@ resize as a Lanczos replacement, float16 intermediates, sparse-matrix form (no m
 | D20 | "Continue without more workers" is Shift+Enter (shown on the button label), not Shift+Tab. Enter accepts the chosen worker count; closing cancels. | Q20 | Shift+Tab is focus navigation. | Harbinger | 2026-10-30 |
 | D21 | The streaming progress text reports scaling and encoding together, and the finish summary lists per-stage timings (decode, palette, scale, index/dither, LZW write). | Q21 | Makes the per-stage budget visible. | Harbinger | 2026-10-30 |
 | D22 | `balanced`/`fast` palette indexing may use a 7-bit (128^3) lookup table; `exact` keeps exact nearest-color lookup. | Q22 | Measured by Gemini at 7.7 ms/frame, under 0.85/255 RGB RMSE; 920x faster than today's exact path. | Harbinger | 2026-10-30 |
+| D23 | `balanced` uses the float kernel plus the OpenCV clamp (about 41 to 49 ms/frame); Pillow Lanczos is not used. | Q23 | Keeps dering and stays within rounding of today's output. | Harbinger | 2026-10-30 |
+| D24 | The fast scale path covers all upscales at any ratio; downscales and uncovered cases keep today's path. | Q24 | | Harbinger | 2026-10-30 |
+| D25 | Numba: testing/experiments only, in a dev/test dependency group, never imported by shipped paths. Promote to a core dependency only if it shows a measured, equivalent win in at least one pipeline stage with a working fallback; otherwise remove it permanently (group and code). Harbinger decides at the gate (task S-A6). | Q25 | Avoids a speculative core dependency. | Harbinger | 2026-10-30 |
+| D26 | `balanced` tolerance: at most 1/255 per channel on visible pixels, plus reported decoded-GIF color error and temporal stability. | Q26 | | Harbinger | 2026-10-30 |
+| D27 | Dering is on in `exact` and `balanced`; `fast` gets a strength setting (0 to 1). Skip-below-1.5x and contrast-adaptive dering are not adopted. | Q27 | | Harbinger | 2026-10-30 |
+| D28 | Delta-region scaling is opt-in, experimental, later phase. | Q28 | | Harbinger | 2026-10-30 |
+| D29 | Proceed without re-asking the empty lanes. GPU work is a first-class phase: the rig is gaining 4 more RTX 3090 / 3090 Ti cards (more VRAM than RAM), so multi-device leases, multi-GPU chunking and other GPU optimizations are to be seriously considered. | Q29 | Hardware change. | Harbinger | 2026-10-30 |
 
 ## 9. Final implementation roadmap
 
-**DRAFT, pending Q23 to Q29.** Nothing below is built yet. Owners are proposals. Every task keeps `ResampleCancelled`, the one-GPU-run rule, and
-the Codex-only rule for whole-file runs. Equivalence is checked per Codex's list (opaque and transparent edges, odd sizes, impulse and checker
-patterns, palette ties with deterministic tie-breaking; float max/RMS, decoded-GIF color error, temporal stability reported separately).
+**Status: approved by Harbinger's answers D1 to D29 on 2026-10-30.** Tracker: #1147 (milestone "GIF Upscaling Suite"). Every task keeps
+`ResampleCancelled`, the one-GPU-run rule and the Codex-only rule for whole-file runs. Equivalence is checked per Codex's list in §5.9
+(opaque and transparent edges, odd sizes, impulse and checker patterns, palette ties with deterministic tie-breaking; float max/RMS, decoded-GIF
+color error and temporal stability reported separately). Owners are proposals (`agent:*` labels).
 
-**Phase A, CPU pipeline (biggest win, no GPU, no native code).** Target on one core: about 3 minutes for the 326 MB GIF, every stage under 2 minutes.
-- A1. Stage timings, "Scaling & encoding frame N" progress text, finish summary with per-stage times and the path that ran (D13, D21).
-- A2. Palette indexing: exact BLAS-identity lookup (`exact`) and a 7-bit LUT with a precomputed dither grid (`balanced`/`fast`, D22),
-  deterministic tie-breaking, tests against today's indices.
-- A3. Replace pure-Python `_lzw` with Pillow's C GIF encoder feeding `IndexedGifWriter`; verify the decoded result is identical.
-- A4. Scale: per-clip plan cache, opaque fast path, 2D sgemm + erode/dilate/remap clamp for upscales (general ratios), today's path
-  kept for downscales and as `exact` reference.
-- A5. Regression and equivalence suite (Codex's list), plus a small-frame performance test marker.
+**Hardware.** This machine: 32 CPU cores, 123 GB RAM, two RTX 3090 Ti visible today, with 4 more RTX 3090 / 3090 Ti on the way, so the rig will
+have over 100 GB of VRAM (more than RAM). The GPU lease arbiter reads device 0 only today, so multi-device support is a prerequisite (B1).
 
-**Phase B, GPU.** Automatic when a usable GPU exists (D11, D16).
-- B1. Measure GPU index/dither on-device first (Q29), then build batch scale + index/dither on GPU, indexed bytes returned over PCIe.
-- B2. Arbiter-aware batch sizing: take what is free at start, shrink or release as other jobs hold or request the GPU.
-- B3. Overlap decode and encode with the GPU stage using bounded queues that count out-of-order completed frames.
+**Phase A, CPU pipeline (largest win, no GPU, no native code).** Target on one core: about 3 minutes for the 326 MB GIF, each stage under 2 minutes.
 
-**Phase C, settings and the no-GPU window (UI-agnostic in `middleware`, then Qt).**
-- C1. Settings: mode (simple) plus advanced switches: `workers` (default 1), VRAM cap, palette mode, dering strength, runtime threshold
-  (default 2 min), "do not ask again" flag (D4, D5, D9, D10, D11, D17, D18).
-- C2. Pre-flight estimate service call (time a few frames, project the job) and the `workers` warning when batch multi-core is also on.
-- C3. No-GPU window in the Qt Sampler: Enter accepts the chosen worker count, Shift+Enter continues without more workers, closing
-  cancels (D15, D18, D20). Needs the recorded `[[exception]]` in `migration/features.toml` (D19), added only after this roadmap is approved.
-- C4. Tauri wiring, after Harbinger resumes the parity tests.
+| ID | Task | Owner | Issue |
+|---|---|---|---|
+| A1 | Stage timings, "Scaling & encoding frame N" text, finish summary (D13, D21) | grok | #1148 |
+| A2 | Palette indexing: exact BLAS (`exact`), 7-bit LUT with precomputed dither grid (`balanced`/`fast`), deterministic ties | gemini | #1149 |
+| A3 | Pillow C GIF encoder inside `IndexedGifWriter` instead of pure-Python LZW | gemini | #1150 |
+| A4 | Fast scale: clip plan, opaque path, sgemm + erode/dilate/remap clamp for all upscales | grok | #1151 |
+| A5 | Equivalence, regression and perf-marker suite | codex | #1152 |
+| A6 | Numba trial with the promotion gate (D25) | mistral | #1153 |
 
-**Phase D, multi-core for one request.** `workers` thread pool over frames, central thread limits (OpenBLAS/OpenCV set once, not per
-worker), ordered writer, cancellation between frames. Only after A4 and A3 release the GIL as expected.
+**Phase B, GPU (first-class; multi-device).** Automatic when a usable GPU exists; takes what is free at start and releases as it finishes (D11, D16).
 
-**Phase E, optional and experimental (each behind a setting).** Native fused row-strip kernel in `backend` with NumPy fallback; fixed-point
-Q14/Q15; reduced-pass palette; delta-region scaling; dering-strength setting. Start only if Phase A and B leave a stage above budget.
+| ID | Task | Owner | Issue |
+|---|---|---|---|
+| B1 | Multi-device leases in the arbiter (enumeration, per-device free VRAM, allow-list) | grok | #1154 |
+| B2 | GPU batch scale plus on-device dither and index, measured first | gemini | #1155 |
+| B3 | Multi-GPU frame-chunk scheduler (data parallel, shared palette, ordered writer) | grok | #1156 |
+| B4 | Overlapped pipeline: pinned memory, CUDA streams, bounded queues | grok | #1157 |
+| B5 | GPU research spike: parallel LZW decode, GPU palette build, fused kernel, GPU delta detection, PCIe topology, neural backends | claude | #1158 |
 
-**Phase F, review.** Codex reviews each phase, runs the authorized whole-file benchmark once per phase, and posts stage times and peak
-RSS/VRAM on the bus.
+**Phase C, settings and the no-GPU window.** Logic is UI-agnostic in `middleware`; the Qt window needs the recorded freeze exception (D19, added when C3 starts).
+
+| ID | Task | Owner | Issue |
+|---|---|---|---|
+| C1 | Settings: simple mode plus advanced switches (`workers`, VRAM cap, devices, palette mode, dering strength, threshold, flag) | grok | #1159 |
+| C2 | Pre-flight estimate service and the `workers` + batch multi-core warning | grok | #1160 |
+| C3 | No-GPU window in the Qt Sampler (Enter accepts, Shift+Enter continues, close cancels) | grok | #1161 |
+| C4 | Tauri wiring, after the parity tests resume | grok | #1162 |
+
+**Phase D, multi-core for one request.**
+
+| ID | Task | Owner | Issue |
+|---|---|---|---|
+| D1 | `workers` thread pool over frames, central thread limits, ordered writer | grok | #1163 |
+
+**Phase E, optional and experimental (each behind a setting; start only if A and B leave a stage over budget).**
+
+| ID | Task | Owner | Issue |
+|---|---|---|---|
+| E1 | Native fused row-strip and fixed-point kernels in `backend`, with fallback | grok | #1164 |
+| E2 | Reduced-pass palette (setting) | gemini | #1165 |
+| E3 | Delta-region scaling and encoding (setting, experimental) | grok | #1166 |
+| E4 | Dering strength setting | mistral | #1167 |
+
+**Phase F, review.**
+
+| ID | Task | Owner | Issue |
+|---|---|---|---|
+| F1 | Codex review and one authorized whole-file benchmark per phase | codex | #1168 |
+
+**Order.** A1 first (it makes every later measurement visible), then A2, A3, A4 and A5 in parallel; B1 can start immediately in parallel (it only
+touches the arbiter); B2 after A2 and A4 define the reference outputs; B3 and B4 after B1 and B2; B5 runs alongside Phase A as a report-only
+spike; C1 and C2 after A1; C3 only after this roadmap is accepted (it is); D1 after A3 and A4; E only on demand; F1 closes each phase.
+
+**Decision gates for Harbinger.** After A (is the 3-minute single-core result enough, or do we start E?); after B2 (does GPU index/dither beat the
+LUT enough to be the default?); after A6 (Numba promoted or removed); before C3 merges (freeze exception).
