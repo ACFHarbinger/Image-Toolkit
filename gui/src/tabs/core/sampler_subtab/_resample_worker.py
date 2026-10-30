@@ -1,7 +1,4 @@
-"""SamplerWorker config collection and start/progress/finished/error handling.
-
-Extracted from ``sampler_subtab.py`` -- pure code motion, no logic change.
-"""
+"""SamplerWorker config collection and start/progress/finished/error handling."""
 
 from __future__ import annotations
 
@@ -54,6 +51,7 @@ class SamplerWorkerController(TabBoundController):
         self.worker.finished.connect(self._on_done)
         self.worker.error.connect(self._on_error)
         self.worker.progress_update.connect(self._on_progress)
+        self.worker.stage_update.connect(self._on_stage)
 
         self.btn_all.setEnabled(False)
         self.btn_selected.setEnabled(False)
@@ -70,9 +68,11 @@ class SamplerWorkerController(TabBoundController):
     @Slot(int, int)
     def _on_progress(self, completed: int, total: int):
         self.progress_bar.setMaximum(max(total, 1))
-        self.progress_bar.setValue(completed)
-        pct = int(completed / total * 100) if total else 0
-        self.status_label.setText(f"Resampling… {pct}% complete")  # pyrefly: ignore [missing-attribute]
+        self.progress_bar.setValue(min(max(completed, 0), max(total, 1)))
+
+    @Slot(str)
+    def _on_stage(self, text: str):
+        self.status_label.setText(text)  # pyrefly: ignore [missing-attribute]
 
     @Slot(object)
     def _on_done(self, result):
