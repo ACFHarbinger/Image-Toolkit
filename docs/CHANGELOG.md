@@ -14,6 +14,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Lanczos3-dering resamples in float32 with in-place neighborhood bounds, and a GIF too large to hold scaled (the wallpaper clip is 8327 frames) is scaled and written one frame at a time.
+- The Sampler progress bar and status advance while one GIF is still running: decode, each frame, then encode. The desktop panel listens for the same stages.
+- Real-ESRGAN x2plus matches the official checkpoint: 12-channel pixel-unshuffle, both upsample convolutions, and odd edges padded then cropped.
 - Real-ESRGAN anime-6B loads a local checkpoint and does not contact Hugging Face when `gif_upscale.weights_policy` is `offline`.
 - gifski keeps a shared frame delay. Variable delays stay on the temporal GIF writer.
 - Still images and the Python Sampler use the selected registry algorithm. GIF-only algorithms are hidden for still and mixed selections.

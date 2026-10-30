@@ -33,6 +33,108 @@ _BAYER_8 = np.array(
 )
 
 
+# Above this size of scaled RGBA floats, a clip is written one frame at a time.
+STREAM_RGBA_BYTES = 256 * 1024 * 1024
+
+
+class IndexedGifWriter:
+    """Append indexed frames to one GIF without keeping the clip in memory."""
+
+    def __init__(self, path: str, width: int, height: int, palette: np.ndarray, loop: int, *, transparent: bool) -> None:
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        self._file = Path(path).open("wb")  # noqa: SIM115 — closed in close(), after every frame is written
+        self._width = width
+        self._height = height
+        self._transparent = transparent
+        table = np.zeros(768, dtype=np.uint8)
+        count = min(256, int(palette.shape[0]))
+        flat = np.clip(np.rint(palette[:count]), 0, 255).astype(np.uint8).reshape(-1)
+        table[: flat.size] = flat
+        self._file.write(b"GIF89a")
+        self._file.write(_u16(width) + _u16(height) + bytes((0xF7, 0, 0)))
+        self._file.write(table.tobytes())
+        self._file.write(b"\x21\xff\x0bNETSCAPE2.0\x03\x01" + _u16(int(loop)) + b"\x00")
+
+    def add_frame(self, index: np.ndarray, duration_ms: int) -> None:
+        delay = max(1, int(round(int(duration_ms) / 10))) if duration_ms else 1
+        packed = 0x08 | (0x01 if self._transparent else 0)
+        trans = 0 if self._transparent else 0
+        self._file.write(b"\x21\xf9\x04" + bytes((packed,)) + _u16(delay) + bytes((trans, 0)))
+        self._file.write(b"\x2c" + _u16(0) + _u16(0) + _u16(self._width) + _u16(self._height) + b"\x00")
+        payload = _lzw(np.ascontiguousarray(index, dtype=np.uint8).reshape(-1).tobytes(), 8)
+        self._file.write(b"\x08")
+        for start in range(0, len(payload), 255):
+            block = payload[start : start + 255]
+            self._file.write(bytes((len(block),)) + block)
+        self._file.write(b"\x00")
+
+    def close(self) -> None:
+        self._file.write(b"\x3b")
+        self._file.close()
+
+
+def index_frame(frame: np.ndarray, palette: np.ndarray, *, transparent: bool, dither: str = "ordered") -> np.ndarray:
+    """Map one RGBA uint8 frame onto the shared palette."""
+    colors = palette[1:] if transparent else palette
+    index = _indexes(frame[:, :, :3], colors, dither)
+    if transparent:
+        index = index + 1
+        index[frame[:, :, 3] < 128] = 0
+    return index
+
+
+def _u16(value: int) -> bytes:
+    return int(value).to_bytes(2, "little", signed=False)
+
+
+def _lzw(data: bytes, min_code_size: int) -> bytes:
+    """GIF LZW, least-significant bit first, clear code included."""
+    clear = 1 << min_code_size
+    end = clear + 1
+    code_size = min_code_size + 1
+    next_code = end + 1
+    table = {bytes([i]): i for i in range(clear)}
+    bits = 0
+    nbits = 0
+    out = bytearray()
+
+    def emit(code: int, size: int) -> None:
+        nonlocal bits, nbits
+        bits |= code << nbits
+        nbits += size
+        while nbits >= 8:
+            out.append(bits & 0xFF)
+            bits >>= 8
+            nbits -= 8
+
+    emit(clear, code_size)
+    prefix = b""
+    for value in data:
+        suffix = bytes((value,))
+        joined = prefix + suffix
+        if joined in table:
+            prefix = joined
+            continue
+        emit(table[prefix], code_size)
+        if next_code < 4096:
+            table[joined] = next_code
+            next_code += 1
+            if code_size < 12 and next_code == (1 << code_size):
+                code_size += 1
+        else:
+            emit(clear, code_size)
+            table = {bytes([i]): i for i in range(clear)}
+            next_code = end + 1
+            code_size = min_code_size + 1
+        prefix = suffix
+    if prefix:
+        emit(table[prefix], code_size)
+    emit(end, code_size)
+    if nbits:
+        out.append(bits & 0xFF)
+    return bytes(out)
+
+
 def encode_gif(
     path: str,
     frames: list[np.ndarray],

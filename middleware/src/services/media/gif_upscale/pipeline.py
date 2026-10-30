@@ -19,6 +19,8 @@ def resample_gif(input_path: str, output_path: str, params: dict[str, Any]) -> d
     progress = params.get("progress")
     try:
         _report(progress, "decode", 0, 1)
+        if _needs_stream(input_path, params):
+            return _resample_gif_stream(input_path, output_path, params, progress)
         clip = decode_gif(input_path)
         _report(progress, "decode", 1, 1)
         frames = [frame.astype(np.float32) / 255.0 for frame in clip.frames]
@@ -62,6 +64,126 @@ def resample_still(input_path: str, output_path: str, params: dict[str, Any]) ->
     except (AlgorithmError, OSError, ValueError) as exc:
         return {"success": False, "message": str(exc)}
     return {"success": True, "message": f"Wrote {width}x{height} {output_path}", "width": width, "height": height}
+
+
+def _needs_stream(input_path: str, params: dict[str, Any]) -> bool:
+    """Long clips cannot keep every scaled frame. 8327 frames at 2x is hundreds of GB."""
+    from PIL import Image
+
+    from middleware.src.services.media.gif_upscale.encode import STREAM_RGBA_BYTES
+
+    with Image.open(input_path) as image:
+        count = int(getattr(image, "n_frames", 1) or 1)
+        width, height = _target_size(image.size, params)
+    return count * width * height * 4 * 4 > STREAM_RGBA_BYTES
+
+
+def _resample_gif_stream(
+    input_path: str,
+    output_path: str,
+    params: dict[str, Any],
+    progress: Any,
+) -> dict[str, Any]:
+    """Scale and write one frame at a time. The palette comes from a spread of frames."""
+    from middleware.src.services.media.gif_upscale.encode import (
+        IndexedGifWriter,
+        _shared_palette,
+        index_frame,
+    )
+    from middleware.src.services.media.gif_upscale.io import iter_gif_frames
+
+    _report(progress, "decode", 1, 1)
+    prepared = _prepare_scale(params, "gif", *_first_size(input_path))
+    registered, scale, width, height, algorithm_id = prepared
+    opts = {"size": (width, height), "params": {key: value for key, value in params.items() if key != "progress"}}
+    samples, count, loop = _palette_samples(input_path, registered, scale, opts, algorithm_id)
+    transparent = any(int(frame[:, :, 3].min()) < 128 for frame in samples)
+    colors = 255 if transparent else 256
+    palette = _shared_palette(samples, colors, "mediancut")
+    if transparent:
+        palette = np.vstack([np.zeros((1, 3), dtype=np.float32), palette])
+    del samples
+    writer = IndexedGifWriter(output_path, width, height, palette, loop, transparent=transparent)
+    try:
+        _report(progress, "scale", 0, count)
+        for seen, (frame, duration, _frame_loop) in enumerate(iter_gif_frames(input_path), start=1):
+            scaled = _one_frame(registered, frame.astype(np.float32) / 255.0, float(scale), opts, algorithm_id)
+            writer.add_frame(
+                index_frame(_uint8(scaled), palette, transparent=transparent),
+                duration,
+            )
+            _report(progress, "scale", seen, count)
+        _report(progress, "encode", 0, 1)
+    finally:
+        writer.close()
+    _report(progress, "encode", 1, 1)
+    return {
+        "success": True,
+        "message": f"Wrote {width}x{height} {output_path}",
+        "width": width,
+        "height": height,
+        "encoder": "temporal",
+    }
+
+
+def _first_size(input_path: str) -> tuple[int, int]:
+    from PIL import Image
+
+    with Image.open(input_path) as image:
+        return image.size
+
+
+def _palette_samples(input_path: str, registered: Any, scale: float, opts: dict, algorithm_id: str) -> tuple[list[np.ndarray], int, int]:
+    from PIL import Image
+
+    with Image.open(input_path) as image:
+        count = int(getattr(image, "n_frames", 1) or 1)
+        loop = int(image.info.get("loop", 0) or 0)
+    stride = max(1, count // 16)
+    wanted = set(range(0, count, stride))
+    samples: list[np.ndarray] = []
+    for index, (frame, _duration, _loop) in enumerate(_iter_rgba(input_path)):
+        if index not in wanted:
+            continue
+        scaled = _one_frame(registered, frame.astype(np.float32) / 255.0, scale, opts, algorithm_id)
+        samples.append(_uint8(scaled))
+        if len(samples) == len(wanted):
+            break
+    if not samples:
+        raise AlgorithmError("GIF has no frames.")
+    return samples, count, loop
+
+
+def _iter_rgba(input_path: str):
+    from middleware.src.services.media.gif_upscale.io import iter_gif_frames
+
+    return iter_gif_frames(input_path)
+
+
+def _one_frame(registered: Any, frame: np.ndarray, scale: float, opts: dict, algorithm_id: str) -> np.ndarray:
+    one = registered.upscale([frame], scale, opts)
+    if len(one) != 1:
+        raise AlgorithmError(f"{algorithm_id} returned {len(one)} frames for 1 input.")
+    return one[0]
+
+
+def _uint8(frame: np.ndarray) -> np.ndarray:
+    return np.clip(np.rint(np.asarray(frame) * 255.0), 0, 255).astype(np.uint8)
+
+
+def _prepare_scale(params: dict[str, Any], container: str, source_width: int, source_height: int):
+    algorithm_id = str(params.get("algorithm") or "lanczos").strip().lower()
+    registered = get_algorithm(algorithm_id)
+    if container not in registered.spec.containers:
+        raise AlgorithmError(f"{algorithm_id} does not resample {container} images.")
+    available, reason = registered.spec.available()
+    if not available:
+        raise AlgorithmError(reason or f"{algorithm_id} is unavailable.")
+    width, height = _target_size((source_width, source_height), params)
+    refusal = _scale_refusal(registered.spec, source_width, source_height, width, height)
+    if refusal:
+        raise AlgorithmError(refusal)
+    return registered, width / source_width, width, height, algorithm_id
 
 
 def _report(progress: Any, stage: str, done: int, total: int) -> None:
