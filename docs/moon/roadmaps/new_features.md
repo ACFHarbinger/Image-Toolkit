@@ -978,8 +978,9 @@ any public release); model weights download on demand by default, with the setti
 - **Other inputs:** still images and video through the same algorithm registry.
 - **Batch folders** of GIFs with a per-file algorithm recommendation.
 
-**Status:** planned, not started. The first implementation (`3c7fa2d19`, Pillow per-frame resize) is correct but
-offers no quality upscaler and keeps the lossy encoder.
+**Status:** Wave 0 foundation is on `feat/gif-upscale-suite` (registry, frame IO, tiling, palette encoder,
+weights policy, license record). Algorithm lanes are in progress. The first Pillow resize (`3c7fa2d19`) remains
+the still-image path and the `lanczos` / `bicubic` / `bilinear` / `nearest` GIF backends.
 
 ---
 

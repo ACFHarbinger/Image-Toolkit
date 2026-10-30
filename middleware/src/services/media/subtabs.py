@@ -103,42 +103,10 @@ def _resample_still(input_path: str, output_path: str, params: dict[str, Any]) -
 
 
 def _resample_gif(input_path: str, output_path: str, params: dict[str, Any]) -> dict[str, Any]:
-    """Scale every composited frame. Durations and the loop count stay with the file."""
-    from PIL import Image
+    """GIF inputs use the registry. Other extensions stay on ``_resample_still``."""
+    from middleware.src.services.media.gif_upscale.pipeline import resample_gif
 
-    algorithm = _resample_algorithm(params)
-    with Image.open(input_path) as image:
-        width, height = _resample_target(image.size, params)
-        loop = int(image.info.get("loop", 0))
-        frames: list[Image.Image] = []
-        durations: list[int] = []
-        try:
-            for index in range(getattr(image, "n_frames", 1)):
-                image.seek(index)
-                composed = image.convert("RGBA")
-                try:
-                    frames.append(composed.resize((width, height), algorithm))
-                finally:
-                    composed.close()
-                raw_duration = image.info.get("duration", 100)
-                durations.append(100 if raw_duration is None else int(raw_duration))
-            if not frames:
-                return {"success": False, "message": "GIF has no frames."}
-            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-            frames[0].save(
-                output_path,
-                format="GIF",
-                save_all=True,
-                append_images=frames[1:],
-                duration=durations,
-                loop=loop,
-                disposal=2,
-                optimize=False,
-            )
-        finally:
-            for frame in frames:
-                frame.close()
-    return {"success": True, "message": f"Wrote {width}x{height} {output_path}", "width": width, "height": height}
+    return resample_gif(input_path, output_path, params)
 
 
 def cut_image(params: dict[str, Any]) -> dict[str, Any]:
@@ -225,6 +193,10 @@ def dispatch(payload: dict[str, Any]) -> dict[str, Any]:
         return frame
     if action == "codec":
         return reencode(payload)
+    if action == "list_resample_algorithms":
+        from middleware.src.services.media.gif_upscale.pipeline import list_algorithms
+
+        return {"success": True, "algorithms": list_algorithms()}
     if action == "resample":
         return resample(payload)
     if action == "image_cut":

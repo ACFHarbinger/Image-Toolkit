@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Sampler GIF resize now goes through a backend registry. `.gif` inputs keep a shared palette and ordered dither so frames do not shimmer, and `gif_upscale.weights_policy` (`on_demand`, `prefetch_all`, `offline`) controls weight downloads. Licenses are recorded and do not block a backend. Other extensions stay on the still-image path.
 - Sampler upscales and downscales a GIF by resizing every frame when the selected file ends in `.gif`, keeping each frame's duration and the loop count. Any other extension stays on the still-image resize path.
 
 ### Fixed

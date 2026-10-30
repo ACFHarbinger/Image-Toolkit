@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+import middleware.src.services.media.gif_upscale.policy  # noqa: F401 — registers gif_upscale.weights_policy
 from middleware.src.bridge import BridgeAppError
 from middleware.src.cloud.settings import CloudSettings
 from middleware.src.settings.cloud_jobs import (
