@@ -97,10 +97,8 @@ def resize_separable(
     width, height = _target_size(scale, opts, algorithm_id)
     resized: Frames = []
     for frame in frames:
-        premul = _premultiply(_require_rgba(frame, algorithm_id))
-        filtered = _separable(premul, width, height, kernel, support, algorithm_id)
-        if dering:
-            filtered = _clamp_rgb_to_neighborhood(filtered, premul, support, algorithm_id)
+        premul = _premultiply(_require_rgba(frame, algorithm_id, dtype=np.float32))
+        filtered = _separable(premul, width, height, kernel, support, algorithm_id, dering=dering)
         resized.append(_finish(filtered, algorithm_id, clip_unit=clip_unit))
     return resized
 
@@ -134,9 +132,9 @@ def _target_size(scale: float, opts: dict, algorithm_id: str) -> tuple[int, int]
     return width, height
 
 
-def _require_rgba(frame: np.ndarray, algorithm_id: str) -> np.ndarray:
+def _require_rgba(frame: np.ndarray, algorithm_id: str, dtype: np.dtype = np.float64) -> np.ndarray:
     try:
-        array = np.asarray(frame, dtype=np.float64)
+        array = np.asarray(frame, dtype=dtype)
     except (TypeError, ValueError) as exc:
         raise AlgorithmError(f"{algorithm_id} expected numeric HxWx4 frames.") from exc
     if array.ndim != 3 or array.shape[2] != 4 or array.shape[0] < 1 or array.shape[1] < 1:
@@ -147,7 +145,7 @@ def _require_rgba(frame: np.ndarray, algorithm_id: str) -> np.ndarray:
 
 
 def _premultiply(frame: np.ndarray) -> np.ndarray:
-    premul = np.array(frame, dtype=np.float64, copy=True)
+    premul = np.array(frame, copy=True)
     premul[..., :3] *= premul[..., 3:4]
     return premul
 
@@ -186,14 +184,52 @@ def _normalized_weights(delta: np.ndarray, valid: np.ndarray, kernel: Kernel, al
     return weights / total[:, None]
 
 
-def _resample_width(image: np.ndarray, dst_w: int, kernel: Kernel, support: float, algorithm_id: str) -> np.ndarray:
-    src_h, src_w, channels = image.shape
-    indices, delta, valid = _tap_table(src_w, dst_w, support)
+# One gathered tap at a time. A full-frame copy per Lanczos tap is what spilled dering into swap.
+_GATHER_BYTES = 4 * 1024 * 1024
+
+
+def _scan_chunk(row_count: int, width: int, channels: int) -> int:
+    row_bytes = max(width, 1) * channels * np.dtype(np.float32).itemsize
+    return max(1, min(row_count, _GATHER_BYTES // max(row_bytes, 1)))
+
+
+def _axis_plan(
+    src_len: int,
+    dst_len: int,
+    support: float,
+    kernel: Kernel,
+    algorithm_id: str,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    indices, delta, valid = _tap_table(src_len, dst_len, support)
     weights = _normalized_weights(delta, valid, kernel, algorithm_id)
-    out = np.zeros((src_h, dst_w, channels), dtype=np.float64)
-    for tap in range(indices.shape[1]):
-        idx = np.clip(indices[:, tap], 0, src_w - 1)
-        out += image[:, idx, :] * weights[None, :, tap, None]
+    clipped = np.clip(indices, 0, src_len - 1)
+    return (
+        np.ascontiguousarray(clipped.T, dtype=np.intp),
+        np.ascontiguousarray(weights.T, dtype=np.float32),
+        np.ascontiguousarray(valid.T),
+    )
+
+
+def _apply_taps(image: np.ndarray, indices: np.ndarray, weights: np.ndarray) -> np.ndarray:
+    if image.dtype != np.float32 or not image.flags.c_contiguous:
+        image = np.ascontiguousarray(image, dtype=np.float32)
+    row_count, _src, channels = image.shape
+    n_taps, dst = indices.shape
+    out = np.zeros((row_count, dst, channels), dtype=np.float32)
+    active = [tap for tap in range(n_taps) if np.any(weights[tap])]
+    if not active:
+        return out
+    chunk = _scan_chunk(row_count, dst, channels)
+    gathered = np.empty((chunk, dst, channels), dtype=np.float32)
+    for start in range(0, row_count, chunk):
+        stop = min(row_count, start + chunk)
+        block = image[start:stop]
+        buf = gathered[: stop - start]
+        acc = out[start:stop]
+        for tap in active:
+            np.take(block, indices[tap], axis=1, out=buf)
+            np.multiply(buf, weights[tap][None, :, None], out=buf)
+            np.add(acc, buf, out=acc)
     return out
 
 
@@ -204,59 +240,123 @@ def _separable(
     kernel: Kernel,
     support: float,
     algorithm_id: str,
+    *,
+    dering: bool,
 ) -> np.ndarray:
-    wide = _resample_width(image, dst_w, kernel, support, algorithm_id)
-    tall = np.swapaxes(wide, 0, 1)
-    resized = _resample_width(tall, dst_h, kernel, support, algorithm_id)
-    return np.swapaxes(resized, 0, 1)
+    src_h, src_w, _channels = image.shape
+    x_index, x_weight, x_valid = _axis_plan(src_w, dst_w, support, kernel, algorithm_id)
+    y_index, y_weight, y_valid = _axis_plan(src_h, dst_h, support, kernel, algorithm_id)
+    wide = _apply_taps(image, x_index, x_weight)
+    tall = np.ascontiguousarray(np.swapaxes(wide, 0, 1))
+    high = _apply_taps(tall, y_index, y_weight)
+    filtered = np.ascontiguousarray(np.swapaxes(high, 0, 1))
+    if dering:
+        _clamp_rgb_to_neighborhood(filtered, image[..., :3], y_index, y_valid, x_index, x_valid, algorithm_id)
+    return filtered
 
 
-def _clamp_rgb_to_neighborhood(filtered: np.ndarray, source: np.ndarray, support: float, algorithm_id: str) -> np.ndarray:
+def _clamp_rgb_to_neighborhood(
+    filtered: np.ndarray,
+    source_rgb: np.ndarray,
+    y_index: np.ndarray,
+    y_valid: np.ndarray,
+    x_index: np.ndarray,
+    x_valid: np.ndarray,
+    algorithm_id: str,
+) -> None:
     """Keep each RGB sample inside the source window that built it.
 
     Lanczos's negative lobe rings past a step. Clamping to that window's min
     and max removes the halo without pulling in a different kernel.
     """
-    dst_h, dst_w = filtered.shape[:2]
-    lo, hi = _neighborhood_range(source[..., :3], dst_h, dst_w, support, algorithm_id)
-    clamped = np.array(filtered, copy=True)
-    clamped[..., :3] = np.clip(filtered[..., :3], lo, hi)
-    return clamped
+    lo, hi = _neighborhood_range(source_rgb, y_index, y_valid, x_index, x_valid, algorithm_id)
+    rgb = filtered[..., :3]
+    np.clip(rgb, lo, hi, out=rgb)
 
 
 def _neighborhood_range(
     rgb: np.ndarray,
-    dst_h: int,
-    dst_w: int,
-    support: float,
+    y_index: np.ndarray,
+    y_valid: np.ndarray,
+    x_index: np.ndarray,
+    x_valid: np.ndarray,
     algorithm_id: str,
 ) -> tuple[np.ndarray, np.ndarray]:
-    src_h, src_w, _channels = rgb.shape
-    y_idx, _y_delta, y_ok = _tap_table(src_h, dst_h, support)
-    x_idx, _x_delta, x_ok = _tap_table(src_w, dst_w, support)
-    vertical_lo = np.full((dst_h, src_w, 3), np.inf, dtype=np.float64)
-    vertical_hi = np.full((dst_h, src_w, 3), -np.inf, dtype=np.float64)
-    for tap in range(y_idx.shape[1]):
-        ok = y_ok[:, tap]
-        if not np.any(ok):
-            continue
-        gathered = rgb[np.clip(y_idx[:, tap], 0, src_h - 1)]
-        mask = ok[:, None, None]
-        vertical_lo = np.where(mask, np.minimum(vertical_lo, gathered), vertical_lo)
-        vertical_hi = np.where(mask, np.maximum(vertical_hi, gathered), vertical_hi)
-    lo = np.full((dst_h, dst_w, 3), np.inf, dtype=np.float64)
-    hi = np.full((dst_h, dst_w, 3), -np.inf, dtype=np.float64)
-    for tap in range(x_idx.shape[1]):
-        ok = x_ok[:, tap]
-        if not np.any(ok):
-            continue
-        cols = np.clip(x_idx[:, tap], 0, src_w - 1)
-        mask = ok[None, :, None]
-        lo = np.where(mask, np.minimum(lo, vertical_lo[:, cols, :]), lo)
-        hi = np.where(mask, np.maximum(hi, vertical_hi[:, cols, :]), hi)
+    rgb = np.ascontiguousarray(rgb, dtype=np.float32)
+    src_w = int(rgb.shape[1])
+    channels = int(rgb.shape[2])
+    dst_h = int(y_index.shape[1])
+    dst_w = int(x_index.shape[1])
+    lo = np.full((dst_h, dst_w, channels), np.inf, dtype=np.float32)
+    hi = np.full((dst_h, dst_w, channels), -np.inf, dtype=np.float32)
+    chunk = _scan_chunk(dst_h, max(src_w, dst_w), channels)
+    vertical_lo = np.empty((chunk, src_w, channels), dtype=np.float32)
+    vertical_hi = np.empty((chunk, src_w, channels), dtype=np.float32)
+    row_buf = np.empty((chunk, src_w, channels), dtype=np.float32)
+    col_buf = np.empty((chunk, dst_w, channels), dtype=np.float32)
+    for start in range(0, dst_h, chunk):
+        stop = min(dst_h, start + chunk)
+        _reduce_vertical(rgb, y_index, y_valid, start, stop, vertical_lo, vertical_hi, row_buf)
+        _reduce_horizontal(
+            vertical_lo[: stop - start],
+            vertical_hi[: stop - start],
+            x_index,
+            x_valid,
+            lo[start:stop],
+            hi[start:stop],
+            col_buf[: stop - start],
+        )
     if not np.isfinite(lo).all() or not np.isfinite(hi).all():
         raise AlgorithmError(f"{algorithm_id} found an empty source neighborhood; refusing to fall back.")
     return lo, hi
+
+
+def _reduce_vertical(
+    rgb: np.ndarray,
+    y_index: np.ndarray,
+    y_valid: np.ndarray,
+    start: int,
+    stop: int,
+    vertical_lo: np.ndarray,
+    vertical_hi: np.ndarray,
+    row_buf: np.ndarray,
+) -> None:
+    span = stop - start
+    vlo = vertical_lo[:span]
+    vhi = vertical_hi[:span]
+    rows = row_buf[:span]
+    vlo.fill(np.inf)
+    vhi.fill(-np.inf)
+    for tap in range(y_index.shape[0]):
+        valid = y_valid[tap, start:stop]
+        if not np.any(valid):
+            continue
+        np.take(rgb, y_index[tap, start:stop], axis=0, out=rows)
+        # where= leaves pixels outside this tap's window untouched, without copying lo/hi.
+        mask = valid[:, None, None]
+        np.minimum(vlo, rows, out=vlo, where=mask)
+        np.maximum(vhi, rows, out=vhi, where=mask)
+
+
+def _reduce_horizontal(
+    vertical_lo: np.ndarray,
+    vertical_hi: np.ndarray,
+    x_index: np.ndarray,
+    x_valid: np.ndarray,
+    lo: np.ndarray,
+    hi: np.ndarray,
+    col_buf: np.ndarray,
+) -> None:
+    for tap in range(x_index.shape[0]):
+        valid = x_valid[tap]
+        if not np.any(valid):
+            continue
+        cols = x_index[tap]
+        mask = valid[None, :, None]
+        np.take(vertical_lo, cols, axis=1, out=col_buf)
+        np.minimum(lo, col_buf, out=lo, where=mask)
+        np.take(vertical_hi, cols, axis=1, out=col_buf)
+        np.maximum(hi, col_buf, out=hi, where=mask)
 
 
 def _ewa(image: np.ndarray, dst_w: int, dst_h: int, algorithm_id: str) -> np.ndarray:
