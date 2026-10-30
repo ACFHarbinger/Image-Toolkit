@@ -312,6 +312,10 @@ scope ("Phase A quick win now, Phase B native diffusers integration later").
 
 ### 1.6 Anime upscaling stage [Quick Win] — shared wrapper DONE 2026-07-27
 
+> **Follow-on (2026-10-30):** GIF upscaling and downscaling, including more anime and realistic
+> super-resolution backends than this wrapper, is planned in
+> [new_features.md §4.22](new_features.md#422-gif-upscaling-and-downscaling-suite) (issue #1123). It reuses `ESRGANWrapper`.
+
 **Pain point:** Generated images and stitched panoramas both want anime-aware SR.
 
 **Done:** `ESRGANWrapper` (`middleware/src/models/wrappers/esrgan_wrapper.py`) — a

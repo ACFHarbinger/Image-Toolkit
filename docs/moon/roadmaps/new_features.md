@@ -918,6 +918,71 @@ against a mocked Cloud Run endpoint.
 
 ---
 
+## 4.22 GIF Upscaling and Downscaling Suite {: #422-gif-upscaling-and-downscaling-suite }
+
+**Pain point:** The Convert Sampler resizes GIFs with Pillow's fixed kernels (Lanczos, bicubic, bilinear, nearest)
+and re-saves them through Pillow's default palette reduction. Fixed kernels cannot create detail and read as
+pixelated when upscaling, and the quantizer bands gradients and makes frames shimmer.
+
+**Plan:** `.agent/reports/team/gif_upscaling_swarm_plan_2026-10-30.md` (swarm waves, acceptance criteria,
+algorithm catalogue with sources). **Tracking issue:** #1123 (milestone "GIF Upscaling Suite").
+
+**Decisions (Harbinger, 2026-10-30):** bundle every backend regardless of license (private tool; re-audit before
+any public release); model weights download on demand by default, with the setting
+`gif_upscale.weights_policy` = `on_demand` | `prefetch_all` | `offline`; GIF only for now.
+
+### Scope
+
+| Area | Backends |
+|---|---|
+| Realistic, neural per frame | Real-ESRGAN (x2plus, x4plus, general-v3), HAT / DAT / DRCT, SwinIR / MambaIRv2, OSEDiff / TSD-SR with a fidelity guard |
+| Realistic, video-aware | SeedVR2, FlashVSR v1.1, DOVE |
+| Anime, neural | Real-CUGAN, APISR, Real-ESRGAN anime-6B and animevideov3, waifu2x, SPAN / Compact, AnimeSR |
+| Non-neural | Deringed Lanczos, Catmull-Rom, EWA, FSR1, edge-directed interpolation, Anime4K, Scale2x / xBRZ / hqx (pixel art) |
+| Downscaling | Area, linear-light, SSIM-driven, alpha-premultiplied |
+| GIF encoding | Global / temporal palette with stable dithering; gifski / libimagequant when present |
+| Cross-cutting | Content auto-detection (photo / anime / pixel), flow-guided flicker reduction, tiling, GPU lease |
+
+### Tasks
+
+| ID | Task | Issue |
+|---|---|---|
+| G0-1 | Core registry, frame IO and tiling | #1124 |
+| G0-2 | Palette-aware GIF encoder (fixes banding and shimmer) | #1125 |
+| G0-3 | Evaluation harness, corpus and metrics | #1126 |
+| G0-4 | License record and weights-policy setting | #1127 |
+| G1-A | Classical: deringed Lanczos, Catmull-Rom, bicubic-sharper, EWA/Jinc | #1128 |
+| G1-B | Classical: FSR1 EASU+RCAS, edge-directed interpolation, guided-filter detail pass | #1129 |
+| G1-C | Pixel-art scalers: Scale2x/3x, EPX, xBRZ, hqx, integer nearest, pixel-art detector | #1130 |
+| G1-D | Downscale suite: area, linear-light, SSIM-driven, alpha-premultiplied | #1131 |
+| G1-E | Anime4K port | #1132 |
+| G2-A | Real-ESRGAN family (x2plus, x4plus, general-v3, anime-6B, animevideov3) | #1133 |
+| G2-B | Real-CUGAN 2x/3x/4x with denoise levels | #1134 |
+| G2-C | waifu2x (CUNet / upconv_7) | #1135 |
+| G2-D | Transformer SISR: HAT / DAT / DRCT / SwinIR / MambaIRv2 | #1136 |
+| G2-E | APISR 2x/4x | #1137 |
+| G2-F | Lightweight models: SPAN / Compact fine-tunes (CPU and low-VRAM, live preview) | #1138 |
+| G3-A | One-step diffusion per frame: OSEDiff / TSD-SR with a fidelity guard | #1139 |
+| G3-B | Video-aware SR: SeedVR2, FlashVSR v1.1, DOVE | #1140 |
+| G3-C | AnimeSR video model | #1141 |
+| G3-D | Flow-guided flicker reduction | #1142 |
+| G4-1 | Content auto-detection and default recommendation table | #1143 |
+| G4-2 | Frontend: backend selector, availability reasons, weights-policy setting | #1144 |
+| G4-3 | Docs and bus entry | #1145 |
+| G4-4 | Review and benchmark pass | #1146 |
+
+### Optional / future entries (not in this effort)
+
+- **Other output containers:** APNG, animated WebP, MP4. GIF's 256-color limit is the quality ceiling, so keep the
+  container behind an interface in `encode.py` to make these cheap to add.
+- **Other inputs:** still images and video through the same algorithm registry.
+- **Batch folders** of GIFs with a per-file algorithm recommendation.
+
+**Status:** planned, not started. The first implementation (`3c7fa2d19`, Pillow per-frame resize) is correct but
+offers no quality upscaler and keeps the lossy encoder.
+
+---
+
 ## Anchor Index
 
 | Section | Anchor |
@@ -943,9 +1008,10 @@ against a mocked Cloud Run endpoint.
 | 4.19 Account-Linked Settings Sync (Google Drive) | [#419-account-linked-settings-sync-google-drive](#419-account-linked-settings-sync-google-drive) |
 | 4.20 Cloud Sync tab restructure + Local Directory Sync | [#420-cloud-sync-local-directory-sync](#420-cloud-sync-local-directory-sync) |
 | 4.21 Cloud Compute Offload | [#421-cloud-compute-offload](#421-cloud-compute-offload) |
+| 4.22 GIF Upscaling and Downscaling Suite | [#422-gif-upscaling-and-downscaling-suite](#422-gif-upscaling-and-downscaling-suite) |
 
 ---
 
 ## Document History
 
-*Last updated: 2026-10-19 — §4.21 absorbed into [Cloud Jobs Service](cloud_jobs.md). Previous update 2026-08-31 — §4.21 Cloud Compute Offload added (run heavy requests — extraction, DL generation — on a chosen cloud provider from a Settings-shaped window with per-platform hardware descriptions + a resource-usage dashboards tab; PoC = Extractor extractions via Google Cloud Run; infra/cloud/{gcd,cloudflare,oracle}/ configs added; issues #486/#487). Previous update same day — §4.20 Cloud Sync tab restructure into subtabs + Local Directory Sync (~/.image-toolkit ↔ remote .image-toolkit) added, Priority 1 in progress (issue #479). Previous update 2026-08-15 — §4.19 Account-Linked Settings Sync (Google Drive) added as a quick draft, deliberately not fully specced. Previous update same day: §4.18 Image Board Crawler rating filter and Safebooru board support added (planned, not yet implemented), motivated by the ASP SFW benchmark corpus roadmap. Previous update 2026-08-03: §4.17 Media Loader (Reddit + nhentai web media downloader tab) added and shipped same day, issue #182. Previous update 2026-07-17: §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*
+*Last updated: 2026-10-30 — §4.22 GIF Upscaling and Downscaling Suite added (planned; neural and classical, realistic and anime; issue #1123, plan `.agent/reports/team/gif_upscaling_swarm_plan_2026-10-30.md`). Previous update 2026-10-19 — §4.21 absorbed into [Cloud Jobs Service](cloud_jobs.md). Previous update 2026-08-31 — §4.21 Cloud Compute Offload added (run heavy requests — extraction, DL generation — on a chosen cloud provider from a Settings-shaped window with per-platform hardware descriptions + a resource-usage dashboards tab; PoC = Extractor extractions via Google Cloud Run; infra/cloud/{gcd,cloudflare,oracle}/ configs added; issues #486/#487). Previous update same day — §4.20 Cloud Sync tab restructure into subtabs + Local Directory Sync (~/.image-toolkit ↔ remote .image-toolkit) added, Priority 1 in progress (issue #479). Previous update 2026-08-15 — §4.19 Account-Linked Settings Sync (Google Drive) added as a quick draft, deliberately not fully specced. Previous update same day: §4.18 Image Board Crawler rating filter and Safebooru board support added (planned, not yet implemented), motivated by the ASP SFW benchmark corpus roadmap. Previous update 2026-08-03: §4.17 Media Loader (Reddit + nhentai web media downloader tab) added and shipped same day, issue #182. Previous update 2026-07-17: §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*

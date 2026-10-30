@@ -18,7 +18,8 @@ build-base:
         -DCMAKE_PREFIX_PATH="$build_shared_root/opencv/install;$build_shared_root/.pixi/envs/default" \
         -DIMAGE_TOOLKIT_PIXI_LIB="$build_shared_root/.pixi/envs/default/lib" \
         -DCMAKE_INSTALL_PREFIX="." \
-        -DPython_EXECUTABLE="$$(which python)" \
+        -DPython_EXECUTABLE="$(which python)" \
+        -DCMAKE_FIND_NO_INSTALL_PREFIX=ON \
         -DBACKEND_BUILD_TESTS=OFF \
         && cmake --build build/backend -j$(nproc) \
         && cmake --install build/backend
