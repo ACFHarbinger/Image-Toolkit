@@ -59,47 +59,11 @@ def _resample_refusal(input_path: str, output_path: str, batch: Any) -> dict[str
     return None
 
 
-def _resample_target(size: tuple[int, int], params: dict[str, Any]) -> tuple[int, int]:
-    width, height = size
-    if str(params.get("mode") or "factor") == "dimensions":
-        width = int(params.get("width") or 0)
-        height = int(params.get("height") or 0)
-    else:
-        factor = float(params.get("factor") or 1)
-        width = max(1, round(width * factor))
-        height = max(1, round(height * factor))
-    if width < 1 or height < 1:
-        raise ValueError("target size must be positive")
-    return width, height
-
-
-def _resample_algorithm(params: dict[str, Any]) -> Any:
-    from PIL import Image
-
-    algorithms = {
-        "lanczos": Image.Resampling.LANCZOS,
-        "bicubic": Image.Resampling.BICUBIC,
-        "bilinear": Image.Resampling.BILINEAR,
-        "nearest": Image.Resampling.NEAREST,
-    }
-    return algorithms.get(str(params.get("algorithm") or "lanczos").lower(), Image.Resampling.LANCZOS)
-
-
 def _resample_still(input_path: str, output_path: str, params: dict[str, Any]) -> dict[str, Any]:
-    from PIL import Image
+    """Stills use the same registry as GIFs. An unknown id is an error, not Lanczos."""
+    from middleware.src.services.media.gif_upscale.pipeline import resample_still
 
-    image = Image.open(input_path)
-    try:
-        width, height = _resample_target(image.size, params)
-        resized = image.resize((width, height), _resample_algorithm(params))
-        try:
-            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-            resized.save(output_path)
-        finally:
-            resized.close()
-    finally:
-        image.close()
-    return {"success": True, "message": f"Wrote {width}x{height} {output_path}", "width": width, "height": height}
+    return resample_still(input_path, output_path, params)
 
 
 def _resample_gif(input_path: str, output_path: str, params: dict[str, Any]) -> dict[str, Any]:

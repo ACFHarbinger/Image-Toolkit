@@ -59,16 +59,19 @@ class SamplerConfigController(TabBoundController):
             self.dim_h_spin.setValue(config.get("target_height", 1080))
             self.preserve_ar_cb.setChecked(config.get("preserve_aspect_ratio", True))
 
-            # 3. Algorithm
-            algo = config.get("algorithm", "Lanczos")
-            algo_map_rev = {
-                "lanczos": "Lanczos",
-                "bicubic": "Bicubic",
-                "bilinear": "Bilinear",
-                "nearest": "Nearest Neighbor",
+            # 3. Algorithm. Saved configs may say "Lanczos" or a registry id.
+            algo = str(config.get("algorithm", "lanczos"))
+            legacy = {
+                "lanczos": "lanczos",
+                "bicubic": "bicubic",
+                "bilinear": "bilinear",
+                "nearest": "nearest",
+                "nearest neighbor": "nearest",
             }
-            mapped_algo = algo_map_rev.get(algo.lower(), algo)
-            idx = self.algorithm_combo.findText(mapped_algo)
+            ident = legacy.get(algo.lower(), algo.lower())
+            idx = self.algorithm_combo.findData(ident)
+            if idx == -1:
+                idx = self.algorithm_combo.findText(algo)
             if idx != -1:
                 self.algorithm_combo.setCurrentIndex(idx)
 

@@ -14,18 +14,6 @@ from gui.src.helpers.core.config_types import SamplerConfig
 
 logger = logging.getLogger(__name__)
 
-def _get_pil_filter(name: str):
-    from PIL import Image
-
-
-    return {
-        "lanczos": Image.Resampling.LANCZOS,
-        "bicubic": Image.Resampling.BICUBIC,
-        "bilinear": Image.Resampling.BILINEAR,
-        "nearest": Image.Resampling.NEAREST,
-    }.get(name, Image.Resampling.LANCZOS)
-
-
 class SamplerWorker(BaseQThreadWorker):
     """Resample images, GIFs, and videos to new dimensions or a scale factor."""
 
@@ -130,7 +118,10 @@ class SamplerWorker(BaseQThreadWorker):
         if out_path is None:
             return False
 
+        algorithm = str(self.config.get("algorithm") or "lanczos").lower()
         if ext in vid_exts:
+            if algorithm not in {"lanczos", "bicubic", "bilinear", "nearest"}:
+                raise RuntimeError(f"{algorithm} does not resample video.")
             return self._resample_video(input_path, out_path)
         elif ext == "gif":
             return self._resample_gif(input_path, out_path)
@@ -187,25 +178,25 @@ class SamplerWorker(BaseQThreadWorker):
     # Image resampling (Pillow)
     # ------------------------------------------------------------------
 
+    def _registry_params(self, orig_w: int, orig_h: int) -> dict:
+        new_w, new_h = self._compute_dims(orig_w, orig_h)
+        return {
+            "mode": "dimensions",
+            "width": new_w,
+            "height": new_h,
+            "algorithm": str(self.config.get("algorithm") or "lanczos").lower(),
+        }
+
     def _resample_image(self, in_path: str, out_path: str, src_ext: str) -> bool:
+        from middleware.src.services.media.gif_upscale.pipeline import resample_still
         from PIL import Image
 
-        filt = _get_pil_filter(self.config.get("algorithm", "lanczos"))
-
+        del src_ext
         with Image.open(in_path) as img:
-            orig_w, orig_h = img.size
-            new_w, new_h = self._compute_dims(orig_w, orig_h)
-
-            # Preserve mode where possible; RGBA → RGB for JPEG
-            out_ext = os.path.splitext(out_path)[1].lstrip(".").lower()
-            if out_ext in ("jpg", "jpeg") and img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
-
-            resampled = img.resize((new_w, new_h), filt)
-            save_fmt = out_ext.upper()
-            if save_fmt in ("JPG",):
-                save_fmt = "JPEG"
-            resampled.save(out_path, format=save_fmt)
+            params = self._registry_params(*img.size)
+        result = resample_still(in_path, out_path, params)
+        if not result.get("success"):
+            raise RuntimeError(str(result.get("message") or "Resample failed."))
 
         if self.config.get("delete_original") and os.path.exists(out_path) and os.path.abspath(in_path) != os.path.abspath(out_path):
             os.remove(in_path)
@@ -216,39 +207,14 @@ class SamplerWorker(BaseQThreadWorker):
     # ------------------------------------------------------------------
 
     def _resample_gif(self, in_path: str, out_path: str) -> bool:
+        from middleware.src.services.media.gif_upscale.pipeline import resample_gif
         from PIL import Image
 
-        filt = _get_pil_filter(self.config.get("algorithm", "lanczos"))
-
         with Image.open(in_path) as gif:
-            orig_w, orig_h = gif.size
-            new_w, new_h = self._compute_dims(orig_w, orig_h)
-            loop = gif.info.get("loop", 0)
-
-            frames: List[Image.Image] = []
-            durations: List[int] = []
-            # EOFError ends the frame iteration: expected PIL control flow, not a failure.
-            with contextlib.suppress(EOFError):
-                while True:
-                    if self._is_cancelled:
-                        return False
-                    frame = gif.copy().convert("RGBA")
-                    frames.append(frame.resize((new_w, new_h), filt))
-                    durations.append(gif.info.get("duration", 100))
-                    gif.seek(gif.tell() + 1)
-
-            if not frames:
-                return False
-
-            frames[0].save(
-                out_path,
-                format="GIF",
-                save_all=True,
-                append_images=frames[1:],
-                duration=durations,
-                loop=loop,
-                optimize=False,
-            )
+            params = self._registry_params(*gif.size)
+        result = resample_gif(in_path, out_path, params)
+        if not result.get("success"):
+            raise RuntimeError(str(result.get("message") or "GIF resample failed."))
 
         if self.config.get("delete_original") and os.path.exists(out_path) and os.path.abspath(in_path) != os.path.abspath(out_path):
             os.remove(in_path)

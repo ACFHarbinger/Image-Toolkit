@@ -8,11 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
-- Sampler GIF resize now goes through a backend registry. `.gif` inputs keep a shared palette and ordered dither so frames do not shimmer, and `gif_upscale.weights_policy` (`on_demand`, `prefetch_all`, `offline`) controls weight downloads. Licenses are recorded and do not block a backend. Classical backends cover deringed Lanczos, Catmull-Rom, bicubic-sharper, EWA/Jinc, FSR1, edge-directed interpolation, guided detail, Scale2x/3x, EPX, xBRZ, hqx, integer nearest, area, linear-light, SSIM downscale, and Anime4K. Real-ESRGAN anime-6B is registered through the existing wrapper. Other extensions stay on the still-image path.
+- Sampler resize, for GIFs and stills, goes through one backend registry. `.gif` inputs keep a shared palette and ordered dither, and `gif_upscale.weights_policy` (`on_demand`, `prefetch_all`, `offline`) controls weight downloads. Licenses are recorded and do not block a backend. Classical backends cover deringed Lanczos, Catmull-Rom, bicubic-sharper, EWA/Jinc, FSR1, edge-directed interpolation, guided detail, Scale2x/3x, EPX, xBRZ, hqx, integer nearest, area, linear-light, SSIM downscale, and Anime4K. Real-ESRGAN anime-6B is registered through the existing wrapper. The Python Sampler lists the same algorithms.
 - Sampler upscales and downscales a GIF by resizing every frame when the selected file ends in `.gif`, keeping each frame's duration and the loop count. Any other extension stays on the still-image resize path.
 
 ### Fixed
 
+- Real-ESRGAN anime-6B loads a local checkpoint and does not contact Hugging Face when `gif_upscale.weights_policy` is `offline`.
+- gifski keeps a shared frame delay. Variable delays stay on the temporal GIF writer.
+- Still images and the Python Sampler use the selected registry algorithm. GIF-only algorithms are hidden for still and mixed selections.
+- Tiled resampling accepts a trailing tile narrower than the overlap.
 - Sampler validates the complete output plan against every selected source before writing, including native path aliases and duplicate destinations.
 - Library registry loading keeps the HostClient receiver, and wallpaper graph nodes keep unique IDs after removals.
 - Clipboard test doubles preserve the readonly browser API type during frontend checking.

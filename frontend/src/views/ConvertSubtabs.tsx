@@ -15,6 +15,7 @@ interface ResampleAlgorithm {
   kind: string;
   available: boolean;
   reason: string;
+  containers?: string[];
 }
 
 const FALLBACK_ALGORITHMS: ResampleAlgorithm[] = [
@@ -25,6 +26,25 @@ const FALLBACK_ALGORITHMS: ResampleAlgorithm[] = [
 ];
 
 const ALGORITHM_GROUP_ORDER = ["realistic", "anime", "pixel", "any", "classical"];
+
+function fileExtension(path: string): string {
+  const base = fileName(path);
+  const dot = base.lastIndexOf(".");
+  return dot <= 0 ? "" : base.slice(dot + 1).toLowerCase();
+}
+
+function selectionContainers(paths: string[]): string[] {
+  const kinds = new Set<string>();
+  for (const path of paths) {
+    kinds.add(fileExtension(path) === "gif" ? "gif" : "still");
+  }
+  return [...kinds];
+}
+
+function algorithmFits(row: ResampleAlgorithm, kinds: string[]): boolean {
+  const containers = row.containers ?? ["gif", "still"];
+  return kinds.every((kind) => containers.includes(kind));
+}
 
 function algorithmGroups(rows: ResampleAlgorithm[]): string[] {
   const present = new Set(rows.map((row) => row.content));
@@ -198,6 +218,12 @@ export function SamplerPanel() {
       setStatus("error: input required");
       return;
     }
+    const kinds = selectionContainers(selected);
+    const chosen = algorithms.find((row) => row.id === algorithm);
+    if (chosen && !algorithmFits(chosen, kinds)) {
+      setStatus(`failed: ${algorithm} does not apply to every selected file`);
+      return;
+    }
     setStatus("resampling");
     try {
       const batch = selected.map((input_path) => ({
@@ -254,8 +280,8 @@ export function SamplerPanel() {
       </DeskField>
       <DeskField label="Algorithm">
         <select className={deskControlClass} value={algorithm} onChange={(event) => setAlgorithm(event.target.value)}>
-          {algorithmGroups(algorithms).map((group) => {
-            const rows = algorithms.filter((row) => row.content === group);
+          {algorithmGroups(algorithms.filter((row) => algorithmFits(row, selectionContainers(selected)))).map((group) => {
+            const rows = algorithms.filter((row) => row.content === group && algorithmFits(row, selectionContainers(selected)));
             if (rows.length === 0) {
               return null;
             }

@@ -162,6 +162,8 @@ class ESRGANWrapper(ModelWrapper):
         num_block: int = 6,
         tile_size: int = 400,
         tile_pad: int = 10,
+        checkpoint_path: Optional[str] = None,
+        local_files_only: bool = False,
     ):
         super().__init__(device=device)
         self.model_name = model_name
@@ -169,6 +171,8 @@ class ESRGANWrapper(ModelWrapper):
         self.num_block = num_block
         self.tile_size = tile_size
         self.tile_pad = tile_pad
+        self.checkpoint_path = checkpoint_path
+        self.local_files_only = local_files_only
         self._model: Optional[RRDBNet] = None
 
     @property
@@ -176,13 +180,23 @@ class ESRGANWrapper(ModelWrapper):
         return self._model is not None
 
     @staticmethod
-    def _load_state_dict(repo_id: str) -> dict:
-        from huggingface_hub import hf_hub_download
+    def _load_state_dict(
+        repo_id: str,
+        checkpoint_path: Optional[str] = None,
+        local_files_only: bool = False,
+    ) -> dict:
+        if checkpoint_path:
+            ckpt = checkpoint_path
+        else:
+            from huggingface_hub import hf_hub_download
 
-        cache = os.path.expanduser("~/.cache/huggingface/hub")
-        ckpt = hf_hub_download(
-            repo_id=repo_id, filename=ANIME_6B_FILENAME, cache_dir=cache
-        )
+            cache = os.path.expanduser("~/.cache/huggingface/hub")
+            ckpt = hf_hub_download(
+                repo_id=repo_id,
+                filename=ANIME_6B_FILENAME,
+                cache_dir=cache,
+                local_files_only=local_files_only,
+            )
         logger.info(f"[ESRGAN] Loading weights from {ckpt}…")
         sd = torch.load(ckpt, map_location="cpu")
         # Real-ESRGAN's own convention: EMA weights (best quality) under
@@ -194,15 +208,28 @@ class ESRGANWrapper(ModelWrapper):
     def load(self) -> None:
         """Load the RRDBNet anime_6B model onto self.device."""
         key = (self.model_name, self.num_block, self.device)
+        if self.checkpoint_path:
+            key = (*key, self.checkpoint_path)
         if key in ESRGANWrapper._models:
             self._model = ESRGANWrapper._models[key]
             return
 
         model = RRDBNet(num_block=self.num_block)
         try:
-            state_dict = self._load_state_dict(self.model_name)
+            if self.checkpoint_path or self.local_files_only:
+                state_dict = self._load_state_dict(
+                    self.model_name,
+                    checkpoint_path=self.checkpoint_path,
+                    local_files_only=self.local_files_only,
+                )
+            else:
+                state_dict = self._load_state_dict(self.model_name)
             model.load_state_dict(state_dict, strict=True)
         except Exception as primary_err:
+            if self.checkpoint_path or self.local_files_only:
+                raise ModelLoadError(
+                    f"Could not load Real-ESRGAN weights from the local checkpoint: {primary_err}"
+                ) from primary_err
             logger.debug(
                 f"[ESRGAN] Could not load {self.model_name}: {primary_err}; "
                 f"falling back to {ANIME_6B_MODEL_FALLBACK}."
@@ -223,6 +250,8 @@ class ESRGANWrapper(ModelWrapper):
 
     def unload(self) -> None:
         key = (self.model_name, self.num_block, self.device)
+        if self.checkpoint_path:
+            key = (*key, self.checkpoint_path)
         if ESRGANWrapper._models.get(key) is self._model:
             ESRGANWrapper._models.pop(key, None)
         self._model = None

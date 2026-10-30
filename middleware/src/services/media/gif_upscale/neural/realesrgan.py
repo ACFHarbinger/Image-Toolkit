@@ -24,13 +24,18 @@ _UNWIRED = (
 )
 
 
-def _anime_cached() -> bool:
-    if (cache_dir() / _ANIME_FILE).is_file():
-        return True
+def _local_checkpoint() -> str | None:
+    """A weight file already on disk. The GIF cache wins over the Hugging Face cache."""
+    cached = cache_dir() / _ANIME_FILE
+    if cached.is_file():
+        return str(cached)
     hub = Path.home() / ".cache" / "huggingface" / "hub"
     if not hub.is_dir():
-        return False
-    return any(hub.glob(f"**/{_ANIME_FILE}"))
+        return None
+    matches = sorted(hub.glob(f"**/{_ANIME_FILE}"))
+    if not matches:
+        return None
+    return str(matches[0])
 
 
 def _anime_available() -> tuple[bool, str]:
@@ -38,7 +43,7 @@ def _anime_available() -> tuple[bool, str]:
         policy = weights_policy()
     except ValueError as exc:
         return False, str(exc)
-    if policy == "offline" and not _anime_cached():
+    if policy == "offline" and _local_checkpoint() is None:
         return False, (
             "realesrgan-anime-6b weights are not cached and gif_upscale.weights_policy is offline."
         )
@@ -61,11 +66,24 @@ def _upscale_anime(frames: list[np.ndarray], scale: float, opts: dict) -> list[n
     from middleware.src.comfy_matrix import gpu_lease, try_admit
     from middleware.src.models.wrappers.esrgan_wrapper import ESRGANWrapper
 
+    policy = weights_policy()
+    local = _local_checkpoint()
+    if policy == "offline" and local is None:
+        raise AlgorithmError(
+            "realesrgan-anime-6b weights are not cached and gif_upscale.weights_policy is offline."
+        )
     refusal = try_admit("gif-upscale-realesrgan-anime-6b", estimated_gb=1.5, kind="generate")
     if refusal:
         raise AlgorithmError(refusal)
     try:
-        wrapper = ESRGANWrapper(scale=4, num_block=6)
+        # A local file is loaded directly. Offline mode never calls the Hub, even when
+        # the only copy is the Hugging Face cache.
+        wrapper = ESRGANWrapper(
+            scale=4,
+            num_block=6,
+            checkpoint_path=local,
+            local_files_only=policy == "offline",
+        )
         output: list[np.ndarray] = []
         for frame in frames:
             rgb = np.clip(np.rint(frame[:, :, :3] * 255.0), 0, 255).astype(np.uint8)

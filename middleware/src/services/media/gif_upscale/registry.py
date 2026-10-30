@@ -81,6 +81,7 @@ def list_algorithms() -> list[dict[str, Any]]:
                 "weights_sha256": spec.weights_sha256,
                 "available": bool(available),
                 "reason": "" if available else (reason or f"{spec.id} is unavailable."),
+                "containers": list(spec.containers),
             }
         )
     return sorted(rows, key=lambda row: row["id"])

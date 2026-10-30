@@ -201,6 +201,22 @@ def test_unload_clears_model(tiny_wrapper):
     assert not tiny_wrapper.loaded
 
 
+def test_local_checkpoint_does_not_call_the_hub(tmp_path, monkeypatch):
+    path = tmp_path / "RealESRGAN_x4plus_anime_6B.pth"
+    path.write_bytes(b"local")
+
+    def _hub(*_args, **_kwargs):
+        raise AssertionError("Hugging Face was contacted")
+
+    monkeypatch.setattr("huggingface_hub.hf_hub_download", _hub)
+    monkeypatch.setattr(
+        "middleware.src.models.wrappers.esrgan_wrapper.torch.load",
+        lambda filename, map_location=None: {"params_ema": {"loaded": filename}},
+    )
+    loaded = ESRGANWrapper._load_state_dict("repo", checkpoint_path=str(path), local_files_only=True)
+    assert loaded == {"loaded": str(path)}
+
+
 def test_unload_releases_shared_model_cache():
     wrapper = ESRGANWrapper(device="cpu")
     model = object()

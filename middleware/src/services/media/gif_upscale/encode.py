@@ -48,20 +48,21 @@ def encode_gif(
         raise ValueError("each frame needs a duration")
     chosen = encoder.strip().lower()
     if chosen == "gifski":
-        _encode_gifski(path, frames, durations, loop)
-        return "gifski"
+        if _encode_gifski(path, frames, durations, loop):
+            return "gifski"
+        _write_palette_gif(path, frames, durations, loop, dither=dither, method="mediancut")
+        return "temporal"
     if chosen == "libimagequant":
         _write_palette_gif(path, frames, durations, loop, dither=dither, method="libimagequant")
         return "libimagequant"
     if chosen not in {"temporal", "auto"}:
         raise AlgorithmError(f"Unknown GIF encoder {encoder!r}.")
-    if chosen == "auto":
-        if shutil.which("gifski"):
-            try:
-                _encode_gifski(path, frames, durations, loop)
+    if chosen == "auto" and shutil.which("gifski"):
+        try:
+            if _encode_gifski(path, frames, durations, loop):
                 return "gifski"
-            except (OSError, subprocess.CalledProcessError):
-                pass
+        except (OSError, subprocess.CalledProcessError):
+            pass
         try:
             _write_palette_gif(path, frames, durations, loop, dither=dither, method="libimagequant")
             return "libimagequant"
@@ -173,10 +174,31 @@ def _paletted(index: np.ndarray, palette: np.ndarray):
     return image
 
 
-def _encode_gifski(path: str, frames: list[np.ndarray], durations: list[int], loop: int) -> None:
+def _gifski_fps(durations: list[int]) -> float | None:
+    """One fps when every frame shares a delay gifski can represent. Otherwise None."""
+    if not durations or any(delay != durations[0] for delay in durations):
+        return None
+    delay = durations[0]
+    if delay <= 0:
+        return None
+    fps = round(1000.0 / delay, 3)
+    if fps <= 0 or abs(1000.0 / fps - delay) > 1.0:
+        return None
+    return fps
+
+
+def _encode_gifski(path: str, frames: list[np.ndarray], durations: list[int], loop: int) -> bool:
+    """Write with gifski when one frame rate matches the source delays.
+
+    Returns False when the delays differ or cannot be expressed as one fps, so the
+    caller can keep those delays with the temporal writer. A missing binary is an error.
+    """
     binary = shutil.which("gifski")
     if not binary:
         raise AlgorithmError("gifski is not installed.")
+    fps = _gifski_fps(durations)
+    if fps is None:
+        return False
     from PIL import Image
 
     with tempfile.TemporaryDirectory(prefix="gifski-") as directory:
@@ -186,6 +208,9 @@ def _encode_gifski(path: str, frames: list[np.ndarray], durations: list[int], lo
             png = root / f"frame-{index:04d}.png"
             Image.fromarray(_as_uint8(frame), "RGBA").save(png)
             names.append(str(png))
-        # Per-frame delay flags differ by gifski version. Durations stay on the temporal encoder.
-        del durations
-        subprocess.run([binary, "-o", path, "--repeat", str(int(loop)), *names], check=True, capture_output=True)
+        subprocess.run(
+            [binary, "-o", path, "--fps", str(fps), "--repeat", str(int(loop)), *names],
+            check=True,
+            capture_output=True,
+        )
+    return True

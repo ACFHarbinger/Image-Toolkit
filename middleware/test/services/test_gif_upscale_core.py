@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 from middleware.src.services.media.gif_upscale.base import AlgorithmSpec
@@ -163,6 +165,68 @@ def test_tiled_identity_matches_and_oom_shrinks_the_tile() -> None:
     assert np.allclose(result, frame)
     assert max(seen) > 3
     assert min(seen) <= 3
+
+
+def test_trailing_tile_narrower_than_the_overlap_still_blends() -> None:
+    frame = np.ones((250, 250, 4), dtype=np.float32)
+    assert np.allclose(process_tiled(frame, lambda tile: tile), frame)
+
+
+def test_still_integer_nearest_is_not_replaced_by_lanczos(tmp_path) -> None:
+    source = tmp_path / "blocks.png"
+    output = tmp_path / "blocks-out.png"
+    image = Image.new("RGB", (2, 2), (255, 0, 0))
+    image.putpixel((1, 0), (0, 0, 255))
+    image.putpixel((1, 1), (0, 0, 255))
+    image.save(source)
+    image.close()
+    result = resample(
+        {"input_path": str(source), "output_path": str(output), "factor": 2, "algorithm": "integer-nearest"}
+    )
+    assert result["success"] is True
+    assert (result["width"], result["height"]) == (4, 4)
+    with Image.open(output) as written:
+        assert written.getpixel((0, 0))[:3] == (255, 0, 0)
+        assert written.getpixel((1, 0))[:3] == (255, 0, 0)
+        assert written.getpixel((2, 0))[:3] == (0, 0, 255)
+        assert written.getpixel((3, 0))[:3] == (0, 0, 255)
+
+
+def test_unknown_algorithm_on_a_still_is_an_error(tmp_path) -> None:
+    source = tmp_path / "still.png"
+    output = tmp_path / "still-out.png"
+    Image.new("RGB", (4, 4), (1, 2, 3)).save(source)
+    result = resample(
+        {"input_path": str(source), "output_path": str(output), "factor": 2, "algorithm": "anime4k-nope"}
+    )
+    assert result["success"] is False
+    assert "Unknown resample algorithm" in result["message"]
+    assert not output.exists()
+
+
+def test_gifski_keeps_a_shared_delay_and_falls_back_when_delays_differ(tmp_path, monkeypatch) -> None:
+    from middleware.src.services.media.gif_upscale.encode import encode_gif
+
+    frames = [np.zeros((2, 2, 4), dtype=np.float32), np.ones((2, 2, 4), dtype=np.float32)]
+    calls: list[list[str]] = []
+
+    def _run(args, check, capture_output):
+        del check, capture_output
+        calls.append(list(args))
+        Path(args[args.index("-o") + 1]).write_bytes(b"GIF89a")
+        return None
+
+    monkeypatch.setattr("middleware.src.services.media.gif_upscale.encode.shutil.which", lambda _name: "/usr/bin/gifski")
+    monkeypatch.setattr("middleware.src.services.media.gif_upscale.encode.subprocess.run", _run)
+    uniform = tmp_path / "uniform.gif"
+    assert encode_gif(str(uniform), frames, [40, 40], 0, encoder="gifski") == "gifski"
+    assert "--fps" in calls[0]
+    assert calls[0][calls[0].index("--fps") + 1] == "25.0"
+
+    varied = tmp_path / "varied.gif"
+    assert encode_gif(str(varied), frames, [40, 80], 0, encoder="gifski") == "temporal"
+    assert len(calls) == 1
+    assert varied.stat().st_size > 6
 
 
 def test_unknown_algorithm_is_an_error_and_does_not_write(tmp_path) -> None:

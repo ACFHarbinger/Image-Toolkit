@@ -138,3 +138,28 @@ test("lists registry backends and disables an unavailable GIF algorithm", async 
   expect(await screen.findByRole("option", { name: "anime4k" })).toBeEnabled();
   expect(screen.getByRole("option", { name: "realesrgan-anime-6b (weights are not cached)" })).toBeDisabled();
 });
+
+test("hides a gif-only algorithm when the selection is a still or a mix", async () => {
+  vi.mocked(invoke).mockImplementation(async (_command, args: { action?: string } | undefined) => {
+    if (args?.action === "list_resample_algorithms") {
+      return {
+        success: true,
+        algorithms: [
+          { id: "lanczos", content: "any", kind: "classical", available: true, reason: "", containers: ["gif", "still"] },
+          { id: "gif-palette", content: "any", kind: "classical", available: true, reason: "", containers: ["gif"] },
+        ],
+      };
+    }
+    return { success: true };
+  });
+  render(<SamplerPanel />);
+  fireEvent.change(screen.getByLabelText("Input"), { target: { value: "/pics/a.png" } });
+  expect(await screen.findByRole("option", { name: "lanczos" })).toBeInTheDocument();
+  expect(screen.queryByRole("option", { name: "gif-palette" })).not.toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("Input"), { target: { value: "/pics/a.png\n/pics/clip.gif" } });
+  expect(screen.queryByRole("option", { name: "gif-palette" })).not.toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("Input"), { target: { value: "/pics/clip.gif" } });
+  expect(await screen.findByRole("option", { name: "gif-palette" })).toBeInTheDocument();
+});

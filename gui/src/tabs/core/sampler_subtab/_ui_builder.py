@@ -45,6 +45,35 @@ class SamplerUIBuilder(TabBoundController):
         builder.build(main_layout)
         self.clear_galleries()
 
+    def _fill_algorithm_combo(self) -> None:
+        """List every registered scaler. Item data is the registry id."""
+        self.algorithm_combo.clear()
+        try:
+            from middleware.src.services.media.gif_upscale.registry import list_algorithms
+
+            rows = list_algorithms()
+        except Exception:
+            rows = []
+        if not rows:
+            for label, ident in (
+                ("Lanczos", "lanczos"),
+                ("Bicubic", "bicubic"),
+                ("Bilinear", "bilinear"),
+                ("Nearest Neighbor", "nearest"),
+            ):
+                self.algorithm_combo.addItem(label, ident)
+            return
+        for row in rows:
+            label = row["id"] if row["available"] else f"{row['id']} — {row['reason']}"
+            self.algorithm_combo.addItem(label, row["id"])
+            if not row["available"]:
+                item = self.algorithm_combo.model().item(self.algorithm_combo.count() - 1)
+                if item is not None:
+                    item.setEnabled(False)
+        index = self.algorithm_combo.findData("lanczos")
+        if index != -1:
+            self.algorithm_combo.setCurrentIndex(index)
+
     def _build_input_section(self, builder: SectionedFormBuilder) -> None:
         sec = builder.add_section("Input")
 
@@ -126,12 +155,10 @@ class SamplerUIBuilder(TabBoundController):
         sec.add_row("Scale:", scale_container)
 
         self.algorithm_combo = QComboBox()
-        self.algorithm_combo.addItems(["Lanczos", "Bicubic", "Bilinear", "Nearest Neighbor"])
+        self._fill_algorithm_combo()
         self.algorithm_combo.setToolTip(
-            "Lanczos: highest quality, slower\n"
-            "Bicubic: good quality, moderate speed\n"
-            "Bilinear: fast, acceptable quality\n"
-            "Nearest Neighbor: pixel-perfect, aliased"
+            "Same registry as the desktop Sampler. Unavailable rows stay disabled, "
+            "with the reason in the label."
         )
         sec.add_row("Algorithm:", self.algorithm_combo)
 

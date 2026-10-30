@@ -57,16 +57,24 @@ def _feather(
     bottom_edge: bool,
     right_edge: bool,
 ) -> np.ndarray:
-    weight_y = np.ones(height, dtype=np.float32)
-    weight_x = np.ones(width, dtype=np.float32)
-    if overlap > 0:
-        ramp = np.linspace(0.0, 1.0, overlap, endpoint=False, dtype=np.float32)
-        if not top_edge:
-            weight_y[:overlap] *= ramp
-        if not bottom_edge:
-            weight_y[-overlap:] *= ramp[::-1]
-        if not left_edge:
-            weight_x[:overlap] *= ramp
-        if not right_edge:
-            weight_x[-overlap:] *= ramp[::-1]
+    weight_y = _fade(height, overlap, top_edge, bottom_edge)
+    weight_x = _fade(width, overlap, left_edge, right_edge)
     return (weight_y[:, None] * weight_x[None, :])[:, :, None]
+
+
+def _fade(length: int, overlap: int, start_edge: bool, end_edge: bool) -> np.ndarray:
+    """Ramp only across the pixels this tile actually has.
+
+    A trailing tile can be narrower than ``overlap``. Using the full ramp
+    there raises a broadcasting error.
+    """
+    weights = np.ones(length, dtype=np.float32)
+    if overlap <= 0 or length <= 0:
+        return weights
+    span = min(overlap, length)
+    ramp = np.linspace(0.0, 1.0, span, endpoint=False, dtype=np.float32)
+    if not start_edge:
+        weights[:span] *= ramp
+    if not end_edge:
+        weights[-span:] *= ramp[::-1]
+    return weights

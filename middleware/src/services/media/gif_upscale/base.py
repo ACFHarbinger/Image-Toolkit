@@ -31,6 +31,7 @@ class AlgorithmSpec:
     license: str
     weights_sha256: str | None
     available: Callable[[], tuple[bool, str]]
+    containers: tuple[str, ...] = ("gif", "still")
 
 
 @dataclass(frozen=True)

@@ -19,14 +19,9 @@ class SamplerWorkerController(TabBoundController):
     def _collect_config(self, use_selection: bool) -> dict:
         files = list(self.selected_files) if use_selection else self._collect_paths()
         scale_mode = "factor" if self._radio_factor.isChecked() else "dimensions"
-        algo_map = {
-            "Lanczos": "lanczos",
-            "Bicubic": "bicubic",
-            "Bilinear": "bilinear",
-            "Nearest Neighbor": "nearest",
-        }
         fmt_text = self.out_format_combo.currentText()
         out_fmt = None if fmt_text.startswith("Keep") or "---" in fmt_text else fmt_text.lower()
+        algorithm = self.algorithm_combo.currentData()
         return {
             "files_to_process": files,
             "scale_mode": scale_mode,
@@ -34,7 +29,7 @@ class SamplerWorkerController(TabBoundController):
             "target_width": self.dim_w_spin.value() if scale_mode == "dimensions" else None,
             "target_height": self.dim_h_spin.value() if scale_mode == "dimensions" else None,
             "preserve_aspect_ratio": self.preserve_ar_cb.isChecked(),
-            "algorithm": algo_map.get(self.algorithm_combo.currentText(), "lanczos"),
+            "algorithm": str(algorithm or "lanczos"),
             "output_format": out_fmt,
             "output_path": self.out_dir_edit.text().strip() or None,
             "output_filename_prefix": self.prefix_edit.text().strip(),
