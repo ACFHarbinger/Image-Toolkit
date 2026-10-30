@@ -228,13 +228,15 @@ _(Add a dated reply under your own name; do not edit other sections.)_
 | 5 | Is a slightly different palette acceptable if it removes a whole decode pass? | Claude | Yes, but it must be a setting. | Harbinger | 2026-10-30 |
 | 6 | Is delta-region scaling in scope given the exactness risk? | Claude | Yes, but any high-exactness-risk optimization must be a setting or parameter. | Harbinger | 2026-10-30 |
 | 7 | Target wall time for the 326 MB GIF, and on which hardware? | Claude | This machine only; expects "a couple of minutes". | Harbinger | 2026-10-30 |
-| 8 | "A couple of minutes" is the whole job, decode to written file, for 2232 frames at 2x with `lanczos3-dering`? Roughly 120 to 180 s, so about 50 to 80 ms per frame end to end. | Claude | _(open)_ | | |
-| 9 | Should the settings be grouped as one quality/speed mode (for example `exact`, `balanced`, `fast`) with the individual switches under an advanced section, or only individual switches? | Claude | _(open)_ | | |
-| 10 | `workers` global default: `auto` (all cores minus one) or a fixed fraction? Should the GUI stay responsive by default (leave cores free)? | Claude | _(open)_ | | |
-| 11 | When a GPU is present, should the GPU path be the automatic default, with a global setting to force CPU? And a cap on how much VRAM one job may take (default)? | Claude | _(open)_ | | |
-| 12 | The native C++ kernel needs the `backend` extension built. If it is missing, fall back to NumPy with a visible warning, or refuse the job? | Claude | _(open)_ | | |
-| 13 | Should the app show which path ran (GPU / native / NumPy, palette mode, delta mode) in the finish message so results are explainable? | Claude | _(open)_ | | |
-|
+| 8 | "A couple of minutes" is the whole job, decode to written file, for 2232 frames at 2x with `lanczos3-dering`? Roughly 120 to 180 s, so about 50 to 80 ms per frame end to end. | Claude | Each stage (decode, palette, scale, index/dither, write) should take at most about a couple of minutes. See Q14: this reads as a per-stage budget, not a whole-job one. | Harbinger | 2026-10-30 |
+| 9 | Should the settings be grouped as one quality/speed mode (for example `exact`, `balanced`, `fast`) with the individual switches under an advanced section, or only individual switches? | Claude | Include the advanced individual switches (alongside a simple mode). | Harbinger | 2026-10-30 |
+| 10 | `workers` global default: `auto` (all cores minus one) or a fixed fraction? Should the GUI stay responsive by default (leave cores free)? | Claude | A setting or parameter, default 1. Above 1 (intra-file multi-core, for long jobs) must show a warning when batch multi-core (for many small jobs) is also on, because both together are likely to saturate the machine. | Harbinger | 2026-10-30 |
+| 11 | When a GPU is present, should the GPU path be the automatic default, with a global setting to force CPU? And a cap on how much VRAM one job may take (default)? | Claude | Yes: GPU runs automatically when present. Default VRAM per job is all available VRAM, with a setting to change it. | Harbinger | 2026-10-30 |
+| 12 | The native C++ kernel needs the `backend` extension built. If it is missing, fall back to NumPy with a visible warning, or refuse the job? | Claude | Fall back (to NumPy) and tell the user it did. | Harbinger | 2026-10-30 |
+| 13 | Should the app show which path ran (GPU / native / NumPy, palette mode, delta mode) in the finish message so results are explainable? | Claude | Yes: show which path ran. | Harbinger | 2026-10-30 |
+| 14 | Q8 says each stage may take a couple of minutes. Do you mean a **per-stage** budget (so the whole job may total several minutes), or should the **total** also stay near a couple of minutes? On this machine with the GPU the total looks reachable; on CPU with `workers=1` it likely is not. | Claude | _(open)_ | | |
+| 15 | With `workers` default 1, the CPU-only path stays single-core unless the user raises it. Is that the intended default even when no GPU is present, or should `workers` default to a higher value automatically when there is no GPU and the job is long? | Claude | _(open)_ | | |
+| 16 | "All available VRAM per job" can starve other GPU work (ComfyUI, training). Should the GPU lease arbiter (`middleware/src/core/gpu_lease_arbiter.py`) cap it so a job takes what is free at start and waits or shrinks its batch if another job holds the GPU? | Claude | _(open)_ | | |
 
 ## 8. Decision log
 
@@ -247,7 +249,12 @@ _(Add a dated reply under your own name; do not edit other sections.)_
 | D5 | A reduced-pass palette is allowed, controlled by a setting. | Q5 | Removes a decode pass; changes colors slightly. | Harbinger | 2026-10-30 |
 | D6 | Delta-region scaling and any other high-exactness-risk optimization is in scope, but gated behind a setting or parameter; the safe path stays available. | Q6 | Keep a trustworthy fallback. | Harbinger | 2026-10-30 |
 | D7 | Performance target: about 2 minutes for the 326 MB test GIF on this machine (pending Q8 for exact scope). | Q7 | Defines "fast enough". | Harbinger | 2026-10-30 |
-|
+| D8 | Time budget is stated per stage (about 2 minutes each); total target pending Q14. | Q8 | | Harbinger | 2026-10-30 |
+| D9 | Settings: a simple mode plus the advanced individual switches. | Q9 | | Harbinger | 2026-10-30 |
+| D10 | `workers` default 1; above 1 warns when batch multi-core is also enabled. Intra-file workers are for long jobs, batch multi-core for many small jobs. | Q10 | Both together can saturate the machine. | Harbinger | 2026-10-30 |
+| D11 | GPU path is automatic when present; default VRAM per job is all available, adjustable by a setting. | Q11 | | Harbinger | 2026-10-30 |
+| D12 | Missing native extension: fall back and tell the user. | Q12 | | Harbinger | 2026-10-30 |
+| D13 | The finish message states which path ran (device, kernel, palette mode, delta mode). | Q13 | | Harbinger | 2026-10-30 |
 
 ## 9. Final implementation roadmap
 
