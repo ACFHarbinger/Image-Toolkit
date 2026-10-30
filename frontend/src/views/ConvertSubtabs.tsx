@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { deskButtonClass, deskControlClass, DeskField } from "../components/common/DeskForm";
 import { ThumbnailGallery } from "../components/common/ThumbnailGallery";
@@ -6,6 +6,35 @@ import { ThumbnailGallery } from "../components/common/ThumbnailGallery";
 interface MediaResult {
   success: boolean;
   message?: string;
+  algorithms?: ResampleAlgorithm[];
+}
+
+interface ResampleAlgorithm {
+  id: string;
+  content: string;
+  kind: string;
+  available: boolean;
+  reason: string;
+}
+
+const FALLBACK_ALGORITHMS: ResampleAlgorithm[] = [
+  { id: "lanczos", content: "any", kind: "classical", available: true, reason: "" },
+  { id: "bicubic", content: "any", kind: "classical", available: true, reason: "" },
+  { id: "bilinear", content: "any", kind: "classical", available: true, reason: "" },
+  { id: "nearest", content: "any", kind: "classical", available: true, reason: "" },
+];
+
+const ALGORITHM_GROUP_ORDER = ["realistic", "anime", "pixel", "any", "classical"];
+
+function algorithmGroups(rows: ResampleAlgorithm[]): string[] {
+  const present = new Set(rows.map((row) => row.content));
+  const ordered = ALGORITHM_GROUP_ORDER.filter((group) => present.has(group));
+  for (const group of present) {
+    if (!ordered.includes(group)) {
+      ordered.push(group);
+    }
+  }
+  return ordered;
 }
 
 async function runMedia(action: string, params: Record<string, unknown>): Promise<MediaResult> {
@@ -146,7 +175,23 @@ export function SamplerPanel() {
   const [width, setWidth] = useState(1280);
   const [height, setHeight] = useState(720);
   const [algorithm, setAlgorithm] = useState("lanczos");
+  const [algorithms, setAlgorithms] = useState<ResampleAlgorithm[]>(FALLBACK_ALGORITHMS);
   const [status, setStatus] = useState("ready");
+
+  useEffect(() => {
+    let cancelled = false;
+    void runMedia("list_resample_algorithms", {}).then((result) => {
+      if (cancelled || !result.algorithms || result.algorithms.length === 0) {
+        return;
+      }
+      setAlgorithms(result.algorithms);
+    }).catch(() => {
+      // The four Pillow kernels stay selectable when the registry cannot be listed.
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const onSubmit = async () => {
     if (selected.length === 0) {
@@ -193,7 +238,7 @@ export function SamplerPanel() {
     <form className="mx-auto flex w-full max-w-3xl flex-col gap-4 rounded-2xl border border-it-border bg-it-surface p-6 shadow-sm" onSubmit={(event) => { event.preventDefault(); void onSubmit(); }}>
       <header>
         <h2 className="text-lg font-semibold">Sampler</h2>
-        <p className="mt-1 text-sm text-it-muted-text">Resize an image or GIF by a scale factor or by target dimensions.</p>
+        <p className="mt-1 text-sm text-it-muted-text">Resize an image or GIF. GIF backends are chosen from the registry, including classical scalers and neural models when their weights are available.</p>
       </header>
       <ThumbnailGallery selected={selected} onSelectedChange={setSelected} />
       <DeskField label="Input">
@@ -209,10 +254,21 @@ export function SamplerPanel() {
       </DeskField>
       <DeskField label="Algorithm">
         <select className={deskControlClass} value={algorithm} onChange={(event) => setAlgorithm(event.target.value)}>
-          <option value="lanczos">Lanczos</option>
-          <option value="bicubic">Bicubic</option>
-          <option value="bilinear">Bilinear</option>
-          <option value="nearest">Nearest Neighbor</option>
+          {algorithmGroups(algorithms).map((group) => {
+            const rows = algorithms.filter((row) => row.content === group);
+            if (rows.length === 0) {
+              return null;
+            }
+            return (
+              <optgroup key={group} label={group}>
+                {rows.map((row) => (
+                  <option key={row.id} value={row.id} disabled={!row.available} title={row.reason}>
+                    {row.available ? row.id : `${row.id} (${row.reason})`}
+                  </option>
+                ))}
+              </optgroup>
+            );
+          })}
         </select>
       </DeskField>
       <DeskField label="Scale mode">

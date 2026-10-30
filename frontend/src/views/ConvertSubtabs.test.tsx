@@ -8,6 +8,13 @@ afterEach(() => {
   vi.mocked(invoke).mockReset();
 });
 
+function resampleCalls() {
+  return vi.mocked(invoke).mock.calls.filter((call) => {
+    const args = call[1] as { action?: string } | undefined;
+    return args?.action === "resample";
+  });
+}
+
 const resampleParams = {
   mode: "factor",
   factor: 0.5,
@@ -24,21 +31,22 @@ test("resamples every selected still beside the source when output is empty", as
   });
   fireEvent.click(screen.getByRole("button", { name: "Resample" }));
   expect(await screen.findByText("Status: ok")).toBeInTheDocument();
-  expect(invoke).toHaveBeenCalledTimes(2);
-  expect(invoke).toHaveBeenNthCalledWith(1, "media_subtab", {
-    action: "resample",
-    params: { input_path: "/pics/a.png", output_path: "/pics/a_resampled.png", ...resampleParams, batch: [
-      { input_path: "/pics/a.png", output_path: "/pics/a_resampled.png" },
-      { input_path: "/pics/b.jpg", output_path: "/pics/b_resampled.jpg" },
-    ] },
-  });
-  expect(invoke).toHaveBeenNthCalledWith(2, "media_subtab", {
-    action: "resample",
-    params: { input_path: "/pics/b.jpg", output_path: "/pics/b_resampled.jpg", ...resampleParams, batch: [
-      { input_path: "/pics/a.png", output_path: "/pics/a_resampled.png" },
-      { input_path: "/pics/b.jpg", output_path: "/pics/b_resampled.jpg" },
-    ] },
-  });
+  expect(resampleCalls()).toEqual([
+    ["media_subtab", {
+      action: "resample",
+      params: { input_path: "/pics/a.png", output_path: "/pics/a_resampled.png", ...resampleParams, batch: [
+        { input_path: "/pics/a.png", output_path: "/pics/a_resampled.png" },
+        { input_path: "/pics/b.jpg", output_path: "/pics/b_resampled.jpg" },
+      ] },
+    }],
+    ["media_subtab", {
+      action: "resample",
+      params: { input_path: "/pics/b.jpg", output_path: "/pics/b_resampled.jpg", ...resampleParams, batch: [
+        { input_path: "/pics/a.png", output_path: "/pics/a_resampled.png" },
+        { input_path: "/pics/b.jpg", output_path: "/pics/b_resampled.jpg" },
+      ] },
+    }],
+  ]);
 });
 
 test("one path uses the output field as the exact output path", async () => {
@@ -48,11 +56,12 @@ test("one path uses the output field as the exact output path", async () => {
   fireEvent.change(screen.getByLabelText("Output"), { target: { value: "/out/custom.png" } });
   fireEvent.click(screen.getByRole("button", { name: "Resample" }));
   expect(await screen.findByText("Status: ok")).toBeInTheDocument();
-  expect(invoke).toHaveBeenCalledTimes(1);
-  expect(invoke).toHaveBeenCalledWith("media_subtab", {
-    action: "resample",
-    params: { input_path: "/pics/a.png", output_path: "/out/custom.png", ...resampleParams, batch: [{ input_path: "/pics/a.png", output_path: "/out/custom.png" }] },
-  });
+  expect(resampleCalls()).toEqual([
+    ["media_subtab", {
+      action: "resample",
+      params: { input_path: "/pics/a.png", output_path: "/out/custom.png", ...resampleParams, batch: [{ input_path: "/pics/a.png", output_path: "/out/custom.png" }] },
+    }],
+  ]);
 });
 
 test("an output directory that is the source directory does not replace the files", async () => {
@@ -64,13 +73,13 @@ test("an output directory that is the source directory does not replace the file
   fireEvent.change(screen.getByLabelText("Output"), { target: { value: "/pics" } });
   fireEvent.click(screen.getByRole("button", { name: "Resample" }));
   expect(await screen.findByText("Status: failed: refusing to replace a selected source")).toBeInTheDocument();
-  expect(invoke).not.toHaveBeenCalled();
+  expect(resampleCalls()).toEqual([]);
 });
 
 test("empty input does not resample", () => {
   render(<SamplerPanel />);
   fireEvent.click(screen.getByRole("button", { name: "Resample" }));
-  expect(invoke).not.toHaveBeenCalled();
+  expect(resampleCalls()).toEqual([]);
   expect(screen.getByText("Status: error: input required")).toBeInTheDocument();
 });
 
@@ -80,7 +89,7 @@ test("preflights every destination against every selected source", async () => {
   fireEvent.change(screen.getByLabelText("Output"), { target: { value: "/out" } });
   fireEvent.click(screen.getByRole("button", { name: "Resample" }));
   expect(await screen.findByText("Status: failed: refusing to replace a selected source")).toBeInTheDocument();
-  expect(invoke).not.toHaveBeenCalled();
+  expect(resampleCalls()).toEqual([]);
 });
 
 test("keeps a gif extension so each frame can be resized", async () => {
@@ -89,15 +98,17 @@ test("keeps a gif extension so each frame can be resized", async () => {
   fireEvent.change(screen.getByLabelText("Input"), { target: { value: "/pics/clip.gif" } });
   fireEvent.click(screen.getByRole("button", { name: "Resample" }));
   expect(await screen.findByText("Status: ok")).toBeInTheDocument();
-  expect(invoke).toHaveBeenCalledWith("media_subtab", {
-    action: "resample",
-    params: {
-      input_path: "/pics/clip.gif",
-      output_path: "/pics/clip_resampled.gif",
-      ...resampleParams,
-      batch: [{ input_path: "/pics/clip.gif", output_path: "/pics/clip_resampled.gif" }],
-    },
-  });
+  expect(resampleCalls()).toEqual([
+    ["media_subtab", {
+      action: "resample",
+      params: {
+        input_path: "/pics/clip.gif",
+        output_path: "/pics/clip_resampled.gif",
+        ...resampleParams,
+        batch: [{ input_path: "/pics/clip.gif", output_path: "/pics/clip_resampled.gif" }],
+      },
+    }],
+  ]);
 });
 
 test("rejects two inputs that would share one output", async () => {
@@ -106,5 +117,24 @@ test("rejects two inputs that would share one output", async () => {
   fireEvent.change(screen.getByLabelText("Output"), { target: { value: "/out" } });
   fireEvent.click(screen.getByRole("button", { name: "Resample" }));
   expect(await screen.findByText("Status: failed: multiple inputs have the same output path")).toBeInTheDocument();
-  expect(invoke).not.toHaveBeenCalled();
+  expect(resampleCalls()).toEqual([]);
+});
+
+test("lists registry backends and disables an unavailable GIF algorithm", async () => {
+  vi.mocked(invoke).mockImplementation(async (_command, args: { action?: string } | undefined) => {
+    if (args?.action === "list_resample_algorithms") {
+      return {
+        success: true,
+        algorithms: [
+          { id: "lanczos", content: "any", kind: "classical", available: true, reason: "" },
+          { id: "anime4k", content: "anime", kind: "classical", available: true, reason: "" },
+          { id: "realesrgan-anime-6b", content: "anime", kind: "neural", available: false, reason: "weights are not cached" },
+        ],
+      };
+    }
+    return { success: true };
+  });
+  render(<SamplerPanel />);
+  expect(await screen.findByRole("option", { name: "anime4k" })).toBeEnabled();
+  expect(screen.getByRole("option", { name: "realesrgan-anime-6b (weights are not cached)" })).toBeDisabled();
 });
