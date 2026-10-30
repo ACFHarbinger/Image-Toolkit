@@ -978,8 +978,11 @@ any public release); model weights download on demand by default, with the setti
 - **Other inputs:** still images and video through the same algorithm registry.
 - **Batch folders** of GIFs with a per-file algorithm recommendation.
 
-**Status:** planned, not started. The first implementation (`3c7fa2d19`, Pillow per-frame resize) is correct but
-offers no quality upscaler and keeps the lossy encoder.
+**Status:** Wave 0 and the Wave 1 classical lanes are on `feat/gif-upscale-suite` (registry, palette encoder,
+weights policy, license record, deringed Lanczos, Catmull-Rom, bicubic-sharper, EWA/Jinc, FSR1, NEDI,
+guided detail, pixel-art scalers, area / linear-light / SSIM downscale, Anime4K). Real-ESRGAN anime-6B is
+registered through `ESRGANWrapper`; the other Real-ESRGAN ids are listed and unavailable until their networks
+are wired. Wave 2/3 beyond that, the eval harness (#1126), and the Codex benchmark (#1146) are still open.
 
 ---
 
