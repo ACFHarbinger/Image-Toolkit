@@ -56,4 +56,4 @@
 | `gui/src/windows/image_preview_window.py` | 402 | 67 | 42 | 511 |
 | `gui/src/windows/settings/_appearance.py` | 400 | 31 | 18 | 449 |
 | `gui/src/windows/main/_session_recovery.py` | 400 | 31 | 28 | 459 |
-| **TOTALS** | **169829** | **9168** | **18982** | **197979** |
+| **TOTALS** | **169881** | **9169** | **18983** | **198033** |
