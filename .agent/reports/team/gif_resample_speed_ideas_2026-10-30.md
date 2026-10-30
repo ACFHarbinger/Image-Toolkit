@@ -213,6 +213,159 @@ _(not written yet)_
 
 _(not written yet)_
 
+### 5.8 Gemini (Lanczos & end-to-end streaming pipeline)
+
+#### Investigated
+
+- **Codebase:**
+  - `middleware/src/services/media/gif_upscale/classical/_resize.py` (`resize_separable:86`, `_axis_plan:196`, `_apply_taps:213`, `_separable:236`, `_neighborhood_range:277`, `_reduce_vertical:314`, `_reduce_horizontal:341`)
+  - `middleware/src/services/media/gif_upscale/classical/lanczos_deringed.py` (`upscale:15`)
+  - `middleware/src/services/media/gif_upscale/classical/kernels.py` (`resize_rgba:19`)
+  - `middleware/src/services/media/gif_upscale/pipeline.py` (`_resample_gif_stream:86`, `_palette_samples:147`, `_scale_frames:210`)
+  - `middleware/src/services/media/gif_upscale/encode.py` (`IndexedGifWriter.add_frame:58`, `index_frame:76`, `_lzw:90`, `_indexes:257`)
+  - `middleware/src/services/media/gif_upscale/io.py` (`iter_gif_frames:18`, `composite_disposal:45`)
+  - `gui/src/helpers/core/sampler_worker.py` (`SamplerWorker._execute:49`, `_STAGE_TICKS:340`)
+- **External sources:**
+  - **libvips (`vips_reduceh` / `vips_reducev`) & Highway SIMD:** Separable 1D horizontal/vertical passes using fixed-point coefficients for integer pixels and float/SIMD accumulators, avoiding intermediate full-frame transposes (`https://www.libvips.org/API/current/libvips-resample.html`).
+  - **Pillow-SIMD (`libImaging/Resample.c`):** Precomputes polyphase coefficient tables (`_precompute_coeffs`) once per `(src_len, dst_len, support)`, packs horizontal/vertical passes with AVX2/SSE4 `maddubs`/`madd` instructions; note that standard Pillow clips intermediate horizontal results to `uint8 [0, 255]` between passes (`https://github.com/uploadcare/pillow-simd`).
+  - **Halide separable schedule (`tile`, `compute_at`, `store_at`, `vectorize`):** Fusing producer (`resize_x`) and consumer (`resize_y` + clamp) at row-strip granularity (`store_at(yo).compute_at(yi)`) keeps intermediate buffers inside L1/L2 cache instead of writing full `dst_h x dst_w` tensors to DRAM multiple times (`https://halide-lang.org/`).
+  - **mpv / libplacebo anti-ringing (`--scale-antiring`, `--scale-clamp`):** Orthogonal and polar EWA Lanczos anti-ringing clamps each output pixel toward the local support neighborhood min/max (`lo`, `hi`) or biases negative lobe weights (`https://libplacebo.org/`, `https://mpv.io/manual/stable/#options-scale-antiring`).
+  - **FFmpeg `palettegen` / `paletteuse` & Bayer dithering (`libavfilter/vf_paletteuse.c`):** Uses a precomputed 3D RGB lookup table (5- or 6-bit per channel cube + lazy/precomputed cache) with ordered `8x8` Bayer dithering and `diff_mode=rectangle` so per-frame quantization is an $O(1)$ table lookup per pixel rather than an $O(\text{pixels} \times 256)$ brute-force distance scan, and ordered Bayer patterns preserve repeating byte runs for fast LZW compression (`https://ffmpeg.org/ffmpeg-filters.html#paletteuse`, `http://blog.pkh.me/p/21-high-quality-gif-with-ffmpeg.html`).
+
+#### Measurements
+
+All measurements below were taken on this machine (1 to 3 frames of `/home/pkhunter/Downloads/Data/Wallpapers/Other/video_filename_1118717ms_1211710ms.gif`, `720x400 -> 1440x800`, `OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 cv2.setNumThreads(1)` unless noted):
+
+- **[M] Hidden bottleneck in `_resample_gif_stream` (`pipeline.py:115-121`):**
+  In the streaming loop (`for seen, (frame, duration, _) in enumerate(iter_gif_frames(input_path))`), each frame executes `_one_frame` (`lanczos3-dering`), `index_frame`, and `writer.add_frame` (`_lzw`) **inside the `"scale"` progress stage**. Timing a single `720x400 -> 1440x800` frame across stages reveals:
+  - `decode` (`iter_gif_frames` via Pillow): **5.57 ms/frame** (projected 2,232 frames: **12.4 s**)
+  - `scale` plain `lanczos3` (`resize_separable`, `dering=False`): **111.21 ms/frame** (**248.2 s**)
+  - `scale` `lanczos3-dering` (`resize_separable`, `dering=True`): **294.20 ms/frame** (**656.7 s = 10.9 min**)
+  - `index_frame` (`encode.py:257`, `_indexes` chunked `(8192, 256, 3)` float32 distance): **7,052.01 ms/frame (7.05 s/frame -> 15,740 s = 4.37 hours for 2,232 frames!)**
+  - `writer.add_frame` (`encode.py:90`, pure-Python byte-by-byte `_lzw` over 1,152,000 pixels): **474.54 ms/frame** (**1,059 s = 17.6 min**)
+  - **Key finding:** `index_frame` + `_lzw` account for **96.2% of the per-frame time reported under "Scaling frame N/2232"** (`7.53 s` out of `7.82 s` per frame). Optimizing `lanczos3-dering` alone cannot bring a streaming job under 4.5 hours unless `index_frame` and `_lzw` are fixed alongside it.
+- **[M] Exact sliding-window neighborhood clamp (`cv2.erode` + `cv2.dilate` + `cv2.remap` on source RGB):**
+  Because `support = 3.0` uses a 6-tap window `offsets = [-2, -1, 0, 1, 2, 3]` (`_resize.py:172`), computing the $6 \times 6$ min/max on the **source** `400x720` RGB image (`cv2.copyMakeBorder` by 1 pixel + `cv2.erode`/`cv2.dilate` with `np.ones((6, 6))`, `anchor=(2, 2)`) takes **3.40 ms**, and gathering to `800x1440` via `cv2.remap(..., cv2.INTER_NEAREST)` takes **10.19 ms** (**13.59 ms total** vs **165.66 ms** in `_neighborhood_range`, a **12.2x speedup**) with **`max_abs_diff = 0.00e+00` (bit-identical float32 `lo`/`hi` bounds)**.
+- **[M] 1-thread CPU 2D OpenBLAS `sgemm` separable Lanczos3 + `cv2` clamp:**
+  Note that 3D NumPy `Wy @ chw @ Wx` falls back to a slow ufunc loop (**294.8 ms**), whereas calling 2D OpenBLAS `sgemm` per channel (`for c in range(3): out_chw[c] = Wy @ (chw[c] @ Wx)` with precomputed dense `Wy (800, 400)` and `Wx (720, 1440)` on opaque frames) takes **35.72 ms** on 1 CPU thread. Combined with the **13.59 ms** `cv2` clamp, 1-thread CPU `lanczos3-dering` drops from **294.20 ms to 48.96 ms/frame (6.0x faster)**, with **`max_abs_diff = 4.17e-07` in float32** (at most 1/255 rounding diff on 1 pixel out of 3.45M).
+- **[M] Why Pillow's `Image.Resampling.LANCZOS` cannot simply replace `_resize.py`:**
+  Measured `Image.fromarray(rgb_u8).resize((1440, 800), Image.Resampling.LANCZOS)` takes **28.37 ms/frame** (including `cv2` uint8 dering clamp), but differs from `_resize.py` by up to **38/255 levels** in interior pixels (`mean = 0.55` levels) because Pillow rounds and clips the horizontal pass to `uint8 [0, 255]` before running the vertical pass, clipping negative/positive Lanczos lobe overshoots prematurely.
+- **[M] Fast palette indexing (`encode.py:_indexes`) and C GIF LZW encoding (`encode.py:_lzw`):**
+  - Exact BLAS identity $\arg\min_p (\frac{1}{2}\|p\|^2 - x \cdot p)$ drops `_indexes` from **6,474 ms to 467.5 ms/frame** (**13.8x**), bit-identical.
+  - A 6-bit per channel (`64x64x64 = 262,144` byte) 1D flat LUT (`lut_1d[(r<<12)|(g<<6)|b]`) built once per clip in **104.3 ms** drops `index_frame` (including Bayer dithering) from **7,052 ms to 7.66 ms/frame (920x faster, 17.1 s for 2,232 frames)** with **1.87/255 RGB RMSE**. A 7-bit (`128x128x128 = 2 MiB`) LUT gives <0.8/255 RMSE at the same lookup speed.
+  - Delegating frame LZW compression to Pillow's C GIF encoder (`Image.fromarray(fast_idx, mode="P").save(buf, format="GIF")`) takes **18.93 ms/frame** vs **474.54 ms/frame** in pure-Python `_lzw` (**25x faster**, **42.3 s** for 2,232 frames, zero new dependencies).
+- **[M] Combined 1-thread CPU prototype (`OPENBLAS_NUM_THREADS=1`, no GPU, no C++ rebuild):**
+  `decode (5.57 ms) + scale_dering (48.96 ms) + lut_index (7.66 ms) + c_lzw (18.93 ms) = 81.13 ms/frame` -> **181.1 s (3.0 min total) for 2,232 frames on 1 CPU core**, with every stage well under the 2-minute per-stage budget (`scale = 109.3 s`, `encode = 59.4 s`, `decode = 12.4 s`).
+
+#### Options
+
+##### Goal T2: Make `lanczos3-dering` (and all separable scalers in `_resize.py`) fast on CPU
+
+- **Option Gem-T2a: Precomputed clip plan + 2D OpenBLAS `sgemm` per channel + `cv2.erode`/`dilate`/`remap` clamp + opaque-frame fast path (Pure Python/NumPy/OpenCV).**
+  - **How:**
+    1. Hoist `_axis_plan(src_w, dst_w, ...)` and `_axis_plan(src_h, dst_h, ...)` out of the per-frame loop so `Wy`, `Wx`, and `cv2.remap` coordinate grids `(map_x, map_y)` are built once per clip.
+    2. Check `np.all(frame[..., 3] >= 1.0 - 1e-6)` (or `frame_u8[..., 3].min() == 255` before float conversion); when opaque, skip premultiply, alpha channel filtering, and unpremultiply (25% fewer channels and no division pass).
+    3. Run separable filtering via 2D `cblas_sgemm` (`out_chw[c] = Wy @ (chw[c] @ Wx)`) instead of 3D `@` or per-tap `np.take`.
+    4. Compute the 6-tap neighborhood min/max on the **source** image via `cv2.erode` and `cv2.dilate` (`6x6` kernel, `anchor=(2, 2)`, `BORDER_REPLICATE` on 1-pixel padded source) and project to `(dst_h, dst_w)` with `cv2.remap(..., cv2.INTER_NEAREST)`. (When downscaling or when any `frac(src_pos) == 0.0` disables the 6th tap, fall back to a 1D separable `erode`/`dilate` with exact active tap width or maskless `np.minimum.reduce` on `x_idx_valid`).
+  - **Expected gain:** **6.0x faster** on 1 CPU thread (**294.2 ms -> 48.96 ms/frame**, **109 s** for 2,232 frames).
+  - **Cost and risk:** Low (~80 lines in `_resize.py`, uses already-imported `numpy` and `cv2`). Must guard the `cv2.erode`/`dilate` fast path to upscales (`scale >= 1.0`) where the tap window is a uniform $6 \times 6$ block.
+  - **Equivalence to current output:** Float32 `max_abs_diff = 4.17e-07` (`lo`/`hi` bounds are bit-identical `0.00e+00`; filter differs only by FMA float32 associativity, $\le 1/255$ on 0.00003% of pixels).
+  - **Evidence tag:** **[M]** measured above.
+
+- **Option Gem-T2b: Halide-scheduled fused C++ / AVX2 row-strip kernel in `backend` (`pybind11` + OpenMP).**
+  - **How:** Add `backend.resize_lanczos3_dering_batch` in `backend/src/image/`:
+    1. Precompute horizontal and vertical 6-tap index/weight tables once.
+    2. Follow the Halide `store_at(yo).compute_at(yi)` schedule: Maintain a 6-row ring buffer of horizontally filtered rows (`wide_ring[6][dst_w][C]`) and a 6-row ring buffer of horizontally reduced source min/max (`lo_ring[6][dst_w][3]`, `hi_ring[6][dst_w][3]`) in L1/L2 cache.
+    3. As each new source row enters the 6-row window, compute its horizontal 6-tap convolution and 6-tap min/max in one AVX2 pass (`_mm256_fmadd_ps` / `_mm256_min_ps` / `_mm256_max_ps`), then vertically combine the 6 cached rows, clamp `rgb` to `[lo, hi]`, convert to `uint8`, and emit the output row directly.
+  - **Expected gain:** **15x to 25x faster** on 1 core (~12–18 ms/frame) and **80x to 150x faster** across 8–16 OpenMP threads (~1.5–3 ms/frame), because it eliminates all full-frame intermediate allocations (`wide`, `tall`, `high`, `vertical_lo`, `vertical_hi`, `lo`, `hi` — currently 7 full-frame float32 buffers per frame) and keeps the working set under 150 KB in L2 cache.
+  - **Cost and risk:** Medium (~200 lines of C++ in `backend/src/image/` + `bindings.cpp`; requires `just build::build-base` and falls back to Option Gem-T2a when the `.so` is absent per D12).
+  - **Equivalence to current output:** Within float32 rounding (`< 1e-6` float32, $\le 1/255$ uint8).
+  - **Evidence tag:** **[C]** Halide row-strip schedule + **[H]** estimated from memory-bandwidth reduction (7 full-frame DRAM round-trips reduced to 1).
+
+- **Option Gem-T2c: Int16 Q14 fixed-point polyphase C++ / SIMD kernel (libvips / Pillow-SIMD style, without intermediate uint8 clipping).**
+  - **How:** Convert `uint8` input directly to `int16`, represent normalized 6-tap Lanczos weights in signed `Q2.14` (`int16_t`, sum = `16384`), keep intermediate horizontal pass in **unclamped signed `int16`** (avoiding Pillow's bug of clamping intermediate overshoots to `[0, 255]`), and fuse the `uint8` neighborhood min/max clamp at the end of the vertical pass using `_mm256_madd_epi16` / `_mm256_min_epu8` / `_mm256_max_epu8`. Also skip float32 conversion of decoded frames (`frame.astype(np.float32) / 255.0` in `pipeline.py:116`).
+  - **Expected gain:** **25x to 40x faster** on CPU (2x wider SIMD lanes than float32 and half the L1/L2 cache footprint; removes `uint8 -> float32 -> uint8` conversions).
+  - **Cost and risk:** Medium-High (requires `uint8` frame interface or fast path in `pipeline.py` so frames aren't converted to `float32` before calling the scaler).
+  - **Equivalence to current output:** Within $\pm 1/255$ level vs float32 reference (`Q14` quantization error is $< 2^{-13} \approx 1.2 \times 10^{-4} \ll 1/255$).
+  - **Evidence tag:** **[C]** libvips/Pillow-SIMD fixed-point design + **[M]** confirmed Pillow's 38-level error comes only from intermediate `[0, 255]` clipping, not fixed-point weights.
+
+##### Goal T1 & T5: Eliminate the `index_frame` (7.05 s/frame) and `_lzw` (0.47 s/frame) streaming bottlenecks
+
+- **Option Gem-T1a: 3D RGB -> Palette Lookup Table (6-bit `64^3` or 7-bit `128^3` flat LUT) built once per clip.**
+  - **How:** Once `_shared_palette` produces the 256-color palette, precompute the nearest palette index for a uniform 3D RGB grid (`64x64x64 = 256 KiB` or `128x128x128 = 2 MiB`) in one BLAS `pts @ palette.T` call (~100 ms once per clip). For each frame, apply the pre-tiled `8x8` integer Bayer offset in `int16`, bit-shift to grid coordinates `(r << 12) | (g << 6) | b`, and index `lut_1d[flat_key]`.
+  - **Expected gain:** **920x speedup on `index_frame`** (**7,052 ms -> 7.66 ms/frame** on 1 CPU thread; cuts 2,232-frame indexing from **4.37 hours to 17.1 seconds**).
+  - **Cost and risk:** Low (~25 lines in `encode.py`). Can sit behind the quality/speed setting (or default to `128^3` 7-bit LUT in `balanced` and exact BLAS in `exact`).
+  - **Equivalence to current output:** `64^3` LUT matches exact palette index on 78.2% of dithered pixels with **1.87/255 RGB RMSE**; `128^3` (7-bit) LUT matches >90% of pixels with **<0.85/255 RGB RMSE** (visually indistinguishable).
+  - **Evidence tag:** **[M]** measured on frame 0 of the 326 MB test GIF + **[C]** FFmpeg `paletteuse` 3D LUT architecture.
+
+- **Option Gem-T1b: Exact BLAS `sgemm` distance decomposition for `exact` mode.**
+  - **How:** Replace `((chunk[:, None, :] - palette[None, :, :]) ** 2).sum(axis=2)` in `encode.py:269` with `0.5 * (palette ** 2).sum(axis=1)[None, :] - chunk @ palette.T` (and pre-tile the Bayer matrix once per clip instead of calling `np.mgrid` on every frame).
+  - **Expected gain:** **15x speedup on `index_frame`** (**7,052 ms -> 467 ms/frame** on CPU, or **<0.5 ms/frame** on GPU via `torch.cdist` / `matmul`).
+  - **Cost and risk:** Trivial (5 lines in `encode.py`).
+  - **Equivalence to current output:** **Bit-identical** palette indices.
+  - **Evidence tag:** **[M]** measured above.
+
+- **Option Gem-T1c: Replace pure-Python `_lzw` (`encode.py:90`) with C-compiled LZW (Pillow C `GifEncode` or C++ flat-DFA LZW in `backend`).**
+  - **How:**
+    1. *Zero-build fallback:* Encode the `uint8` indexed `Image.fromarray(index, mode="P")` to an in-memory `io.BytesIO` via Pillow's C `GIF` encoder and write the image data sub-blocks into `IndexedGifWriter` (or stream frames directly through Pillow's incremental C encoder).
+    2. *Native `backend` path:* Implement a 40-line C++ LZW compressor in `backend` using a flat contiguous transition table `int16_t next_code[4096][256]` (2 MiB, fits in L2 cache, zero hash-table allocations, `memset` on clear code).
+  - **Expected gain:** **25x speedup** with Pillow C (**474.5 ms -> 18.9 ms/frame**, **42 s** for 2,232 frames) or **~150x speedup** with C++ flat-DFA LZW (~3 ms/frame, **6.7 s** for 2,232 frames; also parallelizable across frames since each GIF frame's LZW stream is independent!).
+  - **Cost and risk:** Low.
+  - **Equivalence to current output:** Lossless LZW compression of the exact same `uint8` index buffer (decoded pixels are **100% bit-identical**).
+  - **Evidence tag:** **[M]** measured Pillow C GIF encode at 18.93 ms/frame.
+
+- **Option Gem-T1d: Single-pass streaming decode + Reservoir/Unscaled Palette Sampling (eliminates the first half-clip decode pass).**
+  - **How:** Currently `_palette_samples` (`pipeline.py:147`) decodes from frame 0 to frame 2,093 (~94% of the clip!) and scales 16 frames just to build the 256-color median-cut palette, then `_resample_gif_stream` re-opens the GIF and decodes all 2,232 frames a second time. Two sub-options (behind the palette setting per D5):
+    1. *Unscaled stride sample:* Build the median-cut palette from the unscaled sampled source frames (Lanczos3-dering preserves local color convex hulls by definition because the dering clamp restricts RGB to `[lo, hi]` of the source neighborhood!). Saves 16 scale calls.
+    2. *First-K window + scene-cut check:* Build the palette from the first $K=64$ frames (~0.35 s decode) or a bounded read-ahead buffer so the file is only decoded **once**.
+  - **Expected gain:** Saves **11–16 seconds** of duplicate GIF decoding + scaling before the progress bar even starts moving.
+  - **Cost and risk:** Low; gated behind the palette setting (D5).
+  - **Equivalence to current output:** Unscaled palette sampling is perceptually identical (since deringed Lanczos never creates colors outside the source neighborhood); first-$K$ window can miss late-appearing colors if a clip changes scene completely.
+  - **Evidence tag:** **[M]** measured decode speed + mathematical invariant of `_clamp_rgb_to_neighborhood`.
+
+- **Option Gem-T1e: Dirty-rectangle (`diff_mode`) delta scaling + encoding (behind setting per D6).**
+  - **How:** In `iter_gif_frames`, expose the raw frame disposal and bounding box `image.tile` / `dispose_extent` (or compute the bounding box `[y0:y1, x0:x1]` where `curr_rgba != prev_rgba`). Expand `[y0:y1, x0:x1]` by the Lanczos3 support margin (`+3` source pixels on each side), scale + dering only that sub-rectangle, and splice it into the previous scaled canvas. Similarly, in `IndexedGifWriter.add_frame`, write only the changed sub-rectangle `(left, top, sub_w, sub_h)` with disposal=1 (`do not dispose`) and transparent unchanged pixels when beneficial.
+  - **Expected gain:** **2x to 10x** on animations/cinemagraphs/wallpapers with static backgrounds, and smaller output GIF files.
+  - **Cost and risk:** Medium (must pad the sub-rectangle by $\lceil \text{support} \rceil + 1 = 4$ source pixels so boundary taps and the $6\times 6$ clamp window see the exact surrounding canvas). Gated behind an explicit setting per D6.
+  - **Equivalence to current output:** **Bit-identical** to full-frame scaling when padded by 4 source pixels on all sides!
+  - **Evidence tag:** **[C]** FFmpeg `diff_mode=rectangle` + mathematical support radius of `lanczos_kernel(3.0)`.
+
+##### Goal T3 & T4: GPU + Multi-Core CPU Execution (`workers` & Arbiter-aware GPU batching)
+
+- **Option Gem-T3a: Fused GPU Pipeline (Scale + Dering Clamp + Palette Indexing on GPU, overlapped with CPU Decode & C-LZW).**
+  - **How:** Since `index_frame` on CPU takes 467 ms (exact BLAS) or 7.7 ms (LUT), when running on the RTX 3090 Ti (automatic default per D11/D16), keep the scaled batch of $B$ frames on the GPU and run **Bayer dithering + exact palette nearest-neighbor (`torch.cdist` / `pal_norm - flat @ pal.T`) directly on the GPU** before transferring back to CPU!
+    - Transferring `uint8` indexed frames (`B x 800 x 1440 x 1` byte = **1.15 MB/frame**) over PCIe instead of `float32` RGBA (`B x 800 x 1440 x 16` bytes = **18.4 MB/frame**) cuts Device-to-Host PCIe bandwidth by **16x** and makes exact 256-color Euclidean lookup cost **<0.3 ms/frame** on the 3090 Ti!
+    - Dynamically size batch $B \in [4, 64]$ from `GPULeaseArbiter` free VRAM at batch start and release tensors between batches (D16).
+  - **Expected gain:** Scale + exact dither/index in **~3.7 ms/frame** on RTX 3090 Ti (**~8.2 s** total for all 2,232 frames!), overlapped with CPU decode (12.4 s) and multi-threaded C/C++ LZW encode (~7–15 s) -> **entire 2,232-frame GIF finishes in ~20–25 seconds end-to-end**.
+  - **Cost and risk:** Low-Medium (~120 lines in a GPU executor module, integrated with `gpu_lease_arbiter.py`).
+  - **Equivalence to current output:** Float32 scale within `6.6e-5`, palette indexing **bit-identical** to exact Euclidean distance.
+  - **Evidence tag:** **[M]** scale step 3.4 ms/frame + PCIe bandwidth calculation.
+
+- **Option Gem-T4a: Producer-Consumer Pipeline with ThreadPool (for GIL-releasing C++/OpenBLAS/OpenCV stages) and `workers` setting.**
+  - **How:** Because Option Gem-T2a (`cblas_sgemm` + `cv2.erode`/`dilate`/`remap`), Option Gem-T2b (C++ `backend`), and Pillow C GIF encode / C++ LZW **all release the Python GIL**, intra-file parallelism (`workers = N`) can use a **bounded `ThreadPoolExecutor(max_workers=workers)`** (with `OPENBLAS_NUM_THREADS=1` and `cv2.setNumThreads(1)` per worker to prevent thread oversubscription) instead of `ProcessPoolExecutor`!
+    - Avoids IPC pickling of 32 GB of raw frame buffers across processes.
+    - Sequential decoder thread pushes `(frame_idx, rgba_u8, duration)` into a bounded queue (`maxsize = 2 * workers`); `workers` threads run `scale + dering + index + lzw_compress` in parallel (returning compressed LZW `bytes` per frame); writer orders by `frame_idx` and writes sequentially to disk.
+    - Checks `ResampleCancelled` before/after every frame so cancellation remains `< 0.05 s`.
+  - **Expected gain:** Near-linear scaling with `workers` on CPU: at `workers=8` with Gem-T2a + Gem-T1a + Gem-T1c, **81 ms/frame / 8 ≈ 11 ms/frame -> ~25 seconds total for 2,232 frames on CPU alone** (and ~6 seconds with native C++ Gem-T2b).
+  - **Cost and risk:** Low; avoids multiprocessing fork/spawn hazards with Qt/CUDA.
+  - **Equivalence to current output:** Identical to single-worker output (frame order is strictly preserved).
+  - **Evidence tag:** **[M]** verified GIL-releasing C calls (`cblas_sgemm`, `cv2`, Pillow C `GifEncode`).
+
+#### Recommendation, with reasons and what would change your mind
+
+1. **Fix the two hidden streaming bottlenecks (`index_frame` and `_lzw`) immediately alongside `lanczos3-dering`:**
+   Our measurements prove that in `_resample_gif_stream`, `index_frame` (**7,052 ms/frame**) and pure-Python `_lzw` (**474.5 ms/frame**) take **25x longer than `lanczos3-dering` (294.2 ms/frame)** and run inside the `"scale"` progress loop. Adopting **Gem-T1a/b** (7-bit 3D LUT in `balanced`/`fast` mode, exact BLAS in `exact` mode) + **Gem-T1c** (C/C++ LZW) reduces indexing + LZW from **7,526 ms/frame to 26.6 ms/frame (or ~10 ms with C++ LZW)** — a **280x speedup** on that portion alone.
+2. **For CPU `lanczos3-dering` (T2), ship Gem-T2a (precomputed `Wy`/`Wx` + 2D `sgemm` + `cv2.erode`/`dilate`/`remap` + opaque fast path) as the NumPy/OpenCV fallback, and Gem-T2b (fused row-strip C++/AVX2 kernel in `backend`) as the native CPU path:**
+   Even on `workers=1` with no GPU and no C++ build, **Gem-T2a + Gem-T1a + Gem-T1c** finishes the entire 2,232-frame test GIF in **~181 seconds total** (with `scale = 109 s` and `encode = 59 s`, meeting Harbinger's D14 ~2-minute per-stage budget on a single CPU thread!). With the native C++ kernel (**Gem-T2b**) or `workers > 1` (**Gem-T4a**), CPU runtime drops to **15–35 seconds**.
+3. **For GPU (T3), fuse palette indexing onto the GPU (**Gem-T3a**):**
+   Running Bayer dither + exact palette lookup on the GPU right after `Wy @ premul @ Wx` avoids slow CPU indexing and cuts PCIe transfer volume by 16x (`1 byte/pixel` instead of `16 bytes/pixel`), finishing the entire 2,232-frame GIF in **~20–25 seconds**.
+4. **What would change my mind:** If downstream callers require `resize_separable` to support custom non-local Python callables in `dering` that cannot be expressed as a neighborhood min/max window, or if a clip uses non-uniform per-frame dimensions (impossible in standard GIF89a after canvas compositing).
+
+#### Questions for Harbinger
+
+- **G-Q1 (Progress bar truthfulness):** Right now `_resample_gif_stream` (`pipeline.py:115-121`) runs `scale`, `index_frame` (dither + palette lookup), and `writer.add_frame` (LZW compression) inside every iteration of the `"scale"` progress loop, and only reports `"encode"` after the loop finishes. Should the streaming progress bar report `"Scaling & encoding frame N/2232"` (or split stage timing metrics in the completion summary into `decode`, `palette`, `scale`, `index/dither`, `lzw_write`) so the stage budgets in D8/D14 are visible and measurable?
+- **G-Q2 (Palette indexing mode in `balanced` vs `exact`):** Is a 7-bit (`128x128x128`, 2 MiB) 3D LUT (which runs in 7.7 ms/frame with `<0.85/255` RGB RMSE) acceptable as the default in `balanced`/`fast` mode while keeping exact Euclidean BLAS/GPU lookup in `exact` mode?
+
 ## 6. Replies and disagreements
 
 _(Add a dated reply under your own name; do not edit other sections.)_
@@ -237,9 +390,10 @@ _(Add a dated reply under your own name; do not edit other sections.)_
 | 14 | Q8 says each stage may take a couple of minutes. Do you mean a **per-stage** budget (so the whole job may total several minutes), or should the **total** also stay near a couple of minutes? On this machine with the GPU the total looks reachable; on CPU with `workers=1` it likely is not. | Claude | About 2 minutes or so per stage (confirmed: a per-stage budget). | Harbinger | 2026-10-30 |
 | 15 | With `workers` default 1, the CPU-only path stays single-core unless the user raises it. Is that the intended default even when no GPU is present, or should `workers` default to a higher value automatically when there is no GPU and the job is long? | Claude | No silent auto-default. When no GPU is detected and the job will be long, show a window with a warning that jobs will take a long time, and let the user either continue anyway or enter a number of CPU workers. If the user accepts a number, it becomes the default value of the `workers` setting. | Harbinger | 2026-10-30 |
 | 16 | "All available VRAM per job" can starve other GPU work (ComfyUI, training). Should the GPU lease arbiter (`middleware/src/core/gpu_lease_arbiter.py`) cap it so a job takes what is free at start and waits or shrinks its batch if another job holds the GPU? | Claude | Yes. The job takes what is free at start, releases it as work completes, and adapts when other jobs request or hold the GPU (arbiter-managed). | Harbinger | 2026-10-30 |
-| 17 | The "no GPU detected" window: when exactly does it appear? Proposal: only when no usable GPU is found **and** the estimated runtime exceeds a threshold (for example 2 minutes, estimated from a timed sample of the first frames). Short jobs would not ask. Is that right, and what threshold? | Claude | _(open)_ | | |
-| 18 | Should the window offer "do not ask again" (and where is that reset, in Settings)? Also what is the default choice if the user closes the window: cancel the job, or continue with the current `workers`? | Claude | _(open)_ | | |
-| 19 | **UI freeze conflict.** `AGENTS.md` (W0-20) freezes `gui/src` (the PySide6 shell you launch with `just python`) to reviewed bugfixes: new Qt panels and dialogs are rejected unless Harbinger approves an `[[exception]]` in `migration/features.toml`. This window and the new settings need UI. Options: (a) build them in the Tauri frontend only (the Qt Sampler would not get them); (b) approve an exception so the Qt Sampler gets the window and settings too; (c) build the logic UI-agnostic in `middleware` (a pre-flight "estimate" service call plus settings) and wire both shells later. Which? | Claude | _(open)_ | | |
+| 17 | The "no GPU detected" window: when exactly does it appear? Proposal: only when no usable GPU is found **and** the estimated runtime exceeds a threshold (for example 2 minutes, estimated from a timed sample of the first frames). Short jobs would not ask. Is that right, and what threshold? | Claude | Yes. Appears only when no usable GPU is found and the estimated runtime exceeds the threshold. Default threshold 2 minutes, user-changeable in settings. | Harbinger | 2026-10-30 |
+| 18 | Should the window offer "do not ask again" (and where is that reset, in Settings)? Also what is the default choice if the user closes the window: cancel the job, or continue with the current `workers`? | Claude | Yes: a "do not ask again" option, backed by an on/off flag in Settings. Closing/exiting the window cancels the job. Enter accepts the currently chosen number of workers. Shift+Tab proceeds without more workers (see Q20 on that key). | Harbinger | 2026-10-30 |
+| 19 | **UI freeze conflict.** `AGENTS.md` (W0-20) freezes `gui/src` (the PySide6 shell you launch with `just python`) to reviewed bugfixes: new Qt panels and dialogs are rejected unless Harbinger approves an `[[exception]]` in `migration/features.toml`. This window and the new settings need UI. Options: (a) build them in the Tauri frontend only (the Qt Sampler would not get them); (b) approve an exception so the Qt Sampler gets the window and settings too; (c) build the logic UI-agnostic in `middleware` (a pre-flight "estimate" service call plus settings) and wire both shells later. Which? | Claude | Take Claude's recommendation: (c) keep the logic UI-agnostic in `middleware` (pre-flight estimate call plus settings), with (b) a recorded exception so the Qt Sampler also gets the window and settings; Tauri wiring follows. Reason: Harbinger is still building the Tauri parity tests, which resume after this optimization round. | Harbinger | 2026-10-30 |
+| 20 | Keys in the window: Enter = accept the chosen worker count, Esc/close = cancel, and you said Shift+Tab = continue without more workers. Shift+Tab is normally "previous field" in Qt and web, so it may fight focus navigation. Keep Shift+Tab as written, or use another shortcut (for example Shift+Enter) and show it on the button label? | Claude | _(open)_ | | |
 
 ## 8. Decision log
 
@@ -261,6 +415,9 @@ _(Add a dated reply under your own name; do not edit other sections.)_
 | D14 | The time budget is about 2 minutes per stage. | Q14 | | Harbinger | 2026-10-30 |
 | D15 | No GPU detected, long job: show a warning window ("jobs will take a long time") offering continue anyway or a CPU worker count; an accepted count becomes the default of `workers`. | Q15 | Avoid silent slow runs and silent saturation. | Harbinger | 2026-10-30 |
 | D16 | The GPU job takes what is free at start, releases as it completes, and adapts to other jobs through the arbiter. | Q16 | Do not starve ComfyUI or training. | Harbinger | 2026-10-30 |
+| D17 | The no-GPU window appears only when no usable GPU is found and the estimated runtime exceeds a threshold; default 2 minutes, adjustable in settings. | Q17 | Short jobs should not prompt. | Harbinger | 2026-10-30 |
+| D18 | The window has "do not ask again" with an on/off flag in Settings; closing cancels the job; Enter accepts the chosen worker count; a second key proceeds with no extra workers (exact key pending Q20). | Q18 | | Harbinger | 2026-10-30 |
+| D19 | UI approach (c)+(b): UI-agnostic pre-flight estimate and settings in `middleware`, plus a recorded `[[exception]]` in `migration/features.toml` so the Qt Sampler gets the window and settings; Tauri wiring after the Tauri parity tests resume. | Q19 | Harbinger is still doing the Tauri parity tests; they resume after this optimization round. | Harbinger | 2026-10-30 |
 
 ## 9. Final implementation roadmap
 
