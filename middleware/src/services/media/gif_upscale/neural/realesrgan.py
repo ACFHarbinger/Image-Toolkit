@@ -1,8 +1,8 @@
 """Real-ESRGAN anime-6B through the existing RRDBNet wrapper.
 
-The other family ids are registered so the Sampler can list them. Their checkpoints
-are not loaded by ``ESRGANWrapper`` (it always fetches the anime-6B file), so they
-report that reason instead of running the wrong network.
+``realesrgan-animevideov3`` is listed but not loaded: that checkpoint is
+SRVGGNetCompact, not this wrapper's RRDBNet. The photo ids register in
+``realesrgan_photo``.
 """
 
 from __future__ import annotations
@@ -17,9 +17,6 @@ from middleware.src.services.media.gif_upscale.registry import register_algorith
 
 _ANIME_FILE = "RealESRGAN_x4plus_anime_6B.pth"
 _UNWIRED = (
-    ("realesrgan-x4plus", "RealESRGAN_x4plus is a 23-block RRDBNet and is not the anime-6B checkpoint this wrapper loads."),
-    ("realesrgan-x2plus", "RealESRGAN_x2plus is a 2x network. The in-repo RRDBNet is 4x only."),
-    ("realesrgan-general-x4v3", "realesr-general-x4v3 is an SRVGGNetCompact checkpoint, not the in-repo RRDBNet."),
     ("realesrgan-animevideov3", "realesr-animevideov3 is an SRVGGNetCompact checkpoint, not the in-repo RRDBNet."),
 )
 
