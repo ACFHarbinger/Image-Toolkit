@@ -1,0 +1,67 @@
+import os, time, threading
+import numpy as np, torch
+from middleware.src.services.media.gif_upscale.io import iter_gif_frames
+from middleware.src.services.media.gif_upscale.classical import _resize as r
+from middleware.src.services.media.gif_upscale import encode as enc
+SRC="/home/pkhunter/Downloads/Data/Wallpapers/Other/video_filename_1118717ms_1211710ms.gif"
+fr=[]
+for i,(f,d,l) in enumerate(iter_gif_frames(SRC)):
+    fr.append(f)
+    if i>=63: break
+pal=enc._shared_palette([fr[i] for i in range(0,64,4)],256,"mediancut")
+frames=np.stack(fr)                       # 64,400,720,4 uint8
+k=r.lanczos_kernel(3.0); H,W,dH,dW=400,720,800,1440
+xi,xw,xv=r._axis_plan(W,dW,3.0,k,"x"); yi,yw,yv=r._axis_plan(H,dH,3.0,k,"y")
+def dense(idx,w,s):
+    dst=idx.shape[1]; M=torch.zeros(dst,s)
+    M.index_put_((torch.arange(dst).repeat(idx.shape[0]),torch.from_numpy(idx).reshape(-1)),torch.from_numpy(w).reshape(-1),accumulate=True); return M
+Wx_c,Wy_c=dense(xi,xw,W),dense(yi,yw,H)
+yy,xx=np.mgrid[0:8,0:8]; tile=(((enc._BAYER_8[yy,xx]+0.5)/64.0-0.5)*24.0).astype(np.float32)
+class Dev:
+    def __init__(s,i):
+        s.i=i; s.d=torch.device("cuda",i)
+        s.Wx=Wx_c.to(s.d); s.Wy=Wy_c.to(s.d); s.pal=torch.from_numpy(pal).to(s.d); s.half=0.5*(s.pal**2).sum(1)
+        s.xi=torch.from_numpy(xi).to(s.d); s.yi=torch.from_numpy(yi).to(s.d); s.xv=torch.from_numpy(xv).to(s.d); s.yv=torch.from_numpy(yv).to(s.d)
+        s.thr=torch.from_numpy(np.tile(tile,(dH//8,dW//8))).to(s.d)
+    @torch.no_grad()
+    def run(s,u8):                          # u8: (B,H,W,4) pinned uint8 cpu
+        x=u8.to(s.d,non_blocking=True).float()/255.0
+        a=x[...,3:4]; p=torch.cat([x[...,:3]*a,a],-1).permute(0,3,1,2)
+        out=torch.matmul(s.Wy,torch.matmul(p,s.Wx.T)); rgb=p[:,:3]; big=3e38
+        vlo=torch.full((rgb.shape[0],3,dH,W),big,device=s.d); vhi=-vlo.clone()
+        for t in range(s.yi.shape[0]):
+            g=rgb[:,:,s.yi[t],:]; m=s.yv[t][None,None,:,None]
+            vlo=torch.where(m,torch.minimum(vlo,g),vlo); vhi=torch.where(m,torch.maximum(vhi,g),vhi)
+        lo=torch.full((rgb.shape[0],3,dH,dW),big,device=s.d); hi=-lo.clone()
+        for t in range(s.xi.shape[0]):
+            m=s.xv[t][None,None,None,:]
+            lo=torch.where(m,torch.minimum(lo,vlo[:,:,:,s.xi[t]]),lo); hi=torch.where(m,torch.maximum(hi,vhi[:,:,:,s.xi[t]]),hi)
+        al=out[:,3:4]; prgb=torch.minimum(torch.maximum(out[:,:3],lo),hi)
+        rgbo=torch.where(al>1e-6,prgb/al.clamp_min(1e-6),torch.zeros_like(prgb)).clamp(0,1)*255.0
+        del vlo,vhi,lo,hi,out
+        idx=torch.empty((rgbo.shape[0],dH,dW),dtype=torch.uint8,device=s.d)
+        for b in range(rgbo.shape[0]):      # exact nearest palette, one frame at a time
+            adj=(rgbo[b].permute(1,2,0)+s.thr[...,None]).reshape(-1,3)
+            idx[b]=(s.half[None,:]-adj@s.pal.T).argmin(1).reshape(dH,dW).to(torch.uint8)
+        return idx.cpu()
+def bench(devs,total,batch):
+    pinned=torch.from_numpy(np.concatenate([frames]*((total//64)+1))[:total]).pin_memory()
+    chunks=[pinned[i:i+batch] for i in range(0,total,batch)]
+    res=[None]*len(chunks)
+    def worker(di):
+        for ci in range(di,len(chunks),len(devs)): res[ci]=devs[di].run(chunks[ci])
+    for d in devs: d.run(chunks[0][:2])      # warmup
+    for d in devs: torch.cuda.synchronize(d.d)
+    t=time.perf_counter()
+    th=[threading.Thread(target=worker,args=(i,)) for i in range(len(devs))]
+    [x.start() for x in th]; [x.join() for x in th]
+    for d in devs: torch.cuda.synchronize(d.d)
+    el=time.perf_counter()-t
+    return el,res
+d0,d1=Dev(0),Dev(1)
+TOT,B=128,8
+e0,r0=bench([d0],TOT,B); print("GPU0 only : %.2fs  %.1f ms/frame  %.1f fps"%(e0,e0/TOT*1000,TOT/e0))
+e1,r1=bench([d1],TOT,B); print("GPU1 only : %.2fs  %.1f ms/frame  %.1f fps"%(e1,e1/TOT*1000,TOT/e1))
+e2,r2=bench([d0,d1],TOT,B); print("both      : %.2fs  %.1f ms/frame  %.1f fps  speedup vs best single %.2fx"%(e2,e2/TOT*1000,TOT/e2,min(e0,e1)/e2))
+same=all(torch.equal(a,b) for a,b in zip(r0,r2)); print("indices identical across 1-GPU and 2-GPU runs:",same)
+print("peak MB gpu0/gpu1:",torch.cuda.max_memory_allocated(0)//2**20,torch.cuda.max_memory_allocated(1)//2**20)

@@ -1,0 +1,93 @@
+import os, time, io
+os.environ["OPENBLAS_NUM_THREADS"]="1"; os.environ["OMP_NUM_THREADS"]="1"
+import numpy as np, cv2
+cv2.setNumThreads(1)
+from middleware.src.services.media.gif_upscale.io import iter_gif_frames
+from middleware.src.services.media.gif_upscale.classical import _resize as r
+from middleware.src.services.media.gif_upscale import encode as enc
+SRC="/home/pkhunter/Downloads/Data/Wallpapers/Other/video_filename_1118717ms_1211710ms.gif"
+def T(f,n=1):
+    t=time.perf_counter()
+    for _ in range(n): out=f()
+    return (time.perf_counter()-t)/n*1000, out
+# decode
+t=time.perf_counter(); fr=[]
+for i,(f,d,l) in enumerate(iter_gif_frames(SRC)):
+    fr.append(f)
+    if i>=59: break
+print("decode: %.2f ms/frame (60 frames)"%((time.perf_counter()-t)/60*1000))
+f0=fr[30].astype(np.float32)/255.0
+print("alpha min:",fr[30][...,3].min())
+k=r.lanczos_kernel(3.0)
+for d in (False,True):
+    ms,ref=T(lambda: r.resize_separable([f0],2.0,{"size":(1440,800)},"x",k,3.0,dering=d,clip_unit=True),2)
+    print("scale dering=%s: %.1f ms/frame"%(d,ms))
+ref=ref[0]
+# index_frame (palette from a few frames)
+samples=[fr[i] for i in range(0,60,6)]
+pal=enc._shared_palette(samples,256,"mediancut")
+scaled=np.clip(np.rint(ref*255),0,255).astype(np.uint8)
+ms,idx=T(lambda: enc.index_frame(scaled,pal,transparent=False),1)
+print("index_frame current: %.0f ms/frame"%ms)
+ms,_=T(lambda: enc._lzw(np.ascontiguousarray(idx).reshape(-1).tobytes(),8),1)
+print("_lzw pure python: %.0f ms/frame"%ms)
+from PIL import Image
+def pil_lzw():
+    im=Image.fromarray(idx,mode="P"); b=io.BytesIO(); im.save(b,format="GIF"); return b.getvalue()
+ms,_=T(pil_lzw,5); print("Pillow C GIF encode: %.1f ms/frame"%ms)
+# Gemini: exact BLAS identity
+def blas_idx():
+    rgb=scaled[...,:3].astype(np.float32)
+    h,w=rgb.shape[:2]
+    yy,xx=np.mgrid[0:h,0:w]
+    thr=(enc._BAYER_8[yy%8,xx%8]+0.5)/64.0-0.5
+    adj=(rgb+thr[:,:,None]*24.0).reshape(-1,3)
+    half=0.5*(pal**2).sum(1)
+    out=np.empty(adj.shape[0],np.uint8)
+    for s in range(0,adj.shape[0],65536):
+        c=adj[s:s+65536]; out[s:s+65536]=(half[None,:]-c@pal.T).argmin(1)
+    return out.reshape(h,w)
+ms,idx2=T(blas_idx,1); print("BLAS-identity index: %.0f ms/frame, identical to current: %s, mismatches %d"%(ms,np.array_equal(idx,idx2),int((idx!=idx2).sum())))
+# Gemini: 7-bit LUT
+def lut_idx():
+    g=np.arange(128,dtype=np.float32)*(255/127)
+    R,G,B=np.meshgrid(g,g,g,indexing="ij"); pts=np.stack([R,G,B],-1).reshape(-1,3)
+    half=0.5*(pal**2).sum(1); lut=np.empty(pts.shape[0],np.uint8)
+    for s in range(0,pts.shape[0],65536):
+        lut[s:s+65536]=(half[None,:]-pts[s:s+65536]@pal.T).argmin(1)
+    return lut
+t=time.perf_counter(); lut=lut_idx(); build=(time.perf_counter()-t)*1000
+def use():
+    rgb=scaled[...,:3].astype(np.float32); h,w=rgb.shape[:2]
+    yy,xx=np.mgrid[0:h,0:w]; thr=(enc._BAYER_8[yy%8,xx%8]+0.5)/64.0-0.5
+    adj=np.clip(rgb+thr[:,:,None]*24.0,0,255)
+    q=np.rint(adj*(127/255)).astype(np.int32)
+    return lut[(q[...,0]<<14)|(q[...,1]<<7)|q[...,2]]
+ms,idx3=T(use,3)
+pr=pal[idx3.reshape(-1)]; pc=pal[idx.reshape(-1)]
+print("7-bit LUT: build %.0f ms once, use %.1f ms/frame, match exact %.1f%%"%(build,ms,100*(idx3==idx).mean()))
+# Gemini: sgemm separable + cv2 clamp (opaque)
+src=f0[...,:3]; H,W=src.shape[:2]; dH,dW=800,1440
+xi,xw,xv=r._axis_plan(W,dW,3.0,k,"x"); yi,yw,yv=r._axis_plan(H,dH,3.0,k,"y")
+def dense(idx_,w_,s):
+    dst=idx_.shape[1]; M=np.zeros((dst,s),np.float32); 
+    np.add.at(M,(np.tile(np.arange(dst),idx_.shape[0]),idx_.reshape(-1)),w_.reshape(-1)); return M
+Wx=dense(xi,xw,W); Wy=dense(yi,yw,H)
+def sgemm():
+    out=np.empty((dH,dW,3),np.float32)
+    for c in range(3): out[...,c]=Wy@(np.ascontiguousarray(src[...,c])@Wx.T)
+    return out
+ms,o=T(sgemm,3); print("sgemm separable (3ch): %.1f ms/frame"%ms)
+# clamp: 6x6 min/max on source, gather by floor(src_pos)
+def clamp(o):
+    p=cv2.copyMakeBorder(src,2,3,2,3,cv2.BORDER_REPLICATE)
+    kern=np.ones((6,6),np.uint8)
+    lo=cv2.erode(p,kern,anchor=(2,2)); hi=cv2.dilate(p,kern,anchor=(2,2))
+    # window for dst pixel starts at floor(pos)-2 .. floor(pos)+3 ; in padded coords offset +2 -> anchor at floor(pos)
+    sx=((np.arange(dW)+0.5)*(W/dW)-0.5); sy=((np.arange(dH)+0.5)*(H/dH)-0.5)
+    mx=np.tile(np.floor(sx).astype(np.float32)[None,:]+2,(dH,1)); my=np.tile(np.floor(sy).astype(np.float32)[:,None]+2,(1,dW))
+    L=cv2.remap(lo,mx,my,cv2.INTER_NEAREST); Hh=cv2.remap(hi,mx,my,cv2.INTER_NEAREST)
+    return np.clip(o,L,Hh)
+ms,oc=T(lambda: clamp(o),3); print("cv2 clamp: %.1f ms/frame"%ms)
+refrgb=ref[...,:3]
+d=np.abs(np.clip(oc,0,1)-refrgb); print("sgemm+cv2 vs current dering: max abs diff %.2e mean %.2e, pixels >1/255: %d of %d"%(d.max(),d.mean(),int((d>1/255).sum()),d.size))

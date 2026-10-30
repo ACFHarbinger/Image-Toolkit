@@ -1,0 +1,392 @@
+"""Throwaway prototype: parallel GIF decode + multi-GPU scale/index + parallel encode.
+
+Opaque and transparent index frames are decoded in worker processes (Pillow's C decoder on a
+per-frame mini GIF), composited in order in the main process, scaled and indexed on the GPUs,
+compressed by Pillow's C encoder in worker threads, and written in order.
+Usage: proto.py check N WORKERS   |   proto.py full WORKERS
+"""
+import io
+import multiprocessing as mp
+import os
+import struct
+import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
+
+import numpy as np
+
+SRC = "/home/pkhunter/Downloads/Data/Wallpapers/Other/video_filename_1118717ms_1211710ms.gif"
+OUT = os.path.expanduser("~/Downloads/Data/Tests/proto_gif/out.gif")
+
+
+def u16(data, pos):
+    return data[pos] | (data[pos + 1] << 8)
+
+
+def parse(path, limit=None):
+    """Scan the block structure. Returns (info, frames) without decoding any LZW data."""
+    with open(path, "rb") as fh:
+        data = fh.read()
+    width, height = u16(data, 6), u16(data, 8)
+    packed = data[10]
+    pos = 13
+    gct = b""
+    if packed & 0x80:
+        n = 3 * (2 ** ((packed & 7) + 1))
+        gct = data[pos : pos + n]
+        pos += n
+    loop = 0
+    frames = []
+    gce = None
+    while pos < len(data):
+        b = data[pos]
+        if b == 0x3B:
+            break
+        if b == 0x21:
+            label = data[pos + 1]
+            if label == 0xF9:
+                gce = (data[pos + 3], u16(data, pos + 4), data[pos + 6], data[pos : pos + 8])
+                pos += 8
+                continue
+            if label == 0xFF and data[pos + 3 : pos + 14] == b"NETSCAPE2.0":
+                loop = u16(data, pos + 16)
+            pos += 2
+            while True:
+                n = data[pos]
+                pos += 1 + n
+                if n == 0:
+                    break
+            continue
+        if b == 0x2C:
+            left, top, w, h = u16(data, pos + 1), u16(data, pos + 3), u16(data, pos + 5), u16(data, pos + 7)
+            fl = data[pos + 9]
+            pos += 10
+            lct = b""
+            if fl & 0x80:
+                n = 3 * (2 ** ((fl & 7) + 1))
+                lct = data[pos : pos + n]
+                pos += n
+            start = pos
+            pos += 1
+            while True:
+                n = data[pos]
+                pos += 1 + n
+                if n == 0:
+                    break
+            gp = gce[0] if gce else 0
+            frames.append(
+                dict(
+                    left=left, top=top, w=w, h=h, flags=fl, lct=lct,
+                    start=start, end=pos,
+                    disposal=(gp >> 2) & 7, trans=(gce[2] if gce and gp & 1 else None),
+                    delay=(gce[1] if gce else 10), gce=(gce[3] if gce else b""),
+                )
+            )
+            gce = None
+            if limit and len(frames) >= limit:
+                break
+            continue
+        raise ValueError(f"unexpected byte {b:#x} at {pos}")
+    lsd = data[6:13]
+    return dict(width=width, height=height, gct=gct, lsd=lsd, loop=loop), frames
+
+
+def decode_one(job):
+    """Worker: LZW-decode one frame with Pillow's C decoder; return its RGBA sub-rectangle."""
+    from PIL import Image
+
+    path, info_lsd, gct, fr = job
+    with open(path, "rb") as fh:
+        fh.seek(fr["start"])
+        payload = fh.read(fr["end"] - fr["start"])
+    w, h = fr["w"], fr["h"]
+    lsd = struct.pack("<HH", w, h) + bytes([0x80 | (info_lsd[4] & 0x07) if gct else 0, 0, 0])
+    gce = fr["gce"]
+    desc = b"\x2c" + struct.pack("<HHHH", 0, 0, w, h) + bytes([fr["flags"]])
+    mini = b"GIF89a" + lsd + gct + gce + desc + fr["lct"] + payload + b"\x3b"
+    with Image.open(io.BytesIO(mini)) as im:
+        rgba = np.asarray(im.convert("RGBA")).copy()
+    return rgba
+
+
+def composite(frames, rects, info):
+    """Yield full-canvas RGBA frames in order, applying disposal."""
+    W, H = info["width"], info["height"]
+    canvas = np.zeros((H, W, 4), np.uint8)
+    for fr, rgba in zip(frames, rects):
+        x, y, w, h = fr["left"], fr["top"], fr["w"], fr["h"]
+        saved = canvas.copy() if fr["disposal"] == 3 else None
+        region = canvas[y : y + h, x : x + w]
+        if fr["trans"] is not None:
+            r32 = region.view(np.uint32)[..., 0]
+            s32 = np.ascontiguousarray(rgba).view(np.uint32)[..., 0]
+            np.copyto(r32, s32, where=(s32 >> 24) > 0)
+        else:
+            region[:] = rgba
+        yield canvas.copy()
+        if fr["disposal"] == 2:
+            region[:] = 0
+        elif fr["disposal"] == 3:
+            canvas = saved
+
+
+def compress_one(idx_and_pal):
+    """Worker thread: Pillow C GIF encode of one index frame; returns the image-data blocks."""
+    from PIL import Image
+
+    idx, pal_bytes = idx_and_pal
+    im = Image.fromarray(idx, "P")
+    im.putpalette(pal_bytes)
+    buf = io.BytesIO()
+    im.save(buf, format="GIF", optimize=False, interlace=False)
+    d = buf.getvalue()
+    pos = 13
+    if d[10] & 0x80:
+        pos += 3 * (2 ** ((d[10] & 7) + 1))
+    while d[pos] != 0x2C:  # skip extensions
+        if d[pos] == 0x21:
+            pos += 2
+            while True:
+                n = d[pos]
+                pos += 1 + n
+                if n == 0:
+                    break
+        else:
+            raise ValueError("unexpected block")
+    fl = d[pos + 9]
+    pos += 10
+    if fl & 0x80:
+        pos += 3 * (2 ** ((fl & 7) + 1))
+    end = d.index(b"\x3b", len(d) - 1)
+    return d[pos:end]
+
+
+def write_gif(path, W, H, pal_u8, loop, delays, payloads):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as fh:
+        fh.write(b"GIF89a" + struct.pack("<HH", W, H) + bytes([0xF7, 0, 0]))
+        table = np.zeros(768, np.uint8)
+        table[: pal_u8.size] = pal_u8
+        fh.write(table.tobytes())
+        fh.write(b"\x21\xff\x0bNETSCAPE2.0\x03\x01" + struct.pack("<H", loop) + b"\x00")
+        for delay, payload in zip(delays, payloads):
+            fh.write(b"\x21\xf9\x04\x08" + struct.pack("<H", delay) + b"\x00\x00")
+            fh.write(b"\x2c" + struct.pack("<HHHH", 0, 0, W, H) + b"\x00")
+            fh.write(payload)
+        fh.write(b"\x3b")
+
+
+def check(n, workers):
+    from middleware.src.services.media.gif_upscale.io import iter_gif_frames
+
+    t = time.perf_counter()
+    info, frames = parse(SRC, limit=n)
+    print(f"parse {len(frames)} frames: {time.perf_counter()-t:.2f}s; canvas {info['width']}x{info['height']}; "
+          f"disposal set {sorted({f['disposal'] for f in frames})}; transparent frames {sum(f['trans'] is not None for f in frames)}")
+    jobs = [(SRC, info["lsd"], info["gct"], f) for f in frames]
+    t = time.perf_counter()
+    with mp.get_context("fork").Pool(workers) as pool:
+        rects = pool.map(decode_one, jobs, chunksize=4)
+    dec = time.perf_counter() - t
+    t = time.perf_counter()
+    mine = list(composite(frames, rects, info))
+    comp = time.perf_counter() - t
+    t = time.perf_counter()
+    bad = 0
+    for i, (ref, _d, _l) in zip(range(len(mine)), iter_gif_frames(SRC)):
+        if not np.array_equal(ref, mine[i]):
+            bad += 1
+            if bad <= 3:
+                diff = (ref != mine[i]).any(axis=2)
+                print("  mismatch frame", i, "pixels", int(diff.sum()))
+    seq = time.perf_counter() - t
+    print(f"parallel decode ({workers} workers) {dec:.2f}s = {dec/len(frames)*1000:.1f} ms/frame; "
+          f"composite {comp:.2f}s; sequential Pillow {seq:.2f}s = {seq/len(frames)*1000:.1f} ms/frame")
+    print("decoded frames identical to Pillow:", bad == 0, f"({bad} mismatching of {len(mine)})")
+    # encoder integrity on a few frames
+    idx = [np.random.default_rng(i).integers(0, 256, (80, 120), dtype=np.uint8) for i in range(6)]
+    pal = np.random.default_rng(1).integers(0, 256, 768, dtype=np.uint8)
+    with ThreadPoolExecutor(4) as ex:
+        payloads = list(ex.map(compress_one, [(a, pal.tobytes()) for a in idx]))
+    write_gif("/tmp/claude-1000/-home-pkhunter-Repositories-Repo-Image-Toolkit/0143c52a-885e-4032-afae-bcfb15cc118c/scratchpad/enc_check.gif",
+              120, 80, pal, 0, [5] * 6, payloads)
+    from PIL import Image
+    ok = True
+    with Image.open("/tmp/claude-1000/-home-pkhunter-Repositories-Repo-Image-Toolkit/0143c52a-885e-4032-afae-bcfb15cc118c/scratchpad/enc_check.gif") as im:
+        ok &= im.n_frames == 6
+        for i in range(6):
+            im.seek(i)
+            want = pal.reshape(256, 3)[idx[i]]
+            ok &= np.array_equal(np.asarray(im.convert("RGB")), want)
+    print("Pillow-encoded payloads written by own writer decode to the exact indices:", bool(ok))
+
+
+
+
+def full(workers, limit=None, batch=8):
+    import queue
+    import threading
+
+    T = {}
+    t0 = time.perf_counter()
+    t = time.perf_counter()
+    info, frames = parse(SRC, limit=limit)
+    T["parse"] = time.perf_counter() - t
+    n = len(frames)
+    pool = mp.get_context("fork").Pool(workers)  # forked before any CUDA init
+    t = time.perf_counter()
+    jobs = [(SRC, info["lsd"], info["gct"], f) for f in frames]
+    rects = pool.map(decode_one, jobs, chunksize=8)
+    T["decode (parallel LZW)"] = time.perf_counter() - t
+    t = time.perf_counter()
+    comps = list(composite(frames, rects, info))
+    del rects
+    T["composite"] = time.perf_counter() - t
+
+    import torch
+    from middleware.src.services.media.gif_upscale import encode as enc
+    from middleware.src.services.media.gif_upscale.classical import _resize as r
+
+    W, H, dW, dH = info["width"], info["height"], info["width"] * 2, info["height"] * 2
+    k = r.lanczos_kernel(3.0)
+    xi, xw, xv = r._axis_plan(W, dW, 3.0, k, "x")
+    yi, yw, yv = r._axis_plan(H, dH, 3.0, k, "y")
+
+    def dense(idx, w, s_):
+        dst = idx.shape[1]
+        M = torch.zeros(dst, s_)
+        M.index_put_((torch.arange(dst).repeat(idx.shape[0]), torch.from_numpy(idx).reshape(-1)), torch.from_numpy(w).reshape(-1), accumulate=True)
+        return M
+
+    Wx_c, Wy_c = dense(xi, xw, W), dense(yi, yw, H)
+    yy, xx = np.mgrid[0:8, 0:8]
+    tile = (((enc._BAYER_8[yy, xx] + 0.5) / 64.0 - 0.5) * 24.0).astype(np.float32)
+
+    class Dev:
+        def __init__(s, i):
+            s.d = torch.device("cuda", i)
+            s.Wx, s.Wy = Wx_c.to(s.d), Wy_c.to(s.d)
+            s.xi, s.yi, s.xv, s.yv = [torch.from_numpy(a).to(s.d) for a in (xi, yi, xv, yv)]
+            s.thr = torch.from_numpy(np.tile(tile, (dH // 8, dW // 8))).to(s.d)
+
+        @torch.no_grad()
+        def scale(s, u8):
+            x = u8.to(s.d, non_blocking=True).float() / 255.0
+            a = x[..., 3:4]
+            p = torch.cat([x[..., :3] * a, a], -1).permute(0, 3, 1, 2)
+            out = torch.matmul(s.Wy, torch.matmul(p, s.Wx.T))
+            rgb = p[:, :3]
+            big = 3e38
+            vlo = torch.full((rgb.shape[0], 3, dH, W), big, device=s.d)
+            vhi = -vlo.clone()
+            for t_ in range(s.yi.shape[0]):
+                g = rgb[:, :, s.yi[t_], :]
+                m = s.yv[t_][None, None, :, None]
+                vlo = torch.where(m, torch.minimum(vlo, g), vlo)
+                vhi = torch.where(m, torch.maximum(vhi, g), vhi)
+            lo = torch.full((rgb.shape[0], 3, dH, dW), big, device=s.d)
+            hi = -lo.clone()
+            for t_ in range(s.xi.shape[0]):
+                m = s.xv[t_][None, None, None, :]
+                lo = torch.where(m, torch.minimum(lo, vlo[:, :, :, s.xi[t_]]), lo)
+                hi = torch.where(m, torch.maximum(hi, vhi[:, :, :, s.xi[t_]]), hi)
+            al = out[:, 3:4]
+            prgb = torch.minimum(torch.maximum(out[:, :3], lo), hi)
+            return torch.where(al > 1e-6, prgb / al.clamp_min(1e-6), torch.zeros_like(prgb)).clamp(0, 1) * 255.0
+
+        @torch.no_grad()
+        def index(s, rgbo, pal_t, half):
+            idx = torch.empty((rgbo.shape[0], dH, dW), dtype=torch.uint8, device=s.d)
+            for b in range(rgbo.shape[0]):
+                adj = (rgbo[b].permute(1, 2, 0) + s.thr[..., None]).reshape(-1, 3)
+                idx[b] = (half[None, :] - adj @ pal_t.T).argmin(1).reshape(dH, dW).to(torch.uint8)
+            return idx.cpu()
+
+    t = time.perf_counter()
+    ndev = torch.cuda.device_count()
+    devs = [Dev(i) for i in range(ndev)]
+    T[f"GPU setup ({ndev} devices)"] = time.perf_counter() - t
+
+    t = time.perf_counter()
+    pick = sorted({int(i) for i in np.linspace(0, n - 1, min(16, n))})
+    samples = []
+    for j in range(0, len(pick), batch):
+        sub = np.stack([comps[i] for i in pick[j : j + batch]])
+        rgbo = devs[0].scale(torch.from_numpy(sub))
+        for b in range(rgbo.shape[0]):
+            a = np.zeros((dH, dW, 4), np.uint8)
+            a[..., :3] = np.clip(np.rint(rgbo[b].permute(1, 2, 0).cpu().numpy()), 0, 255)
+            a[..., 3] = 255
+            samples.append(a)
+    pal = enc._shared_palette(samples, 256, "mediancut")
+    del samples
+    T["palette (16 samples scaled on GPU + median cut)"] = time.perf_counter() - t
+
+    t = time.perf_counter()
+    pal_ts = [torch.from_numpy(pal).to(d.d) for d in devs]
+    halves = [0.5 * (p_ ** 2).sum(1) for p_ in pal_ts]
+    q = queue.Queue()
+    for i in range(0, n, batch):
+        q.put(i)
+    idx_frames = [None] * n
+
+    def worker(di):
+        while True:
+            try:
+                i = q.get_nowait()
+            except queue.Empty:
+                return
+            sub = torch.from_numpy(np.stack(comps[i : i + batch])).pin_memory()
+            out = devs[di].index(devs[di].scale(sub), pal_ts[di], halves[di])
+            for b in range(out.shape[0]):
+                idx_frames[i + b] = out[b].numpy()
+
+    th = [threading.Thread(target=worker, args=(di,)) for di in range(ndev)]
+    [x.start() for x in th]
+    [x.join() for x in th]
+    for d in devs:
+        torch.cuda.synchronize(d.d)
+    T["GPU scale + exact index (work-stealing)"] = time.perf_counter() - t
+    del comps
+
+    t = time.perf_counter()
+    pal_u8 = np.clip(np.rint(pal), 0, 255).astype(np.uint8).reshape(-1)
+    pb = pal_u8.tobytes()
+    with ThreadPoolExecutor(workers) as ex:
+        payloads = list(ex.map(compress_one, [(a, pb) for a in idx_frames]))
+    T["Pillow C GIF encode (threads)"] = time.perf_counter() - t
+
+    t = time.perf_counter()
+    delays = [max(1, fr["delay"]) for fr in frames]
+    write_gif(OUT, dW, dH, pal_u8, info["loop"], delays, payloads)
+    T["write"] = time.perf_counter() - t
+    total = time.perf_counter() - t0
+    pool.close()
+    pool.join()
+
+    print(f"\n== {n} frames, {workers} workers, {ndev} GPUs ==")
+    for k_, v in T.items():
+        print(f"  {k_:<52s} {v:7.2f} s  ({v / n * 1000:6.1f} ms/frame)")
+    print(f"  {'TOTAL (stages run back to back)':<52s} {total:7.2f} s")
+    print(f"  output {os.path.getsize(OUT) / 1e6:.1f} MB; peak GPU MB: "
+          + ", ".join(str(torch.cuda.max_memory_allocated(i) // 2**20) for i in range(ndev)))
+
+    # integrity: decode the output and compare with the palette applied to our indices
+    t = time.perf_counter()
+    from middleware.src.services.media.gif_upscale.io import iter_gif_frames
+
+    table = pal_u8.reshape(256, 3)
+    bad = 0
+    count = 0
+    for i, (rgba, dur, lp) in enumerate(iter_gif_frames(OUT)):
+        count += 1
+        if not np.array_equal(rgba[..., :3], table[idx_frames[i]]):
+            bad += 1
+    print(f"  verify: {count}/{n} frames decode, {bad} differ from palette[indices]; {time.perf_counter() - t:.1f} s")
+
+
+if __name__ == "__main__":
+    if sys.argv[1] == "check":
+        check(int(sys.argv[2]), int(sys.argv[3]))
+    elif sys.argv[1] == "full":
+        full(int(sys.argv[2]), int(sys.argv[3]) if len(sys.argv) > 3 else None)
