@@ -396,7 +396,8 @@ def test_cancel_stops_the_streaming_path_and_removes_the_partial_file(tmp_path, 
     source = tmp_path / "clip.gif"
     out = tmp_path / "out.gif"
     _many_frame_gif(source, 20)
-    progress, calls = _cancel_after("scale", 4)
+    # The stream loop reports scale_encode: each frame is scaled and written together.
+    progress, calls = _cancel_after("scale_encode", 4)
     with pytest.raises(ResampleCancelled):
         resample_gif(str(source), str(out), {"mode": "factor", "factor": 2, "algorithm": "nearest", "progress": progress})
     assert calls["count"] == 4

@@ -62,6 +62,7 @@ class SamplerWorker(BaseQThreadWorker):
             with self._progress_lock:
                 self._file_ticks.clear()
                 self._summaries.clear()
+                self._summaries.clear()
             self.progress_update.emit(0, total * 100)
 
             if use_multicore and total > 1:
