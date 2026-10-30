@@ -191,7 +191,101 @@ _(not written yet)_
 
 ### 5.2 Grok-Cls1 / Grok-Cls2 (classical kernels)
 
-_(not written yet)_
+Grok, 2026-10-30. Lanczos3-dering only. Palette indexing and LZW are Gemini's §5.8 and Claude's remeasure in §6. I am not restating those as if a faster kernel alone meets D14.
+
+#### Investigated
+
+- `middleware/src/services/media/gif_upscale/classical/_resize.py`. `_separable` builds a fresh `_axis_plan` for both axes on every frame (`_resize.py` around the `x_index, x_weight` lines). `_apply_taps` walks the six Lanczos taps with `np.take` plus multiply-add. `_clamp_rgb_to_neighborhood` then runs `_neighborhood_range`, which is the same tap mask reduced with chunked `np.take` and masked min/max. Premultiply and unpremultiply run on all four channels (`_premultiply`, `_finish`).
+- `pipeline.py` `_resample_gif_stream`: one frame is scaled, indexed, and LZW-written before the next frame starts. A scale-only speedup does not overlap with encode.
+- Report §1 and §5.8, plus Claude's §6 check of those numbers.
+- External: Pillow-SIMD's own resize write-up (AVX2 Lanczos about 4–6× Pillow, and in their older tables about 10× ImageMagick on one AVX2 core) at <https://python-pillow.org/pillow-perf/> and <https://uploadcare.com/blog/the-fastest-production-ready-image-resize/>. libvips `vips_reduce` is a separable Lanczos3 used after a block shrink, streamed in regions (<https://github.com/libvips/libvips/wiki/HOWTO----Image-shrinking>). mpv's `--scale-antiring` is a 0..1 strength on separable scalers, off at 0, and the man page says a non-zero value while downscaling adds aliasing (<https://manpages.ubuntu.com/manpages/resolute/en/man1/mpv.1.html>). FFmpeg `zscale` / libswscale `lanczos` is the same windowed sinc with `param0` taps, not our clamp (FFmpeg scaler docs, <https://ffmpeg.org/ffmpeg-scaler.html>).
+
+#### Measurements
+
+- **[M]** This machine, one thread, `get_algorithm("lanczos3-dering").upscale` on one random RGBA frame, 720×400 → 1440×800, after one warmup call: **0.2917 s**. Pillow `Image.resize(..., LANCZOS)` on the RGB channels of that same frame: **0.0153 s** (no dering, no alpha). Command: a 15-line `python` snippet in the repo venv, `numpy` Generator seed 0. Pillow is about 19× faster than today's full dering path and about 4× faster than the 0.07 s no-dering figure already in §1, but it is not the same operation.
+- I did not re-time `_lzw` or `index_frame`. I use Claude's §6 figures below (scale 292 ms, index 7.19 s, LZW 0.42 s, Pillow encode 14.8 ms).
+
+#### Options
+
+**Goal T2. Scale one 720×400 frame to 1440×800 with Lanczos3 and a no-ring clamp, on one CPU thread.**
+
+- **Option Gk-A, cache the axis plan for the clip.**
+  - **How.** `_axis_plan` depends only on source size, dest size, support, and kernel. Compute it once per clip (or once per call of `resize_separable` over a frame list) and pass the arrays in. `_separable` currently rebuilds both plans inside the per-frame function.
+  - **Expected gain.** **[H]** a few percent of the 0.29 s. The plan is two small index/weight tables (6 taps by dest length). The 0.29 s is the gathers, not `sinc`.
+  - **Cost and risk.** Tiny. Must key the cache by size and kernel id so a mixed-size batch cannot reuse the wrong plan.
+  - **Equivalence.** Bit-identical.
+  - **Evidence.** **[C]** code. **[H]** for the percent.
+
+- **Option Gk-B, exact-window clamp with a sliding min/max, not a gather per tap.**
+  - **How.** The valid taps are a short contiguous run in source space (Lanczos3 support 3, so at most six source samples). A separable sliding-window minimum (van Herk, or a small ring buffer along the row) computes the same min/max as today's `_reduce_vertical` / `_reduce_horizontal` without `np.take` of a full destination row per tap.
+  - **Expected gain.** **[H]** the clamp is about 65% of 0.29 s (§1), so removing the gather overhead is on the order of 2× on the clamp and roughly 1.4–1.8× on the whole scale step. Not 6×. Gemini's §5.8 `Gem-T2a` already measured a related idea (sgemm plus `cv2.erode`/`dilate` and `cv2.remap`) at 48.96 ms, 6.0×, with bit-identical `lo`/`hi`. That number is theirs, not mine. A pure sliding window should land between today's 292 ms and that 49 ms, closer to 49 ms if the filter half is also replaced.
+  - **Cost and risk.** Border taps that are out of range must stay excluded. A rectangular 6×6 window is not the same as the per-output valid-tap mask. Gemini reports the rectangular clamp matched `lo`/`hi` on their frame. I have not repeated that.
+  - **Equivalence.** Bit-identical bounds if the mask matches. Rectangular window is "same on the frames where Gemini checked", otherwise it can clamp a pixel the current mask never read. Put the rectangular form behind `balanced` (D9, D22's mode split). Keep today's mask for `exact`.
+  - **Evidence.** **[C]** §1 cProfile and §5.8. **[H]** for a NumPy sliding window I have not timed.
+
+- **Option Gk-C, Pillow-SIMD Lanczos for the filter, our clamp kept only in `exact`.**
+  - **How.** Call Pillow-SIMD `resize` (Lanczos, support 3) for RGB, and for alpha unless Gk-E skips it. In `balanced`/`fast`, either skip the clamp or apply mpv-style `--scale-antiring` as a strength in 0..1: blend the filtered pixel toward the local min/max instead of a hard clip. In `exact`, run the current clamp after the Pillow resize.
+  - **Expected gain.** **[M]** stock Pillow Lanczos is 15.3 ms versus 292 ms for our full path, on RGB only. **[C]** Pillow-SIMD's published AVX2 tables are about 4–6× that Pillow again for Lanczos (<https://python-pillow.org/pillow-perf/>). **[H]** `balanced` with no clamp is about 15 ms/frame here, about 33 s of scale for 2232 frames. `exact` still pays the clamp, so it stays near a large fraction of 0.29 s unless Gk-B or Gk-D lands.
+  - **Cost and risk.** Pillow-SIMD is a fork, not the Pillow already in the venv. Shipping it means a wheel build (D3 allows native code; this is a third-party wheel instead). Pillow's edge treatment and uint8 rounding differ from our float32 kernel. Uploadcare measured that calculating Lanczos coefficients inside the pixel loop dominates, which is what their SIMD kernel avoids. Our `_axis_plan` already hoists coefficients, so the remaining gap is the gather loop, not `sin`.
+  - **Equivalence.** `balanced`: intentionally different (Pillow uint8 Lanczos, weaker or no dering). Claude's §6 note says Pillow's uint8 path can miss by up to 38/255 versus float Lanczos. That is outside 1/255. `exact`: within float rounding only if we clamp our own float kernel, not Pillow's bytes. Do not call Pillow output "exact".
+  - **Evidence.** **[M]** 15.3 ms vs 0.2917 s. **[C]** Pillow-SIMD tables and §6's 38/255 note.
+
+- **Option Gk-D, two-phase 2× kernel, AVX2, in `backend`.**
+  - **How.** The test case is exactly 2×. Under `_tap_table`, output positions fall on two phases. A native separable kernel with those two weight rows, float32, fused clamp, processes a row band and releases the GIL. `workers` (D4, D10, default 1) maps to OpenMP or a thread pool over row bands or over frames. If `backend` is missing, run Gk-A/Gk-B and say so (D12). Finish message names the path (D13).
+  - **Expected gain.** **[H]** Pillow-SIMD's Lanczos bandwidth on one AVX2 core is tens of megapixels per second. A 720×400 frame is 0.29 MP. At even 20 MP/s that is about 15 ms, in the same band as stock Pillow and well under 49 ms. Times 2232 frames is about 30–110 s of scale, inside the 2-minute stage budget on one core if the kernel is actually in that band. This is not a measurement of our kernel.
+  - **Cost and risk.** New C++ in `backend`, plus a test that the two phases match `_axis_plan` for 2× and that a non-2× scale still uses the general path. Highest maintenance of the CPU options. Worth it only if `exact` must stay on our kernel. If `balanced` may call Pillow, Gk-C is less code.
+  - **Equivalence.** Within float32 rounding of today's kernel for 2× when the phases match. Non-2× unchanged.
+  - **Evidence.** **[H]**, grounded by **[C]** Pillow-SIMD Lanczos rates and **[M]** our 0.29 s Python baseline.
+
+- **Option Gk-E, skip alpha when the frame is opaque.**
+  - **How.** If `alpha` is identically 1, filter three channels and write alpha = 1. Video-derived GIFs are usually opaque after compositing.
+  - **Expected gain.** **[H]** about one quarter of the tap loop, roughly 70 ms off the 292 ms if the fourth channel is a full quarter. Premultiply becomes a no-op, which also simplifies the clamp (it currently clamps premultiplied RGB).
+  - **Cost and risk.** A single transparent pixel must take the slow path. Detection is one reduction.
+  - **Equivalence.** Bit-identical for fully opaque frames. Transparent frames unchanged.
+  - **Evidence.** **[H]**. **[C]** four-channel loop in `_apply_taps`.
+
+**Goal T3. Scale on the GPU when one is present.**
+
+- **Option Gk-F, keep the measured torch batch as the GPU scale stage.**
+  - **How.** §1 already measured dense `Wy @ premul @ Wx^T` plus a batched clamp at 0.0034 s/frame for 32 frames of this size, peak 4.3 GB, max abs diff 6.6e-5. Run that under the existing GPU lease. Batch size from free VRAM at start, shrink if another job asks (D11, D16). CPU fallback is Gk-D or Gk-C, and the finish line says which (D12, D13).
+  - **Expected gain.** **[C]** from §1: about 80× on the scale step versus the 0.28 s CPU figure. 2232 frames × 3.4 ms is about 8 s of scale, far under the 2-minute stage budget. The job still waits on index and LZW unless those move too (§5.8).
+  - **Cost and risk.** Torch is already a dependency. VRAM spikes if the batch is "all free VRAM" and the clamp materializes `lo`/`hi` for the whole batch. Cap the batch by the 4.3 GB / 32-frame measurement, not by a guess.
+  - **Equivalence.** Within about 1e-4 absolute on the §1 check. D2 accepts that as the default when a GPU is present.
+  - **Evidence.** **[C]** §1. I did not rerun the GPU prototype.
+
+- **Option Gk-G, mpv antiring strength instead of a hard clamp, GPU or CPU.**
+  - **How.** A parameter `antiring` in 0..1. 0 is pure Lanczos. 1 is today's hard clip to the local min/max. Values in between lerp. mpv documents this for separable scalers and warns that non-zero antiring while downscaling adds aliasing.
+  - **Expected gain.** **[H]** little speed versus a hard clamp if both still need the min/max. The win is a quality knob (D1, D9), not a faster inner loop. Skipping the clamp entirely (`antiring=0`, `fast` mode) drops the 65% clamp.
+  - **Cost and risk.** Another setting. Downscale plus antiring can alias. Default `balanced` should not turn it on for downscale.
+  - **Equivalence.** Intentionally different unless the strength is 1 and the window matches.
+  - **Evidence.** **[C]** mpv man page `--scale-antiring`. **[H]** for speed.
+
+**Goal T4. One request, several cores. `workers` stays default 1 (D10).**
+
+- **Option Gk-H, frame pool only after the no-GPU window.**
+  - **How.** Do not spawn workers unless the user set `workers` or accepted a count in the D15 window. Each worker scales a frame with a shared read-only axis plan (Gk-A). The writer stays on one thread. In-flight frames capped (two or three per worker) so RSS stays flat (T5).
+  - **Expected gain.** **[H]** near-linear in the scale step up to memory bandwidth. At 49 ms/frame native and 8 workers, scale for 2232 frames is about 15 s. At today's 292 ms and 8 workers, about 80 s. Either is inside a 2-minute scale stage. Index at 7 s/frame does not shrink because of this option.
+  - **Cost and risk.** GIL: `np.take` in `_apply_taps` holds Python between taps, so threads on the current NumPy path will disappoint. Processes cost copies. Native Gk-D with the GIL released is the one that makes threads work (Claude's C2). Warn when batch multi-core is also on (D10).
+  - **Equivalence.** Bit-identical if the plan and kernel match.
+  - **Evidence.** **[H]**. **[C]** `SamplerWorker` thread pool is per file, not per frame (`gui/src/helpers/core/sampler_worker.py`).
+
+#### Recommendation
+
+Do not spend the next implementation pass on another NumPy rewrite of `_apply_taps`. Gemini's measured 49 ms scale and Claude's confirmation put a careful CPU scale step at about 109 s for 2232 frames, which already fits D14. The streaming loop is still about 7.2 s of `index_frame` plus 0.42 s of `_lzw` per frame (Claude §6). Fix those first, with D22's 7-bit LUT for `balanced`/`fast` and Pillow's C encoder for the write.
+
+For Lanczos itself, the order I would accept:
+
+1. **Gk-F** when a GPU is present. Scale stage becomes seconds. Tolerance is the 6.6e-5 already measured.
+2. **Gk-C in `balanced`/`fast`** on CPU (Pillow Lanczos, no hard clamp), and **Gk-B's exact mask in `exact`**. Pillow-SIMD only if we are willing to own that wheel. Otherwise **Gk-D** for `exact` on CPU, because stock Pillow is the wrong bytes for `exact` (up to 38/255 in §6).
+3. **Gk-A** and **Gk-E** in every path. They are small and bit-identical.
+4. **Gk-H** only as the D15 window's worker count, default 1, and only after the kernel releases the GIL.
+
+What would change this: a profile, after the LUT and Pillow LZW exist, that still shows scale above about 2 minutes. Then Gk-D moves ahead of palette work. Also change it if a real frame from the 326 MB GIF shows Gemini's rectangular `lo`/`hi` is not bit-identical. Then `balanced` cannot claim their 6× number without a visible difference.
+
+#### Questions for Harbinger
+
+- **Gk-Q1.** For `balanced`, is Pillow's uint8 Lanczos (no dering) acceptable, given §6's up-to-38/255 gap, or must `balanced` stay on the float kernel plus a cheaper clamp (Gk-B / Gemini's 49 ms path)?
+- **Gk-Q2.** Should a non-2× scale keep today's NumPy kernel forever, with Gk-D only for the 2× test case? The wallpaper job is 2×. Arbitrary Sampler dimensions are not.
 
 ### 5.3 Grok-Enc (palette, dither, GIF writer)
 
