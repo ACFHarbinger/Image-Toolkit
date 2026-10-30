@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 
 import torch
-from middleware.src.models.wrappers.esrgan_wrapper import RRDBNet
+from middleware.src.models.wrappers.esrgan_wrapper import RRDB, RRDBNet
 from middleware.src.services.media.gif_upscale.neural.realesrgan_photo import (
     RRDBNetX2,
     SRVGGNetCompact,
@@ -73,6 +73,31 @@ def test_tiny_networks_scale_an_8px_frame() -> None:
     assert torch.isfinite(times_four).all()
     assert torch.isfinite(times_two).all()
     assert torch.isfinite(general).all()
+
+
+def test_x2plus_strict_loads_official_checkpoint_shapes() -> None:
+    block = RRDB(num_feat=64, num_grow_ch=32)
+    state = {f"body.0.{name}": tensor for name, tensor in block.state_dict().items()}
+    state["conv_first.weight"] = torch.zeros(64, 12, 3, 3)
+    state["conv_first.bias"] = torch.zeros(64)
+    for name in ("conv_body", "conv_up1", "conv_up2", "conv_hr"):
+        state[f"{name}.weight"] = torch.zeros(64, 64, 3, 3)
+        state[f"{name}.bias"] = torch.zeros(64)
+    state["conv_last.weight"] = torch.zeros(3, 64, 3, 3)
+    state["conv_last.bias"] = torch.zeros(3)
+    assert state["conv_first.weight"].shape == (64, 12, 3, 3)
+    assert state["conv_first.bias"].shape == (64,)
+    assert state["conv_up1.weight"].shape == (64, 64, 3, 3)
+    assert state["conv_up2.weight"].shape == (64, 64, 3, 3)
+    assert "body.0.rdb1.conv1.weight" in state
+
+    net = RRDBNetX2(num_block=1)
+    loaded = net.load_state_dict(state, strict=True)
+    assert loaded.missing_keys == []
+    assert loaded.unexpected_keys == []
+    with torch.no_grad():
+        odd = net(torch.zeros(1, 3, 5, 7))
+    assert odd.shape == (1, 3, 10, 14)
 
 
 def test_cached_state_dict_marks_the_row_available(tmp_path, monkeypatch) -> None:

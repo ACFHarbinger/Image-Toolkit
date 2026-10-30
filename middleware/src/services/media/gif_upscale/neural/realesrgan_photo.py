@@ -26,7 +26,13 @@ _TILE_PAD = 10
 
 
 class RRDBNetX2(nn.Module):
-    """Same RRDB body as the in-repo 4x net, with one nearest+conv 2x stage."""
+    """Official Real-ESRGAN x2plus RRDBNet (BasicSR scale=2).
+
+    PixelUnshuffle(2) makes conv_first a 12-channel conv. Two nearest 2x
+    stages then bring the half-resolution map back to 2x. Odd H or W is
+    reflect-padded so the unshuffle is legal, and the output is cropped
+    to twice the original size.
+    """
 
     def __init__(
         self,
@@ -37,19 +43,30 @@ class RRDBNetX2(nn.Module):
         num_grow_ch: int = 32,
     ):
         super().__init__()
-        self.conv_first = nn.Conv2d(num_in_ch, num_feat, 3, 1, 1)
+        # scale=2 unshuffles first, so RGB (3) arrives as 12 channels.
+        self.conv_first = nn.Conv2d(num_in_ch * 4, num_feat, 3, 1, 1)
         self.body = nn.Sequential(*[RRDB(num_feat, num_grow_ch) for _ in range(num_block)])
         self.conv_body = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
         self.conv_up1 = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
+        self.conv_up2 = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
         self.conv_hr = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
         self.conv_last = nn.Conv2d(num_feat, num_out_ch, 3, 1, 1)
         self.lrelu = nn.LeakyReLU(negative_slope=0.2, inplace=True)
+        self.unshuffle = nn.PixelUnshuffle(2)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        feat = self.conv_first(x)
+        _, _, height, width = x.shape
+        pad_h = height % 2
+        pad_w = width % 2
+        if pad_h or pad_w:
+            x = F.pad(x, (0, pad_w, 0, pad_h), mode="reflect")
+        feat = self.unshuffle(x)
+        feat = self.conv_first(feat)
         feat = feat + self.conv_body(self.body(feat))
         feat = self.lrelu(self.conv_up1(F.interpolate(feat, scale_factor=2, mode="nearest")))
-        return self.conv_last(self.lrelu(self.conv_hr(feat)))
+        feat = self.lrelu(self.conv_up2(F.interpolate(feat, scale_factor=2, mode="nearest")))
+        out = self.conv_last(self.lrelu(self.conv_hr(feat)))
+        return out[:, :, : height * 2, : width * 2]
 
 
 class SRVGGNetCompact(nn.Module):
