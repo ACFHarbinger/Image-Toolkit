@@ -139,6 +139,19 @@ test("lists registry backends and disables an unavailable GIF algorithm", async 
   expect(screen.getByRole("option", { name: "realesrgan-anime-6b (weights are not cached)" })).toBeDisabled();
 });
 
+test("shows a progress bar that advances across a resample batch", async () => {
+  vi.mocked(invoke).mockResolvedValue({ success: true });
+  render(<SamplerPanel />);
+  expect(screen.getByRole("progressbar")).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Input"), {
+    target: { value: "/pics/a.png\n/pics/b.jpg" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Resample" }));
+  expect(await screen.findByText("File 2 of 2")).toBeInTheDocument();
+  expect(screen.getByRole("progressbar")).toHaveAttribute("value", "2");
+  expect(await screen.findByText("Status: ok")).toBeInTheDocument();
+});
+
 test("hides a gif-only algorithm when the selection is a still or a mix", async () => {
   vi.mocked(invoke).mockImplementation(async (_command, args: { action?: string } | undefined) => {
     if (args?.action === "list_resample_algorithms") {

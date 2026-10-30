@@ -16,10 +16,14 @@ __all__ = ["list_algorithms", "resample_gif", "resample_still"]
 
 
 def resample_gif(input_path: str, output_path: str, params: dict[str, Any]) -> dict[str, Any]:
+    progress = params.get("progress")
     try:
+        _report(progress, "decode", 0, 1)
         clip = decode_gif(input_path)
+        _report(progress, "decode", 1, 1)
         frames = [frame.astype(np.float32) / 255.0 for frame in clip.frames]
         scaled, width, height, _algorithm_id = _scale_frames(frames, params, "gif")
+        _report(progress, "encode", 0, 1)
         encoder = encode_gif(
             output_path,
             scaled,
@@ -27,7 +31,9 @@ def resample_gif(input_path: str, output_path: str, params: dict[str, Any]) -> d
             clip.loop,
             encoder=str(params.get("encoder") or "temporal"),
             dither=str(params.get("dither") or "ordered"),
+            progress=progress,
         )
+        _report(progress, "encode", 1, 1)
     except (AlgorithmError, OSError, ValueError) as exc:
         return {"success": False, "message": str(exc)}
     return {
@@ -43,14 +49,25 @@ def resample_still(input_path: str, output_path: str, params: dict[str, Any]) ->
     """Resize one still with the same registry entry a GIF would use, then save that format."""
     from PIL import Image
 
+    progress = params.get("progress")
     try:
+        _report(progress, "decode", 0, 1)
         with Image.open(input_path) as image:
             frame = np.asarray(image.convert("RGBA")).astype(np.float32) / 255.0
+        _report(progress, "decode", 1, 1)
         scaled, width, height, _algorithm_id = _scale_frames([frame], params, "still")
+        _report(progress, "encode", 0, 1)
         _save_still(scaled[0], output_path)
+        _report(progress, "encode", 1, 1)
     except (AlgorithmError, OSError, ValueError) as exc:
         return {"success": False, "message": str(exc)}
     return {"success": True, "message": f"Wrote {width}x{height} {output_path}", "width": width, "height": height}
+
+
+def _report(progress: Any, stage: str, done: int, total: int) -> None:
+    if progress is None:
+        return
+    progress(stage, int(done), int(total))
 
 
 def _scale_frames(frames: list[np.ndarray], params: dict[str, Any], container: str) -> tuple[list[np.ndarray], int, int, str]:
@@ -67,10 +84,39 @@ def _scale_frames(frames: list[np.ndarray], params: dict[str, Any], container: s
     if refusal:
         raise AlgorithmError(refusal)
     scale = width / source_width
-    scaled = registered.upscale(frames, float(scale), {"size": (width, height), "params": params})
+    progress = params.get("progress")
+    # No callback keeps the one batch call. A callback has to run between frames,
+    # so those jobs scale one frame at a time.
+    if progress is None:
+        opts = {"size": (width, height), "params": params}
+        scaled = registered.upscale(frames, float(scale), opts)
+    else:
+        backend_params = {key: value for key, value in params.items() if key != "progress"}
+        opts = {"size": (width, height), "params": backend_params}
+        scaled = _scale_frame_by_frame(registered, frames, float(scale), opts, progress, algorithm_id)
     if len(scaled) != len(frames):
         raise AlgorithmError(f"{algorithm_id} returned {len(scaled)} frames for {len(frames)} inputs.")
     return scaled, width, height, algorithm_id
+
+
+def _scale_frame_by_frame(
+    registered: Any,
+    frames: list[np.ndarray],
+    scale: float,
+    opts: dict[str, Any],
+    progress: Any,
+    algorithm_id: str,
+) -> list[np.ndarray]:
+    total = len(frames)
+    scaled: list[np.ndarray] = []
+    _report(progress, "scale", 0, total)
+    for index, frame in enumerate(frames):
+        one = registered.upscale([frame], scale, opts)
+        if len(one) != 1:
+            raise AlgorithmError(f"{algorithm_id} returned {len(one)} frames for 1 input.")
+        scaled.append(one[0])
+        _report(progress, "scale", index + 1, total)
+    return scaled
 
 
 def _save_still(frame: np.ndarray, path: str) -> None:

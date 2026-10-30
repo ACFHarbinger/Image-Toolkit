@@ -11,6 +11,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -40,6 +41,7 @@ def encode_gif(
     *,
     encoder: str = "temporal",
     dither: str = "ordered",
+    progress: Callable[[str, int, int], None] | None = None,
 ) -> str:
     """Write an animated GIF. Returns the encoder that actually ran."""
     if not frames:
@@ -50,10 +52,10 @@ def encode_gif(
     if chosen == "gifski":
         if _encode_gifski(path, frames, durations, loop):
             return "gifski"
-        _write_palette_gif(path, frames, durations, loop, dither=dither, method="mediancut")
+        _write_palette_gif(path, frames, durations, loop, dither=dither, method="mediancut", progress=progress)
         return "temporal"
     if chosen == "libimagequant":
-        _write_palette_gif(path, frames, durations, loop, dither=dither, method="libimagequant")
+        _write_palette_gif(path, frames, durations, loop, dither=dither, method="libimagequant", progress=progress)
         return "libimagequant"
     if chosen not in {"temporal", "auto"}:
         raise AlgorithmError(f"Unknown GIF encoder {encoder!r}.")
@@ -64,11 +66,11 @@ def encode_gif(
         except (OSError, subprocess.CalledProcessError):
             pass
         try:
-            _write_palette_gif(path, frames, durations, loop, dither=dither, method="libimagequant")
+            _write_palette_gif(path, frames, durations, loop, dither=dither, method="libimagequant", progress=progress)
             return "libimagequant"
         except AlgorithmError:
             pass
-    _write_palette_gif(path, frames, durations, loop, dither=dither, method="mediancut")
+    _write_palette_gif(path, frames, durations, loop, dither=dither, method="mediancut", progress=progress)
     return "temporal"
 
 
@@ -87,6 +89,7 @@ def _write_palette_gif(
     *,
     dither: str,
     method: str,
+    progress: Callable[[str, int, int], None] | None = None,
 ) -> None:
     uint8 = [_as_uint8(frame) for frame in frames]
     transparent = any(int(frame[:, :, 3].min()) < 128 for frame in uint8)
@@ -95,7 +98,10 @@ def _write_palette_gif(
     if transparent:
         palette = np.vstack([np.zeros((1, 3), dtype=np.float32), palette])
     images = []
-    for frame in uint8:
+    frame_count = len(uint8)
+    for frame_index, frame in enumerate(uint8):
+        if progress is not None:
+            progress("encode", frame_index, frame_count)
         index = _indexes(frame[:, :, :3], palette[1:] if transparent else palette, dither)
         if transparent:
             index = index + 1

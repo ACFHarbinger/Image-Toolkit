@@ -18,7 +18,8 @@ class SamplerWorker(BaseQThreadWorker):
     """Resample images, GIFs, and videos to new dimensions or a scale factor."""
 
     finished = Signal(object)  # (done:int, message:str), None on failure/cancel
-    progress_update = Signal(int, int)  # (completed, total) — §5.9 Option C
+    progress_update = Signal(int, int)  # (ticks, file_count * 100)
+    stage_update = Signal(str)
 
     def __init__(self, config: Union[SamplerConfig, Dict[str, Any]]):
         super().__init__()
@@ -26,6 +27,8 @@ class SamplerWorker(BaseQThreadWorker):
         self._is_cancelled = False
         self._executor: Optional[ThreadPoolExecutor] = None
         self._process_lock = threading.Lock()
+        self._progress_lock = threading.Lock()
+        self._file_ticks: Dict[int, int] = {}
         self._active_procs: set = set()
 
     def cancel(self):
@@ -54,7 +57,9 @@ class SamplerWorker(BaseQThreadWorker):
             failures: List[str] = []
             use_multicore = self.config.get("use_multicore", True)
 
-            self.progress_update.emit(0, total)
+            with self._progress_lock:
+                self._file_ticks.clear()
+            self.progress_update.emit(0, total * 100)
 
             if use_multicore and total > 1:
                 max_w = min(os.cpu_count() or 1, 8)
@@ -64,7 +69,8 @@ class SamplerWorker(BaseQThreadWorker):
                     for i, f in enumerate(files)
                     if not self._is_cancelled
                 }
-                for completed_idx, future in enumerate(as_completed(futures)):
+                for future in as_completed(futures):
+                    file_index = futures[future]
                     if self._is_cancelled:
                         break
                     try:
@@ -72,7 +78,7 @@ class SamplerWorker(BaseQThreadWorker):
                             done += 1
                     except Exception as exc:
                         failures.append(str(exc))
-                    self.progress_update.emit(completed_idx + 1, total)
+                    self._publish_ticks(file_index, total, 100, None)
                 self._executor.shutdown(wait=True)
                 self._executor = None
             else:
@@ -84,7 +90,7 @@ class SamplerWorker(BaseQThreadWorker):
                             done += 1
                     except Exception as exc:
                         failures.append(str(exc))
-                    self.progress_update.emit(i + 1, total)
+                    self._publish_ticks(i, total, 100, None)
 
             if self._is_cancelled:
                 return (done, "**Resampling Cancelled**")
@@ -119,14 +125,34 @@ class SamplerWorker(BaseQThreadWorker):
             return False
 
         algorithm = str(self.config.get("algorithm") or "lanczos").lower()
+        progress = self._make_progress(idx, total)
         if ext in vid_exts:
             if algorithm not in {"lanczos", "bicubic", "bilinear", "nearest"}:
                 raise RuntimeError(f"{algorithm} does not resample video.")
             return self._resample_video(input_path, out_path)
         elif ext == "gif":
-            return self._resample_gif(input_path, out_path)
+            return self._resample_gif(input_path, out_path, progress)
         else:
-            return self._resample_image(input_path, out_path, ext)
+            return self._resample_image(input_path, out_path, ext, progress)
+
+    def _make_progress(self, file_index: int, file_count: int):
+        def progress(stage: str, done: int, total: int) -> None:
+            if self._is_cancelled:
+                return
+            ticks = _stage_ticks(stage, done, total)
+            self._publish_ticks(file_index, file_count, ticks, _stage_text(stage, done, total))
+
+        return progress
+
+    def _publish_ticks(self, file_index: int, file_count: int, ticks: int, text: Optional[str]) -> None:
+        """Sum per-file ticks so overlapping multicore jobs cannot rewind the bar."""
+        ticks = max(0, min(100, int(ticks)))
+        with self._progress_lock:
+            self._file_ticks[file_index] = ticks
+            done_ticks = sum(self._file_ticks.values())
+            self.progress_update.emit(done_ticks, file_count * 100)
+            if text:
+                self.stage_update.emit(text)
 
     def _build_output_path(
         self, input_path: str, idx: int, total: int, src_ext: str
@@ -187,13 +213,14 @@ class SamplerWorker(BaseQThreadWorker):
             "algorithm": str(self.config.get("algorithm") or "lanczos").lower(),
         }
 
-    def _resample_image(self, in_path: str, out_path: str, src_ext: str) -> bool:
+    def _resample_image(self, in_path: str, out_path: str, src_ext: str, progress) -> bool:
         from middleware.src.services.media.gif_upscale.pipeline import resample_still
         from PIL import Image
 
         del src_ext
         with Image.open(in_path) as img:
             params = self._registry_params(*img.size)
+        params["progress"] = progress
         result = resample_still(in_path, out_path, params)
         if not result.get("success"):
             raise RuntimeError(str(result.get("message") or "Resample failed."))
@@ -206,12 +233,13 @@ class SamplerWorker(BaseQThreadWorker):
     # GIF resampling (Pillow, frame-by-frame)
     # ------------------------------------------------------------------
 
-    def _resample_gif(self, in_path: str, out_path: str) -> bool:
+    def _resample_gif(self, in_path: str, out_path: str, progress) -> bool:
         from middleware.src.services.media.gif_upscale.pipeline import resample_gif
         from PIL import Image
 
         with Image.open(in_path) as gif:
             params = self._registry_params(*gif.size)
+        params["progress"] = progress
         result = resample_gif(in_path, out_path, params)
         if not result.get("success"):
             raise RuntimeError(str(result.get("message") or "GIF resample failed."))
@@ -301,3 +329,31 @@ class SamplerWorker(BaseQThreadWorker):
         except Exception:
             logger.debug("Suppressed Exception in SamplerWorker._probe_video_dims", exc_info=True)
         return 1920, 1080
+
+
+# Decode and encode bookend the bar. Scaling is the long stretch of one GIF.
+_STAGE_TICKS = {
+    "decode": (0, 8),
+    "scale": (8, 90),
+    "encode": (90, 100),
+}
+
+
+def _stage_ticks(stage: str, done: int, total: int) -> int:
+    start, end = _STAGE_TICKS.get(stage, (0, 100))
+    if total <= 0 or done <= 0:
+        return start
+    if done >= total:
+        return end
+    return start + (end - start) * done // total
+
+
+def _stage_text(stage: str, done: int, total: int) -> str:
+    if stage == "scale" and total > 0:
+        frame_no = total if done >= total else done + 1
+        return f"Scaling frame {frame_no}/{total}"
+    if stage == "encode":
+        return "Encoding"
+    if stage == "decode":
+        return "Decoding"
+    return stage or "Resampling"

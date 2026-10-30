@@ -59,18 +59,31 @@ def _resample_refusal(input_path: str, output_path: str, batch: Any) -> dict[str
     return None
 
 
+def _write_progress(stage: str, done: int, total: int) -> None:
+    """One line the Tauri media command can read before the process exits."""
+    print(f"IT_PROGRESS\t{stage}\t{int(done)}\t{int(total)}", file=sys.stderr, flush=True)
+
+
+def _with_progress(params: dict[str, Any]) -> dict[str, Any]:
+    if callable(params.get("progress")):
+        return params
+    bound = dict(params)
+    bound["progress"] = _write_progress
+    return bound
+
+
 def _resample_still(input_path: str, output_path: str, params: dict[str, Any]) -> dict[str, Any]:
     """Stills use the same registry as GIFs. An unknown id is an error, not Lanczos."""
     from middleware.src.services.media.gif_upscale.pipeline import resample_still
 
-    return resample_still(input_path, output_path, params)
+    return resample_still(input_path, output_path, _with_progress(params))
 
 
 def _resample_gif(input_path: str, output_path: str, params: dict[str, Any]) -> dict[str, Any]:
     """GIF inputs use the registry. Other extensions stay on ``_resample_still``."""
     from middleware.src.services.media.gif_upscale.pipeline import resample_gif
 
-    return resample_gif(input_path, output_path, params)
+    return resample_gif(input_path, output_path, _with_progress(params))
 
 
 def cut_image(params: dict[str, Any]) -> dict[str, Any]:

@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { deskButtonClass, deskControlClass, DeskField } from "../components/common/DeskForm";
 import { ThumbnailGallery } from "../components/common/ThumbnailGallery";
 
@@ -59,6 +60,26 @@ function algorithmGroups(rows: ResampleAlgorithm[]): string[] {
 
 async function runMedia(action: string, params: Record<string, unknown>): Promise<MediaResult> {
   return invoke<MediaResult>("media_subtab", { action, params });
+}
+
+interface MediaProgress {
+  stage?: string;
+  done?: number;
+  total?: number;
+}
+
+function stageText(stage: string, done: number, total: number): string {
+  if (stage === "scale" && total > 0) {
+    const frameNo = done >= total ? total : done + 1;
+    return `Scaling frame ${frameNo}/${total}`;
+  }
+  if (stage === "encode") {
+    return "Encoding";
+  }
+  if (stage === "decode") {
+    return "Decoding";
+  }
+  return stage;
 }
 
 export function CodecPanel() {
@@ -197,6 +218,10 @@ export function SamplerPanel() {
   const [algorithm, setAlgorithm] = useState("lanczos");
   const [algorithms, setAlgorithms] = useState<ResampleAlgorithm[]>(FALLBACK_ALGORITHMS);
   const [status, setStatus] = useState("ready");
+  const [barDone, setBarDone] = useState(0);
+  const [barTotal, setBarTotal] = useState(1);
+  const [stageLabel, setStageLabel] = useState("");
+  const acceptStage = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -210,6 +235,38 @@ export function SamplerPanel() {
     });
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof listen !== "function") {
+      return undefined;
+    }
+    let stop: (() => void) | undefined;
+    let alive = true;
+    void listen<MediaProgress>("media-progress", (event) => {
+      if (!acceptStage.current) {
+        return;
+      }
+      const payload = event?.payload ?? {};
+      const stage = String(payload.stage ?? "");
+      const done = Number(payload.done ?? 0);
+      const total = Number(payload.total ?? 0);
+      setStageLabel(stageText(stage, done, total));
+      setBarDone(Number.isFinite(done) ? done : 0);
+      setBarTotal(total > 0 ? total : 1);
+    }).then((unlisten) => {
+      if (!alive) {
+        unlisten();
+        return;
+      }
+      stop = unlisten;
+    }).catch(() => {
+      // Unit tests that only mock invoke, and a plain browser, have no event bus.
+    });
+    return () => {
+      alive = false;
+      stop?.();
     };
   }, []);
 
@@ -238,21 +295,34 @@ export function SamplerPanel() {
         setStatus("failed: multiple inputs have the same output path");
         return;
       }
-      for (const { input_path: inputPath, output_path: destination } of batch) {
-        const result = await runMedia("resample", {
-          input_path: inputPath,
-          output_path: destination,
-          batch,
-          mode,
-          factor,
-          width,
-          height,
-          algorithm,
-        });
+      setBarTotal(batch.length);
+      for (let index = 0; index < batch.length; index += 1) {
+        const { input_path: inputPath, output_path: destination } = batch[index];
+        setBarDone(index);
+        setStageLabel(`File ${index + 1} of ${batch.length}`);
+        acceptStage.current = true;
+        let result: MediaResult;
+        try {
+          result = await runMedia("resample", {
+            input_path: inputPath,
+            output_path: destination,
+            batch,
+            mode,
+            factor,
+            width,
+            height,
+            algorithm,
+          });
+        } finally {
+          acceptStage.current = false;
+        }
         if (!result.success) {
           setStatus(`failed: ${result.message ?? "unknown"}`);
           return;
         }
+        setBarTotal(batch.length);
+        setBarDone(index + 1);
+        setStageLabel(`File ${index + 1} of ${batch.length}`);
       }
       setStatus("ok");
     } catch (err) {
@@ -327,6 +397,8 @@ export function SamplerPanel() {
       >
         Resample
       </button>
+      <progress role="progressbar" aria-label="Sampler progress" max={Math.max(barTotal, 1)} value={barDone} />
+      <p className="text-sm text-it-muted-text">{stageLabel}</p>
       <p className="text-sm text-it-muted-text">Status: {status}</p>
     </form>
   );
