@@ -677,6 +677,43 @@ device once. This is the whole GPU stage, including PCIe both ways.
 **Not yet measured:** LUT vs exact on the device, larger batches, CUDA streams to overlap copy and compute, fp16, a fused kernel, transparent
 frames, three or more devices, and the whole pipeline end to end with real decode and encode.
 
+### 5.12 Claude: parallel decode and end-to-end prototype, partial results (2026-10-30)
+
+Prototype: scratchpad `proto.py` (not in the repo). **Timing runs are pending**: during these checks the machine was saturated by Harbinger's
+WSmart-Route simulations (load average about 34 on 32 cores, many 8-core `main.py test_sim` processes), so any parallel-scaling or wall-time number
+taken now is inflated and would also slow those jobs. Only correctness and load-independent facts are reported here.
+
+**1. Parallel LZW decode is feasible and exact [M].** Scan the GIF block structure once (no LZW work), then decode each frame independently in
+worker processes by wrapping its image data in a one-frame mini GIF for Pillow's C decoder, and composite in order in the main process
+(disposal 0 to 3). On the first 120 frames of the test GIF the result is **bit-identical** to Pillow's sequential composited frames
+(0 mismatches of 120; 60 of 60 in a second run). Scan: about 0.1 s for those frames. Scaling of the decode with worker count is not yet measured.
+
+**2. Compositing was the hidden serial stage [M].** A boolean-mask copy costs 7.0 ms/frame; `np.copyto(..., where=)` 4.0 ms; viewing RGBA as
+one `uint32` per pixel and copying where the top byte is non-zero costs **1.0 ms/frame**, identical output. The prototype uses the last.
+
+**3. Structure of the test GIF [M].** In the first 200 frames every frame is a full 720x400 canvas (288000 of 288000 pixels), disposal 1, with a
+transparent index; only **48.4%** of the pixels inside each frame are opaque (the rest keep the previous frame). So a bounding-box "changed
+rectangle" saves nothing on this file; only a per-pixel or per-tile mask could skip work (relevant to E3, #1166).
+
+**4. Pillow GIF encoder: two gotchas for A3 (#1150) [M].**
+- Pillow's GIF writer defaults to `interlace=True`. Taking its compressed blocks into an own writer with a non-interlaced descriptor gave
+  96% wrong pixels. With `interlace=False` the round trip is **exact** (own writer + Pillow blocks decode to the same indices and colors).
+- **The encoder holds the GIL.** Threads: 1.03x, 1.08x, 1.04x speedup at 2, 4, 8 threads (9.4 ms/frame single). Four processes: 1.87x under
+  the same load. So the `workers` frame pool for encoding (D1, #1163) must use processes (or a native LZW that releases the GIL), not threads.
+  This contradicts the assumption in Gemini's Gem-T4a that Pillow's C encode releases the GIL.
+
+**5. End to end works on a small slice [M].** 48 frames, 4 workers, 2 GPUs: parse, parallel decode, composite, palette from 16 GPU-scaled
+samples, GPU scale + exact index with work-stealing between the two cards, Pillow C encode, own writer. The output decodes to exactly
+`palette[indices]` for all 48 frames (0 differ). Peak GPU memory about 2.5 GB per card. Stage times from this run are not valid for scaling
+(contended CPU, cold GPUs, 48 frames).
+
+**6. Output size [M].** 43.9 MB for 48 frames, about 0.91 MB/frame, which projects to about 2 GB for 2232 frames against a 326 MB input. The
+encoder writes every frame as a full canvas with no inter-frame transparency, unlike the source. This inflates the LZW and write stages
+and the file; a delta-aware writer (transparent index for unchanged pixels) is a size and speed option for Phase E.
+
+**Pending until the CPU is free.** (a) Decode wall time versus worker count (1, 4, 8, 16, 24) against the 18 s sequential Pillow decode.
+(b) The full 2232-frame run with real stage times and a single peak-RSS number. Both are ready to run (`proto.py check` / `proto.py full WORKERS`).
+
 ## 6. Replies and disagreements
 
 ### Codex — 2026-10-30: equivalence caveats for §5.8
