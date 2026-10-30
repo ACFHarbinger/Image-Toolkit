@@ -641,6 +641,42 @@ All measurements performed on this machine with `OPENBLAS_NUM_THREADS=1` to isol
 - **Mis-Q2 (Fixed-point precision):** For `balanced` mode, is ±1/255 error acceptable for fixed-point implementations (Mis-T2h, Mis-T2i, Mis-T2j), or should we target <0.5/255?
 - **Mis-Q3 (Deriving clamp):** Is the dering clamp essential for all content, or can it be optional/gated for mild upscales (Mis-T1a) or low-contrast regions (Mis-T1b) in `balanced`/`fast` modes?
 
+### 5.11 Claude: B5 first result, multi-GPU scaling with 2 x RTX 3090 Ti (2026-10-30)
+
+**Setup [M].** Throwaway prototype (scratchpad only, not in the repo). 128 frames from the 326 MB GIF (64 distinct, repeated), 720x400 to
+1440x800, batches of 8 frames. Per batch on a device: upload uint8 RGBA from pinned memory, premultiply, dense `Wy @ x @ Wx^T` resample,
+masked 6-tap neighborhood clamp, unpremultiply, ordered dither, **exact** nearest-palette index (256 colors, fp32) one frame at a time,
+download uint8 indices. Frame batches alternate between devices, one Python thread per device, palette and weight matrices copied to each
+device once. This is the whole GPU stage, including PCIe both ways.
+
+| Run | Time for 128 frames | ms/frame | frames/s |
+|---|---|---|---|
+| GPU 0 only | 1.25 s | 9.8 | 102 |
+| GPU 1 only | 1.13 s | 8.8 | 113 |
+| Both GPUs | 0.62 s | **4.8** | **207** |
+
+- Two GPUs give **1.83x** over the better single GPU, and the produced indices are **identical** between the 1-GPU and 2-GPU runs
+  (deterministic, order-independent chunks). Peak about 2.8 GB per device.
+- Projection for 2232 frames, GPU stage only: about 22 s on one card, about 11 s on two. A projection, not a whole-file run.
+- GPU 0 was already at 40% utilization from another process (2.7 GB in use) during the test, so its number is pessimistic.
+- `nvidia-smi topo -m`: the two cards connect through a PCIe host bridge (`PHB`), no NVLink. At idle `nvidia-smi` reports **GPU 0 on x8 and
+  GPU 1 on x4**. Idle link state can differ from the loaded state, so re-check under load; if real, the scheduler must weight chunks by
+  per-device throughput instead of splitting evenly.
+
+**What it means for the plan.**
+1. The GPU stage is no longer the bottleneck. On this machine the serial CPU stages are: decode about 8 ms/frame (about 18 s for the clip,
+   one thread) and LZW compression about 15 ms/frame with Pillow's C encoder (about 33 s on one thread, but frames are independent, so
+   it parallelizes across the 32 cores). Overall wall time will sit near max(decode, GPU/N, LZW/cores), roughly 20 to 25 s.
+2. **A third to fifth GPU adds nothing for this classical path** until decode is parallelized (B5 idea 1: per-frame LZW decode across CPU cores
+   plus compositing on the device). The extra cards matter for the neural backends (ESRGAN, Real-CUGAN, SeedVR2 and similar), where per-frame
+   cost is hundreds of ms.
+3. Chunk scheduling should be work-stealing (workers pull the next batch), not a fixed split, because the cards differ in load and possibly
+   link width.
+4. The arbiter has to hand out devices individually (B1): today it reads device 0 only.
+
+**Not yet measured:** LUT vs exact on the device, larger batches, CUDA streams to overlap copy and compute, fp16, a fused kernel, transparent
+frames, three or more devices, and the whole pipeline end to end with real decode and encode.
+
 ## 6. Replies and disagreements
 
 ### Codex — 2026-10-30: equivalence caveats for §5.8
