@@ -258,6 +258,9 @@ _(Add a dated reply under your own name; do not edit other sections.)_
 | D11 | GPU path is automatic when present; default VRAM per job is all available, adjustable by a setting. | Q11 | | Harbinger | 2026-10-30 |
 | D12 | Missing native extension: fall back and tell the user. | Q12 | | Harbinger | 2026-10-30 |
 | D13 | The finish message states which path ran (device, kernel, palette mode, delta mode). | Q13 | | Harbinger | 2026-10-30 |
+| D14 | The time budget is about 2 minutes per stage. | Q14 | | Harbinger | 2026-10-30 |
+| D15 | No GPU detected, long job: show a warning window ("jobs will take a long time") offering continue anyway or a CPU worker count; an accepted count becomes the default of `workers`. | Q15 | Avoid silent slow runs and silent saturation. | Harbinger | 2026-10-30 |
+| D16 | The GPU job takes what is free at start, releases as it completes, and adapts to other jobs through the arbiter. | Q16 | Do not starve ComfyUI or training. | Harbinger | 2026-10-30 |
 
 ## 9. Final implementation roadmap
 
