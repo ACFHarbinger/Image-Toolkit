@@ -97,6 +97,78 @@ def test_sampler_preflights_the_complete_batch_before_writing(tmp_path):
     assert [path.read_bytes() for path in (first, second)] == originals
 
 
+def _animated_gif(path, size: tuple[int, int]) -> None:
+    from PIL import Image
+
+    red = Image.new("RGB", size, (255, 0, 0))
+    blue = Image.new("RGB", size, (0, 0, 255))
+    red.save(path, format="GIF", save_all=True, append_images=[blue], duration=[40, 80], loop=2, disposal=2)
+    red.close()
+    blue.close()
+
+
+def test_sampler_upscales_and_downscales_every_gif_frame(tmp_path):
+    from middleware.src.services.media.subtabs import resample
+    from PIL import Image
+
+    source = tmp_path / "clip.GIF"
+    larger = tmp_path / "up.gif"
+    smaller = tmp_path / "down.gif"
+    _animated_gif(source, (8, 4))
+
+    up = resample({
+        "input_path": str(source),
+        "output_path": str(larger),
+        "mode": "factor",
+        "factor": 2,
+        "algorithm": "nearest",
+    })
+    assert up["success"] is True
+    assert (up["width"], up["height"]) == (16, 8)
+    with Image.open(larger) as gif:
+        assert gif.format == "GIF"
+        assert gif.n_frames == 2
+        assert gif.size == (16, 8)
+        assert gif.info.get("loop") == 2
+        gif.seek(0)
+        assert gif.info.get("duration") == 40
+        assert gif.convert("RGB").getpixel((0, 0)) == (255, 0, 0)
+        gif.seek(1)
+        assert gif.info.get("duration") == 80
+        assert gif.convert("RGB").getpixel((0, 0)) == (0, 0, 255)
+
+    down = resample({
+        "input_path": str(source),
+        "output_path": str(smaller),
+        "mode": "dimensions",
+        "width": 4,
+        "height": 2,
+        "algorithm": "nearest",
+    })
+    assert down["success"] is True
+    with Image.open(smaller) as gif:
+        assert gif.n_frames == 2
+        assert gif.size == (4, 2)
+        gif.seek(1)
+        assert gif.convert("RGB").getpixel((0, 0)) == (0, 0, 255)
+
+
+def test_sampler_still_resize_ignores_the_gif_path(tmp_path):
+    from middleware.src.services.media.subtabs import resample
+    from PIL import Image
+
+    source = tmp_path / "still.png"
+    output = tmp_path / "still_resampled.png"
+    with Image.new("RGB", (8, 4), (1, 2, 3)) as image:
+        image.save(source)
+    result = resample({"input_path": str(source), "output_path": str(output), "factor": 0.5, "algorithm": "nearest"})
+    assert result == {"success": True, "message": f"Wrote 4x2 {output}", "width": 4, "height": 2}
+    with Image.open(output) as image:
+        assert image.format == "PNG"
+        assert image.size == (4, 2)
+        assert getattr(image, "n_frames", 1) == 1
+
+
 def test_sampler_rejects_aliased_duplicate_batch_outputs(tmp_path):
     from middleware.src.services.media.subtabs import resample
 

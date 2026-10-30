@@ -1,4 +1,4 @@
-"""Codec re-encode, image resample, and sheet cutting. Params arrive on stdin."""
+"""Codec re-encode, image and GIF resample, and sheet cutting. Params arrive on stdin."""
 
 from __future__ import annotations
 
@@ -29,24 +29,39 @@ def reencode(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def resample(params: dict[str, Any]) -> dict[str, Any]:
-    from PIL import Image
-
     input_path = str(params.get("input_path") or "")
     output_path = str(params.get("output_path") or "")
     if not input_path or not output_path:
         raise ValueError("input and output paths are required")
-    batch = params.get("batch") or [{"input_path": input_path, "output_path": output_path}]
-    sources = {Path(item["input_path"]).resolve() for item in batch}
+    refusal = _resample_refusal(input_path, output_path, params.get("batch"))
+    if refusal is not None:
+        return refusal
+    # The selected file's extension picks the writer. A GIF stays animated.
+    if Path(input_path).suffix.lower() == ".gif":
+        return _resample_gif(input_path, output_path, params)
+    return _resample_still(input_path, output_path, params)
+
+
+def _resample_refusal(input_path: str, output_path: str, batch: Any) -> dict[str, Any] | None:
+    planned = batch or [{"input_path": input_path, "output_path": output_path}]
+    sources = {Path(item["input_path"]).resolve() for item in planned}
     sources.add(Path(input_path).resolve())
-    destinations = [Path(item["output_path"]).resolve() for item in batch]
+    destinations = [Path(item["output_path"]).resolve() for item in planned]
     if Path(output_path).resolve() in sources or sources.intersection(destinations):
         return {"success": False, "message": "Refusing to replace a selected source image."}
     if len(destinations) != len(set(destinations)):
         return {"success": False, "message": "Multiple inputs have the same output path."}
-    image = Image.open(input_path)
-    width, height = image.size
-    mode = str(params.get("mode") or "factor")
-    if mode == "dimensions":
+    try:
+        if Path(output_path).resolve() == Path(input_path).resolve():
+            return {"success": False, "message": "Refusing to replace the source image."}
+    except OSError:
+        return {"success": False, "message": "Refusing to replace the source image."}
+    return None
+
+
+def _resample_target(size: tuple[int, int], params: dict[str, Any]) -> tuple[int, int]:
+    width, height = size
+    if str(params.get("mode") or "factor") == "dimensions":
         width = int(params.get("width") or 0)
         height = int(params.get("height") or 0)
     else:
@@ -55,23 +70,74 @@ def resample(params: dict[str, Any]) -> dict[str, Any]:
         height = max(1, round(height * factor))
     if width < 1 or height < 1:
         raise ValueError("target size must be positive")
-    source = Path(input_path)
-    destination = Path(output_path)
-    try:
-        if destination.resolve() == source.resolve():
-            return {"success": False, "message": "Refusing to replace the source image."}
-    except OSError:
-        return {"success": False, "message": "Refusing to replace the source image."}
+    return width, height
+
+
+def _resample_algorithm(params: dict[str, Any]) -> Any:
+    from PIL import Image
+
     algorithms = {
         "lanczos": Image.Resampling.LANCZOS,
         "bicubic": Image.Resampling.BICUBIC,
         "bilinear": Image.Resampling.BILINEAR,
         "nearest": Image.Resampling.NEAREST,
     }
-    algorithm = algorithms.get(str(params.get("algorithm") or "lanczos").lower(), Image.Resampling.LANCZOS)
-    resized = image.resize((width, height), algorithm)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    resized.save(output_path)
+    return algorithms.get(str(params.get("algorithm") or "lanczos").lower(), Image.Resampling.LANCZOS)
+
+
+def _resample_still(input_path: str, output_path: str, params: dict[str, Any]) -> dict[str, Any]:
+    from PIL import Image
+
+    image = Image.open(input_path)
+    try:
+        width, height = _resample_target(image.size, params)
+        resized = image.resize((width, height), _resample_algorithm(params))
+        try:
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            resized.save(output_path)
+        finally:
+            resized.close()
+    finally:
+        image.close()
+    return {"success": True, "message": f"Wrote {width}x{height} {output_path}", "width": width, "height": height}
+
+
+def _resample_gif(input_path: str, output_path: str, params: dict[str, Any]) -> dict[str, Any]:
+    """Scale every composited frame. Durations and the loop count stay with the file."""
+    from PIL import Image
+
+    algorithm = _resample_algorithm(params)
+    with Image.open(input_path) as image:
+        width, height = _resample_target(image.size, params)
+        loop = int(image.info.get("loop", 0))
+        frames: list[Image.Image] = []
+        durations: list[int] = []
+        try:
+            for index in range(getattr(image, "n_frames", 1)):
+                image.seek(index)
+                composed = image.convert("RGBA")
+                try:
+                    frames.append(composed.resize((width, height), algorithm))
+                finally:
+                    composed.close()
+                raw_duration = image.info.get("duration", 100)
+                durations.append(100 if raw_duration is None else int(raw_duration))
+            if not frames:
+                return {"success": False, "message": "GIF has no frames."}
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            frames[0].save(
+                output_path,
+                format="GIF",
+                save_all=True,
+                append_images=frames[1:],
+                duration=durations,
+                loop=loop,
+                disposal=2,
+                optimize=False,
+            )
+        finally:
+            for frame in frames:
+                frame.close()
     return {"success": True, "message": f"Wrote {width}x{height} {output_path}", "width": width, "height": height}
 
 

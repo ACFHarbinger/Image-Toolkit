@@ -83,6 +83,23 @@ test("preflights every destination against every selected source", async () => {
   expect(invoke).not.toHaveBeenCalled();
 });
 
+test("keeps a gif extension so each frame can be resized", async () => {
+  vi.mocked(invoke).mockResolvedValue({ success: true });
+  render(<SamplerPanel />);
+  fireEvent.change(screen.getByLabelText("Input"), { target: { value: "/pics/clip.gif" } });
+  fireEvent.click(screen.getByRole("button", { name: "Resample" }));
+  expect(await screen.findByText("Status: ok")).toBeInTheDocument();
+  expect(invoke).toHaveBeenCalledWith("media_subtab", {
+    action: "resample",
+    params: {
+      input_path: "/pics/clip.gif",
+      output_path: "/pics/clip_resampled.gif",
+      ...resampleParams,
+      batch: [{ input_path: "/pics/clip.gif", output_path: "/pics/clip_resampled.gif" }],
+    },
+  });
+});
+
 test("rejects two inputs that would share one output", async () => {
   render(<SamplerPanel />);
   fireEvent.change(screen.getByLabelText("Input"), { target: { value: "/in/a.png\n/other/a.png" } });

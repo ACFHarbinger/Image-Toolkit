@@ -193,7 +193,7 @@ export function SamplerPanel() {
     <form className="mx-auto flex w-full max-w-3xl flex-col gap-4 rounded-2xl border border-it-border bg-it-surface p-6 shadow-sm" onSubmit={(event) => { event.preventDefault(); void onSubmit(); }}>
       <header>
         <h2 className="text-lg font-semibold">Sampler</h2>
-        <p className="mt-1 text-sm text-it-muted-text">Resize an image by a scale factor or by target dimensions.</p>
+        <p className="mt-1 text-sm text-it-muted-text">Resize an image or GIF by a scale factor or by target dimensions.</p>
       </header>
       <ThumbnailGallery selected={selected} onSelectedChange={setSelected} />
       <DeskField label="Input">
