@@ -3,6 +3,10 @@
 Filters run on premultiplied alpha so a transparent edge does not bleed color,
 then straight alpha is restored. A vanished weight sum is an error: callers
 must not be handed a silent nearest or Lanczos image.
+
+``lanczos3-dering`` upscales that omit ``params["quality"]`` use balanced: the
+same float weights as a per-channel sgemm, then an OpenCV neighborhood clamp.
+``exact`` stays on the tap-and-mask kernel below.
 """
 
 from __future__ import annotations
@@ -11,12 +15,27 @@ from collections.abc import Callable
 
 import numpy as np
 
+try:
+    import cv2
+except ImportError:  # balanced/fast fall back to the mask; exact never needs this
+    cv2 = None
+
 from middleware.src.services.media.gif_upscale.base import AlgorithmError, AlgorithmSpec, Frames
 from middleware.src.services.media.gif_upscale.registry import register_algorithm
 
 Kernel = Callable[[np.ndarray], np.ndarray]
 _SUPPORT_EPS = 1e-8
 _WEIGHT_EPS = 1e-12
+_LANCZOS_DERING = "lanczos3-dering"
+_PLAN_KEY = "_lanczos_plan"
+_OPAQUE_ALPHA = 1.0 - 1e-6
+_BOX6 = np.ones((6, 6), dtype=np.uint8)
+_SCALE_PATH = {
+    "mask": "cpu-taps-mask",
+    "fallback": "cpu-taps-mask-fallback",
+    "sgemm": "cpu-sgemm-opencv",
+    "strength": "cpu-sgemm-opencv-strength",
+}
 
 
 def register_classical(algorithm_id: str, upscale: Callable[[Frames, float, dict], Frames]) -> None:
@@ -97,9 +116,20 @@ def resize_separable(
     width, height = _target_size(scale, opts, algorithm_id)
     resized: Frames = []
     for frame in frames:
-        premul = _premultiply(_require_rgba(frame, algorithm_id, dtype=np.float32))
-        filtered = _separable(premul, width, height, kernel, support, algorithm_id, dering=dering)
-        resized.append(_finish(filtered, algorithm_id, clip_unit=clip_unit))
+        array = _require_rgba(frame, algorithm_id, dtype=np.float32)
+        resized.append(
+            _resize_frame(
+                array,
+                width,
+                height,
+                opts,
+                algorithm_id,
+                kernel,
+                support,
+                dering=dering,
+                clip_unit=clip_unit,
+            )
+        )
     return resized
 
 
@@ -233,19 +263,246 @@ def _apply_taps(image: np.ndarray, indices: np.ndarray, weights: np.ndarray) -> 
     return out
 
 
-def _separable(
-    image: np.ndarray,
+def _resize_frame(
+    array: np.ndarray,
     dst_w: int,
     dst_h: int,
+    opts: dict,
+    algorithm_id: str,
     kernel: Kernel,
     support: float,
-    algorithm_id: str,
     *,
     dering: bool,
+    clip_unit: bool,
 ) -> np.ndarray:
-    src_h, src_w, _channels = image.shape
-    x_index, x_weight, x_valid = _axis_plan(src_w, dst_w, support, kernel, algorithm_id)
-    y_index, y_weight, y_valid = _axis_plan(src_h, dst_h, support, kernel, algorithm_id)
+    src_h, src_w, _channels = array.shape
+    plan = _clip_plan(opts, algorithm_id, int(src_h), int(src_w), int(dst_h), int(dst_w), support, kernel)
+    quality = _lanczos_quality(opts, algorithm_id, int(src_h), int(src_w), int(dst_h), int(dst_w))
+    route = _lanczos_route(
+        algorithm_id,
+        quality,
+        dering,
+        int(src_w),
+        int(src_h),
+        int(dst_w),
+        int(dst_h),
+        bool(plan["window"]),
+    )
+    if algorithm_id == _LANCZOS_DERING:
+        opts["_scale_path"] = _SCALE_PATH[route]
+    if route in ("sgemm", "strength"):
+        strength = None if route != "strength" else _dering_strength(opts)
+        return _resize_lanczos_sgemm(array, plan, algorithm_id, clip_unit=clip_unit, strength=strength)
+    filtered = _filter_with_plan(_premultiply(array), plan, algorithm_id, dering=dering)
+    return _finish(filtered, algorithm_id, clip_unit=clip_unit)
+
+
+def _clip_plan(
+    opts: dict,
+    algorithm_id: str,
+    src_h: int,
+    src_w: int,
+    dst_h: int,
+    dst_w: int,
+    support: float,
+    kernel: Kernel,
+) -> dict:
+    """Axis plans for one geometry. Rebuilt only when the clip size or kernel changes."""
+    key = (algorithm_id, src_h, src_w, dst_h, dst_w, float(support))
+    cached = opts.get(_PLAN_KEY)
+    if isinstance(cached, dict) and cached.get("key") == key:
+        return cached
+    plan = {
+        "key": key,
+        "x": _axis_plan(src_w, dst_w, support, kernel, algorithm_id),
+        "y": _axis_plan(src_h, dst_h, support, kernel, algorithm_id),
+        "window": _six_tap_window_matches(src_w, dst_w, support) and _six_tap_window_matches(src_h, dst_h, support),
+    }
+    opts[_PLAN_KEY] = plan
+    return plan
+
+
+def _six_tap_window_matches(src_len: int, dst_len: int, support: float) -> bool:
+    """The fixed 6x6 box reads the same source pixels as the active Lanczos taps.
+
+    A sample that lands on a pixel center drops the +3 tap (``abs(delta) == support``)
+    even when that pixel is in range. Downscales stay on the mask path either way.
+    """
+    if dst_len < src_len or abs(float(support) - 3.0) > 1e-9:
+        return False
+    indices, _delta, valid = _tap_table(src_len, dst_len, support)
+    in_bounds = (indices >= 0) & (indices < src_len)
+    return not bool(np.any(in_bounds & ~valid))
+
+
+def _lanczos_quality(opts: dict, algorithm_id: str, src_h: int, src_w: int, dst_h: int, dst_w: int) -> str:
+    if algorithm_id != _LANCZOS_DERING:
+        return "exact"
+    params = opts.get("params")
+    quality = params.get("quality") if isinstance(params, dict) else None
+    if quality in ("exact", "balanced", "fast"):
+        return str(quality)
+    # The streaming caller reuses one opts dict and does not send a quality.
+    # That upscale is the path people actually run, so it defaults to balanced.
+    upscale = dst_w >= src_w and dst_h >= src_h and (dst_w > src_w or dst_h > src_h)
+    if quality is None and upscale:
+        return "balanced"
+    return "exact"
+
+
+def _lanczos_route(
+    algorithm_id: str,
+    quality: str,
+    dering: bool,
+    src_w: int,
+    src_h: int,
+    dst_w: int,
+    dst_h: int,
+    window: bool,
+) -> str:
+    if algorithm_id != _LANCZOS_DERING or not dering or quality == "exact":
+        return "mask"
+    if dst_w < src_w or dst_h < src_h:
+        return "mask"
+    if not window or cv2 is None:
+        return "fallback"
+    if quality == "fast":
+        return "strength"
+    return "sgemm"
+
+
+def _dering_strength(opts: dict) -> float:
+    params = opts.get("params")
+    raw = params.get("dering_strength", 1.0) if isinstance(params, dict) else 1.0
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return 1.0
+    if not np.isfinite(value):
+        return 1.0
+    return float(min(1.0, max(0.0, value)))
+
+
+def _frame_opaque(frame: np.ndarray) -> bool:
+    return bool(frame[..., 3].min() >= _OPAQUE_ALPHA)
+
+
+def _resize_lanczos_sgemm(
+    array: np.ndarray,
+    plan: dict,
+    algorithm_id: str,
+    *,
+    clip_unit: bool,
+    strength: float | None,
+) -> np.ndarray:
+    _ensure_sgemm(plan)
+    wx = plan["wx"]
+    wy = plan["wy"]
+    # Opaque frames skip premultiply and the alpha filter. Float32 taps do not
+    # sum to 1, so exact keeps the mask path and stays bit-identical.
+    if _frame_opaque(array):
+        rgb = _sgemm_channels(array[..., :3], wx, wy)
+        _maybe_clamp(rgb, array[..., :3], plan, strength)
+        filtered = _rgba_with_alpha(rgb, np.float32(1.0))
+        return _finish(filtered, algorithm_id, clip_unit=clip_unit)
+    premul = _premultiply(array)
+    filtered = _sgemm_channels(premul, wx, wy)
+    _maybe_clamp(filtered[..., :3], premul[..., :3], plan, strength)
+    return _finish(filtered, algorithm_id, clip_unit=clip_unit)
+
+
+def _ensure_sgemm(plan: dict) -> None:
+    if "wx" in plan:
+        return
+    _algorithm, src_h, src_w, dst_h, dst_w, _support = plan["key"]
+    x_index, x_weight, _x_valid = plan["x"]
+    y_index, y_weight, _y_valid = plan["y"]
+    plan["wx"] = _scatter_columns(x_index, x_weight, int(src_w))
+    plan["wy"] = _scatter_rows(y_index, y_weight, int(src_h))
+    plan["map_x"], plan["map_y"] = _floor_maps(int(src_h), int(src_w), int(dst_h), int(dst_w))
+
+
+def _scatter_columns(index: np.ndarray, weight: np.ndarray, src_len: int) -> np.ndarray:
+    n_taps, dst = index.shape
+    matrix = np.zeros((src_len, dst), dtype=np.float32)
+    columns = np.broadcast_to(np.arange(dst, dtype=np.intp), (n_taps, dst)).reshape(-1)
+    np.add.at(matrix, (index.reshape(-1), columns), weight.reshape(-1))
+    return matrix
+
+
+def _scatter_rows(index: np.ndarray, weight: np.ndarray, src_len: int) -> np.ndarray:
+    n_taps, dst = index.shape
+    matrix = np.zeros((dst, src_len), dtype=np.float32)
+    rows = np.broadcast_to(np.arange(dst, dtype=np.intp), (n_taps, dst)).reshape(-1)
+    np.add.at(matrix, (rows, index.reshape(-1)), weight.reshape(-1))
+    return matrix
+
+
+def _floor_maps(src_h: int, src_w: int, dst_h: int, dst_w: int) -> tuple[np.ndarray, np.ndarray]:
+    """Nearest source pixel for each output, shifted by the 1-pixel replicate border."""
+    src_x = (np.arange(dst_w, dtype=np.float64) + 0.5) * (src_w / dst_w) - 0.5
+    src_y = (np.arange(dst_h, dtype=np.float64) + 0.5) * (src_h / dst_h) - 0.5
+    map_x = np.empty((dst_h, dst_w), dtype=np.float32)
+    map_y = np.empty((dst_h, dst_w), dtype=np.float32)
+    map_x[...] = np.floor(src_x).astype(np.float32) + np.float32(1.0)
+    map_y[...] = (np.floor(src_y).astype(np.float32) + np.float32(1.0))[:, None]
+    return map_x, map_y
+
+
+def _sgemm_channels(image: np.ndarray, wx: np.ndarray, wy: np.ndarray) -> np.ndarray:
+    """Separable filter as one ``sgemm`` per channel. A 3D ``@`` stays in a ufunc loop."""
+    _src_h, _src_w, channels = image.shape
+    out = np.empty((wy.shape[0], wx.shape[1], channels), dtype=np.float32)
+    for channel in range(channels):
+        slab = image[..., channel]
+        if not slab.flags.c_contiguous:
+            slab = np.ascontiguousarray(slab)
+        out[..., channel] = wy @ (slab @ wx)
+    return out
+
+
+def _maybe_clamp(rgb: np.ndarray, source_rgb: np.ndarray, plan: dict, strength: float | None) -> None:
+    if strength is not None and strength <= 0.0:
+        return
+    lo, hi = _opencv_neighborhood(source_rgb, plan["map_x"], plan["map_y"])
+    _blend_clamp(rgb, lo, hi, strength)
+
+
+def _opencv_neighborhood(source_rgb: np.ndarray, map_x: np.ndarray, map_y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    # Anchor (2, 2) on a 6x6 box is offsets [-2, 3], the Lanczos support-3 taps.
+    # One replicate pixel covers the nearest out-of-range sample; the default
+    # morphology border ignores the rest of the kernel, so it does not widen the min/max.
+    padded = cv2.copyMakeBorder(
+        np.ascontiguousarray(source_rgb, dtype=np.float32),
+        1,
+        1,
+        1,
+        1,
+        cv2.BORDER_REPLICATE,
+    )
+    lo = cv2.erode(padded, _BOX6, anchor=(2, 2))
+    hi = cv2.dilate(padded, _BOX6, anchor=(2, 2))
+    return cv2.remap(lo, map_x, map_y, cv2.INTER_NEAREST), cv2.remap(hi, map_x, map_y, cv2.INTER_NEAREST)
+
+
+def _blend_clamp(rgb: np.ndarray, lo: np.ndarray, hi: np.ndarray, strength: float | None) -> None:
+    if strength is None or strength >= 1.0:
+        np.clip(rgb, lo, hi, out=rgb)
+        return
+    clamped = np.clip(rgb, lo, hi)
+    rgb[...] = rgb + (clamped - rgb) * np.float32(strength)
+
+
+def _rgba_with_alpha(rgb: np.ndarray, alpha: np.ndarray | float) -> np.ndarray:
+    out = np.empty(rgb.shape[:2] + (4,), dtype=np.float32)
+    out[..., :3] = rgb
+    out[..., 3] = alpha
+    return out
+
+
+def _filter_with_plan(image: np.ndarray, plan: dict, algorithm_id: str, *, dering: bool) -> np.ndarray:
+    x_index, x_weight, x_valid = plan["x"]
+    y_index, y_weight, y_valid = plan["y"]
     wide = _apply_taps(image, x_index, x_weight)
     tall = np.ascontiguousarray(np.swapaxes(wide, 0, 1))
     high = _apply_taps(tall, y_index, y_weight)
