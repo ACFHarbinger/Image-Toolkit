@@ -7,15 +7,16 @@ from typing import Any
 
 import numpy as np
 
-from middleware.src.services.media.gif_upscale.base import AlgorithmError
+from middleware.src.services.media.gif_upscale.base import AlgorithmError, ResampleCancelled
 from middleware.src.services.media.gif_upscale.encode import encode_gif
 from middleware.src.services.media.gif_upscale.io import decode_gif
 from middleware.src.services.media.gif_upscale.registry import get_algorithm, list_algorithms
 
-__all__ = ["list_algorithms", "resample_gif", "resample_still"]
+__all__ = ["ResampleCancelled", "list_algorithms", "resample_gif", "resample_still"]
 
 
 def resample_gif(input_path: str, output_path: str, params: dict[str, Any]) -> dict[str, Any]:
+    """Raises ResampleCancelled when ``params["progress"]`` raises it. The partial output is removed."""
     progress = params.get("progress")
     try:
         _report(progress, "decode", 0, 1)
@@ -26,15 +27,19 @@ def resample_gif(input_path: str, output_path: str, params: dict[str, Any]) -> d
         frames = [frame.astype(np.float32) / 255.0 for frame in clip.frames]
         scaled, width, height, _algorithm_id = _scale_frames(frames, params, "gif")
         _report(progress, "encode", 0, 1)
-        encoder = encode_gif(
-            output_path,
-            scaled,
-            clip.durations,
-            clip.loop,
-            encoder=str(params.get("encoder") or "temporal"),
-            dither=str(params.get("dither") or "ordered"),
-            progress=progress,
-        )
+        try:
+            encoder = encode_gif(
+                output_path,
+                scaled,
+                clip.durations,
+                clip.loop,
+                encoder=str(params.get("encoder") or "temporal"),
+                dither=str(params.get("dither") or "ordered"),
+                progress=progress,
+            )
+        except ResampleCancelled:
+            Path(output_path).unlink(missing_ok=True)
+            raise
         _report(progress, "encode", 1, 1)
     except (AlgorithmError, OSError, ValueError) as exc:
         return {"success": False, "message": str(exc)}
@@ -96,7 +101,7 @@ def _resample_gif_stream(
     prepared = _prepare_scale(params, "gif", *_first_size(input_path))
     registered, scale, width, height, algorithm_id = prepared
     opts = {"size": (width, height), "params": {key: value for key, value in params.items() if key != "progress"}}
-    samples, count, loop = _palette_samples(input_path, registered, scale, opts, algorithm_id)
+    samples, count, loop = _palette_samples(input_path, registered, scale, opts, algorithm_id, progress)
     transparent = any(int(frame[:, :, 3].min()) < 128 for frame in samples)
     colors = 255 if transparent else 256
     palette = _shared_palette(samples, colors, "mediancut")
@@ -104,6 +109,7 @@ def _resample_gif_stream(
         palette = np.vstack([np.zeros((1, 3), dtype=np.float32), palette])
     del samples
     writer = IndexedGifWriter(output_path, width, height, palette, loop, transparent=transparent)
+    cancelled = False
     try:
         _report(progress, "scale", 0, count)
         for seen, (frame, duration, _frame_loop) in enumerate(iter_gif_frames(input_path), start=1):
@@ -114,8 +120,13 @@ def _resample_gif_stream(
             )
             _report(progress, "scale", seen, count)
         _report(progress, "encode", 0, 1)
+    except ResampleCancelled:
+        cancelled = True
+        raise
     finally:
         writer.close()
+        if cancelled:
+            Path(output_path).unlink(missing_ok=True)
     _report(progress, "encode", 1, 1)
     return {
         "success": True,
@@ -133,7 +144,9 @@ def _first_size(input_path: str) -> tuple[int, int]:
         return image.size
 
 
-def _palette_samples(input_path: str, registered: Any, scale: float, opts: dict, algorithm_id: str) -> tuple[list[np.ndarray], int, int]:
+def _palette_samples(
+    input_path: str, registered: Any, scale: float, opts: dict, algorithm_id: str, progress: Any = None
+) -> tuple[list[np.ndarray], int, int]:
     from PIL import Image
 
     with Image.open(input_path) as image:
@@ -143,6 +156,8 @@ def _palette_samples(input_path: str, registered: Any, scale: float, opts: dict,
     wanted = set(range(0, count, stride))
     samples: list[np.ndarray] = []
     for index, (frame, _duration, _loop) in enumerate(_iter_rgba(input_path)):
+        # Cancel has to land while the sample frames decode too; this scan can cross most of a long clip.
+        _report(progress, "decode", index, count)
         if index not in wanted:
             continue
         scaled = _one_frame(registered, frame.astype(np.float32) / 255.0, scale, opts, algorithm_id)

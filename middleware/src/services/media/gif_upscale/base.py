@@ -16,6 +16,10 @@ class AlgorithmError(Exception):
     """The chosen backend refused the job. Callers surface this text; they do not swap algorithms."""
 
 
+class ResampleCancelled(Exception):
+    """A progress callback raised this to stop the job. It is not a failure and not an AlgorithmError."""
+
+
 @dataclass(frozen=True)
 class AlgorithmSpec:
     """One registered backend. ``supports_scale`` empty means any positive scale."""

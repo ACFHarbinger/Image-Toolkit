@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional, Union
 
 from middleware.src.constants import SUPPORTED_VIDEO_FORMATS
+from middleware.src.services.media.gif_upscale.base import ResampleCancelled
 from PySide6.QtCore import Signal
 
 from gui.src.helpers.base import BaseQThreadWorker
@@ -126,19 +127,23 @@ class SamplerWorker(BaseQThreadWorker):
 
         algorithm = str(self.config.get("algorithm") or "lanczos").lower()
         progress = self._make_progress(idx, total)
-        if ext in vid_exts:
-            if algorithm not in {"lanczos", "bicubic", "bilinear", "nearest"}:
-                raise RuntimeError(f"{algorithm} does not resample video.")
-            return self._resample_video(input_path, out_path)
-        elif ext == "gif":
-            return self._resample_gif(input_path, out_path, progress)
-        else:
-            return self._resample_image(input_path, out_path, ext, progress)
+        try:
+            if ext in vid_exts:
+                if algorithm not in {"lanczos", "bicubic", "bilinear", "nearest"}:
+                    raise RuntimeError(f"{algorithm} does not resample video.")
+                return self._resample_video(input_path, out_path)
+            elif ext == "gif":
+                return self._resample_gif(input_path, out_path, progress)
+            else:
+                return self._resample_image(input_path, out_path, ext, progress)
+        except ResampleCancelled:
+            return False
 
     def _make_progress(self, file_index: int, file_count: int):
         def progress(stage: str, done: int, total: int) -> None:
+            # Raising is the only way to stop a job that sits inside one backend call.
             if self._is_cancelled:
-                return
+                raise ResampleCancelled
             ticks = _stage_ticks(stage, done, total)
             self._publish_ticks(file_index, file_count, ticks, _stage_text(stage, done, total))
 

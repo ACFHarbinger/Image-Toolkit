@@ -37,9 +37,13 @@ class SamplerWorkerController(TabBoundController):
     @Slot(bool)
     def _start_worker(self, use_selection: bool):
         if self.worker and self.worker.isRunning():
+            # Never wait() here: this is the GUI thread. The worker stops at its next progress
+            # checkpoint and its finished signal resets the buttons through _on_done.
             self.worker.cancel()
-            self.worker.wait()
-            self._on_done((0, "**Resampling cancelled**"))
+            cancel_btn = self.btn_selected if use_selection else self.btn_all
+            cancel_btn.setEnabled(False)
+            cancel_btn.setText("Cancelling…")
+            self.status_label.setText("Cancelling…")  # pyrefly: ignore [missing-attribute]
             return
 
         config = self._collect_config(use_selection)
@@ -78,7 +82,12 @@ class SamplerWorkerController(TabBoundController):
     def _on_done(self, result):
         if result is None:  # failure — error path already reported
             return
-        count, msg = result
+        _count, msg = result
+        self._reset_controls(msg)
+        if "cancelled" not in msg.lower():
+            QMessageBox.information(self.tab, "Complete", msg)
+
+    def _reset_controls(self, msg: str) -> None:
         self.btn_all.setEnabled(True)
         self.btn_all.setText("Resample All in Directory")
         self.btn_all.setStyleSheet(qss("shared_button"))
@@ -88,13 +97,11 @@ class SamplerWorkerController(TabBoundController):
         self.progress_bar.setValue(0)
         self.status_label.setText(msg)  # pyrefly: ignore [missing-attribute]
         self.tab.worker = None
-        if "cancelled" not in msg.lower():
-            QMessageBox.information(self.tab, "Complete", msg)
 
-    @Slot(str)
+    @Slot(object)
     def _on_error(self, err):
         msg = str(err)
-        self._on_done(0, msg)
+        self._reset_controls(msg)
         QMessageBox.critical(self.tab, "Error", msg)
 
 

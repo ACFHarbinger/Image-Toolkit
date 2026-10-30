@@ -347,3 +347,73 @@ def test_license_record_does_not_block_private_use_backends() -> None:
     assert shipping_allowed(apisr) is True
     assert shipping_allowed(gifski) is True
     assert get_algorithm("lanczos").spec.license == "MIT"
+
+
+def _many_frame_gif(path, frames: int, size=(16, 8)) -> None:
+    from PIL import Image
+
+    images = [Image.new("RGB", size, (index * 5 % 256, 0, 255 - index * 5 % 256)) for index in range(frames)]
+    images[0].save(path, format="GIF", save_all=True, append_images=images[1:], duration=40, loop=0, disposal=2)
+    for image in images:
+        image.close()
+
+
+def _cancel_after(stage: str, limit: int):
+    from middleware.src.services.media.gif_upscale.base import ResampleCancelled
+
+    calls = {"count": 0}
+
+    def progress(name: str, done: int, total: int) -> None:
+        del done, total
+        if name == stage:
+            calls["count"] += 1
+            if calls["count"] >= limit:
+                raise ResampleCancelled
+
+    return progress, calls
+
+
+def test_cancel_stops_the_gif_scale_loop_and_leaves_no_output(tmp_path):
+    from middleware.src.services.media.gif_upscale.base import ResampleCancelled
+    from middleware.src.services.media.gif_upscale.pipeline import resample_gif
+
+    source = tmp_path / "clip.gif"
+    out = tmp_path / "out.gif"
+    _many_frame_gif(source, 20)
+    progress, calls = _cancel_after("scale", 3)
+    with pytest.raises(ResampleCancelled):
+        resample_gif(str(source), str(out), {"mode": "factor", "factor": 2, "algorithm": "nearest", "progress": progress})
+    assert calls["count"] == 3
+    assert not out.exists()
+
+
+def test_cancel_stops_the_streaming_path_and_removes_the_partial_file(tmp_path, monkeypatch):
+    from middleware.src.services.media.gif_upscale import encode
+    from middleware.src.services.media.gif_upscale.base import ResampleCancelled
+    from middleware.src.services.media.gif_upscale.pipeline import resample_gif
+
+    monkeypatch.setattr(encode, "STREAM_RGBA_BYTES", 1)  # force the one-frame-at-a-time path
+    source = tmp_path / "clip.gif"
+    out = tmp_path / "out.gif"
+    _many_frame_gif(source, 20)
+    progress, calls = _cancel_after("scale", 4)
+    with pytest.raises(ResampleCancelled):
+        resample_gif(str(source), str(out), {"mode": "factor", "factor": 2, "algorithm": "nearest", "progress": progress})
+    assert calls["count"] == 4
+    assert not out.exists()
+
+
+def test_cancel_during_palette_sampling_does_not_touch_an_existing_output(tmp_path, monkeypatch):
+    from middleware.src.services.media.gif_upscale import encode
+    from middleware.src.services.media.gif_upscale.base import ResampleCancelled
+    from middleware.src.services.media.gif_upscale.pipeline import resample_gif
+
+    monkeypatch.setattr(encode, "STREAM_RGBA_BYTES", 1)
+    source = tmp_path / "clip.gif"
+    out = tmp_path / "out.gif"
+    _many_frame_gif(source, 20)
+    out.write_bytes(b"keep me")
+    progress, _calls = _cancel_after("decode", 3)
+    with pytest.raises(ResampleCancelled):
+        resample_gif(str(source), str(out), {"mode": "factor", "factor": 2, "algorithm": "nearest", "progress": progress})
+    assert out.read_bytes() == b"keep me"
