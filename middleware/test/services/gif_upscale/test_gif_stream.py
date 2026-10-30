@@ -42,3 +42,18 @@ def test_many_frames_need_the_stream_path(tmp_path) -> None:
     frames[0].save(path, format="GIF", save_all=True, append_images=frames[1:], duration=40, loop=0, optimize=False)
     assert _needs_stream(str(path), {"mode": "factor", "factor": 8}) is True
     assert _needs_stream(str(path), {"mode": "factor", "factor": 1}) is False
+
+
+def test_detailed_indexed_round_trip(tmp_path):
+    from PIL import Image
+    from middleware.src.services.media.gif_upscale.encode import IndexedGifWriter
+
+    for size in (32, 128, 256):
+        pixels = np.random.default_rng(size).integers(0, 256, (size, size), dtype=np.uint8)
+        palette = np.repeat(np.arange(256)[:, None], 3, axis=1)
+        path = tmp_path / f"detailed-{size}.gif"
+        writer = IndexedGifWriter(str(path), size, size, palette, 0, transparent=False)
+        writer.add_frame(pixels, 100)
+        writer.close()
+        with Image.open(path) as image:
+            np.testing.assert_array_equal(np.asarray(image), pixels)

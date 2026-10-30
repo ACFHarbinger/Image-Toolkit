@@ -100,9 +100,11 @@ def _resample_gif_stream(
     _report(progress, "decode", 1, 1)
     prepared = _prepare_scale(params, "gif", *_first_size(input_path))
     registered, scale, width, height, algorithm_id = prepared
+    if registered.spec.needs_gpu:
+        raise AlgorithmError("Neural processing of streaming clips requires a prepared temporal inference session; reduce clip size.")
     opts = {"size": (width, height), "params": {key: value for key, value in params.items() if key != "progress"}}
     samples, count, loop = _palette_samples(input_path, registered, scale, opts, algorithm_id, progress)
-    transparent = any(int(frame[:, :, 3].min()) < 128 for frame in samples)
+    transparent = True
     colors = 255 if transparent else 256
     palette = _shared_palette(samples, colors, "mediancut")
     if transparent:
@@ -202,7 +204,7 @@ def _prepare_scale(params: dict[str, Any], container: str, source_width: int, so
 
 
 def _report(progress: Any, stage: str, done: int, total: int) -> None:
-    if progress is None:
+    if progress is None or registered.spec.needs_gpu:
         return
     progress(stage, int(done), int(total))
 
@@ -224,9 +226,11 @@ def _scale_frames(frames: list[np.ndarray], params: dict[str, Any], container: s
     progress = params.get("progress")
     # No callback keeps the one batch call. A callback has to run between frames,
     # so those jobs scale one frame at a time.
-    if progress is None:
+    if progress is None or registered.spec.needs_gpu:
         opts = {"size": (width, height), "params": params}
+        _report(progress, "scale", 0, len(frames))
         scaled = registered.upscale(frames, float(scale), opts)
+        _report(progress, "scale", len(frames), len(frames))
     else:
         backend_params = {key: value for key, value in params.items() if key != "progress"}
         opts = {"size": (width, height), "params": backend_params}

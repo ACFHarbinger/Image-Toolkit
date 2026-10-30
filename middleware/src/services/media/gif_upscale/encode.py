@@ -119,7 +119,7 @@ def _lzw(data: bytes, min_code_size: int) -> bytes:
         if next_code < 4096:
             table[joined] = next_code
             next_code += 1
-            if code_size < 12 and next_code == (1 << code_size):
+            if code_size < 12 and next_code > (1 << code_size):
                 code_size += 1
         else:
             emit(clear, code_size)
@@ -129,6 +129,8 @@ def _lzw(data: bytes, min_code_size: int) -> bytes:
         prefix = suffix
     if prefix:
         emit(table[prefix], code_size)
+    if next_code == (1 << code_size) and code_size < 12:
+        code_size += 1
     emit(end, code_size)
     if nbits:
         out.append(bits & 0xFF)
