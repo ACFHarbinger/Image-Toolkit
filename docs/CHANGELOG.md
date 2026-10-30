@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Realistic upscalers are registered for GIF and still resize: Real-ESRGAN x4plus, x2plus, and general-x4v3, plus HAT, SwinIR, DRCT, MambaIRv2, fidelity-guarded OSEDiff and TSD-SR, and temporal shells for SeedVR2, FlashVSR, and DOVE. They stay unavailable until their weight files are in the local cache, and they do not download without a recorded checksum.
 - Sampler resize, for GIFs and stills, goes through one backend registry. `.gif` inputs keep a shared palette and ordered dither, and `gif_upscale.weights_policy` (`on_demand`, `prefetch_all`, `offline`) controls weight downloads. Licenses are recorded and do not block a backend. Classical backends cover deringed Lanczos, Catmull-Rom, bicubic-sharper, EWA/Jinc, FSR1, edge-directed interpolation, guided detail, Scale2x/3x, EPX, xBRZ, hqx, integer nearest, area, linear-light, SSIM downscale, and Anime4K. Real-ESRGAN anime-6B is registered through the existing wrapper. The Python Sampler lists the same algorithms.
 - Sampler upscales and downscales a GIF by resizing every frame when the selected file ends in `.gif`, keeping each frame's duration and the loop count. Any other extension stays on the still-image resize path.
 

@@ -981,8 +981,10 @@ any public release); model weights download on demand by default, with the setti
 **Status:** Wave 0 and the Wave 1 classical lanes are on `feat/gif-upscale-suite` (registry, palette encoder,
 weights policy, license record, deringed Lanczos, Catmull-Rom, bicubic-sharper, EWA/Jinc, FSR1, NEDI,
 guided detail, pixel-art scalers, area / linear-light / SSIM downscale, Anime4K). Real-ESRGAN anime-6B is
-registered through `ESRGANWrapper`; the other Real-ESRGAN ids are listed and unavailable until their networks
-are wired. Wave 2/3 beyond that, the eval harness (#1126), and the Codex benchmark (#1146) are still open.
+registered through `ESRGANWrapper`. Realistic Real-ESRGAN x4plus, x2plus, and general-x4v3, plus HAT, SwinIR,
+DRCT, MambaIRv2, OSEDiff, TSD-SR, SeedVR2, FlashVSR, and DOVE, are registered and stay unavailable until their
+weight files are cached. The eval harness (#1126) and the Codex benchmark (#1146) are still open. Anime neural
+lanes (Real-CUGAN, waifu2x, APISR, SPAN, AnimeSR) are still open.
 
 ---
 
