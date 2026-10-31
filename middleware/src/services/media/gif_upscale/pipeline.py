@@ -26,11 +26,19 @@ def resample_gif(input_path: str, output_path: str, params: dict[str, Any]) -> d
         timings = _stage_timings()
         started = time.perf_counter()
         clip = decode_gif(input_path)
-        frames = [frame.astype(np.float32) / 255.0 for frame in clip.frames]
         _tick(timings, "decode", started)
         _report(progress, "decode", 1, 1)
+        algorithm_id = str(params.get("algorithm") or "lanczos").strip().lower()
+        chosen_encoder = str(params.get("encoder") or "temporal").strip().lower()
+        if algorithm_id == "lanczos3-dering" and chosen_encoder == "temporal":
+            gpu_res = _resample_gif_in_memory_gpu(clip, output_path, params, timings, progress)
+            if gpu_res is not None:
+                return gpu_res
         started = time.perf_counter()
+        frames = [frame.astype(np.float32) / 255.0 for frame in clip.frames]
         scaled, width, height, algorithm_id, opts = _scale_frames(frames, params, "gif")
+        if "_gpu_fallback" in params:
+            opts["_gpu_fallback"] = params["_gpu_fallback"]
         _tick(timings, "scale", started)
         _report(progress, "encode", 0, 1)
         started = time.perf_counter()
@@ -53,7 +61,104 @@ def resample_gif(input_path: str, output_path: str, params: dict[str, Any]) -> d
         _report(progress, "encode", 1, 1)
     except (AlgorithmError, OSError, ValueError) as exc:
         return {"success": False, "message": str(exc)}
-    return _gif_success(width, height, output_path, encoder, timings, _path_record(opts, algorithm_id, encoder))
+    return _gif_success(
+        width,
+        height,
+        output_path,
+        encoder,
+        timings,
+        _path_record(opts, algorithm_id, encoder),
+        opts.get("_gpu_fallback"),
+    )
+
+
+def _resample_gif_in_memory_gpu(
+    clip: Any,
+    output_path: str,
+    params: dict[str, Any],
+    timings: dict[str, float],
+    progress: Any,
+) -> dict[str, Any] | None:
+    """Run in-memory GIF scale + on-device dither and palette lookup on GPU when available."""
+    from middleware.src.services.media.gif_upscale.encode import IndexedGifWriter, _shared_palette
+    from middleware.src.services.media.gif_upscale.gpu_batch import acquire_gpu_session
+
+    source_height, source_width = clip.frames[0].shape[:2]
+    _registered, _scale, width, height, algorithm_id = _prepare_scale(params, "gif", source_width, source_height)
+    opts: dict[str, Any] = {
+        "size": (width, height),
+        "params": {key: value for key, value in params.items() if key != "progress"},
+    }
+    gpu_session, fallback_reason = acquire_gpu_session(
+        src_h=source_height,
+        src_w=source_width,
+        dst_h=height,
+        dst_w=width,
+        opts=opts,
+        algorithm_id=algorithm_id,
+    )
+    if gpu_session is None:
+        if fallback_reason:
+            params["_gpu_fallback"] = fallback_reason
+        return None
+    try:
+        total = len(clip.frames)
+        scaled_u8: list[np.ndarray] = []
+        _report(progress, "scale", 0, total)
+        started = time.perf_counter()
+        step = max(1, gpu_session.batch_size)
+        for start in range(0, total, step):
+            batch = clip.frames[start : start + step]
+            scaled_batch = gpu_session.scale_batch_uint8(batch)
+            for offset, item in enumerate(scaled_batch, start=1):
+                scaled_u8.append(item)
+                _report(progress, "scale", start + offset, total)
+        _tick(timings, "scale", started)
+
+        transparent = any(int(frame[:, :, 3].min()) < 128 for frame in scaled_u8)
+        colors = 255 if transparent else 256
+        dither = str(params.get("dither") or "ordered")
+        quality = str(params.get("quality") or "balanced")
+        started = time.perf_counter()
+        palette = _shared_palette(scaled_u8, colors, "mediancut")
+        _tick(timings, "palette", started)
+        if transparent:
+            palette = np.vstack([np.zeros((1, 3), dtype=np.float32), palette])
+        gpu_session.prepare_palette(palette, transparent=transparent, dither=dither, quality=quality)
+
+        _report(progress, "encode", 0, 1)
+        writer = IndexedGifWriter(output_path, width, height, palette, clip.loop, transparent=transparent)
+        cancelled = False
+        try:
+            for start in range(0, total, step):
+                batch_u8 = scaled_u8[start : start + step]
+                t_idx = time.perf_counter()
+                indices_batch = gpu_session.index_batch_uint8(batch_u8)
+                _tick(timings, "index", t_idx)
+                for offset in range(indices_batch.shape[0]):
+                    frame_pos = start + offset
+                    _report(progress, "encode", frame_pos, total)
+                    t_lzw = time.perf_counter()
+                    writer.add_frame(indices_batch[offset], clip.durations[frame_pos])
+                    _tick(timings, "lzw", t_lzw)
+        except ResampleCancelled:
+            cancelled = True
+            raise
+        finally:
+            writer.close()
+            if cancelled:
+                Path(output_path).unlink(missing_ok=True)
+        _report(progress, "encode", 1, 1)
+    finally:
+        gpu_session.close()
+    return _gif_success(
+        width,
+        height,
+        output_path,
+        "temporal",
+        timings,
+        _path_record(opts, algorithm_id, "temporal"),
+    )
 
 
 def resample_still(input_path: str, output_path: str, params: dict[str, Any]) -> dict[str, Any]:
