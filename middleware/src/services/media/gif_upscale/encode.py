@@ -8,6 +8,7 @@ previous frame), and keeps a transparent index when any frame needs it.
 
 from __future__ import annotations
 
+import io
 import shutil
 import subprocess
 import tempfile
@@ -17,6 +18,7 @@ from pathlib import Path
 import numpy as np
 
 from middleware.src.services.media.gif_upscale.base import AlgorithmError
+from middleware.src.services.media.gif_upscale.encode_pool import FrameEncodePool
 
 _BAYER_8 = np.array(
     [
@@ -38,14 +40,34 @@ STREAM_RGBA_BYTES = 256 * 1024 * 1024
 
 
 class IndexedGifWriter:
-    """Append indexed frames to one GIF without keeping the clip in memory."""
+    """Append indexed frames to one GIF without keeping the clip in memory.
 
-    def __init__(self, path: str, width: int, height: int, palette: np.ndarray, loop: int, *, transparent: bool) -> None:
+    ``workers`` defaults to 1 and encodes in this process. Above 1, frame LZW
+    runs in a process pool while this object still writes GIF blocks in order.
+    """
+
+    def __init__(
+        self,
+        path: str,
+        width: int,
+        height: int,
+        palette: np.ndarray,
+        loop: int,
+        *,
+        transparent: bool,
+        use_pillow_lzw: bool = True,
+        workers: int = 1,
+    ) -> None:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._file = Path(path).open("wb")  # noqa: SIM115 — closed in close(), after every frame is written
         self._width = width
         self._height = height
         self._transparent = transparent
+        self._use_pillow_lzw = use_pillow_lzw
+        self._workers = int(workers)
+        self._pool: FrameEncodePool | None = None
+        self._error: BaseException | None = None
+        self._closed = False
         table = np.zeros(768, dtype=np.uint8)
         count = min(256, int(palette.shape[0]))
         flat = np.clip(np.rint(palette[:count]), 0, 255).astype(np.uint8).reshape(-1)
@@ -56,27 +78,103 @@ class IndexedGifWriter:
         self._file.write(b"\x21\xff\x0bNETSCAPE2.0\x03\x01" + _u16(int(loop)) + b"\x00")
 
     def add_frame(self, index: np.ndarray, duration_ms: int) -> None:
+        # workers <= 1 stays on the in-process encoder: same bytes, no processes.
+        if self._workers <= 1:
+            subblocks = _encode_lzw_subblocks(index, use_pillow=self._use_pillow_lzw)
+            self.add_compressed_frame(subblocks, duration_ms)
+            return
+        if self._error is not None:
+            raise self._error
+        try:
+            self._ensure_pool().push(index, self._use_pillow_lzw, duration_ms, self._emit_compressed)
+        except BaseException as exc:
+            self._error = exc
+            raise
+
+    def _ensure_pool(self) -> FrameEncodePool:
+        if self._pool is None:
+            self._pool = FrameEncodePool(self._workers)
+        return self._pool
+
+    def _emit_compressed(self, subblocks: bytes, duration_ms: int) -> None:
+        self.add_compressed_frame(subblocks, duration_ms)
+
+    def add_compressed_frame(self, subblocks: bytes, duration_ms: int) -> None:
         delay = max(1, int(round(int(duration_ms) / 10))) if duration_ms else 1
         packed = 0x08 | (0x01 if self._transparent else 0)
         trans = 0 if self._transparent else 0
         self._file.write(b"\x21\xf9\x04" + bytes((packed,)) + _u16(delay) + bytes((trans, 0)))
         self._file.write(b"\x2c" + _u16(0) + _u16(0) + _u16(self._width) + _u16(self._height) + b"\x00")
-        payload = _lzw(np.ascontiguousarray(index, dtype=np.uint8).reshape(-1).tobytes(), 8)
         self._file.write(b"\x08")
-        for start in range(0, len(payload), 255):
-            block = payload[start : start + 255]
-            self._file.write(bytes((len(block),)) + block)
+        self._file.write(subblocks)
         self._file.write(b"\x00")
 
     def close(self) -> None:
-        self._file.write(b"\x3b")
-        self._file.close()
+        """Flush pooled frames in order, write the trailer, and join workers."""
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            self._flush_pool()
+        finally:
+            if not self._file.closed:
+                self._file.write(b"\x3b")
+                self._file.close()
+
+    def _flush_pool(self) -> None:
+        if self._pool is None:
+            return
+        if self._error is not None:
+            # A frame already failed. Do not wait on later jobs or write past the gap.
+            self._pool.abort()
+            return
+        try:
+            self._pool.finish(self._emit_compressed)
+        except BaseException as exc:
+            self._error = exc
+            self._pool.abort()
+            raise
 
 
-def index_frame(frame: np.ndarray, palette: np.ndarray, *, transparent: bool, dither: str = "ordered") -> np.ndarray:
+def _encode_lzw_subblocks(index: np.ndarray, *, use_pillow: bool = True) -> bytes:
+    """Compress one 2D uint8 palette-index array into GIF LZW data sub-blocks (without 0x08 header or 0x00 terminator)."""
+    arr = np.ascontiguousarray(index, dtype=np.uint8)
+    if arr.ndim != 2 or arr.shape[0] < 1 or arr.shape[1] < 1:
+        raise AlgorithmError(f"Expected 2D indexed frame, got shape {arr.shape}.")
+    if use_pillow:
+        from PIL import Image, ImageFile
+
+        height, width = arr.shape
+        image = Image.fromarray(arr, mode="P")
+        try:
+            # Pillow's GIF encoder defaults to interlace=True; force interlace=False so row order matches descriptor 0x00.
+            image.encoderconfig = (8, False)
+            buf = io.BytesIO()
+            ImageFile._save(image, buf, [ImageFile._Tile("gif", (0, 0, width, height), 0, "P")])
+            return buf.getvalue()
+        finally:
+            image.close()
+    payload = _lzw(arr.reshape(-1).tobytes(), 8)
+    out = bytearray()
+    for start in range(0, len(payload), 255):
+        block = payload[start : start + 255]
+        out.append(len(block))
+        out.extend(block)
+    return bytes(out)
+
+
+def index_frame(
+    frame: np.ndarray,
+    palette: np.ndarray,
+    *,
+    transparent: bool,
+    dither: str = "ordered",
+    quality: str = "balanced",
+    lut: np.ndarray | None = None,
+) -> np.ndarray:
     """Map one RGBA uint8 frame onto the shared palette."""
     colors = palette[1:] if transparent else palette
-    index = _indexes(frame[:, :, :3], colors, dither)
+    index = _indexes(frame[:, :, :3], colors, dither, quality=quality, lut=lut)
     if transparent:
         index = index + 1
         index[frame[:, :, 3] < 128] = 0
@@ -145,6 +243,7 @@ def encode_gif(
     *,
     encoder: str = "temporal",
     dither: str = "ordered",
+    quality: str = "balanced",
     progress: Callable[[str, int, int], None] | None = None,
 ) -> str:
     """Write an animated GIF. Returns the encoder that actually ran."""
@@ -156,10 +255,14 @@ def encode_gif(
     if chosen == "gifski":
         if _encode_gifski(path, frames, durations, loop):
             return "gifski"
-        _write_palette_gif(path, frames, durations, loop, dither=dither, method="mediancut", progress=progress)
+        _write_palette_gif(
+            path, frames, durations, loop, dither=dither, method="mediancut", quality=quality, progress=progress
+        )
         return "temporal"
     if chosen == "libimagequant":
-        _write_palette_gif(path, frames, durations, loop, dither=dither, method="libimagequant", progress=progress)
+        _write_palette_gif(
+            path, frames, durations, loop, dither=dither, method="libimagequant", quality=quality, progress=progress
+        )
         return "libimagequant"
     if chosen not in {"temporal", "auto"}:
         raise AlgorithmError(f"Unknown GIF encoder {encoder!r}.")
@@ -170,11 +273,15 @@ def encode_gif(
         except (OSError, subprocess.CalledProcessError):
             pass
         try:
-            _write_palette_gif(path, frames, durations, loop, dither=dither, method="libimagequant", progress=progress)
+            _write_palette_gif(
+                path, frames, durations, loop, dither=dither, method="libimagequant", quality=quality, progress=progress
+            )
             return "libimagequant"
         except AlgorithmError:
             pass
-    _write_palette_gif(path, frames, durations, loop, dither=dither, method="mediancut", progress=progress)
+    _write_palette_gif(
+        path, frames, durations, loop, dither=dither, method="mediancut", quality=quality, progress=progress
+    )
     return "temporal"
 
 
@@ -193,6 +300,7 @@ def _write_palette_gif(
     *,
     dither: str,
     method: str,
+    quality: str = "balanced",
     progress: Callable[[str, int, int], None] | None = None,
 ) -> None:
     uint8 = [_as_uint8(frame) for frame in frames]
@@ -201,12 +309,14 @@ def _write_palette_gif(
     palette = _shared_palette(uint8, colors, method)
     if transparent:
         palette = np.vstack([np.zeros((1, 3), dtype=np.float32), palette])
+    active_colors = palette[1:] if transparent else palette
+    lut = build_palette_lut(active_colors) if _normalize_quality(quality) != "exact" else None
     images = []
     frame_count = len(uint8)
     for frame_index, frame in enumerate(uint8):
         if progress is not None:
             progress("encode", frame_index, frame_count)
-        index = _indexes(frame[:, :, :3], palette[1:] if transparent else palette, dither)
+        index = _indexes(frame[:, :, :3], active_colors, dither, quality=quality, lut=lut)
         if transparent:
             index = index + 1
             index[frame[:, :, 3] < 128] = 0
@@ -256,21 +366,117 @@ def _shared_palette(frames: list[np.ndarray], colors: int, method: str) -> np.nd
     return np.array(raw[:usable], dtype=np.float32).reshape(colors, 3)
 
 
-def _indexes(rgb: np.ndarray, palette: np.ndarray, dither: str) -> np.ndarray:
+_BAYER_OFFSET_TILE = (((_BAYER_8 + 0.5) / 64.0 - 0.5) * 24.0).astype(np.float32)
+_LUT_GRID_128 = np.arange(128, dtype=np.float32) * np.float32(255.0 / 127.0)
+_BAYER_CACHE: dict[tuple[int, int], np.ndarray] = {}
+_LUT_CACHE: dict[tuple[tuple[int, ...], bytes], np.ndarray] = {}
+_CACHE_LIMIT = 4
+
+
+def _normalize_quality(quality: str | None) -> str:
+    mode = "balanced" if quality is None else str(quality).strip().lower()
+    if mode not in {"exact", "balanced", "fast"}:
+        raise AlgorithmError(f"Unknown palette indexing quality {quality!r}.")
+    return mode
+
+
+def _bayer_grid(height: int, width: int) -> np.ndarray:
+    """Return the cached ``(height, width)`` float32 Bayer offset grid."""
+    key = (int(height), int(width))
+    cached = _BAYER_CACHE.get(key)
+    if cached is not None:
+        return cached
+    tiles_y = (height + 7) // 8
+    tiles_x = (width + 7) // 8
+    grid = np.ascontiguousarray(np.tile(_BAYER_OFFSET_TILE, (tiles_y, tiles_x))[:height, :width], dtype=np.float32)
+    if len(_BAYER_CACHE) >= _CACHE_LIMIT:
+        _BAYER_CACHE.pop(next(iter(_BAYER_CACHE)))
+    _BAYER_CACHE[key] = grid
+    return grid
+
+
+def build_palette_lut(palette: np.ndarray) -> np.ndarray:
+    """Build (or fetch from cache) the flat ``128^3`` uint8 7-bit RGB -> palette index LUT."""
+    pal = np.ascontiguousarray(palette, dtype=np.float32)
+    if pal.ndim != 2 or pal.shape[1] != 3 or pal.shape[0] < 1:
+        raise AlgorithmError(f"Palette must have shape (K, 3), got {pal.shape}.")
+    key = (pal.shape, pal.tobytes())
+    cached = _LUT_CACHE.get(key)
+    if cached is not None:
+        return cached
+    dr = (_LUT_GRID_128[:, None] - pal[None, :, 0]) ** 2
+    dg = (_LUT_GRID_128[:, None] - pal[None, :, 1]) ** 2
+    db = (_LUT_GRID_128[:, None] - pal[None, :, 2]) ** 2
+    dgb = np.ascontiguousarray((dg[:, None, :] + db[None, :, :]).reshape(16384, pal.shape[0]), dtype=np.float32)
+    lut = np.empty((128, 16384), dtype=np.uint8)
+    buf = np.empty_like(dgb)
+    for r_index in range(128):
+        np.add(dgb, dr[r_index], out=buf)
+        # argmin breaks ties deterministically by picking the lowest palette index.
+        lut[r_index] = buf.argmin(axis=1)
+    flat_lut = lut.reshape(-1)
+    if len(_LUT_CACHE) >= _CACHE_LIMIT:
+        _LUT_CACHE.pop(next(iter(_LUT_CACHE)))
+    _LUT_CACHE[key] = flat_lut
+    return flat_lut
+
+
+def _indexes(
+    rgb: np.ndarray,
+    palette: np.ndarray,
+    dither: str,
+    *,
+    quality: str = "balanced",
+    lut: np.ndarray | None = None,
+) -> np.ndarray:
+    mode = _normalize_quality(quality)
+    if mode == "exact":
+        return _indexes_exact(rgb, palette, dither)
+    active_lut = build_palette_lut(palette) if lut is None else lut
+    return _indexes_lut(rgb, active_lut, dither)
+
+
+def _indexes_exact(rgb: np.ndarray, palette: np.ndarray, dither: str) -> np.ndarray:
+    """Exact nearest-color lookup via BLAS identity ``0.5*||p||^2 - x @ p.T``."""
+    pal = np.ascontiguousarray(palette, dtype=np.float32)
     adjusted = rgb.astype(np.float32)
     if dither == "ordered":
         height, width = rgb.shape[:2]
-        yy, xx = np.mgrid[0:height, 0:width]
-        threshold = (_BAYER_8[yy % 8, xx % 8] + 0.5) / 64.0 - 0.5
-        adjusted = adjusted + threshold[:, :, None] * 24.0
-    flat = adjusted.reshape(-1, 3)
+        adjusted = adjusted + _bayer_grid(height, width)[:, :, None]
+    flat = np.ascontiguousarray(adjusted.reshape(-1, 3), dtype=np.float32)
+    half = np.float32(0.5) * (pal**2).sum(axis=1)
     chosen = np.empty(flat.shape[0], dtype=np.uint8)
-    step = 8192
+    step = 65536
     for start in range(0, flat.shape[0], step):
         chunk = flat[start : start + step]
-        distance = ((chunk[:, None, :] - palette[None, :, :]) ** 2).sum(axis=2)
-        chosen[start : start + step] = distance.argmin(axis=1).astype(np.uint8)
+        scores = half[None, :] - chunk @ pal.T
+        # argmin breaks ties deterministically by picking the lowest palette index.
+        chosen[start : start + step] = scores.argmin(axis=1).astype(np.uint8)
     return chosen.reshape(rgb.shape[:2])
+
+
+def _indexes_lut(rgb: np.ndarray, lut: np.ndarray, dither: str) -> np.ndarray:
+    """7-bit (128^3) lookup table with L3-resident per-channel shift accumulation."""
+    height, width = rgb.shape[:2]
+    scale = np.float32(127.0 / 255.0)
+    if dither != "ordered":
+        q_table = np.rint(np.arange(256, dtype=np.float32) * scale).astype(np.int32)
+        key = (q_table[rgb[:, :, 0]] << 14) | (q_table[rgb[:, :, 1]] << 7) | q_table[rgb[:, :, 2]]
+        return lut[key]
+    bayer = _bayer_grid(height, width)
+    buf = np.empty((height, width), dtype=np.float32)
+    q = np.empty((height, width), dtype=np.int32)
+    key = np.zeros((height, width), dtype=np.int32)
+    for channel, shift in ((0, 14), (1, 7), (2, 0)):
+        np.add(rgb[:, :, channel], bayer, out=buf, casting="unsafe")
+        np.clip(buf, 0.0, 255.0, out=buf)
+        np.multiply(buf, scale, out=buf)
+        np.rint(buf, out=buf)
+        np.copyto(q, buf, casting="unsafe")
+        if shift:
+            q <<= shift
+        key |= q
+    return lut[key]
 
 
 def _paletted(index: np.ndarray, palette: np.ndarray):

@@ -187,7 +187,18 @@ Each idea lists options. Tags: **[M]** measured, **[H]** hypothesis.
 
 ### 5.1 Grok-Core (decode, IO, pipeline)
 
-_(not written yet)_
+Grok, 2026-10-30. Wave 1 A1 is on `feat/gif-speed` (#1148). No whole-file timing; the machine was busy, and Claude still holds those passes.
+
+#### Implemented
+
+- `_report` no longer reads an undefined `registered`. A progress callback reaches the caller.
+- The streaming write loop reports `scale_encode`. Qt text is `Scaling & encoding frame N/total`, ticks 8..100. Palette text is `Building palette`.
+- Success dict carries `timings` (decode, palette, scale, index, lzw) and `path` (device, kernel, palette_mode, delta_mode). The in-memory encoder cannot split index from LZW, so that path stores the whole `encode_gif` call in `lzw` and leaves `index` at 0. The finish line includes both.
+- One `opts` dict is reused for the clip so A4's plan cache survives. `ResampleCancelled` still deletes a partial stream file. The streaming cancel test watches `scale_encode`.
+
+#### Measurements
+
+A 2-frame 4×2 GIF forced onto the stream path (threshold patched to 1 byte) finished with sub-millisecond stage totals. That only checks the counters. It is not a speed result.
 
 ### 5.2 Grok-Cls1 / Grok-Cls2 (classical kernels)
 
@@ -287,6 +298,12 @@ What would change this: a profile, after the LUT and Pillow LZW exist, that stil
 - **Gk-Q1.** For `balanced`, is Pillow's uint8 Lanczos (no dering) acceptable, given §6's up-to-38/255 gap, or must `balanced` stay on the float kernel plus a cheaper clamp (Gk-B / Gemini's 49 ms path)?
 - **Gk-Q2.** Should a non-2× scale keep today's NumPy kernel forever, with Gk-D only for the 2× test case? The wallpaper job is 2×. Arbitrary Sampler dimensions are not.
 
+#### Implemented (Wave 1, #1151)
+
+D23 replaced the Pillow recommendation above. `lanczos3-dering` upscales with omitted `quality` use `balanced`: the same float weights as a per-channel `sgemm`, then a 6×6 OpenCV erode/dilate/remap clamp. `quality=exact` and every downscale stay on the masked tap path. `quality=fast` blends that clamp by `dering_strength` (0..1, default 1). The axis plan is cached on the shared `opts` dict. If the 6-tap window does not match the active taps, or OpenCV is missing, the frame stays on the mask path and `_scale_path` says so.
+
+On tiny frames (largest 5×3 → 9×15), balanced versus exact max abs diff on visible pixels was 7.153e-7. A 16×12 → 32×24 opaque step was 1.788e-7 and a translucent frame was 2.980e-7. No case exceeded 1/255. This is not the 49 ms/frame figure; that measurement is still Gemini's, on a 720×400 frame, and was not re-run here.
+
 ### 5.3 Grok-Enc (palette, dither, GIF writer)
 
 _(not written yet)_
@@ -301,7 +318,20 @@ _(not written yet)_
 
 ### 5.6 Other Grok agents (GPU, native kernels, research survey)
 
-_(not written yet)_
+Grok, 2026-10-30. Wave 1 B1 is on `feat/gif-speed` (#1154). No CUDA call and no GPU timing.
+
+#### Implemented
+
+- `GpuLeaseArbiter(devices=({index, total_gb, free_gb}, ...))` admits one owner per device. `try_acquire` with `device=None` takes the allow-listed device with the most free VRAM. `allow_devices` or `IMAGE_TOOLKIT_GPU_DEVICES` restricts the set. An empty or garbage env value refuses at acquire time.
+- `free_gb`, `device_for`, and `devices_for` expose the lease. `release(owner)` frees every device that owner holds. `snapshot()` still does not probe CUDA.
+- A constructor with only `device_total_gb` or a single `device_probe` stays the old one-owner mutex, including the non-blocking overlap lock. `comfy_matrix.gpu_lease` was not switched to a device table. B3 (#1156) is the caller that should pass one.
+- `cuda_device_table()` can build that table when torch is already imported. Nothing calls it at startup.
+
+#### Implemented later (B3, B4, D1)
+
+- B3 (#1156): `schedule_gif_frames` pulls the next batch onto whichever leased session is free. The writer emits frame indexes in order. A device error retries that batch once, then the CPU callback. More than one session is the only pipeline branch that uses it.
+- B4 (#1157): `run_device_pipeline` is that call. Fakes run scale then index on the caller thread. A real CUDA device pins the next upload and the index download on a copy stream, with `queue_depth` batches in flight. Session methods still do not take a stream.
+- D1 (#1163): Pillow encode stays in-process when `workers` is 1. Above 1, a spawn pool compresses frames and the parent writes GIF blocks in order. Harbinger's correction: processes, not threads, because Pillow holds the GIL.
 
 ### 5.7 Codex (review, benchmark runs when authorized)
 
