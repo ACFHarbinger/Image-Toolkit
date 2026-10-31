@@ -169,3 +169,48 @@ def test_closing_the_generator_stops_the_pool(tmp_path):
     next(generator)
     generator.close()
     assert multiprocessing.active_children() == []
+
+
+def test_pipeline_workers_key_selects_the_parallel_decoder(tmp_path, monkeypatch):
+    import middleware.src.services.media.gif_upscale.pipeline as pipeline
+
+    calls = []
+    real = pipeline._iter_rgba
+
+    def spy(path, workers=1):
+        calls.append(workers)
+        return real(path, workers)
+
+    monkeypatch.setattr(pipeline, "_iter_rgba", spy)
+    frames = [Image.new("RGB", (24, 16), (i * 40 % 256, 30, 90)) for i in range(5)]
+    path = tmp_path / "w.gif"
+    frames[0].save(path, format="GIF", save_all=True, append_images=frames[1:], duration=20)
+    assert pipeline._workers({}) == 1
+    assert pipeline._workers({"workers": "3"}) == 3
+    assert pipeline._workers({"workers": "bad"}) == 1
+    clip = pipeline._decode_clip(str(path), {"workers": 2})
+    assert calls == [2] and len(clip.frames) == 5
+    sequential = pipeline._decode_clip(str(path), {})
+    assert all(np.array_equal(a, b) for a, b in zip(clip.frames, sequential.frames, strict=True))
+    assert clip.durations == sequential.durations and clip.loop == sequential.loop
+
+
+def test_resample_gif_with_workers_matches_workers_one(tmp_path):
+    from middleware.src.services.media.gif_upscale.pipeline import resample_gif
+
+    frames = []
+    for i in range(6):
+        frame = Image.new("RGB", (32, 20), (10, 120, 30))
+        frame.paste((250 - i * 30, i * 40, 90), (i * 3, 2, i * 3 + 9, 12))
+        frames.append(frame)
+    source = tmp_path / "s.gif"
+    frames[0].save(source, format="GIF", save_all=True, append_images=frames[1:], duration=30, loop=0)
+    base = {"mode": "factor", "factor": 2, "algorithm": "bicubic"}
+    one = resample_gif(str(source), str(tmp_path / "one.gif"), {**base, "workers": 1})
+    many = resample_gif(str(source), str(tmp_path / "many.gif"), {**base, "workers": 2})
+    assert one["success"] and many["success"]
+    assert [f[0] for f in iter_gif_frames(str(tmp_path / "one.gif"))].__len__() == 6
+    for (a, _da, _la), (b, _db, _lb) in zip(
+        iter_gif_frames(str(tmp_path / "one.gif")), iter_gif_frames(str(tmp_path / "many.gif")), strict=True
+    ):
+        assert np.array_equal(a, b)

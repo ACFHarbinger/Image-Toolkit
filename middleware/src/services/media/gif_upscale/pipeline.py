@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import time
 from pathlib import Path
 from typing import Any
@@ -10,7 +11,7 @@ import numpy as np
 
 from middleware.src.services.media.gif_upscale.base import AlgorithmError, ResampleCancelled
 from middleware.src.services.media.gif_upscale.encode import encode_gif
-from middleware.src.services.media.gif_upscale.io import decode_gif
+from middleware.src.services.media.gif_upscale.io import GifClip, decode_gif, iter_gif_frames
 from middleware.src.services.media.gif_upscale.registry import get_algorithm, list_algorithms
 
 __all__ = ["ResampleCancelled", "list_algorithms", "resample_gif", "resample_still"]
@@ -25,7 +26,7 @@ def resample_gif(input_path: str, output_path: str, params: dict[str, Any]) -> d
             return _resample_gif_stream(input_path, output_path, params, progress)
         timings = _stage_timings()
         started = time.perf_counter()
-        clip = decode_gif(input_path)
+        clip = _decode_clip(input_path, params)
         _tick(timings, "decode", started)
         _report(progress, "decode", 1, 1)
         algorithm_id = str(params.get("algorithm") or "lanczos").strip().lower()
@@ -147,7 +148,9 @@ def _resample_gif_in_memory_gpu(
         gpu_session.prepare_palette(palette, transparent=transparent, dither=dither, quality=quality)
 
         _report(progress, "encode", 0, 1)
-        writer = IndexedGifWriter(output_path, width, height, palette, clip.loop, transparent=transparent)
+        writer = IndexedGifWriter(
+            output_path, width, height, palette, clip.loop, transparent=transparent, workers=_workers(params)
+        )
         cancelled = False
         try:
             for start in range(0, total, step):
@@ -225,7 +228,6 @@ def _resample_gif_stream(
         index_frame,
     )
     from middleware.src.services.media.gif_upscale.gpu_schedule import acquire_gpu_sessions
-    from middleware.src.services.media.gif_upscale.io import iter_gif_frames
 
     timings = _stage_timings()
     _report(progress, "decode", 1, 1)
@@ -235,7 +237,9 @@ def _resample_gif_stream(
     prepared = _prepare_scale(params, "gif", source_width, source_height)
     registered, scale, width, height, algorithm_id = prepared
     if registered.spec.needs_gpu:
-        raise AlgorithmError("Neural processing of streaming clips requires a prepared temporal inference session; reduce clip size.")
+        raise AlgorithmError(
+            "Neural processing of streaming clips requires a prepared temporal inference session; reduce clip size."
+        )
     # One opts dict for the clip. A later lane stores a plan and _scale_path on it.
     opts: dict[str, Any] = {
         "size": (width, height),
@@ -271,7 +275,15 @@ def _resample_gif_stream(
     gpu_session = sessions[0] if sessions else None
     try:
         samples, count, loop = _palette_samples(
-            input_path, registered, scale, opts, algorithm_id, timings, progress, gpu_session=gpu_session
+            input_path,
+            registered,
+            scale,
+            opts,
+            algorithm_id,
+            timings,
+            progress,
+            gpu_session=gpu_session,
+            workers=_workers(params),
         )
         transparent = True
         colors = 255 if transparent else 256
@@ -293,14 +305,16 @@ def _resample_gif_stream(
                 gpu_session = None
                 opts["_device"] = "cpu"
                 opts["_gpu_fallback"] = f"GPU palette init failed ({exc}); fell back to CPU"
-        writer = IndexedGifWriter(output_path, width, height, palette, loop, transparent=transparent)
+        writer = IndexedGifWriter(
+            output_path, width, height, palette, loop, transparent=transparent, workers=_workers(params)
+        )
         cancelled = False
+        decoded = None
         try:
             _report(progress, "scale_encode", 0, count)
             pending: list[tuple[int, np.ndarray, int]] = []
-            for seen, (frame, duration, _frame_loop) in enumerate(
-                _timed_frames(iter_gif_frames(input_path), timings), start=1
-            ):
+            decoded = _frame_iter(input_path, params)
+            for seen, (frame, duration, _frame_loop) in enumerate(_timed_frames(decoded, timings), start=1):
                 if gpu_session is not None:
                     pending.append((seen, frame, duration))
                     if len(pending) >= gpu_session.batch_size:
@@ -362,6 +376,8 @@ def _resample_gif_stream(
             cancelled = True
             raise
         finally:
+            if decoded is not None:
+                decoded.close()  # stops the decode pool on cancel or error
             writer.close()
             if cancelled:
                 Path(output_path).unlink(missing_ok=True)
@@ -458,7 +474,9 @@ def _resample_gif_in_memory_scheduled(
     fallback = _cpu_batch_fallback(registered, scale, opts, algorithm_id, palette, transparent, dither, quality)
     live = [session for session in sessions if not getattr(session, "_closed", False)]
     _report(progress, "encode", 0, 1)
-    writer = IndexedGifWriter(output_path, width, height, palette, clip.loop, transparent=transparent)
+    writer = IndexedGifWriter(
+        output_path, width, height, palette, clip.loop, transparent=transparent, workers=_workers(params)
+    )
     cancelled = False
     try:
         schedule_gif_frames(
@@ -514,11 +532,18 @@ def _resample_gif_stream_scheduled(
     """Stream a long clip. One CPU palette, then whichever leased GPU is free."""
     from middleware.src.services.media.gif_upscale.encode import IndexedGifWriter, _shared_palette
     from middleware.src.services.media.gif_upscale.gpu_schedule import schedule_gif_frames
-    from middleware.src.services.media.gif_upscale.io import iter_gif_frames
 
     sample_session = next((session for session in sessions if not getattr(session, "_closed", False)), None)
     samples, count, loop = _palette_samples(
-        input_path, registered, scale, opts, algorithm_id, timings, progress, gpu_session=sample_session
+        input_path,
+        registered,
+        scale,
+        opts,
+        algorithm_id,
+        timings,
+        progress,
+        gpu_session=sample_session,
+        workers=_workers(params),
     )
     live = [session for session in sessions if not getattr(session, "_closed", False)]
     transparent = True
@@ -534,14 +559,17 @@ def _resample_gif_stream_scheduled(
         palette = np.vstack([np.zeros((1, 3), dtype=np.float32), palette])
     del samples
     fallback = _cpu_batch_fallback(registered, float(scale), opts, algorithm_id, palette, transparent, dither, quality)
-    writer = IndexedGifWriter(output_path, width, height, palette, loop, transparent=transparent)
+    writer = IndexedGifWriter(
+        output_path, width, height, palette, loop, transparent=transparent, workers=_workers(params)
+    )
     cancelled = False
     try:
         _report(progress, "scale_encode", 0, count)
 
         def jobs() -> Any:
-            for frame, duration, _frame_loop in iter_gif_frames(input_path):
-                yield frame, duration
+            with contextlib.closing(_frame_iter(input_path, params)) as decoded:
+                for frame, duration, _frame_loop in decoded:
+                    yield frame, duration
 
         schedule_gif_frames(
             live,
@@ -684,6 +712,7 @@ def _palette_samples(
     timings: dict[str, float],
     progress: Any = None,
     gpu_session: Any = None,
+    workers: int = 1,
 ) -> tuple[list[np.ndarray], int, int]:
     from PIL import Image
 
@@ -695,7 +724,21 @@ def _palette_samples(
     stride = max(1, count // 16)
     wanted = set(range(0, count, stride))
     samples: list[np.ndarray] = []
-    for index, (frame, _duration, _loop) in enumerate(_timed_frames(_iter_rgba(input_path), timings)):
+    # Closing releases the decode pool as soon as the sample frames are in, or on cancel.
+    decoded = contextlib.closing(_iter_rgba(input_path, workers))
+    with decoded as frames_iter:
+        _collect_samples(
+            frames_iter, wanted, count, registered, scale, opts, algorithm_id, timings, progress, gpu_session, samples
+        )
+    if not samples:
+        raise AlgorithmError("GIF has no frames.")
+    return samples, count, loop
+
+
+def _collect_samples(
+    frames_iter, wanted, count, registered, scale, opts, algorithm_id, timings, progress, gpu_session, samples
+):
+    for index, (frame, _duration, _loop) in enumerate(_timed_frames(frames_iter, timings)):
         # Cancel has to land while the sample frames decode too; this scan can cross most of a long clip.
         _report(progress, "decode", index, count)
         if index not in wanted:
@@ -719,15 +762,47 @@ def _palette_samples(
             samples.append(_uint8(scaled))
         if len(samples) == len(wanted):
             break
-    if not samples:
-        raise AlgorithmError("GIF has no frames.")
-    return samples, count, loop
 
 
-def _iter_rgba(input_path: str):
-    from middleware.src.services.media.gif_upscale.io import iter_gif_frames
+def _iter_rgba(input_path: str, workers: int = 1):
+    if workers > 1:
+        from middleware.src.services.media.gif_upscale.parallel_decode import iter_gif_frames_parallel
 
+        return iter_gif_frames_parallel(input_path, workers)
     return iter_gif_frames(input_path)
+
+
+def _workers(params: dict[str, Any]) -> int:
+    """Processes for one request. The global ``workers`` setting; 1 keeps the in-process decoder and encoder.
+
+    Decode and encode each use a pool of this size, so up to twice this many processes run at once.
+    """
+    try:
+        return max(1, int(params.get("workers") or 1))
+    except (TypeError, ValueError):
+        return 1
+
+
+def _frame_iter(input_path: str, params: dict[str, Any]):
+    """Composited RGBA frames. ``workers`` above 1 decodes frames in parallel, in order."""
+    return _iter_rgba(input_path, _workers(params))
+
+
+def _decode_clip(input_path: str, params: dict[str, Any]) -> GifClip:
+    workers = _workers(params)
+    if workers <= 1:
+        return decode_gif(input_path)
+    frames: list[np.ndarray] = []
+    durations: list[int] = []
+    loop = 0
+    with contextlib.closing(_iter_rgba(input_path, workers)) as decoded:
+        for frame, duration, frame_loop in decoded:
+            frames.append(frame)
+            durations.append(duration)
+            loop = frame_loop
+    if not frames:
+        raise ValueError("GIF has no frames.")
+    return GifClip(frames, durations, loop)
 
 
 def _one_frame(registered: Any, frame: np.ndarray, scale: float, opts: dict, algorithm_id: str) -> np.ndarray:
@@ -816,8 +891,7 @@ def _finish_message(
     fallback_note: str | None = None,
 ) -> str:
     route = (
-        f"device={path['device']}, kernel={path['kernel']}, "
-        f"palette={path['palette_mode']}, delta={path['delta_mode']}"
+        f"device={path['device']}, kernel={path['kernel']}, palette={path['palette_mode']}, delta={path['delta_mode']}"
     )
     if fallback_note:
         route = f"{route}, fallback={fallback_note}"
@@ -939,6 +1013,4 @@ def _scale_refusal(spec: Any, source_width: int, source_height: int, width: int,
     if any(abs(scale_x - allowed) < 1e-3 and abs(scale_y - allowed) < 1e-3 for allowed in spec.supports_scale):
         return ""
     supported = ", ".join(str(value) for value in sorted(spec.supports_scale))
-    return (
-        f"{spec.id} supports scales {supported}, not {width}x{height} from {source_width}x{source_height}."
-    )
+    return f"{spec.id} supports scales {supported}, not {width}x{height} from {source_width}x{source_height}."
