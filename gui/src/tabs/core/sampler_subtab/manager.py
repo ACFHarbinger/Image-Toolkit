@@ -48,9 +48,18 @@ class SamplerSubTab(AbstractClassTwoGalleries):
                 self.worker.cancel()
 
     def closeEvent(self, event):
-        if hasattr(self, "worker") and self.worker and self.worker.isRunning():
-            self.worker.cancel()
-            self.worker.wait()
+        # Cancel parks the thread until it leaves run(). Join those too, or
+        # closing the window destroys a QThread that is still running.
+        workers = []
+        if getattr(self, "worker", None) is not None:
+            workers.append(self.worker)
+        workers.extend(getattr(self, "_retired_workers", ()) or ())
+        for worker in workers:
+            with contextlib.suppress(Exception):
+                if worker.isRunning():
+                    worker.cancel()
+                    worker.wait()
+        self._retired_workers = []
         self.cancel_loading()
         super().closeEvent(event)
 
