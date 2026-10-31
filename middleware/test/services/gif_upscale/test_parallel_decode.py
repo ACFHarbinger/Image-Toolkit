@@ -169,3 +169,17 @@ def test_closing_the_generator_stops_the_pool(tmp_path):
     next(generator)
     generator.close()
     assert multiprocessing.active_children() == []
+
+
+@pytest.mark.parametrize("disposal", [2, 3])
+def test_unspecified_disposal_after_restore_matches_pillow(tmp_path, disposal):
+    palette = _palette()
+    base = np.ones((12, 16), dtype=np.uint8)
+    patch = np.full((4, 4), 2, dtype=np.uint8)
+    frames = [
+        (0, 0, base, 1, 0, 3),
+        (2, 2, patch, disposal, 0, 3),
+        (8, 2, patch, 0, 0, 3),
+        (0, 0, np.zeros_like(base), 1, 0, 3),
+    ]
+    assert _same(_assemble(tmp_path, 16, 12, frames, palette)) == 4

@@ -154,7 +154,13 @@ def _proven_equivalent(info: GifInfo, frames: list[FrameRecord]) -> bool:
     first = frames[0]
     if (first.left, first.top, first.width, first.height) != (0, 0, info.width, info.height):
         return False  # a partial first frame leaves canvas pixels Pillow fills in its own way
+    previous_disposal = 0
     for rec in frames:
+        # Pillow retains the previous nonzero disposal for unspecified frames.
+        if rec.disposal == 0 and previous_disposal in (2, 3):
+            return False
+        if rec.disposal:
+            previous_disposal = rec.disposal
         if rec.left + rec.width > info.width or rec.top + rec.height > info.height:
             return False
         if rec.disposal == 2 and rec.transparent is None:
