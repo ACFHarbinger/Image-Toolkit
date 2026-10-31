@@ -460,6 +460,21 @@ All measurements below were taken on this machine (1 to 3 frames of `/home/pkhun
 - **G-Q1 (Progress bar truthfulness):** Right now `_resample_gif_stream` (`pipeline.py:115-121`) runs `scale`, `index_frame` (dither + palette lookup), and `writer.add_frame` (LZW compression) inside every iteration of the `"scale"` progress loop, and only reports `"encode"` after the loop finishes. Should the streaming progress bar report `"Scaling & encoding frame N/2232"` (or split stage timing metrics in the completion summary into `decode`, `palette`, `scale`, `index/dither`, `lzw_write`) so the stage budgets in D8/D14 are visible and measurable?
 - **G-Q2 (Palette indexing mode in `balanced` vs `exact`):** Is a 7-bit (`128x128x128`, 2 MiB) 3D LUT (which runs in 7.7 ms/frame with `<0.85/255` RGB RMSE) acceptable as the default in `balanced`/`fast` mode while keeping exact Euclidean BLAS/GPU lookup in `exact` mode?
 
+#### Shipped Wave 1 & Wave 2 Measurements (A2 #1149, A3 #1150, B2 #1155)
+
+- **[M] Task A2 (`#1149`, `14fadcbaf` on `feat/gif-speed`) — CPU palette indexing (`1440x800` RGBA frame, 1 thread):**
+  - `build_palette_lut` (`128^3` 7-bit RGB LUT via separable 1D squared distances `dr + dg + db`): **185.8 ms** one-time per clip (3.6x faster than a 3D `meshgrid` build, 0 mismatches vs exact Euclidean distance, deterministic lowest-index tie-breaking via `argmin`).
+  - `index_frame(..., quality="exact")` (BLAS `0.5 * ||p||^2 - chunk @ pal.T` + cached `_bayer_grid`): **347.90 ms/frame** vs **7,052.01 ms/frame** baseline (**20.3x faster**, **100% bit-identical** with 0 pixel mismatches).
+  - `index_frame(..., quality="balanced")` (7-bit `128^3` LUT with L3-resident per-channel shift accumulation in `_indexes_lut`): **6.63 ms/frame** (**1,064x faster** than baseline; accumulating `(r_q << 14) | (g_q << 7) | b_q` channel-by-channel in a single `(H, W)` buffer avoids the `(H, W, 3)` float32/int32 allocations that made a naive 3-channel NumPy LUT take 18 ms/frame).
+- **[M] Task A3 (`#1150`, `681fd6419` on `feat/gif-speed`) — Pillow C LZW inside `IndexedGifWriter` (`1440x800` indexed frame):**
+  - `_encode_lzw_subblocks(..., use_pillow=True)` (`ImageFile._save` with `image.encoderconfig = (8, False)` so `interlace=False` matches descriptor `0x00`): **16.86 ms/frame** vs **626.4 ms/frame** for pure-Python `_lzw` (**37.2x faster**, 100% bit-identical decoded pixels and metadata).
+- **[M] Task B2 (`#1155`, `b42064bb7` on `feat/gif-speed`) — GPU batch scale + on-device Bayer dither & palette index (`cuda:0` RTX 3090 Ti, `720x400 -> 1440x800`, 8-frame batch):**
+  - **GPU scale + `F.max_pool2d` 6x6 clamp (`gpu_batch.py`):** **1.08 ms/frame** (`max_abs_diff = 2.98e-07` vs CPU `_resize_lanczos_sgemm`, 0 visible pixels > `1/255`).
+  - **GPU exact dither + palette index (`quality="exact"`, `torch.addmm(half_t, chunk, pal_t.T, alpha=-1.0).argmin(dim=1)` in 262,144-pixel chunks):** **2.92–3.80 ms/frame**, **0 pixel mismatches** vs CPU `index_frame(..., quality="exact")`.
+  - **GPU 7-bit (`128^3`) LUT dither + palette index (`quality="balanced"` / `"fast"`):** **0.34 ms/frame** (8.6x faster than GPU exact and 19.5x faster than CPU 7-bit LUT `6.63 ms/frame`), **0 pixel mismatches** vs CPU `index_frame(..., quality="balanced")`.
+  - **PCIe Device-to-Host transfer:** Downloading `uint8` indices (`1.15 MB/frame`) takes **0.14 ms/frame** vs **5.92 ms/frame** for `float32` RGBA (`18.4 MB/frame`) — **42.3x faster PCIe transfer**.
+  - **Total GPU stage (`balanced`):** `1.08 + 0.34 + 0.14 =` **1.56 ms/frame** (~641 fps on one RTX 3090 Ti).
+
 ### 5.9 Codex — 2026-10-30: Lanczos schedules and bounded execution
 
 Read today's bus and the current resize/streaming implementation. No new benchmarks or GPU work run; numerical gains below are hypotheses, not measurements. Gemini's measurements remain attributed to Gemini. Respect D10 (workers default 1), D14 (per-stage budget), D16 (arbiter), and D22 (7-bit LUT permitted).
