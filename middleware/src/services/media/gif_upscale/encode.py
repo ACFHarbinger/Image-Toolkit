@@ -8,6 +8,7 @@ previous frame), and keeps a transparent index when any frame needs it.
 
 from __future__ import annotations
 
+import io
 import shutil
 import subprocess
 import tempfile
@@ -40,12 +41,23 @@ STREAM_RGBA_BYTES = 256 * 1024 * 1024
 class IndexedGifWriter:
     """Append indexed frames to one GIF without keeping the clip in memory."""
 
-    def __init__(self, path: str, width: int, height: int, palette: np.ndarray, loop: int, *, transparent: bool) -> None:
+    def __init__(
+        self,
+        path: str,
+        width: int,
+        height: int,
+        palette: np.ndarray,
+        loop: int,
+        *,
+        transparent: bool,
+        use_pillow_lzw: bool = True,
+    ) -> None:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._file = Path(path).open("wb")  # noqa: SIM115 — closed in close(), after every frame is written
         self._width = width
         self._height = height
         self._transparent = transparent
+        self._use_pillow_lzw = use_pillow_lzw
         table = np.zeros(768, dtype=np.uint8)
         count = min(256, int(palette.shape[0]))
         flat = np.clip(np.rint(palette[:count]), 0, 255).astype(np.uint8).reshape(-1)
@@ -56,21 +68,49 @@ class IndexedGifWriter:
         self._file.write(b"\x21\xff\x0bNETSCAPE2.0\x03\x01" + _u16(int(loop)) + b"\x00")
 
     def add_frame(self, index: np.ndarray, duration_ms: int) -> None:
+        subblocks = _encode_lzw_subblocks(index, use_pillow=self._use_pillow_lzw)
+        self.add_compressed_frame(subblocks, duration_ms)
+
+    def add_compressed_frame(self, subblocks: bytes, duration_ms: int) -> None:
         delay = max(1, int(round(int(duration_ms) / 10))) if duration_ms else 1
         packed = 0x08 | (0x01 if self._transparent else 0)
         trans = 0 if self._transparent else 0
         self._file.write(b"\x21\xf9\x04" + bytes((packed,)) + _u16(delay) + bytes((trans, 0)))
         self._file.write(b"\x2c" + _u16(0) + _u16(0) + _u16(self._width) + _u16(self._height) + b"\x00")
-        payload = _lzw(np.ascontiguousarray(index, dtype=np.uint8).reshape(-1).tobytes(), 8)
         self._file.write(b"\x08")
-        for start in range(0, len(payload), 255):
-            block = payload[start : start + 255]
-            self._file.write(bytes((len(block),)) + block)
+        self._file.write(subblocks)
         self._file.write(b"\x00")
 
     def close(self) -> None:
         self._file.write(b"\x3b")
         self._file.close()
+
+
+def _encode_lzw_subblocks(index: np.ndarray, *, use_pillow: bool = True) -> bytes:
+    """Compress one 2D uint8 palette-index array into GIF LZW data sub-blocks (without 0x08 header or 0x00 terminator)."""
+    arr = np.ascontiguousarray(index, dtype=np.uint8)
+    if arr.ndim != 2 or arr.shape[0] < 1 or arr.shape[1] < 1:
+        raise AlgorithmError(f"Expected 2D indexed frame, got shape {arr.shape}.")
+    if use_pillow:
+        from PIL import Image, ImageFile
+
+        height, width = arr.shape
+        image = Image.fromarray(arr, mode="P")
+        try:
+            # Pillow's GIF encoder defaults to interlace=True; force interlace=False so row order matches descriptor 0x00.
+            image.encoderconfig = (8, False)
+            buf = io.BytesIO()
+            ImageFile._save(image, buf, [ImageFile._Tile("gif", (0, 0, width, height), 0, "P")])
+            return buf.getvalue()
+        finally:
+            image.close()
+    payload = _lzw(arr.reshape(-1).tobytes(), 8)
+    out = bytearray()
+    for start in range(0, len(payload), 255):
+        block = payload[start : start + 255]
+        out.append(len(block))
+        out.extend(block)
+    return bytes(out)
 
 
 def index_frame(
