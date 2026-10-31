@@ -148,6 +148,13 @@ docs = [
     "mkdocs-material>=9.7.7",
 ]
 
+# Numba trial dependency group (task A6 #1153) - testing only, not for production
+# Per D25: experiments under tests only; never imported by shipped paths
+# Promote to core dependency only if measured, equivalent win in at least one stage
+numba-trial = [
+    "numba>=0.60.0",
+]
+
 # BUILD CONFIG
 [build-system]
 requires = ["setuptools>=83.0.0", "wheel", "cffi"]

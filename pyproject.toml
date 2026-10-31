@@ -50,6 +50,12 @@ docs = [
     "pymdown-extensions",
 ]
 
+# Numba trial dependency group (task A6 #1153) - testing only, not for production
+# Per D25: experiments under tests only; never imported by shipped paths
+numba-trial = [
+    "numba>=0.60.0",
+]
+
 # ComfyUI runtime dependencies.
 # Source: vendor/ComfyUI/requirements.txt + vendor/ComfyUI/manager_requirements.txt
 #   + vendor/ComfyUI/custom_nodes/ComfyUI-Impact-Pack/requirements.txt
