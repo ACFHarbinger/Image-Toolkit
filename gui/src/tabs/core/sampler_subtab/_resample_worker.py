@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Slot
+from PySide6.QtCore import QCoreApplication, Qt, QTimer, Slot
 from PySide6.QtWidgets import QMessageBox
 
 from ....helpers import SamplerWorker
@@ -52,10 +52,12 @@ class SamplerWorkerController(TabBoundController):
             return
 
         self.worker = SamplerWorker(config)
-        self.worker.finished.connect(self._on_done)
-        self.worker.error.connect(self._on_error)
-        self.worker.progress_update.connect(self._on_progress)
-        self.worker.stage_update.connect(self._on_stage)
+        # Queued: these slots touch widgets and must not run inside run().
+        queued = Qt.ConnectionType.QueuedConnection
+        self.worker.finished.connect(self._on_done, queued)
+        self.worker.error.connect(self._on_error, queued)
+        self.worker.progress_update.connect(self._on_progress, queued)
+        self.worker.stage_update.connect(self._on_stage, queued)
 
         self.btn_all.setEnabled(False)
         self.btn_selected.setEnabled(False)
@@ -96,7 +98,44 @@ class SamplerWorkerController(TabBoundController):
         self.progress_bar.hide()
         self.progress_bar.setValue(0)
         self.status_label.setText(msg)  # pyrefly: ignore [missing-attribute]
+        # finished is emitted from inside run(), before the thread has stopped.
+        # Dropping the last reference there destroys the QThread and aborts
+        # the process ("QThread: Destroyed while thread is still running").
+        self._retire_worker(self.tab.worker)
+
+    def _retire_worker(self, worker) -> None:
         self.tab.worker = None
+        if worker is None:
+            return
+        retired = getattr(self.tab, "_retired_workers", None)
+        if retired is None:
+            retired = []
+            self.tab._retired_workers = retired
+        if worker not in retired:
+            retired.append(worker)
+        self._drain_retired_workers()
+
+    def _drain_retired_workers(self) -> None:
+        retired = list(getattr(self.tab, "_retired_workers", ()) or ())
+        if not retired:
+            return
+        alive = []
+        for worker in retired:
+            try:
+                running = bool(worker.isRunning())
+            except RuntimeError:
+                continue
+            if running:
+                alive.append(worker)
+        self.tab._retired_workers = alive
+        if not alive:
+            return
+        app = QCoreApplication.instance()
+        if app is None:
+            return
+        # context=app posts the callback to the GUI thread, even when this
+        # slot ran directly inside the worker's run().
+        QTimer.singleShot(50, app, self._drain_retired_workers)
 
     @Slot(object)
     def _on_error(self, err):

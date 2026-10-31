@@ -51,3 +51,33 @@ def test_second_click_cancels_without_waiting_on_the_gui_thread():
     worker.wait.assert_not_called()
     button.setEnabled.assert_called_with(False)
     assert tab.worker is worker  # _on_done clears it when the thread finishes
+
+
+def _controls(worker):
+    return SimpleNamespace(
+        worker=worker,
+        btn_all=MagicMock(),
+        btn_selected=MagicMock(),
+        status_label=MagicMock(),
+        progress_bar=MagicMock(),
+        on_selection_changed=MagicMock(),
+    )
+
+
+def test_cancel_completion_keeps_a_running_thread_alive():
+    worker = MagicMock()
+    worker.isRunning.return_value = True
+    tab = _controls(worker)
+    SamplerWorkerController(tab)._on_done((0, "**Resampling Cancelled**"))
+    assert tab.worker is None
+    assert worker in tab._retired_workers
+    worker.wait.assert_not_called()
+
+
+def test_finished_handler_drops_a_stopped_thread():
+    worker = MagicMock()
+    worker.isRunning.return_value = False
+    tab = _controls(worker)
+    SamplerWorkerController(tab)._on_done((0, "**Resampling Cancelled**"))
+    assert tab.worker is None
+    assert tab._retired_workers == []
