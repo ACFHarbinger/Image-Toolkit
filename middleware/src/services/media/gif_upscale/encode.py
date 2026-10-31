@@ -18,6 +18,7 @@ from pathlib import Path
 import numpy as np
 
 from middleware.src.services.media.gif_upscale.base import AlgorithmError
+from middleware.src.services.media.gif_upscale.encode_pool import FrameEncodePool
 
 _BAYER_8 = np.array(
     [
@@ -39,7 +40,11 @@ STREAM_RGBA_BYTES = 256 * 1024 * 1024
 
 
 class IndexedGifWriter:
-    """Append indexed frames to one GIF without keeping the clip in memory."""
+    """Append indexed frames to one GIF without keeping the clip in memory.
+
+    ``workers`` defaults to 1 and encodes in this process. Above 1, frame LZW
+    runs in a process pool while this object still writes GIF blocks in order.
+    """
 
     def __init__(
         self,
@@ -51,6 +56,7 @@ class IndexedGifWriter:
         *,
         transparent: bool,
         use_pillow_lzw: bool = True,
+        workers: int = 1,
     ) -> None:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._file = Path(path).open("wb")  # noqa: SIM115 — closed in close(), after every frame is written
@@ -58,6 +64,10 @@ class IndexedGifWriter:
         self._height = height
         self._transparent = transparent
         self._use_pillow_lzw = use_pillow_lzw
+        self._workers = int(workers)
+        self._pool: FrameEncodePool | None = None
+        self._error: BaseException | None = None
+        self._closed = False
         table = np.zeros(768, dtype=np.uint8)
         count = min(256, int(palette.shape[0]))
         flat = np.clip(np.rint(palette[:count]), 0, 255).astype(np.uint8).reshape(-1)
@@ -68,7 +78,25 @@ class IndexedGifWriter:
         self._file.write(b"\x21\xff\x0bNETSCAPE2.0\x03\x01" + _u16(int(loop)) + b"\x00")
 
     def add_frame(self, index: np.ndarray, duration_ms: int) -> None:
-        subblocks = _encode_lzw_subblocks(index, use_pillow=self._use_pillow_lzw)
+        # workers <= 1 stays on the in-process encoder: same bytes, no processes.
+        if self._workers <= 1:
+            subblocks = _encode_lzw_subblocks(index, use_pillow=self._use_pillow_lzw)
+            self.add_compressed_frame(subblocks, duration_ms)
+            return
+        if self._error is not None:
+            raise self._error
+        try:
+            self._ensure_pool().push(index, self._use_pillow_lzw, duration_ms, self._emit_compressed)
+        except BaseException as exc:
+            self._error = exc
+            raise
+
+    def _ensure_pool(self) -> FrameEncodePool:
+        if self._pool is None:
+            self._pool = FrameEncodePool(self._workers)
+        return self._pool
+
+    def _emit_compressed(self, subblocks: bytes, duration_ms: int) -> None:
         self.add_compressed_frame(subblocks, duration_ms)
 
     def add_compressed_frame(self, subblocks: bytes, duration_ms: int) -> None:
@@ -82,8 +110,30 @@ class IndexedGifWriter:
         self._file.write(b"\x00")
 
     def close(self) -> None:
-        self._file.write(b"\x3b")
-        self._file.close()
+        """Flush pooled frames in order, write the trailer, and join workers."""
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            self._flush_pool()
+        finally:
+            if not self._file.closed:
+                self._file.write(b"\x3b")
+                self._file.close()
+
+    def _flush_pool(self) -> None:
+        if self._pool is None:
+            return
+        if self._error is not None:
+            # A frame already failed. Do not wait on later jobs or write past the gap.
+            self._pool.abort()
+            return
+        try:
+            self._pool.finish(self._emit_compressed)
+        except BaseException as exc:
+            self._error = exc
+            self._pool.abort()
+            raise
 
 
 def _encode_lzw_subblocks(index: np.ndarray, *, use_pillow: bool = True) -> bytes:
