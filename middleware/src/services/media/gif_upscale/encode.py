@@ -73,10 +73,18 @@ class IndexedGifWriter:
         self._file.close()
 
 
-def index_frame(frame: np.ndarray, palette: np.ndarray, *, transparent: bool, dither: str = "ordered") -> np.ndarray:
+def index_frame(
+    frame: np.ndarray,
+    palette: np.ndarray,
+    *,
+    transparent: bool,
+    dither: str = "ordered",
+    quality: str = "balanced",
+    lut: np.ndarray | None = None,
+) -> np.ndarray:
     """Map one RGBA uint8 frame onto the shared palette."""
     colors = palette[1:] if transparent else palette
-    index = _indexes(frame[:, :, :3], colors, dither)
+    index = _indexes(frame[:, :, :3], colors, dither, quality=quality, lut=lut)
     if transparent:
         index = index + 1
         index[frame[:, :, 3] < 128] = 0
@@ -145,6 +153,7 @@ def encode_gif(
     *,
     encoder: str = "temporal",
     dither: str = "ordered",
+    quality: str = "balanced",
     progress: Callable[[str, int, int], None] | None = None,
 ) -> str:
     """Write an animated GIF. Returns the encoder that actually ran."""
@@ -156,10 +165,14 @@ def encode_gif(
     if chosen == "gifski":
         if _encode_gifski(path, frames, durations, loop):
             return "gifski"
-        _write_palette_gif(path, frames, durations, loop, dither=dither, method="mediancut", progress=progress)
+        _write_palette_gif(
+            path, frames, durations, loop, dither=dither, method="mediancut", quality=quality, progress=progress
+        )
         return "temporal"
     if chosen == "libimagequant":
-        _write_palette_gif(path, frames, durations, loop, dither=dither, method="libimagequant", progress=progress)
+        _write_palette_gif(
+            path, frames, durations, loop, dither=dither, method="libimagequant", quality=quality, progress=progress
+        )
         return "libimagequant"
     if chosen not in {"temporal", "auto"}:
         raise AlgorithmError(f"Unknown GIF encoder {encoder!r}.")
@@ -170,11 +183,15 @@ def encode_gif(
         except (OSError, subprocess.CalledProcessError):
             pass
         try:
-            _write_palette_gif(path, frames, durations, loop, dither=dither, method="libimagequant", progress=progress)
+            _write_palette_gif(
+                path, frames, durations, loop, dither=dither, method="libimagequant", quality=quality, progress=progress
+            )
             return "libimagequant"
         except AlgorithmError:
             pass
-    _write_palette_gif(path, frames, durations, loop, dither=dither, method="mediancut", progress=progress)
+    _write_palette_gif(
+        path, frames, durations, loop, dither=dither, method="mediancut", quality=quality, progress=progress
+    )
     return "temporal"
 
 
@@ -193,6 +210,7 @@ def _write_palette_gif(
     *,
     dither: str,
     method: str,
+    quality: str = "balanced",
     progress: Callable[[str, int, int], None] | None = None,
 ) -> None:
     uint8 = [_as_uint8(frame) for frame in frames]
@@ -201,12 +219,14 @@ def _write_palette_gif(
     palette = _shared_palette(uint8, colors, method)
     if transparent:
         palette = np.vstack([np.zeros((1, 3), dtype=np.float32), palette])
+    active_colors = palette[1:] if transparent else palette
+    lut = build_palette_lut(active_colors) if _normalize_quality(quality) != "exact" else None
     images = []
     frame_count = len(uint8)
     for frame_index, frame in enumerate(uint8):
         if progress is not None:
             progress("encode", frame_index, frame_count)
-        index = _indexes(frame[:, :, :3], palette[1:] if transparent else palette, dither)
+        index = _indexes(frame[:, :, :3], active_colors, dither, quality=quality, lut=lut)
         if transparent:
             index = index + 1
             index[frame[:, :, 3] < 128] = 0
@@ -256,21 +276,117 @@ def _shared_palette(frames: list[np.ndarray], colors: int, method: str) -> np.nd
     return np.array(raw[:usable], dtype=np.float32).reshape(colors, 3)
 
 
-def _indexes(rgb: np.ndarray, palette: np.ndarray, dither: str) -> np.ndarray:
+_BAYER_OFFSET_TILE = (((_BAYER_8 + 0.5) / 64.0 - 0.5) * 24.0).astype(np.float32)
+_LUT_GRID_128 = np.arange(128, dtype=np.float32) * np.float32(255.0 / 127.0)
+_BAYER_CACHE: dict[tuple[int, int], np.ndarray] = {}
+_LUT_CACHE: dict[tuple[tuple[int, ...], bytes], np.ndarray] = {}
+_CACHE_LIMIT = 4
+
+
+def _normalize_quality(quality: str | None) -> str:
+    mode = "balanced" if quality is None else str(quality).strip().lower()
+    if mode not in {"exact", "balanced", "fast"}:
+        raise AlgorithmError(f"Unknown palette indexing quality {quality!r}.")
+    return mode
+
+
+def _bayer_grid(height: int, width: int) -> np.ndarray:
+    """Return the cached ``(height, width)`` float32 Bayer offset grid."""
+    key = (int(height), int(width))
+    cached = _BAYER_CACHE.get(key)
+    if cached is not None:
+        return cached
+    tiles_y = (height + 7) // 8
+    tiles_x = (width + 7) // 8
+    grid = np.ascontiguousarray(np.tile(_BAYER_OFFSET_TILE, (tiles_y, tiles_x))[:height, :width], dtype=np.float32)
+    if len(_BAYER_CACHE) >= _CACHE_LIMIT:
+        _BAYER_CACHE.pop(next(iter(_BAYER_CACHE)))
+    _BAYER_CACHE[key] = grid
+    return grid
+
+
+def build_palette_lut(palette: np.ndarray) -> np.ndarray:
+    """Build (or fetch from cache) the flat ``128^3`` uint8 7-bit RGB -> palette index LUT."""
+    pal = np.ascontiguousarray(palette, dtype=np.float32)
+    if pal.ndim != 2 or pal.shape[1] != 3 or pal.shape[0] < 1:
+        raise AlgorithmError(f"Palette must have shape (K, 3), got {pal.shape}.")
+    key = (pal.shape, pal.tobytes())
+    cached = _LUT_CACHE.get(key)
+    if cached is not None:
+        return cached
+    dr = (_LUT_GRID_128[:, None] - pal[None, :, 0]) ** 2
+    dg = (_LUT_GRID_128[:, None] - pal[None, :, 1]) ** 2
+    db = (_LUT_GRID_128[:, None] - pal[None, :, 2]) ** 2
+    dgb = np.ascontiguousarray((dg[:, None, :] + db[None, :, :]).reshape(16384, pal.shape[0]), dtype=np.float32)
+    lut = np.empty((128, 16384), dtype=np.uint8)
+    buf = np.empty_like(dgb)
+    for r_index in range(128):
+        np.add(dgb, dr[r_index], out=buf)
+        # argmin breaks ties deterministically by picking the lowest palette index.
+        lut[r_index] = buf.argmin(axis=1)
+    flat_lut = lut.reshape(-1)
+    if len(_LUT_CACHE) >= _CACHE_LIMIT:
+        _LUT_CACHE.pop(next(iter(_LUT_CACHE)))
+    _LUT_CACHE[key] = flat_lut
+    return flat_lut
+
+
+def _indexes(
+    rgb: np.ndarray,
+    palette: np.ndarray,
+    dither: str,
+    *,
+    quality: str = "balanced",
+    lut: np.ndarray | None = None,
+) -> np.ndarray:
+    mode = _normalize_quality(quality)
+    if mode == "exact":
+        return _indexes_exact(rgb, palette, dither)
+    active_lut = build_palette_lut(palette) if lut is None else lut
+    return _indexes_lut(rgb, active_lut, dither)
+
+
+def _indexes_exact(rgb: np.ndarray, palette: np.ndarray, dither: str) -> np.ndarray:
+    """Exact nearest-color lookup via BLAS identity ``0.5*||p||^2 - x @ p.T``."""
+    pal = np.ascontiguousarray(palette, dtype=np.float32)
     adjusted = rgb.astype(np.float32)
     if dither == "ordered":
         height, width = rgb.shape[:2]
-        yy, xx = np.mgrid[0:height, 0:width]
-        threshold = (_BAYER_8[yy % 8, xx % 8] + 0.5) / 64.0 - 0.5
-        adjusted = adjusted + threshold[:, :, None] * 24.0
-    flat = adjusted.reshape(-1, 3)
+        adjusted = adjusted + _bayer_grid(height, width)[:, :, None]
+    flat = np.ascontiguousarray(adjusted.reshape(-1, 3), dtype=np.float32)
+    half = np.float32(0.5) * (pal**2).sum(axis=1)
     chosen = np.empty(flat.shape[0], dtype=np.uint8)
-    step = 8192
+    step = 65536
     for start in range(0, flat.shape[0], step):
         chunk = flat[start : start + step]
-        distance = ((chunk[:, None, :] - palette[None, :, :]) ** 2).sum(axis=2)
-        chosen[start : start + step] = distance.argmin(axis=1).astype(np.uint8)
+        scores = half[None, :] - chunk @ pal.T
+        # argmin breaks ties deterministically by picking the lowest palette index.
+        chosen[start : start + step] = scores.argmin(axis=1).astype(np.uint8)
     return chosen.reshape(rgb.shape[:2])
+
+
+def _indexes_lut(rgb: np.ndarray, lut: np.ndarray, dither: str) -> np.ndarray:
+    """7-bit (128^3) lookup table with L3-resident per-channel shift accumulation."""
+    height, width = rgb.shape[:2]
+    scale = np.float32(127.0 / 255.0)
+    if dither != "ordered":
+        q_table = np.rint(np.arange(256, dtype=np.float32) * scale).astype(np.int32)
+        key = (q_table[rgb[:, :, 0]] << 14) | (q_table[rgb[:, :, 1]] << 7) | q_table[rgb[:, :, 2]]
+        return lut[key]
+    bayer = _bayer_grid(height, width)
+    buf = np.empty((height, width), dtype=np.float32)
+    q = np.empty((height, width), dtype=np.int32)
+    key = np.zeros((height, width), dtype=np.int32)
+    for channel, shift in ((0, 14), (1, 7), (2, 0)):
+        np.add(rgb[:, :, channel], bayer, out=buf, casting="unsafe")
+        np.clip(buf, 0.0, 255.0, out=buf)
+        np.multiply(buf, scale, out=buf)
+        np.rint(buf, out=buf)
+        np.copyto(q, buf, casting="unsafe")
+        if shift:
+            q <<= shift
+        key |= q
+    return lut[key]
 
 
 def _paletted(index: np.ndarray, palette: np.ndarray):
