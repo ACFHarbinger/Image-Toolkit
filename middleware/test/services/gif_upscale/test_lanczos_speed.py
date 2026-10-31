@@ -174,3 +174,27 @@ def test_plan_cache_is_bit_identical_for_other_scalers() -> None:
     other = {"size": (32, 24)}
     get_algorithm("bicubic-sharper").upscale([frame], 2.0, other)
     assert "_scale_path" not in other
+
+
+def test_adversarial_geometries_and_alpha_match_reference():
+    """#1152: phase, border and alpha errors can hide on even opaque images."""
+    for height, width, size in ((1, 1, (3, 2)), (3, 5, (9, 7)), (7, 9, (13, 11)), (9, 7, (3, 4))):
+        yy, xx = np.mgrid[:height, :width]
+        for pattern in ("impulse", "checker", "transparent"):
+            frame = np.zeros((height, width, 4), dtype=np.float32)
+            frame[..., 3] = 1
+            if pattern == "impulse":
+                frame[height // 2, width // 2, :3] = 1
+            else:
+                frame[..., :3] = ((yy + xx) % 2)[..., None]
+            if pattern == "transparent":
+                frame[..., 3] = np.linspace(0, 1, width, dtype=np.float32)[None, :]
+            reference = _mask_reference(frame, *size)
+            for quality in ("exact", "balanced", "fast"):
+                actual, opts = _upscale(frame, size, {"quality": quality})
+                repeated, _ = _upscale(frame, size, opts=opts)
+                assert np.isfinite(actual).all()
+                np.testing.assert_array_equal(actual, repeated)
+                np.testing.assert_allclose(actual[..., 3], reference[..., 3], atol=_LEVEL, rtol=0)
+                visible = reference[..., 3] > 1e-6
+                np.testing.assert_allclose(actual[..., :3][visible], reference[..., :3][visible], atol=_LEVEL, rtol=0)
