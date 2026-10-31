@@ -81,15 +81,15 @@ def _resample_gif_in_memory_gpu(
 ) -> dict[str, Any] | None:
     """Run in-memory GIF scale + on-device dither and palette lookup on GPU when available."""
     from middleware.src.services.media.gif_upscale.encode import IndexedGifWriter, _shared_palette
-    from middleware.src.services.media.gif_upscale.gpu_batch import acquire_gpu_session
+    from middleware.src.services.media.gif_upscale.gpu_schedule import acquire_gpu_sessions
 
     source_height, source_width = clip.frames[0].shape[:2]
-    _registered, _scale, width, height, algorithm_id = _prepare_scale(params, "gif", source_width, source_height)
+    registered, scale, width, height, algorithm_id = _prepare_scale(params, "gif", source_width, source_height)
     opts: dict[str, Any] = {
         "size": (width, height),
         "params": {key: value for key, value in params.items() if key != "progress"},
     }
-    gpu_session, fallback_reason = acquire_gpu_session(
+    sessions, fallback_reason = acquire_gpu_sessions(
         src_h=source_height,
         src_w=source_width,
         dst_h=height,
@@ -97,6 +97,26 @@ def _resample_gif_in_memory_gpu(
         opts=opts,
         algorithm_id=algorithm_id,
     )
+    if len(sessions) > 1:
+        try:
+            return _resample_gif_in_memory_scheduled(
+                clip,
+                sessions,
+                output_path,
+                params,
+                opts,
+                timings,
+                progress,
+                registered,
+                scale,
+                width,
+                height,
+                algorithm_id,
+            )
+        finally:
+            for session in sessions:
+                session.close()
+    gpu_session = sessions[0] if sessions else None
     if gpu_session is None:
         if fallback_reason:
             params["_gpu_fallback"] = fallback_reason
@@ -204,7 +224,7 @@ def _resample_gif_stream(
         _shared_palette,
         index_frame,
     )
-    from middleware.src.services.media.gif_upscale.gpu_batch import acquire_gpu_session
+    from middleware.src.services.media.gif_upscale.gpu_schedule import acquire_gpu_sessions
     from middleware.src.services.media.gif_upscale.io import iter_gif_frames
 
     timings = _stage_timings()
@@ -221,7 +241,7 @@ def _resample_gif_stream(
         "size": (width, height),
         "params": {key: value for key, value in params.items() if key != "progress"},
     }
-    gpu_session, _fallback_reason = acquire_gpu_session(
+    sessions, _fallback_reason = acquire_gpu_sessions(
         src_h=source_height,
         src_w=source_width,
         dst_h=height,
@@ -229,6 +249,26 @@ def _resample_gif_stream(
         opts=opts,
         algorithm_id=algorithm_id,
     )
+    if len(sessions) > 1:
+        try:
+            return _resample_gif_stream_scheduled(
+                input_path,
+                output_path,
+                params,
+                opts,
+                timings,
+                progress,
+                registered,
+                scale,
+                width,
+                height,
+                algorithm_id,
+                sessions,
+            )
+        finally:
+            for session in sessions:
+                session.close()
+    gpu_session = sessions[0] if sessions else None
     try:
         samples, count, loop = _palette_samples(
             input_path, registered, scale, opts, algorithm_id, timings, progress, gpu_session=gpu_session
@@ -328,6 +368,206 @@ def _resample_gif_stream(
     finally:
         if gpu_session is not None:
             gpu_session.close()
+    _report(progress, "encode", 1, 1)
+    return _gif_success(
+        width,
+        height,
+        output_path,
+        "temporal",
+        timings,
+        _path_record(opts, algorithm_id, palette_mode),
+        opts.get("_gpu_fallback"),
+    )
+
+
+def _cpu_batch_fallback(
+    registered: Any,
+    scale: float,
+    opts: dict[str, Any],
+    algorithm_id: str,
+    palette: np.ndarray | None,
+    transparent: bool,
+    dither: str,
+    quality: str,
+) -> Any:
+    """Index or scale one failed GPU batch with the same CPU algorithm. Not a silent Lanczos swap."""
+
+    def fallback(frames: Any, op: str) -> Any:
+        if op == "index":
+            from middleware.src.services.media.gif_upscale.encode import index_frame
+
+            if palette is None:
+                raise AlgorithmError("CPU palette index needs the shared palette.")
+            indexed = [
+                index_frame(frame, palette, transparent=transparent, dither=dither, quality=quality) for frame in frames
+            ]
+            return np.stack(indexed)
+        scaled = [
+            _uint8(_one_frame(registered, np.asarray(frame).astype(np.float32) / 255.0, scale, opts, algorithm_id))
+            for frame in frames
+        ]
+        if op == "scale":
+            return scaled
+        return fallback(scaled, "index")
+
+    return fallback
+
+
+def _resample_gif_in_memory_scheduled(
+    clip: Any,
+    sessions: list[Any],
+    output_path: str,
+    params: dict[str, Any],
+    opts: dict[str, Any],
+    timings: dict[str, float],
+    progress: Any,
+    registered: Any,
+    scale: float,
+    width: int,
+    height: int,
+    algorithm_id: str,
+) -> dict[str, Any]:
+    """Same full-frame palette as the one-device path, but scale and index are stolen across devices."""
+    from middleware.src.services.media.gif_upscale.encode import IndexedGifWriter, _shared_palette
+    from middleware.src.services.media.gif_upscale.gpu_schedule import schedule_gif_frames
+
+    total = len(clip.frames)
+    dither = str(params.get("dither") or "ordered")
+    quality = str(params.get("quality") or "balanced")
+    fallback = _cpu_batch_fallback(registered, scale, opts, algorithm_id, None, True, dither, quality)
+    _report(progress, "scale", 0, total)
+    scaled = schedule_gif_frames(
+        sessions,
+        clip.frames,
+        clip.durations,
+        op="scale",
+        progress=progress,
+        progress_stage="scale",
+        timings=timings,
+        opts=opts,
+        cpu_fallback=fallback,
+        close_sessions=False,
+    )["frames"]
+    transparent = any(int(frame[:, :, 3].min()) < 128 for frame in scaled)
+    colors = 255 if transparent else 256
+    started = time.perf_counter()
+    palette = _shared_palette(scaled, colors, "mediancut")
+    _tick(timings, "palette", started)
+    if transparent:
+        palette = np.vstack([np.zeros((1, 3), dtype=np.float32), palette])
+    fallback = _cpu_batch_fallback(registered, scale, opts, algorithm_id, palette, transparent, dither, quality)
+    live = [session for session in sessions if not getattr(session, "_closed", False)]
+    _report(progress, "encode", 0, 1)
+    writer = IndexedGifWriter(output_path, width, height, palette, clip.loop, transparent=transparent)
+    cancelled = False
+    try:
+        schedule_gif_frames(
+            live,
+            scaled,
+            clip.durations,
+            writer,
+            op="index",
+            palette=palette,
+            transparent=transparent,
+            dither=dither,
+            quality=quality,
+            progress=progress,
+            progress_stage="encode",
+            timings=timings,
+            opts=opts,
+            cpu_fallback=fallback,
+            close_sessions=False,
+        )
+    except ResampleCancelled:
+        cancelled = True
+        raise
+    finally:
+        writer.close()
+        if cancelled:
+            Path(output_path).unlink(missing_ok=True)
+    _report(progress, "encode", 1, 1)
+    return _gif_success(
+        width,
+        height,
+        output_path,
+        "temporal",
+        timings,
+        _path_record(opts, algorithm_id, "temporal"),
+        opts.get("_gpu_fallback"),
+    )
+
+
+def _resample_gif_stream_scheduled(
+    input_path: str,
+    output_path: str,
+    params: dict[str, Any],
+    opts: dict[str, Any],
+    timings: dict[str, float],
+    progress: Any,
+    registered: Any,
+    scale: float,
+    width: int,
+    height: int,
+    algorithm_id: str,
+    sessions: list[Any],
+) -> dict[str, Any]:
+    """Stream a long clip. One CPU palette, then whichever leased GPU is free."""
+    from middleware.src.services.media.gif_upscale.encode import IndexedGifWriter, _shared_palette
+    from middleware.src.services.media.gif_upscale.gpu_schedule import schedule_gif_frames
+    from middleware.src.services.media.gif_upscale.io import iter_gif_frames
+
+    sample_session = next((session for session in sessions if not getattr(session, "_closed", False)), None)
+    samples, count, loop = _palette_samples(
+        input_path, registered, scale, opts, algorithm_id, timings, progress, gpu_session=sample_session
+    )
+    live = [session for session in sessions if not getattr(session, "_closed", False)]
+    transparent = True
+    colors = 255 if transparent else 256
+    palette_mode = "mediancut"
+    dither = str(params.get("dither") or "ordered")
+    quality = str(params.get("quality") or "balanced")
+    _report(progress, "palette", 0, 1)
+    started = time.perf_counter()
+    palette = _shared_palette(samples, colors, palette_mode)
+    _tick(timings, "palette", started)
+    if transparent:
+        palette = np.vstack([np.zeros((1, 3), dtype=np.float32), palette])
+    del samples
+    fallback = _cpu_batch_fallback(registered, float(scale), opts, algorithm_id, palette, transparent, dither, quality)
+    writer = IndexedGifWriter(output_path, width, height, palette, loop, transparent=transparent)
+    cancelled = False
+    try:
+        _report(progress, "scale_encode", 0, count)
+
+        def jobs() -> Any:
+            for frame, duration, _frame_loop in iter_gif_frames(input_path):
+                yield frame, duration
+
+        schedule_gif_frames(
+            live,
+            jobs(),
+            None,
+            writer,
+            total=count,
+            op="scale_index",
+            palette=palette,
+            transparent=transparent,
+            dither=dither,
+            quality=quality,
+            progress=progress,
+            progress_stage="scale_encode",
+            timings=timings,
+            opts=opts,
+            cpu_fallback=fallback,
+            close_sessions=False,
+        )
+    except ResampleCancelled:
+        cancelled = True
+        raise
+    finally:
+        writer.close()
+        if cancelled:
+            Path(output_path).unlink(missing_ok=True)
     _report(progress, "encode", 1, 1)
     return _gif_success(
         width,
