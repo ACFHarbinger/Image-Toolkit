@@ -219,3 +219,37 @@ def test_stream_gpu_fallback_when_arbiter_refuses_and_cancel_releases_lease(
         assert seen_calls["n"] == 3
         assert not partial.exists()
         assert free_arbiter.snapshot().held_devices == ()
+
+
+def test_in_memory_gif_gpu_and_fallback(tmp_path: Path) -> None:
+    source = tmp_path / "small.gif"
+    frames = [Image.new("RGB", (12, 8), (i * 40 % 256, 100, 200)) for i in range(4)]
+    frames[0].save(source, format="GIF", save_all=True, append_images=frames[1:], duration=50, loop=0, disposal=2)
+    for im in frames:
+        im.close()
+
+    held_arbiter = GpuLeaseArbiter(devices=({"index": 0, "total_gb": 24.0, "free_gb": 16.0},))
+    assert held_arbiter.try_acquire("other_job", device=0) is True
+    out_fb = tmp_path / "small_fb.gif"
+    res_fb = resample_gif(
+        str(source),
+        str(out_fb),
+        {"algorithm": "lanczos3-dering", "mode": "factor", "factor": 2, "gpu_arbiter": held_arbiter},
+    )
+    assert res_fb["success"] is True
+    assert res_fb["path"]["device"] == "cpu"
+    assert "fallback=" in res_fb["message"]
+
+    if _cuda_ready():
+        free_arbiter = GpuLeaseArbiter(devices=({"index": 0, "total_gb": 24.0, "free_gb": 16.0},))
+        out_gpu = tmp_path / "small_gpu.gif"
+        res_gpu = resample_gif(
+            str(source),
+            str(out_gpu),
+            {"algorithm": "lanczos3-dering", "mode": "factor", "factor": 2, "gpu_arbiter": free_arbiter},
+        )
+        assert res_gpu["success"] is True
+        assert res_gpu["path"]["device"] == "cuda:0"
+        assert res_gpu["path"]["kernel"].startswith("gpu-sgemm-")
+        assert res_gpu["timings"]["index"] > 0.0
+        assert free_arbiter.snapshot().held_devices == ()

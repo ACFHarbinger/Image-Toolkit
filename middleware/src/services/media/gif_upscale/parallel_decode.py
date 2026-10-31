@@ -154,6 +154,8 @@ def _proven_equivalent(info: GifInfo, frames: list[FrameRecord]) -> bool:
     first = frames[0]
     if (first.left, first.top, first.width, first.height) != (0, 0, info.width, info.height):
         return False  # a partial first frame leaves canvas pixels Pillow fills in its own way
+    if first.disposal == 3:
+        return False  # Pillow can restore the initial extent to transparency.
     previous_disposal = 0
     for rec in frames:
         # Pillow retains the previous nonzero disposal for unspecified frames.
@@ -163,6 +165,8 @@ def _proven_equivalent(info: GifInfo, frames: list[FrameRecord]) -> bool:
             previous_disposal = rec.disposal
         if rec.left + rec.width > info.width or rec.top + rec.height > info.height:
             return False
+        if rec.disposal == 2 and first.transparent is None:
+            return False  # Pillow keeps an initially opaque canvas in RGB mode.
         if rec.disposal == 2 and rec.transparent is None:
             return False  # background-colour disposal: Pillow-specific, not matched here
     return True
@@ -176,7 +180,7 @@ class _Compositor:
     def draw(self, rec: FrameRecord, rgba: np.ndarray, *, first: bool) -> tuple[np.ndarray, np.ndarray | None]:
         """Draw one frame. Returns the displayed canvas and the canvas to restore for disposal 3.
 
-        Pillow treats "restore previous" on the first frame as "leave in place", so it saves nothing there.
+        First-frame disposal 3 is excluded by the eligibility check.
         """
         saved = self.canvas.copy() if rec.disposal == 3 and not first else None
         region = self.canvas[rec.top : rec.top + rec.height, rec.left : rec.left + rec.width]

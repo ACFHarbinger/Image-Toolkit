@@ -183,3 +183,28 @@ def test_unspecified_disposal_after_restore_matches_pillow(tmp_path, disposal):
         (0, 0, np.zeros_like(base), 1, 0, 3),
     ]
     assert _same(_assemble(tmp_path, 16, 12, frames, palette)) == 4
+
+
+@pytest.mark.parametrize("first_transparent", [None, 0])
+def test_first_restore_previous_with_transparency_falls_back(tmp_path, first_transparent):
+    base = np.ones((8, 8), dtype=np.uint8)
+    patch = np.full((2, 2), 2, dtype=np.uint8)
+    frames = [(0, 0, base, 3, first_transparent, 3), (2, 2, patch, 1, 0, 7)]
+    path = _assemble(tmp_path, 8, 8, frames, _palette(), loop=2)
+    info, records = scan_gif(path)
+    assert not _proven_equivalent(info, records)
+    assert _same(path) == 2
+
+
+def test_opaque_first_frame_then_transparent_background_disposal_falls_back(tmp_path):
+    base = np.ones((8, 8), dtype=np.uint8)
+    patch = np.full((2, 2), 2, dtype=np.uint8)
+    frames = [
+        (0, 0, base, 1, None, 3),
+        (2, 2, patch, 2, 0, 7),
+        (5, 5, patch, 1, 0, 9),
+    ]
+    path = _assemble(tmp_path, 8, 8, frames, _palette(), loop=2)
+    info, records = scan_gif(path)
+    assert not _proven_equivalent(info, records)
+    assert _same(path) == 3

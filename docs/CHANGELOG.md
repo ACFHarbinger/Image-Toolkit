@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- When more than one GPU is free, a GIF resample hands the next frame batch to whichever card is idle and writes the frames back in order. A failed card retries that batch once on another card, then on the CPU. One card keeps the previous single-device path.
+- One GPU can overlap the next batch's pinned upload with the previous batch's index download, with at most two batches in flight.
+- `IndexedGifWriter(..., workers=N)` compresses GIF frames in N processes and writes them in order from the parent. The default `workers=1` stays in-process and does not start a pool.
 - A streaming GIF resample reports "Scaling & encoding frame N/total" while each frame is scaled and written, and the finish line lists decode, palette, scale, index, and LZW times plus device, kernel, palette mode, and delta mode.
 - GPU admission can lease each configured device on its own. With a device table, a job takes the allow-listed device that has the most free VRAM. The single-device lease is unchanged when no table is passed.
 - Realistic upscalers are registered for GIF and still resize: Real-ESRGAN x4plus, x2plus, and general-x4v3, plus HAT, SwinIR, DRCT, MambaIRv2, fidelity-guarded OSEDiff and TSD-SR, and temporal shells for SeedVR2, FlashVSR, and DOVE. They stay unavailable until their weight files are in the local cache, and they do not download without a recorded checksum.

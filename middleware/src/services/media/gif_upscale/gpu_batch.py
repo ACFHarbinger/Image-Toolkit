@@ -379,6 +379,15 @@ class GpuResampleSession:
             index_s = time.perf_counter() - t1
         return idx_cpu, scale_s, index_s
 
+    def index_batch_uint8(self, frames_u8: Sequence[np.ndarray]) -> np.ndarray:
+        """Dither and palette-index already-scaled ``uint8`` RGBA frames on the GPU."""
+        torch = self._torch
+        stacked = np.ascontiguousarray(np.stack(frames_u8, axis=0), dtype=np.uint8)
+        with torch.no_grad():
+            x = torch.from_numpy(stacked).to(self.device, non_blocking=True).to(torch.float32)
+            idx_gpu = self._index_tensors(x[..., :3], x[..., 3])
+            return idx_gpu.cpu().numpy()
+
     def close(self) -> None:
         if self._closed:
             return

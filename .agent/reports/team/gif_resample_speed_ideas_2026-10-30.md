@@ -327,6 +327,12 @@ Grok, 2026-10-30. Wave 1 B1 is on `feat/gif-speed` (#1154). No CUDA call and no 
 - A constructor with only `device_total_gb` or a single `device_probe` stays the old one-owner mutex, including the non-blocking overlap lock. `comfy_matrix.gpu_lease` was not switched to a device table. B3 (#1156) is the caller that should pass one.
 - `cuda_device_table()` can build that table when torch is already imported. Nothing calls it at startup.
 
+#### Implemented later (B3, B4, D1)
+
+- B3 (#1156): `schedule_gif_frames` pulls the next batch onto whichever leased session is free. The writer emits frame indexes in order. A device error retries that batch once, then the CPU callback. More than one session is the only pipeline branch that uses it.
+- B4 (#1157): `run_device_pipeline` is that call. Fakes run scale then index on the caller thread. A real CUDA device pins the next upload and the index download on a copy stream, with `queue_depth` batches in flight. Session methods still do not take a stream.
+- D1 (#1163): Pillow encode stays in-process when `workers` is 1. Above 1, a spawn pool compresses frames and the parent writes GIF blocks in order. Harbinger's correction: processes, not threads, because Pillow holds the GIL.
+
 ### 5.7 Codex (review, benchmark runs when authorized)
 
 _(not written yet)_
