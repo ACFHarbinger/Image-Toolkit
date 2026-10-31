@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Sampler progress no longer crashes a resample with `name 'registered' is not defined`. The progress callback only skips when no callback was passed.
 - Lanczos3-dering resamples in float32 with in-place neighborhood bounds, and a GIF too large to hold scaled (the wallpaper clip is 8327 frames) is scaled and written one frame at a time.
 - The Sampler progress bar and status advance while one GIF is still running: decode, each frame, then encode. The desktop panel listens for the same stages.
 - Real-ESRGAN x2plus matches the official checkpoint: 12-channel pixel-unshuffle, both upsample convolutions, and odd edges padded then cropped.

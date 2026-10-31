@@ -204,7 +204,7 @@ def _prepare_scale(params: dict[str, Any], container: str, source_width: int, so
 
 
 def _report(progress: Any, stage: str, done: int, total: int) -> None:
-    if progress is None or registered.spec.needs_gpu:
+    if progress is None:
         return
     progress(stage, int(done), int(total))
 
