@@ -559,9 +559,15 @@ class _FrameScheduler:
             return session.index_batch_uint8(frames), 0.0, time.perf_counter() - started
         runner = _overlap_pipeline()
         if runner is not None:
-            # The overlap helper does not split scale and index time.
+            # B4 takes (batch_id, frames) pairs and returns (batch_id, indices).
+            # One scheduler batch is one overlapped unit. Time is not split.
             started = time.perf_counter()
-            return runner(session, frames), time.perf_counter() - started, 0.0
+            results = runner(session, [(0, frames)])
+            elapsed = time.perf_counter() - started
+            if len(results) != 1:
+                raise AlgorithmError("GPU overlap returned an unexpected batch count.")
+            _batch_id, indices = results[0]
+            return indices, elapsed, 0.0
         started = time.perf_counter()
         scaled = session.scale_batch_uint8(frames)
         scale_s = time.perf_counter() - started

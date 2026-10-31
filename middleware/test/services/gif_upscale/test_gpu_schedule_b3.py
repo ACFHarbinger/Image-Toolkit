@@ -228,11 +228,13 @@ def test_overlap_runner_replaces_session_scale_and_index(monkeypatch: pytest.Mon
     _BARRIER = None
     called: list[int] = []
 
-    def run_device_pipeline(session: _Session, frames: list[np.ndarray]) -> np.ndarray:
+    def run_device_pipeline(session: _Session, batches, **_kwargs: object) -> list[tuple[int, np.ndarray]]:
         called.append(session.device_index)
+        batch_id, frames = batches[0]
         ids = [int(frame.reshape(-1)[0]) for frame in frames]
         session.batches.append(ids)
-        return np.stack([np.full((1, 1), frame_id, dtype=np.uint8) for frame_id in ids])
+        indices = np.stack([np.full((1, 1), frame_id, dtype=np.uint8) for frame_id in ids])
+        return [(batch_id, indices)]
 
     monkeypatch.setattr(
         "middleware.src.services.media.gif_upscale.gpu_schedule._overlap_pipeline",
