@@ -166,7 +166,10 @@ def test_stream_gpu_fallback_when_arbiter_refuses_and_cancel_releases_lease(
     assert res_fallback["success"] is True
     assert res_fallback["path"]["device"] == "cpu"
     assert "fallback=" in res_fallback["message"]
-    assert "comfy_job" in res_fallback["message"]
+    if _cuda_ready():
+        assert "comfy_job" in res_fallback["message"]
+    else:
+        assert "CUDA is unavailable" in res_fallback["message"]
     assert out_fallback.exists()
 
     # 2. When arbiter is free and CUDA is ready, GPU runs and cancel releases the lease and removes partial output

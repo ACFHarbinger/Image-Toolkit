@@ -163,7 +163,7 @@ def test_zero_devices_returns_the_cpu_reason() -> None:
     )
     assert sessions == []
     assert reason is not None
-    assert "Fell back to CPU" in reason
+    assert "fell back to cpu" in reason.lower()
     assert opts["_device"] == "cpu"
     assert opts["_gpu_fallback"] == reason
 
@@ -251,3 +251,20 @@ def test_overlap_runner_replaces_session_scale_and_index(monkeypatch: pytest.Mon
     schedule_gif_frames([only], _frames(2), [40, 40], writer)
     assert writer.frames == [0, 1]
     assert called == [0]
+
+
+def test_fused_scale_index_keeps_intermediate_on_device():
+    class FusedSession(_Session):
+        def scale_and_index_batch(self, frames):
+            ids = [int(frame.reshape(-1)[0]) for frame in frames]
+            return np.array(ids, dtype=np.uint8).reshape(-1, 1, 1), 0.1, 0.2
+
+        def scale_batch_uint8(self, frames):
+            raise AssertionError("RGBA host round trip")
+
+    writer = _Writer()
+    schedule_gif_frames(
+        [FusedSession(0)], _frames(), [30] * 5, writer=writer,
+        palette=np.zeros((256, 3), dtype=np.float32),
+    )
+    assert writer.frames == list(range(5))

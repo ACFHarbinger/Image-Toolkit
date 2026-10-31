@@ -557,6 +557,10 @@ class _FrameScheduler:
         if self._op == "index":
             started = time.perf_counter()
             return session.index_batch_uint8(frames), 0.0, time.perf_counter() - started
+        # Keep scaled pixels on-device; the legacy overlap adapter round-trips RGBA.
+        fused = getattr(session, "scale_and_index_batch", None)
+        if callable(fused):
+            return fused(frames)
         runner = _overlap_pipeline()
         if runner is not None:
             # B4 takes (batch_id, frames) pairs and returns (batch_id, indices).
