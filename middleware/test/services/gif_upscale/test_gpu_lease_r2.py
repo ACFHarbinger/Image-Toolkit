@@ -131,6 +131,130 @@ def test_gif_lease_is_visible_on_the_shared_snapshot(monkeypatch: pytest.MonkeyP
     assert shared.snapshot().held_devices == ()
 
 
+def test_unrouted_try_admit_does_not_run_on_a_card_it_does_not_hold() -> None:
+    """Training, neural upscalers, and Comfy receive only success or refusal.
+
+    They then execute on their own device (``device_name`` or generic ``cuda``).
+    A GIF job holding cuda:0 must keep that caller off every card, and a granted
+    caller must hold every card so it cannot execute on one the lease did not give.
+    """
+    from middleware.src.comfy_matrix import try_admit
+
+    lease = GpuLeaseArbiter(devices=_TABLE)
+    assert lease.try_acquire("gif", device=0) is True
+    refusal = try_admit("gan-train", lease, estimated_gb=1.0)
+    assert refusal is not None
+    assert "gif" in refusal
+    assert lease.devices_for("gan-train") == ()
+    lease.release("gif", device=0)
+
+    assert try_admit("gan-train", lease, estimated_gb=1.0) is None
+    assert lease.devices_for("gan-train") == (0, 1)
+    assert lease.try_acquire("gif-other", device=1) is False
+    lease.release("gan-train")
+    assert lease.devices_for("gan-train") == ()
+    assert lease.owner is None
+    assert lease.try_acquire("gif-other", device=0) is True
+    lease.release("gif-other", device=0)
+
+
+def test_comfy_sweep_holds_every_card_while_it_submits() -> None:
+    """Comfy execution is not placed on the device ``try_acquire`` would pick."""
+    from middleware.src.comfy_matrix import run_matrix_sweep
+
+    lease = GpuLeaseArbiter(devices=_TABLE)
+    held: list[tuple[int, ...]] = []
+    workflow = {
+        "1": {"class_type": "KSampler", "inputs": {"seed": 1, "steps": 1, "cfg": 1.0}},
+        "2": {"class_type": "EmptyLatentImage", "inputs": {"width": 8, "height": 8}},
+    }
+
+    def queue(_workflow: dict, _meta: dict) -> str:
+        held.append(lease.devices_for("matrix"))
+        return "prompt-1"
+
+    result = run_matrix_sweep(
+        workflow=workflow,
+        axis="seed",
+        values=[1],
+        queue=queue,
+        wait_for_completion=lambda _prompt: True,
+        preview_edge=8,
+        lease=lease,
+        pressure_check=lambda: False,
+    )
+    assert result.stopped is None
+    assert held == [(0, 1)]
+    assert lease.devices_for("matrix") == ()
+    assert lease.try_acquire("gif", device=0) is True
+    lease.release("gif", device=0)
+
+
+def test_first_attach_cannot_leave_a_slotless_legacy_owner() -> None:
+    """Deterministic race: observe no table, then attach, then the acquire commits.
+
+    The old order took the legacy mutex after the table existed. Release then
+    looked for a device slot, found none, and left the legacy lock held.
+    """
+    import threading
+
+    from middleware.src.comfy_matrix import try_admit
+
+    lease = GpuLeaseArbiter()
+    entered = threading.Event()
+    attached = threading.Event()
+    real = lease._transition
+    main = threading.current_thread()
+
+    class _Gate:
+        def __init__(self) -> None:
+            self._arm = True
+
+        def acquire(self, blocking: bool = True, timeout: float = -1) -> bool:
+            if self._arm and threading.current_thread() is main:
+                self._arm = False
+                entered.set()
+                assert attached.wait(2)
+            if timeout == -1:
+                return real.acquire(blocking)
+            return real.acquire(blocking, timeout)
+
+        def release(self) -> None:
+            real.release()
+
+        def locked(self) -> bool:
+            return real.locked()
+
+        def __enter__(self) -> "_Gate":
+            self.acquire()
+            return self
+
+        def __exit__(self, *_args: object) -> bool:
+            self.release()
+            return False
+
+    lease._transition = _Gate()
+
+    def _attach() -> None:
+        assert entered.wait(2)
+        assert lease.ensure_device_table(_TABLE) is True
+        attached.set()
+
+    thread = threading.Thread(target=_attach)
+    thread.start()
+    assert try_admit("trainer", lease) is None
+    thread.join(3)
+    assert not thread.is_alive()
+    assert lease.devices_for("trainer") == (0, 1)
+    assert lease._lock.locked() is False
+    lease.release("trainer")
+    assert lease.owner is None
+    assert lease.snapshot().held_devices == ()
+    assert lease._lock.locked() is False
+    assert lease.try_acquire("gif", device=0) is True
+    lease.release("gif", device=0)
+
+
 def test_explicit_arbiter_does_not_use_the_shared_lease(monkeypatch: pytest.MonkeyPatch) -> None:
     _cuda_ready(monkeypatch)
 

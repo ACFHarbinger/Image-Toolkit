@@ -15,7 +15,14 @@ free live tensors and is not a general VRAM fix.
 GIF resample calls ``ensure_device_table`` with rows from
 ``cuda_device_table`` before it acquires. That is the first attach on the
 process lease. A legacy holder blocks the attach so ``release`` stays on
-the legacy path.
+the legacy path. The attach and the choice of legacy versus per-device
+admission share one lock, so a caller cannot take the legacy mutex after
+the table exists.
+
+``try_acquire(..., routed=False)`` is the path for callers that do not
+execute on ``device_for``. With a table they hold every device or they are
+refused. Granting them one free card would let them run on a card another
+job already holds. ``try_admit`` and the Comfy matrix sweep use that path.
 """
 from __future__ import annotations
 
@@ -470,32 +477,118 @@ class GpuLeaseArbiter:
         kind: str | None = None,
         device: int | None = None,
         allow_devices: Sequence[int] | None = None,
+        routed: bool = True,
     ) -> bool:
+        """Admit ``owner``.
+
+        ``routed=True`` (the default) picks one device and the caller must
+        execute on ``device_for``. ``routed=False`` keeps the legacy global
+        exclusion: with a table the caller holds every device, because that
+        caller chooses its own card.
+        """
+        # The table only appears, never goes away. A caller that already sees
+        # it can take the device lock without waiting on a legacy acquire.
         if self._slots is not None:
-            with self._admission:
-                return self._try_acquire_devices(
+            return self._acquire_with_table(
+                owner,
+                estimated_gb=estimated_gb,
+                kind=kind,
+                device=device,
+                allow_devices=allow_devices,
+                routed=routed,
+            )
+        # Non-blocking so an overlapping legacy acquire fails closed. The
+        # duplicate-release test depends on this lock staying blocking only
+        # for release. Recheck the table inside the lock: the first attach
+        # uses this same lock, and a stale "no table" observation must not
+        # take the legacy mutex after the table exists.
+        if not self._transition.acquire(blocking=False):
+            if self._slots is not None:
+                return self._acquire_with_table(
                     owner,
                     estimated_gb=estimated_gb,
                     kind=kind,
                     device=device,
                     allow_devices=allow_devices,
+                    routed=routed,
                 )
-        if device is not None:
-            if self._owner is not None:
-                self._last_refusal = f"GPU admission is held by {self._owner}."
-                return False
-            self._last_refusal = "GPU admission refused: no per-device table is configured."
-            return False
-        # Non-blocking so an overlapping acquire fails closed. The
-        # duplicate-release test depends on this lock staying blocking
-        # only for release.
-        if not self._transition.acquire(blocking=False):
             self._last_refusal = f"GPU admission is held by {self._owner or 'another job'}."
             return False
+        use_table = False
         try:
-            return self._try_acquire(owner, estimated_gb=estimated_gb, kind=kind)
+            if self._slots is not None:
+                use_table = True
+            elif device is not None and routed:
+                if self._owner is not None:
+                    self._last_refusal = f"GPU admission is held by {self._owner}."
+                    return False
+                self._last_refusal = "GPU admission refused: no per-device table is configured."
+                return False
+            else:
+                return self._try_acquire(owner, estimated_gb=estimated_gb, kind=kind)
         finally:
             self._transition.release()
+        if use_table:
+            return self._acquire_with_table(
+                owner,
+                estimated_gb=estimated_gb,
+                kind=kind,
+                device=device,
+                allow_devices=allow_devices,
+                routed=routed,
+            )
+        return False
+
+    def _acquire_with_table(
+        self,
+        owner: str,
+        *,
+        estimated_gb: float | None,
+        kind: str | None,
+        device: int | None,
+        allow_devices: Sequence[int] | None,
+        routed: bool,
+    ) -> bool:
+        with self._admission:
+            if not routed:
+                return self._try_acquire_unrouted(owner, estimated_gb=estimated_gb, kind=kind)
+            return self._try_acquire_devices(
+                owner,
+                estimated_gb=estimated_gb,
+                kind=kind,
+                device=device,
+                allow_devices=allow_devices,
+            )
+
+    def _try_acquire_unrouted(
+        self,
+        owner: str,
+        *,
+        estimated_gb: float | None,
+        kind: str | None,
+    ) -> bool:
+        """Hold every configured device, or refuse. The caller may run on any card."""
+        self._last_refusal = None
+        estimate = _finite_gb(estimated_gb)
+        if self._profile == PROFILE_CONSERVATIVE and self._unknown_comfy_occupancy():
+            self._last_refusal = (
+                "GPU admission refused: a Comfy browser session is open (conservative profile)."
+            )
+            return False
+        if not self._slots:
+            self._last_refusal = "GPU admission refused: no GPU devices are configured."
+            return False
+        blocked: list[tuple[_DeviceSlot, str]] = []
+        for slot in self._slots:
+            reason = self._device_refusal(slot, estimate)
+            if reason is not None:
+                blocked.append((slot, reason))
+        if blocked:
+            self._last_refusal = _refusal_for_blocked(blocked)
+            return False
+        for slot in self._slots:
+            self._grant_device(slot, owner, estimate, kind)
+        return True
 
     def _try_acquire(
         self,

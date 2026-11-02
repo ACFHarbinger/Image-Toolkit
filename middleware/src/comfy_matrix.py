@@ -100,11 +100,14 @@ VIEW_BYTE_CAP = 2_000_000
 
 
 class GpuLease(GpuLeaseArbiter):
-    """In-process admission: one holder at a time.
+    """In-process admission: one holder at a time until a device table is attached.
 
     Comfy submissions, training, and other model jobs share this object.
-    A matrix sweep keeps it until each cell's execution returns. Comfy's
-    browser queue is not visible here, so ``machine_wide`` stays false.
+    Those callers do not execute on a leased device index, so ``try_admit``
+    and the matrix sweep keep global exclusion (every device, or none) after
+    GIF resample attaches a table. A routed acquire still takes one device.
+    A matrix sweep keeps the lease until each cell's execution returns.
+    Comfy's browser queue is not visible here, so ``machine_wide`` stays false.
 
     Occupancy the mutex cannot cover (estimated vs device VRAM, conservative
     vs balanced profiles, a noted Comfy browser session) lives on
@@ -121,7 +124,8 @@ def _startup_profile() -> str:
 
 
 # GIF resample attaches a device table on its first GPU job (ensure_device_table).
-# Until that call this stays the legacy one-owner mutex. After it, one holder per device.
+# Until that call this stays the legacy one-owner mutex. After it, a routed
+# acquire takes one device. try_admit still holds every device.
 gpu_lease = GpuLease(
     profile=_startup_profile(),
     empty_cache=release_unused_cuda_blocks,
@@ -139,7 +143,8 @@ def try_admit(
 ) -> str | None:
     """Acquire *lease* for *owner*. Return a refusal message when it cannot."""
     holder = lease or gpu_lease
-    if holder.try_acquire(owner, estimated_gb=estimated_gb, kind=kind):
+    # Callers of try_admit run on their own device. Do not hand them one card.
+    if holder.try_acquire(owner, estimated_gb=estimated_gb, kind=kind, routed=False):
         return None
     return holder.refusal_text()
 
@@ -459,6 +464,7 @@ def run_matrix_sweep(
             width=edge,
             height=edge,
         ),
+        routed=False,
     ):
         return SweepResult((), parent_prompt_id, "lease")
     prompt_ids: list[str] = []
