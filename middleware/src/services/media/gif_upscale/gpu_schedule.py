@@ -542,10 +542,15 @@ class _FrameScheduler:
     def _worker_loop(self, session: Any) -> None:
         while not self._stop.is_set():
             job = self._take_local_retry(session)
+            from_local = job is not None
             if job is None:
                 job = self._pull(_batch_size_of(session))
             if job is None:
                 return
+            # A retry queued before the last shrink can be larger than the limit
+            # this card will actually run. Split it before execute, or a 2-frame
+            # tail is counted as a batch-size-1 failure and the card is retired.
+            job = self._fit_batch_limit(session, job, local=from_local)
             try:
                 payload, scale_s, index_s = self._execute(session, job.frames)
             except ResampleCancelled:
@@ -560,6 +565,18 @@ class _FrameScheduler:
             job.scale_s += scale_s
             job.index_s += index_s
             self._submit(job, payload)
+
+    def _fit_batch_limit(self, session: Any, job: _Job, *, local: bool) -> _Job:
+        head, tail = _split_job(job, _batch_size_of(session))
+        if tail is None:
+            return head
+        if local:
+            self._requeue_local(session, tail)
+            return head
+        with self._lock:
+            self._retry.appendleft(tail)
+            self._cv.notify_all()
+        return head
 
     def _take_local_retry(self, session: Any) -> _Job | None:
         with self._lock:
