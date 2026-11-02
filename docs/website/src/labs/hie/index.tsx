@@ -2,9 +2,10 @@ import { BrainCircuit, Layers3, SlidersHorizontal } from "lucide-react";
 import { documentsFromGlob, LabDocs, LabHome, LabPipeline, type LabSite } from "../shared/LabPages";
 
 const raw = {
-  ...import.meta.glob("../../../../hie/**/*.md", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob("../../../../hie/**/*.rst", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob("../../../../hie/**/*.dsl", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../editor/**/*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../editor/**/*.rst", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../structurizr/editor/**/*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../structurizr/editor/**/*.dsl", { query: "?raw", import: "default", eager: true }),
 } as Record<string, string>;
 
 const site: LabSite = {
@@ -17,7 +18,7 @@ const site: LabSite = {
   heroDescription:
     "A productive image-first editor combining a hybrid layer-node canvas, C++ optimization, neural models, reinforcement-learning policies, and reproducible pipeline jobs.",
   accent: "violet",
-  repository: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/hie",
+  repository: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/editor",
   originalRepository: "https://github.com/ACFHarbinger/Hybrid-Image-Editor",
   modules: [
     {
@@ -49,7 +50,7 @@ const site: LabSite = {
     },
   ],
   stages: ["DOCUMENT", "MODEL", "POLICY", "JOB", "PREVIEW", "COMMIT"],
-  documents: documentsFromGlob(raw, "hie"),
+  documents: documentsFromGlob(raw, "editor"),
 };
 
 export function HieHome() {

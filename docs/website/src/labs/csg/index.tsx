@@ -2,9 +2,10 @@ import { Brush, Film, Layers3 } from "lucide-react";
 import { documentsFromGlob, LabDocs, LabHome, LabPipeline, type LabSite } from "../shared/LabPages";
 
 const raw: Record<string, string> = {
-  ...import.meta.glob<string>("../../../../csg/**/*.md", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob<string>("../../../../csg/**/*.rst", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob<string>("../../../../csg/**/*.dsl", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob<string>("../../../../cel/**/*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob<string>("../../../../cel/**/*.rst", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob<string>("../../../../structurizr/cel/**/*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob<string>("../../../../structurizr/cel/**/*.dsl", { query: "?raw", import: "default", eager: true }),
 };
 
 const site: LabSite = {
@@ -16,7 +17,7 @@ const site: LabSite = {
   heroTitle: ["Shape the", "frame."],
   heroDescription: "A visual-generation and learning workspace for manga colorization, cel-shaded rendering, deformation-aware art assistance, and animation-ready workflows.",
   accent: "rose",
-  repository: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/csg",
+  repository: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/cel",
   originalRepository: "https://github.com/ACFHarbinger/Cel-Shaded-Generator",
   modules: [
     {
@@ -48,7 +49,7 @@ const site: LabSite = {
     },
   ],
   stages: ["INGEST", "MASK", "COLOR", "STYLE", "WARP", "ANIMATE"],
-  documents: documentsFromGlob(raw, "csg"),
+  documents: documentsFromGlob(raw, "cel"),
 };
 
 export function CsgHome() {

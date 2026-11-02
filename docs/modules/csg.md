@@ -21,7 +21,7 @@ The Cel-Shaded Generator (CSG) provides automated and interactive manga/lineart 
   - Commands: `ColorizeScribbleCommand`, `ColorizeReferenceCommand`, `ArapDeformCommand`, `TemporalPropagateCommand`
   - Results: `ColorizeScribbleResult`, `ColorizeReferenceResult`, `ArapDeformResult`, `TemporalPropagateResult`
   - Handlers & Service: `CsgService`, `CsgServiceProtocol`
-- **Core Primitives:** `colorize_scribble`, `colorize_reference`, `generate_mesh`, `arap_deform`, `colorize_scribble_sequence` (`middleware/src/csg/`). Upstream notes and the Comic Scene Graph licence: [`docs/csg/`](../csg/).
+- **Core Primitives:** `colorize_scribble`, `colorize_reference`, `generate_mesh`, `arap_deform`, `colorize_scribble_sequence` (`middleware/src/csg/`). Upstream notes and the Comic Scene Graph licence: [`docs/cel/`](../cel/).
 - **Bridge (`csg` capability, #916):** methods `csg.colorize_scribble`, `csg.colorize_reference`, `csg.arap_deform`, `csg.propagate_sequence` (schema `contracts/schemas/capability/csg.json`; handler `middleware/src/sidecar/handlers/csg.py`). Frontend calls them through `HostClient.csgColorizeScribble/…Reference/…ArapDeform/…PropagateSequence`.
 
 ## Contract & Routing

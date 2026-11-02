@@ -11,7 +11,7 @@
 
 ## Overview
 
-The Content Recommendation Engine (CRE) provides multi-modal media item recommendation, hybrid semantic retrieval, cross-encoder reranking, and natural language explanation generation. Absorbed in W0-03 (#867 Phase C) and relocated from `submodules/CRE/` to `middleware/src/cre/` in #1035 (phase E), it provides ranking and discovery across media catalogs. Reference docs (architecture, roadmaps, research notes) live in [`docs/cre/`](../cre/README.md).
+The Content Recommendation Engine (CRE) provides multi-modal media item recommendation, hybrid semantic retrieval, cross-encoder reranking, and natural language explanation generation. Absorbed in W0-03 (#867 Phase C) and relocated from `submodules/CRE/` to `middleware/src/cre/` in #1035 (phase E), it provides ranking and discovery across media catalogs. Reference docs (architecture, roadmaps, research notes) live in [`docs/recommendation/`](../recommendation/README.md).
 
 ## Public Surface
 

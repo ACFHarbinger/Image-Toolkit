@@ -2,9 +2,9 @@ import { Camera, GitBranch, ScanLine } from "lucide-react";
 import { documentsFromGlob, LabDocs, LabHome, LabPipeline, type LabSite } from "../shared/LabPages";
 
 const raw = {
-  ...import.meta.glob("../../../../asp/**/*.md", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob("../../../../asp/**/*.rst", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob("../../../../asp/**/*.dsl", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../stitching/**/*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../stitching/**/*.rst", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../stitching/**/*.dsl", { query: "?raw", import: "default", eager: true }),
 } as Record<string, string>;
 
 const site: LabSite = {
@@ -17,7 +17,7 @@ const site: LabSite = {
   heroDescription:
     "A high-performance panorama engine for anime panning shots, built around constrained motion, robust estimation, seam-aware compositing, and honest evaluation.",
   accent: "cyan",
-  repository: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/asp",
+  repository: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/stitching",
   originalRepository: "https://github.com/ACFHarbinger/Anime-Stitch-Pipeline",
   modules: [
     {
@@ -49,7 +49,7 @@ const site: LabSite = {
     },
   ],
   stages: ["INGEST", "MATCH", "GNC-TLS", "BUNDLE", "SEAM", "RENDER"],
-  documents: documentsFromGlob(raw, "asp"),
+  documents: documentsFromGlob(raw, "stitching"),
 };
 
 export function AspHome() {

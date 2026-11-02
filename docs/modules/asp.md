@@ -11,7 +11,7 @@
 
 ## Overview
 
-The Anime Stitch Pipeline (ASP) provides high-performance multi-frame panorama and continuous anime sequence stitching. Backed by C++ pybind11 matching/bundle-adjustment engines in `backend/src/asp/` and Python orchestration in `middleware/src/stitching/` (`AnimeStitchPipeline`), it executes feature matching (LoFTR, ALIKED, ECC), photometric gain compensation, seam carving, and multi-band Poisson/Laplacian compositing. Absorbed in W0-03 (#867 Phase E) and unblocking Wave 8 editor #914 (E-01). Extended documentation lives in `docs/asp/`.
+The Anime Stitch Pipeline (ASP) provides high-performance multi-frame panorama and continuous anime sequence stitching. Backed by C++ pybind11 matching/bundle-adjustment engines in `backend/src/asp/` and Python orchestration in `middleware/src/stitching/` (`AnimeStitchPipeline`), it executes feature matching (LoFTR, ALIKED, ECC), photometric gain compensation, seam carving, and multi-band Poisson/Laplacian compositing. Absorbed in W0-03 (#867 Phase E) and unblocking Wave 8 editor #914 (E-01). Extended documentation lives in `docs/stitching/`.
 
 ## Public Surface
 

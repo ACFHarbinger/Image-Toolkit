@@ -23,10 +23,10 @@ You're already using it — this page is rendered by the [Vue documentation site
 | [Dependency Policy](DEPENDENCY_POLICY.md) | Version pins, upgrade cadence, security CVE SLA |
 | [Documentation Standards](DOCUMENTATION_STANDARDS.md) | Docstring style, TOC rules, enforcement hooks |
 | [Roadmaps](moon/ROADMAP.md) | Architecture, performance, features, GUI/UX, ASP, docs |
-| [Anime Stitch Pipeline](asp/index.md) | Absorbed ASP docs: architecture, tutorials, research, reports |
-| [Content Recommendation Engine](cre/README.md) | Absorbed CRE docs: architecture, roadmaps, research |
-| [Cel-Shaded Generator](csg/index.md) | Absorbed CSG docs: formats, roadmaps, research |
-| [Hybrid Image Editor](hie/index.md) | Absorbed HIE docs: ADRs, roadmaps, research, reports |
+| [Anime Stitch Pipeline](stitching/index.md) | Absorbed ASP docs: architecture, tutorials, research, reports |
+| [Content Recommendation Engine](recommendation/README.md) | Absorbed CRE docs: architecture, roadmaps, research |
+| [Cel-Shaded Generator](cel/index.md) | Absorbed CSG docs: formats, roadmaps, research |
+| [Hybrid Image Editor](editor/index.md) | Absorbed HIE docs: ADRs, roadmaps, research, reports |
 | [Changelog](moon/CHANGELOG.md) | All shipped features ordered by session |
 
 

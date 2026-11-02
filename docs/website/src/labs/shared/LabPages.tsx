@@ -4,10 +4,10 @@ import { motion } from "framer-motion";
 import { BookOpen, ExternalLink } from "lucide-react";
 import MarkdownIt from "markdown-it";
 import mermaid from "mermaid";
-import Viewfinder2D from "../../../../asp/website/src/components/Viewfinder2D";
-import PipelineDiagram from "../../../../asp/website/src/components/PipelineDiagram";
+import Viewfinder2D from "./components/Viewfinder2D";
+import PipelineDiagram from "./components/PipelineDiagram";
 
-const Hero3D = lazy(() => import("../../../../asp/website/src/components/Hero3D"));
+const Hero3D = lazy(() => import("./components/Hero3D"));
 
 mermaid.initialize({ startOnLoad: false, theme: "dark" });
 

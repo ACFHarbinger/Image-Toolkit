@@ -1,7 +1,7 @@
 # ASP / Animation Module API
 
 The ASP pipeline documentation is part of these docs
-([ASP home](../../asp/index.md)). The former standalone portal remains at
+([ASP home](../../stitching/index.md)). The former standalone portal remains at
 <https://acfharbinger.github.io/Anime-Stitch-Pipeline/app/>.
 
 Image-Toolkit keeps its local stitch-feedback helpers in

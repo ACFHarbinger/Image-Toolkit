@@ -2,9 +2,9 @@ import { Database, GitBranch, Search } from "lucide-react";
 import { documentsFromGlob, LabDocs, LabHome, LabPipeline, type LabSite } from "../shared/LabPages";
 
 const raw = {
-  ...import.meta.glob("../../../../cre/**/*.md", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob("../../../../cre/**/*.rst", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob("../../../../cre/**/*.dsl", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../recommendation/**/*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../recommendation/**/*.rst", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../recommendation/**/*.dsl", { query: "?raw", import: "default", eager: true }),
 } as Record<string, string>;
 
 const site: LabSite = {
@@ -16,7 +16,7 @@ const site: LabSite = {
   heroTitle: ["Find the", "signal."],
   heroDescription: "A privacy-conscious recommendation engine combining vector representations, structured metadata, graph context, and explainable ranking for visual collections.",
   accent: "cyan",
-  repository: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/cre",
+  repository: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/recommendation",
   originalRepository: "https://github.com/ACFHarbinger/Content-Recommendation-Engine",
   modules: [
     { number: "01", title: "Represent Content", text: "Turn visual assets, metadata, and entities into searchable representations.", detail: "Preserve provenance as content moves from ingestion into the retrieval graph.", action: "Read the architecture", href: "/labs/cre/docs/ARCHITECTURE.md", icon: Database },
@@ -24,7 +24,7 @@ const site: LabSite = {
     { number: "03", title: "Learn Carefully", text: "Use opt-in interaction signals to improve ranking while respecting local data.", detail: "Measure relevance and explain why a result appeared.", action: "Read the roadmap", href: "/labs/cre/docs/moon/ROADMAP.md", icon: GitBranch },
   ],
   stages: ["INGEST", "EMBED", "FILTER", "RANK", "EXPLAIN", "FEEDBACK"],
-  documents: documentsFromGlob(raw, "cre"),
+  documents: documentsFromGlob(raw, "recommendation"),
 };
 
 export function CreHome() {
