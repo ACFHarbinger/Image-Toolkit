@@ -1,8 +1,38 @@
-// GENERATED — contract hash 3624089fd7d9b561e8900f0d7db9e39da11aa994b2d92e7cbee47cd74baee130. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash c30cf0dd6674a685340ce15641f019f568d5adba75e10d53baca8364f72fe25d. Do not edit; edit the schema and regenerate.
 // `const` fields degrade to their scalar type; the framing layer (#875)
 // enforces exact values.
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct AuthApplyProfileParams {
+    pub account: String,
+    pub profile: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct AuthApplyProfileResult {
+    pub success: bool,
+    pub account: String,
+    pub profile: String,
+    pub message: String,
+    pub theme: String,
+    pub tab_configurations: std::collections::HashMap<String, serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct AuthGuestParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub username: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct AuthGuestResult {
+    pub success: bool,
+    pub account: String,
+    pub anonymous: bool,
+    pub message: String,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct AuthLockParams {
@@ -38,6 +68,10 @@ pub struct AuthUnlockResult {
     pub success: bool,
     pub account: String,
     pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profiles: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credentials: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

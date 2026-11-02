@@ -59,6 +59,10 @@ import type {
   MergePlaceParams,
   CompareParams,
   CompareResult,
+  AuthApplyProfileParams,
+  AuthApplyProfileResult,
+  AuthGuestParams,
+  AuthGuestResult,
   AuthLockParams,
   AuthLockResult,
   SimilarityScanParams,
@@ -359,6 +363,16 @@ export class HostClient {
   async authUnlock(params: AuthUnlockParams): Promise<AuthUnlockResult> {
     await this.connect();
     return this.send<AuthUnlockResult>("auth.unlock", params as unknown as Record<string, unknown>);
+  }
+
+  async authGuest(params: AuthGuestParams): Promise<AuthGuestResult> {
+    await this.connect();
+    return this.send<AuthGuestResult>("auth.guest", params as unknown as Record<string, unknown>);
+  }
+
+  async authApplyProfile(params: AuthApplyProfileParams): Promise<AuthApplyProfileResult> {
+    await this.connect();
+    return this.send<AuthApplyProfileResult>("auth.apply_profile", params as unknown as Record<string, unknown>);
   }
 
   async authLock(params: AuthLockParams): Promise<AuthLockResult> {

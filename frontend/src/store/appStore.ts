@@ -38,6 +38,8 @@ export interface AppState {
   // Authentication
   vault: VaultCredentials | null;
   isLoggedIn: boolean;
+  /** A guest session keeps account settings in memory only and is not remembered across restarts. */
+  isGuest: boolean;
   
   // Background Tasks
   tasks: Map<string, BackgroundTask>;
@@ -57,7 +59,7 @@ export interface AppState {
 
 export interface AppActions {
   // Authentication
-  login: (accountName: string) => void;
+  login: (accountName: string, options?: { guest?: boolean }) => void;
   logout: () => void;
   
   // Background Tasks
@@ -89,6 +91,7 @@ export type AppStore = AppState & AppActions;
 export const initialState: AppState = {
   vault: null,
   isLoggedIn: false,
+  isGuest: false,
   tasks: new Map(),
   preferences: {
     theme: 'dark',

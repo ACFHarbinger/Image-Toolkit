@@ -91,3 +91,150 @@ test("an empty password is not sent", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("Please enter a password");
   expect(authClient.authUnlock).not.toHaveBeenCalled();
 });
+
+function guestBridge(overrides: Partial<AuthBridge> = {}): AuthBridge {
+  return {
+    ...openBridge(),
+    authGuest: vi.fn().mockImplementation(async ({ username }: { username?: string | null }) => ({
+      success: true,
+      account: username || "guest_ab12cd34",
+      anonymous: !username,
+      message: "Guest session open.",
+    })),
+    ...overrides,
+  };
+}
+
+function enterGuestMode() {
+  fireEvent.click(screen.getByRole("button", { name: "Guest Mode" }));
+}
+
+test("guest mode hides the password, logs in anonymously and is never remembered", async () => {
+  const authClient = guestBridge();
+  renderDialog({ create: vi.fn() }, authClient);
+  enterGuestMode();
+  expect(screen.queryByLabelText("Password")).toBeNull();
+  expect(screen.getByPlaceholderText("Username (optional for anonymous login)")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Login Anonymously" }));
+  await waitFor(() => expect(authClient.authGuest).toHaveBeenCalledWith({ username: null }));
+  expect(authClient.authUnlock).not.toHaveBeenCalled();
+  expect(localStorage.getItem("app_account_name")).toBeNull();
+});
+
+test("login as guest sends the trimmed name, and an empty name is anonymous", async () => {
+  const authClient = guestBridge();
+  renderDialog({ create: vi.fn() }, authClient);
+  enterGuestMode();
+  fireEvent.change(screen.getByLabelText("Account Name"), { target: { value: "  Rui " } });
+  fireEvent.click(screen.getByRole("button", { name: "Login as Guest" }));
+  await waitFor(() => expect(authClient.authGuest).toHaveBeenCalledWith({ username: "Rui" }));
+  fireEvent.change(screen.getByLabelText("Account Name"), { target: { value: "   " } });
+  fireEvent.click(screen.getByRole("button", { name: "Login as Guest" }));
+  await waitFor(() => expect(authClient.authGuest).toHaveBeenLastCalledWith({ username: null }));
+});
+
+test("the toggle returns to account access and a failed guest start shows the message", async () => {
+  const authClient = guestBridge({
+    authGuest: vi.fn().mockResolvedValue({ success: false, account: "g", anonymous: true, message: "Failed to start the guest session." }),
+  });
+  renderDialog({ create: vi.fn() }, authClient);
+  enterGuestMode();
+  fireEvent.click(screen.getByRole("button", { name: "Login Anonymously" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Failed to start the guest session.");
+  fireEvent.click(screen.getByRole("button", { name: "Account Access" }));
+  expect(screen.getByLabelText("Password")).toBeTruthy();
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test("guest mode is unavailable on a bridge without it", async () => {
+  renderDialog({ create: vi.fn() }, openBridge());
+  enterGuestMode();
+  fireEvent.click(screen.getByRole("button", { name: "Login Anonymously" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Guest mode is unavailable.");
+});
+
+function profileBridge(): AuthBridge {
+  return {
+    authUnlock: vi.fn().mockResolvedValue({
+      success: true,
+      account: "keeper",
+      message: "C++ vault session open.",
+      profiles: ["Night", "Alpha"],
+      credentials: ["google_api_key"],
+    }),
+    authStatus: vi.fn().mockResolvedValue({ unlocked: true, account: "keeper", reason: "C++ vault session open" }),
+    authApplyProfile: vi.fn().mockResolvedValue({
+      success: true,
+      account: "keeper",
+      profile: "Night",
+      message: "Applied 'Night'.",
+      theme: "light",
+      tab_configurations: { merge: { engine: "orb" } },
+    }),
+  };
+}
+
+function signIn() {
+  fireEvent.change(screen.getByLabelText("Account Name"), { target: { value: "keeper" } });
+  fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
+  fireEvent.click(screen.getByRole("button", { name: "Login" }));
+}
+
+test("saved profiles open a picker in the Qt order with Previous Profile selected", async () => {
+  const authClient = profileBridge();
+  renderDialog({ create: vi.fn() }, authClient);
+  signIn();
+  const radios = await screen.findAllByRole("radio");
+  expect(radios.map((r) => (r as HTMLInputElement).value)).toEqual(["Default", "Previous Profile", "Alpha", "Night"]);
+  expect((screen.getByRole("radio", { name: "Previous Profile" }) as HTMLInputElement).checked).toBe(true);
+  expect(localStorage.getItem("app_account_name")).toBeNull();
+});
+
+test("applying a profile asks the sidecar, applies theme and tab settings, then signs in", async () => {
+  const authClient = profileBridge();
+  renderDialog({ create: vi.fn() }, authClient);
+  signIn();
+  fireEvent.click(await screen.findByRole("radio", { name: "Night" }));
+  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+  await waitFor(() => expect(authClient.authApplyProfile).toHaveBeenCalledWith({ account: "keeper", profile: "Night" }));
+  await waitFor(() => expect(localStorage.getItem("app_account_name")).toBe("keeper"));
+  expect(JSON.parse(localStorage.getItem("app_preferences") ?? "{}")).toMatchObject({
+    theme: "light",
+    tabConfigurations: { merge: { engine: "orb" } },
+  });
+});
+
+test("skipping the picker signs in without applying anything", async () => {
+  const authClient = profileBridge();
+  renderDialog({ create: vi.fn() }, authClient);
+  signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "Skip" }));
+  await waitFor(() => expect(localStorage.getItem("app_account_name")).toBe("keeper"));
+  expect(authClient.authApplyProfile).not.toHaveBeenCalled();
+});
+
+test("a refused profile keeps the picker open and shows the reason", async () => {
+  const authClient = profileBridge();
+  authClient.authApplyProfile = vi.fn().mockResolvedValue({
+    success: false,
+    account: "keeper",
+    profile: "Night",
+    message: "Unknown preference profile.",
+    theme: "dark",
+    tab_configurations: {},
+  });
+  renderDialog({ create: vi.fn() }, authClient);
+  signIn();
+  fireEvent.click(await screen.findByRole("button", { name: "Apply" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Unknown preference profile.");
+  expect(screen.getAllByRole("radio").length).toBe(4);
+  expect(localStorage.getItem("app_account_name")).toBeNull();
+});
+
+test("an account without profiles signs in directly", async () => {
+  const authClient = openBridge();
+  renderDialog({ create: vi.fn() }, authClient);
+  signIn();
+  await waitFor(() => expect(localStorage.getItem("app_account_name")).toBe("keeper"));
+  expect(screen.queryAllByRole("radio").length).toBe(0);
+});

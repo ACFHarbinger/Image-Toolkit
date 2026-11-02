@@ -12,6 +12,7 @@ from typing import Any
 
 import middleware.src.constants as udef
 from middleware.src.core.vault_manager import CryptographyLibNotBuiltError, VaultManager
+from middleware.src.services.auth import profiles as profile_api
 
 
 class VaultOpenError(Exception):
@@ -21,10 +22,15 @@ class VaultOpenError(Exception):
 class LiveVault:
     """VaultManager kept open for the sidecar process. shutdown locks the C++ session."""
 
-    def __init__(self, account: str, manager: VaultManager, profiles: list[str]) -> None:
+    def __init__(
+        self, account: str, manager: VaultManager, profiles: list[str], credential_keys: list[str] | None = None
+    ) -> None:
         self.account = account
         self.open = True
         self.profiles = profiles
+        # Names of the API credential files loaded into the vault. Never the credentials themselves.
+        self.credential_keys = list(credential_keys or [])
+        self.is_guest = False
         self._manager = manager
 
     def shutdown(self) -> None:
@@ -32,6 +38,12 @@ class LiveVault:
             return
         self._manager.shutdown()
         self.open = False
+
+    def apply_profile(self, choice: str) -> dict[str, Any]:
+        """Apply a saved preference profile to this account's vault (see ``profiles``)."""
+        if not self.open:
+            raise RuntimeError("C++ vault session locked")
+        return profile_api.apply_profile(self._manager, choice)
 
     def confirm_password(self, raw_password: str) -> bool:
         """True only when raw_password matches the hash stored in the open vault."""
@@ -96,6 +108,55 @@ def _load_vault_api() -> Any | None:
     return vault_api
 
 
+_PLAIN_JSON_SKIP = ("token.json",)
+
+
+def load_api_credentials(manager: VaultManager) -> list[str]:
+    """Encrypt new ``*.json`` files in the API directory, then load every ``*.enc`` into the vault.
+
+    Port of the Qt login window's ``_load_api_files``. A file that cannot be encrypted or decrypted
+    is skipped and never blocks the login. Returns the names that were loaded, not their contents.
+    """
+    secret_key = getattr(manager, "secret_key", None)
+    if not secret_key:
+        return []
+    api_dir = str(udef.API_DIR)
+    if not os.path.isdir(api_dir):
+        return []
+    vault_cls = manager.SecureJsonVault
+    token_name = os.path.basename(str(udef.TOKEN_FILE))
+    loaded: list[str] = []
+    try:
+        names = sorted(os.listdir(api_dir))
+        for name in names:
+            if not name.endswith(".json") or name in (*_PLAIN_JSON_SKIP, token_name):
+                continue
+            plain = os.path.join(api_dir, name)
+            sealed = plain + ".enc"
+            if os.path.exists(sealed):
+                continue
+            try:
+                with open(plain, encoding="utf-8") as handle:
+                    vault_cls(secret_key, sealed).saveData(handle.read())
+            except Exception:
+                continue
+        for name in sorted(os.listdir(api_dir)):
+            if not name.endswith(".enc"):
+                continue
+            key = name.replace(".json.enc", "").replace(".enc", "")
+            try:
+                manager.api_credentials[key] = json.loads(
+                    str(vault_cls(secret_key, os.path.join(api_dir, name)).loadData())
+                )
+            except Exception:
+                continue
+            if key not in loaded:
+                loaded.append(key)
+    except Exception:
+        return loaded
+    return loaded
+
+
 def open_live_session(account: str, password: str) -> LiveVault:
     """Unlock in-process and return the live manager. Does not shut the session down."""
     cleaned, raw_password = _require(account, password)
@@ -123,7 +184,8 @@ def open_live_session(account: str, password: str) -> LiveVault:
         if not handle or not api.is_unlocked(handle):
             raise VaultOpenError("C++ vault session was not opened.")
         profiles = list((stored.get("system_preference_profiles") or {}).keys())
-        live = LiveVault(cleaned, manager, profiles)
+        credential_keys = load_api_credentials(manager)
+        live = LiveVault(cleaned, manager, profiles, credential_keys)
         opened = True
         return live
     except VaultOpenError:
@@ -145,6 +207,16 @@ def open_live_session(account: str, password: str) -> LiveVault:
     finally:
         if not opened:
             _restore_paths(previous_paths)
+
+
+def open_guest_session(username: str) -> LiveVault:
+    """Volatile session: nothing is read from or written to the account vault files."""
+    cleaned = username.strip()
+    if not cleaned:
+        raise ValueError("guest name is empty")
+    live = LiveVault(cleaned, VaultManager.create_guest_vault(cleaned), [])
+    live.is_guest = True
+    return live
 
 
 def unlock(account: str, password: str) -> dict[str, Any]:

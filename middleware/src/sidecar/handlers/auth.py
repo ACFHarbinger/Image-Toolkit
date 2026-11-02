@@ -17,3 +17,12 @@ def handle_unlock(hub: VaultHub, params: dict[str, Any]) -> dict[str, Any]:
 
 def handle_lock(hub: VaultHub, params: dict[str, Any]) -> dict[str, Any]:
     return hub.lock(str(params["account"]))
+
+
+def handle_guest(hub: VaultHub, params: dict[str, Any]) -> dict[str, Any]:
+    username = params.get("username")
+    return hub.guest(str(username) if isinstance(username, str) else None)
+
+
+def handle_apply_profile(hub: VaultHub, params: dict[str, Any]) -> dict[str, Any]:
+    return hub.apply_profile(str(params["account"]), str(params["profile"]))

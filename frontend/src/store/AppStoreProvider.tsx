@@ -5,7 +5,7 @@
  * This replaces the need for Zustand to keep dependencies minimal.
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import {
   AppStoreContext,
@@ -22,19 +22,28 @@ interface AppStoreProviderProps {
 
 export const AppStoreProvider: React.FC<AppStoreProviderProps> = ({ children }) => {
   const [state, setState] = useState<AppState>(initialState);
+  // The latest preferences, updated synchronously, so two updates in one tick both persist.
+  const preferencesRef = useRef<UserPreferences>(initialState.preferences);
 
   // ===== Authentication Actions =====
 
-  const login = useCallback((accountName: string) => {
+  const login = useCallback((accountName: string, options?: { guest?: boolean }) => {
+    const guest = options?.guest === true;
     setState((prev) => ({
       ...prev,
       vault: { accountName, isAuthenticated: true },
       isLoggedIn: true,
+      isGuest: guest,
     }));
-    
+
     // The account name is a hint for the next status check. It is not the vault session.
+    // A guest is never remembered: the next start returns to the login screen.
     localStorage.removeItem('app_authenticated');
-    localStorage.setItem('app_account_name', accountName);
+    if (guest) {
+      localStorage.removeItem('app_account_name');
+    } else {
+      localStorage.setItem('app_account_name', accountName);
+    }
   }, []);
 
   const logout = useCallback(() => {
@@ -42,6 +51,7 @@ export const AppStoreProvider: React.FC<AppStoreProviderProps> = ({ children }) 
       ...prev,
       vault: null,
       isLoggedIn: false,
+      isGuest: false,
     }));
 
     localStorage.removeItem('app_authenticated');
@@ -92,15 +102,15 @@ export const AppStoreProvider: React.FC<AppStoreProviderProps> = ({ children }) 
   // ===== User Preferences Actions =====
 
   const updatePreferences = useCallback((preferences: Partial<UserPreferences>) => {
+    preferencesRef.current = { ...preferencesRef.current, ...preferences };
     setState((prev) => ({
       ...prev,
       preferences: { ...prev.preferences, ...preferences },
     }));
-    
+
     // Persist preferences to localStorage
-    const newPrefs = { ...state.preferences, ...preferences };
-    localStorage.setItem('app_preferences', JSON.stringify(newPrefs));
-  }, [state.preferences]);
+    localStorage.setItem('app_preferences', JSON.stringify(preferencesRef.current));
+  }, []);
 
   const setTheme = useCallback((theme: 'light' | 'dark' | 'system') => {
     updatePreferences({ theme });
@@ -198,6 +208,7 @@ export const AppStoreProvider: React.FC<AppStoreProviderProps> = ({ children }) 
     if (savedPrefs) {
       try {
         const prefs = JSON.parse(savedPrefs);
+        preferencesRef.current = prefs;
         setState((prev) => ({ ...prev, preferences: prefs }));
         
         // Apply saved theme

@@ -597,6 +597,30 @@ stability = "experimental"
 owner = 1106
 
 [[method]]
+name = "auth.guest"
+capability = "auth"
+summary = "Open a volatile guest session. Account settings stay in memory and are not saved. An empty name makes an anonymous guest account."
+params = "auth.AuthGuestParams"
+result = "auth.AuthGuestResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 918
+
+[[method]]
+name = "auth.apply_profile"
+capability = "auth"
+summary = "Apply a saved system preference profile (Default, Previous Profile, or a saved name) to the open account vault and return the theme and tab configurations to use."
+params = "auth.AuthApplyProfileParams"
+result = "auth.AuthApplyProfileResult"
+errors = []
+cancelable = false
+emits = []
+stability = "experimental"
+owner = 918
+
+[[method]]
 name = "csg.colorize_scribble"
 capability = "csg"
 summary = "Colorize lineart from user scribble guidance (E-03 / #916)."
