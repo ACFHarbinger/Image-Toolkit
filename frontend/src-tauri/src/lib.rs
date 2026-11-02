@@ -1,7 +1,6 @@
 mod python_json;
 mod auth_commands;
 mod media_commands;
-mod python_json;
 mod settings_commands;
 mod benchmark_commands;
 mod bridge_commands;
