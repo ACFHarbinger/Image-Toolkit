@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Optional fields, including Convert's Output Directory and Filename and Similarity's Target extensions, use the same translucent glass as other inputs when a background image is selected.
 - Lanczos3-dering upscales default to a cached separable float kernel and a 6×6 OpenCV clamp. `quality=exact` and downscales keep the masked kernel. Opaque frames on the fast path skip the alpha filter.
 - Cancelling a Sampler resample no longer aborts the app. The worker thread is kept until it has left `run()`, so Qt does not destroy a running `QThread`.
 - Sampler progress no longer crashes a resample with `name 'registered' is not defined`. The progress callback only skips when no callback was passed.
