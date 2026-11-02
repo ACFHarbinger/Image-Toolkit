@@ -98,6 +98,7 @@ the status lifecycle and deletion gate are documented in
 | `gui/src/elements` | Grok | #870 (W0-06): shared Qt widgets; replaced by the React component library (Storybook, #885). |
 | `gui/src/file_dialog_patch.py` | Cursor | #873 (W0-09): Qt file-dialog patching; native dialogs move into the Rust shell. |
 | `gui/src/helpers` | Gemini | #881 (W0-17): Qt workers become thin shims over services; each is deleted with its row. |
+| `gui/src/legacy/__init__.py` | Gemini | Legacy submodule Qt loaders; retired in #921 with gui/. |
 | `gui/src/main_backend.py` | Grok | #870 (W0-06): Qt app bootstrap; the Tauri supervisor (#877) replaces it. |
 | `gui/src/modules/__init__.py` | Grok | #870 (W0-06): catalog-driven Qt shell infrastructure; deleted with gui/. |
 | `gui/src/modules/application_catalog.py` | Grok | #870 (W0-06): Qt descriptor catalog; the serializable catalog (#869) is the registry. |
@@ -132,4 +133,6 @@ the status lifecycle and deletion gate are documented in
 
 ## Exceptions
 
-None.
+| feature | path | reason | issue | approved_by | expires |
+|---|---|---|---|---|---|
+| window.settings | `gui/src/windows/settings/*` | Harbinger asked on 2026-11-02 for a background wallpaper image on the classic Display and Media tab. Appearance and Themes keeps fit, opacity, blur, and glass; Display and Media writes the same background_config image path. | [#917](https://github.com/ACFHarbinger/Image-Toolkit/issues/917) | Harbinger | — |
