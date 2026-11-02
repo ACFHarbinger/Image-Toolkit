@@ -24,7 +24,7 @@ from middleware.src.constants.app import SETTINGS_PREFIX_TYPES, SETTINGS_SCHEMA
 from middleware.src.constants.paths import ASSETS_DIR, IMAGE_TOOLKIT_DIR
 from middleware.src.constants.utils import PID_PATH
 from middleware.src.core import lifecycle_memory, telemetry
-from middleware.src.supervisor.gui_shell import claim_or_focus
+from middleware.src.supervisor.gui_shell import claim_or_focus, qt_gate_dir
 
 # ---------------------------------------------------------------------------
 # Logging setup (item 1.13) — rotating file handler + coloured console output
@@ -390,7 +390,7 @@ def launch_app(opts):
     _setup_logging(log_level=logging.DEBUG if getattr(opts, "verbose", False) else logging.INFO)
     sys.excepthook = log_uncaught_exceptions
 
-    gate = claim_or_focus(IMAGE_TOOLKIT_DIR, on_focus=_on_gui_focus)
+    gate = claim_or_focus(qt_gate_dir(IMAGE_TOOLKIT_DIR), on_focus=_on_gui_focus)
     if gate is None:
         return 0
     try:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from middleware.src.supervisor.gui_gate import GuiInstance
-from middleware.src.supervisor.gui_shell import claim_or_focus, main
+from middleware.src.supervisor.gui_shell import claim_or_focus, main, qt_gate_dir
 
 
 def test_claim_or_focus_requests_the_existing_owner(tmp_path) -> None:
@@ -102,3 +102,24 @@ def test_failed_socket_setup_releases_gui_lock(tmp_path):
     lock = DataDirLock(path, "gui")
     assert lock.acquire()
     lock.release()
+
+
+def test_qt_gate_is_shared_by_default(tmp_path) -> None:
+    assert qt_gate_dir(tmp_path, {}) == tmp_path
+    assert qt_gate_dir(tmp_path, {"IMAGE_TOOLKIT_SIDE_BY_SIDE": "0"}) == tmp_path
+
+
+def test_side_by_side_qt_gate_does_not_block_the_tauri_gate(tmp_path) -> None:
+    qt_dir = qt_gate_dir(tmp_path, {"IMAGE_TOOLKIT_SIDE_BY_SIDE": "1"})
+    assert qt_dir != tmp_path
+    tauri = claim_or_focus(tmp_path)
+    assert tauri is not None
+    try:
+        qt = claim_or_focus(qt_dir)
+        assert qt is not None
+        try:
+            assert claim_or_focus(qt_dir) is None  # a second Qt still focuses the first
+        finally:
+            qt.release()
+    finally:
+        tauri.release()
