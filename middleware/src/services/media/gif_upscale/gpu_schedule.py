@@ -4,9 +4,12 @@ Each allow-listed device with free VRAM gets its own session and batch size.
 A free device pulls the next unstarted frames (work stealing). Results may
 finish out of order; one writer thread emits the next frame index only.
 The default lease is the process shared lease. An injected arbiter stays
-the test and caller path. ``gpu_overlap.run_device_pipeline`` replaces the
-per-batch scale+index calls when that module exists and the session has no
-fused scale-and-index (lane B4). This module does not create it.
+the test and caller path. A CUDA out-of-memory on one card frees that
+session's cache, halves its batch (floor 1), and retries the same frames
+on that card. The card is retired only after a second failure at batch
+size 1; the finish note records the shrink. ``gpu_overlap.run_device_pipeline``
+replaces the per-batch scale+index calls when that module exists and the
+session has no fused scale-and-index (lane B4). This module does not create it.
 """
 
 from __future__ import annotations
@@ -70,6 +73,44 @@ def _batch_size_of(session: Any) -> int:
     except (TypeError, ValueError):
         return 1
     return max(1, size)
+
+
+def _is_cuda_oom(exc: BaseException) -> bool:
+    """True for ``torch.cuda.OutOfMemoryError`` and a test double of that name."""
+    return type(exc).__name__ == "OutOfMemoryError"
+
+
+def _free_session_cache(session: Any) -> None:
+    release = getattr(session, "release_cached_memory", None)
+    if not callable(release):
+        return
+    with contextlib.suppress(Exception):
+        release()
+
+
+def _split_job(job: _Job, count: int) -> tuple[_Job, _Job | None]:
+    count = max(1, int(count))
+    if len(job.frames) <= count:
+        return job, None
+    head = _Job(
+        job.start,
+        list(job.frames[:count]),
+        list(job.durations[:count]),
+        job.retries,
+        job.device_index,
+        job.scale_s,
+        job.index_s,
+    )
+    tail = _Job(
+        job.start + count,
+        list(job.frames[count:]),
+        list(job.durations[count:]),
+        job.retries,
+        -1,
+        0.0,
+        0.0,
+    )
+    return head, tail
 
 
 def _overlap_pipeline() -> Callable[..., Any] | None:
@@ -374,6 +415,8 @@ class _FrameScheduler:
         self._hold = 0
         self._pulling = False
         self._retry: deque[_Job] = deque()
+        self._local_retry: dict[int, deque[_Job]] = {}
+        self._oom_strikes: dict[int, int] = {}
         self._pending: dict[int, tuple[_Job, Any]] = {}
         self._decoded: deque[tuple[Any, int]] = deque()
         self._decode_done = self._random
@@ -498,7 +541,9 @@ class _FrameScheduler:
 
     def _worker_loop(self, session: Any) -> None:
         while not self._stop.is_set():
-            job = self._pull(_batch_size_of(session))
+            job = self._take_local_retry(session)
+            if job is None:
+                job = self._pull(_batch_size_of(session))
             if job is None:
                 return
             try:
@@ -506,29 +551,89 @@ class _FrameScheduler:
             except ResampleCancelled:
                 raise
             except Exception as exc:
+                if self._retry_oom(session, job, exc):
+                    continue
                 self._fail_device(session, job, exc)
                 return
+            self._oom_strikes[id(session)] = 0
             job.device_index = int(session.device_index)
             job.scale_s += scale_s
             job.index_s += index_s
             self._submit(job, payload)
 
+    def _take_local_retry(self, session: Any) -> _Job | None:
+        with self._lock:
+            queue = self._local_retry.get(id(session))
+            if not queue:
+                return None
+            job = queue.popleft()
+            if not queue:
+                self._local_retry.pop(id(session), None)
+            return job
+
+    def _requeue_local(self, session: Any, job: _Job) -> None:
+        with self._lock:
+            queue = self._local_retry.setdefault(id(session), deque())
+            queue.appendleft(job)
+            self._cv.notify_all()
+
+    def _drain_local(self, session: Any) -> list[_Job]:
+        with self._lock:
+            queue = self._local_retry.pop(id(session), None)
+        if not queue:
+            return []
+        return list(queue)
+
+    def _retry_oom(self, session: Any, job: _Job, exc: Exception) -> bool:
+        """Shrink and retry on this card. False means the caller should retire it."""
+        if not _is_cuda_oom(exc):
+            return False
+        _free_session_cache(session)
+        label = _device_label(session)
+        size = _batch_size_of(session)
+        if size <= 1:
+            strikes = self._oom_strikes.get(id(session), 0) + 1
+            self._oom_strikes[id(session)] = strikes
+            if strikes >= 2:
+                self._note(f"{label} out of memory at batch size 1 again; retiring {label}")
+                return False
+            self._note(f"{label} out of memory at batch size 1; retrying the same batch on {label}")
+            self._requeue_local(session, job)
+            return True
+        new_size = max(1, size // 2)
+        session.batch_size = new_size
+        self._oom_strikes[id(session)] = 0
+        head, tail = _split_job(job, new_size)
+        self._note(f"{label} out of memory; batch size halved from {size} to {new_size} and retried on {label}")
+        if tail is not None:
+            self._requeue_local(session, tail)
+        self._requeue_local(session, head)
+        return True
+
     def _fail_device(self, session: Any, job: _Job, exc: Exception) -> None:
+        stranded = self._drain_local(session)
         others = self._retire(session)
         label = _device_label(session)
         if job.retries < 1 and others:
             job.retries += 1
             self._note(f"{label} failed ({exc}); batch retried on another device")
             with self._lock:
+                for extra in reversed(stranded):
+                    self._retry.appendleft(extra)
                 self._retry.appendleft(job)
                 self._cv.notify_all()
             return
         self._note(f"{label} failed ({exc}); batch retried on CPU")
         self._cpu_job(job)
+        for extra in stranded:
+            self._note(f"frames {extra.start} retried on CPU")
+            self._cpu_job(extra)
         if not others:
             self._drain_cpu()
 
     def _retire(self, session: Any) -> list[Any]:
+        with contextlib.suppress(Exception):
+            session.retired = True
         _safe_close(session)
         with self._lock:
             self._alive.pop(id(session), None)
