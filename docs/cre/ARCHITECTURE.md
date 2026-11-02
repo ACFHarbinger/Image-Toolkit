@@ -2,7 +2,7 @@
 
 Local-first, hybrid semantic-lexical recommendation engine for personal media libraries. This is a
 concise blueprint; the phased build history and per-module detail live in
-[`moon/ROADMAP.md`](../moon/ROADMAP.md) and [`moon/roadmaps/`](../moon/roadmaps/).
+[`moon/ROADMAP.md`](moon/ROADMAP.md) and [`moon/roadmaps/`](moon/roadmaps/).
 
 ## Pipeline
 
@@ -42,4 +42,4 @@ A five-stage pipeline — stages 1–2 run **offline** (ingestion), stages 3–5
 ## Boundaries
 
 The engine is consumed as a submodule by **Image-Toolkit**; the stable contract is the `recommend`
-CLI entry point and its JSON output. See [`moon/roadmaps/cli.md`](../moon/roadmaps/cli.md).
+CLI entry point and its JSON output. See [`moon/roadmaps/cli.md`](moon/roadmaps/cli.md).

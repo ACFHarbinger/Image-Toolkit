@@ -1,5 +1,7 @@
 # Cel-Shaded-Generator documentation
 
+These pages are part of the Image-Toolkit documentation.
+
 Cel-Shaded-Generator is an offline-first anime drawing tutor and cel-shaded art
 tool in pre-alpha development. Start with:
 

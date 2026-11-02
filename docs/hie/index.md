@@ -1,5 +1,7 @@
 # Hybrid-Image-Editor (HIE) Documentation
 
+These pages are part of the Image-Toolkit documentation.
+
 Welcome to the documentation portal for `Hybrid-Image-Editor (HIE)`. This site is built with [MkDocs Material](https://squidfunk.github.io/mkdocs-material/).
 
 ## Where to start

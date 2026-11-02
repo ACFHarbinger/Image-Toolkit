@@ -59,6 +59,6 @@ What is the proposed path forward based on this research? Specify action items a
 
 ## 7. References & Further Reading
 
-- [Architectural Decision Records (ADRs)](../adr/README.md)
-- [Project Documentation Standards](../DOCUMENTATION_STANDARDS.md)
+- [Architectural Decision Records (ADRs)](../../adr/0001-record-architecture-decisions.md)
+- [Project Documentation Standards](../../DOCUMENTATION_STANDARDS.md)
 - External link to vendor documentation or papers.
