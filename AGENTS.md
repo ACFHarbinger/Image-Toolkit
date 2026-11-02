@@ -85,14 +85,14 @@ suggestion:
 *   **Renames (Tauri migration Wave 0):** the Python package is `middleware/` (was `backend/`, W0-01 #865), and the C++ pybind11 core is `backend/`, imported as `import backend` (was `base/` / `import base`, W0-02 #866). There are no compatibility aliases: `import base` and `backend.src…` no longer work. Build the core with `just build::build-base`, which writes to `build/backend` and installs `backend.cpython-*.so` at the repo root.
 *   **Bridge contracts (W0-10 #874):** the contract source of truth is `contracts/` (JSON Schema per capability + `methods.toml` routing). Edit schemas and regenerate with `python contracts/generate.py` — never edit `contracts/generated/` or `CONTRACTS.sha256`; CI's `contracts/generate.py --check` fails on drift.
 *   **Database**: Keep `middleware/src/database/unified/schema.sql` compatible (migrations, not ad-hoc DDL). Use transactions for group/image integrity.
-*   **Tauri migration freeze (W0-20):** while both shells ship, all of
-    `gui/src` is frozen to reviewed bugfixes only (Harbinger Q3 B). New Qt
-    panels, routes, refactors, renames and feature work are rejected — build
-    the Tauri side instead. A bugfix stays minimal, references its issue and
-    carries a regression test where feasible. Any exception is recorded
-    before merge as an `[[exception]]` in `migration/features.toml` (see
-    `docs/moon/roadmaps/tauri_migration.md` §2) and approved by Harbinger
-    through the coordinator.
+*   **Qt is the product (2026-11-02):** Harbinger dropped the Tauri migration
+    and keeps the PySide6 app (`gui/src`). The W0-20 freeze on `gui/src` is
+    lifted: new Qt panels, features and refactors are welcome again, and no
+    `[[exception]]` is needed in `migration/features.toml`. The Tauri code
+    (`frontend/`, `contracts/`, the sidecar) stays in the tree, frozen and
+    unmaintained until Harbinger decides whether to remove it; do not build
+    new features there and do not delete it without an explicit go-ahead.
+    Closed migration issues (#903, #904, #905, #921) are on the Rejected board.
 *   **Additive-only schema migrations (W0-20):** while a PySide6 row lives,
     migrations may add tables/columns/indexes and backfill data. `DROP`,
     `RENAME` and column-type changes on live tables belong in that row's
