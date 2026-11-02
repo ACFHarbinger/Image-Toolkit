@@ -8,17 +8,19 @@ two accepts.
 
 from __future__ import annotations
 
+import time
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from middleware.src.settings.adapters import MemoryStore
 from middleware.src.settings.scopes import SettingScope
 from middleware.src.settings.service import SettingsService
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QThread
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QDialog
 
 from gui.src.helpers.core.sampler_worker import SamplerWorker
+from gui.src.tabs.core.sampler_subtab import no_gpu_window as no_gpu_mod
 from gui.src.tabs.core.sampler_subtab._resample_worker import SamplerWorkerController
 from gui.src.tabs.core.sampler_subtab.no_gpu_window import (
     NoGpuChoice,
@@ -113,7 +115,13 @@ def test_confirm_skips_a_usable_gpu_a_short_job_and_a_disabled_prompt() -> None:
     def boom(*_args, **_kwargs):
         raise AssertionError("estimate should not run")
 
-    assert confirm_slow_gif(config, probe=lambda: (True, "cuda:0"), settings=_settings(), estimate_fn=boom)
+    # A real GPU job is lanczos3-dering plus the temporal encoder. Default lanczos estimates.
+    assert confirm_slow_gif(
+        {**config, "algorithm": "lanczos3-dering"},
+        probe=lambda: (True, "cuda:0"),
+        settings=_settings(),
+        estimate_fn=boom,
+    )
     assert confirm_slow_gif({"files_to_process": ["still.png"]}, settings=_settings(), estimate_fn=boom)
     assert confirm_slow_gif(
         config,
@@ -173,6 +181,18 @@ def test_confirm_cancel_does_not_start_and_accept_sets_workers(monkeypatch) -> N
 
 
 def test_start_worker_returns_when_the_window_cancels(monkeypatch) -> None:
+    """Cancel arrives on the queued plan. The call itself does not start a worker."""
+    seen: dict = {}
+
+    class Shown:
+        choice = NoGpuChoice("cancel")
+
+        def exec(self):
+            seen["dialog"] = True
+            return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(no_gpu_mod, "estimate_gif_job", lambda *_args, **_kwargs: _estimate(200))
+    monkeypatch.setattr(no_gpu_mod, "NoGpuWindow", lambda *args, **kwargs: Shown())
     tab = SimpleNamespace(
         worker=None,
         btn_all=MagicMock(),
@@ -184,13 +204,15 @@ def test_start_worker_returns_when_the_window_cancels(monkeypatch) -> None:
     monkeypatch.setattr(
         SamplerWorkerController,
         "_collect_config",
-        lambda self, _use: {"files_to_process": ["clip.gif"]},
-    )
-    monkeypatch.setattr(
-        "gui.src.tabs.core.sampler_subtab._resample_worker.confirm_slow_gif",
-        lambda config, parent: False,
+        lambda self, _use: {"files_to_process": ["clip.gif"], "scale_mode": "factor", "scale_factor": 2},
     )
     controller._start_worker(False)
+    assert tab.worker is None
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline and "dialog" not in seen:
+        QApplication.processEvents()
+        time.sleep(0.01)
+    assert seen.get("dialog") is True
     assert tab.worker is None
 
 
@@ -201,3 +223,150 @@ def test_registry_params_pass_an_accepted_worker_count() -> None:
     assert params["width"] == 16
     plain = SamplerWorker({"algorithm": "lanczos", "scale_mode": "factor", "scale_factor": 2})
     assert "workers" not in plain._registry_params(8, 8)
+
+
+def test_only_the_first_gif_is_named_as_a_limit() -> None:
+    text = no_gpu_mod.__doc__ or ""
+    assert "first GIF" in text
+    assert "later" in text.lower()
+
+
+def test_default_lanczos_on_cuda_still_offers_the_window(monkeypatch) -> None:
+    """lanczos never takes the GPU path, so a CUDA machine still gets the window."""
+    opened: list[str] = []
+
+    class Shown:
+        choice = NoGpuChoice("continue", None, False)
+
+        def exec(self):
+            opened.append("dialog")
+            return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(no_gpu_mod, "NoGpuWindow", lambda *args, **kwargs: Shown())
+    config = {"files_to_process": ["clip.gif"], "scale_mode": "factor", "scale_factor": 2}
+    assert confirm_slow_gif(
+        config,
+        probe=lambda: (True, "cuda:0"),
+        settings=_settings(**{"gif_upscale.no_gpu_threshold_s": 120}),
+        estimate_fn=lambda *_args, **_kwargs: _estimate(200),
+    )
+    assert opened == ["dialog"]
+
+
+def test_disallowed_card_does_not_count_as_a_usable_gpu(monkeypatch) -> None:
+    opened: list[str] = []
+
+    class Shown:
+        choice = NoGpuChoice("continue", None, False)
+
+        def exec(self):
+            opened.append("dialog")
+            return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(no_gpu_mod, "NoGpuWindow", lambda *args, **kwargs: Shown())
+    config = {
+        "files_to_process": ["clip.gif"],
+        "scale_mode": "factor",
+        "scale_factor": 2,
+        "algorithm": "lanczos3-dering",
+        "allow_devices": [1],
+    }
+    assert confirm_slow_gif(
+        config,
+        probe=lambda: (True, "cuda:0"),
+        settings=_settings(**{"gif_upscale.no_gpu_threshold_s": 120}),
+        estimate_fn=lambda *_args, **_kwargs: _estimate(200),
+    )
+    assert opened == ["dialog"]
+
+
+def test_estimate_dimensions_match_the_worker(tmp_path) -> None:
+    from PIL import Image
+
+    path = tmp_path / "clip.gif"
+    Image.new("RGB", (16, 8), (20, 30, 40)).save(path, format="GIF")
+    seen: dict = {}
+
+    def estimate_fn(_gif, params, **_kwargs):
+        seen["params"] = dict(params)
+        return _estimate(30)
+
+    width_only = {
+        "files_to_process": [str(path)],
+        "scale_mode": "dimensions",
+        "target_width": 32,
+        "target_height": None,
+        "preserve_aspect_ratio": True,
+        "algorithm": "lanczos",
+    }
+    confirm_slow_gif(
+        width_only,
+        probe=lambda: (False, "cpu"),
+        settings=_settings(),
+        estimate_fn=estimate_fn,
+    )
+    assert (seen["params"]["width"], seen["params"]["height"]) == SamplerWorker(width_only)._compute_dims(16, 8)
+
+    height_only = dict(width_only)
+    height_only["target_width"] = None
+    height_only["target_height"] = 24
+    confirm_slow_gif(
+        height_only,
+        probe=lambda: (False, "cpu"),
+        settings=_settings(),
+        estimate_fn=estimate_fn,
+    )
+    assert (seen["params"]["width"], seen["params"]["height"]) == SamplerWorker(height_only)._compute_dims(16, 8)
+
+    fitted = dict(width_only)
+    fitted["target_width"] = 40
+    fitted["target_height"] = 10
+    confirm_slow_gif(
+        fitted,
+        probe=lambda: (False, "cpu"),
+        settings=_settings(),
+        estimate_fn=estimate_fn,
+    )
+    assert (seen["params"]["width"], seen["params"]["height"]) == SamplerWorker(fitted)._compute_dims(16, 8)
+
+
+def test_start_worker_estimates_off_the_gui_thread(monkeypatch) -> None:
+    gui = QThread.currentThread()
+    seen: dict = {}
+
+    def estimate_fn(*_args, **_kwargs):
+        seen["estimate"] = QThread.currentThread()
+        return _estimate(200)
+
+    class Shown:
+        choice = NoGpuChoice("cancel")
+
+        def exec(self):
+            seen["dialog"] = QThread.currentThread()
+            return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(no_gpu_mod, "estimate_gif_job", estimate_fn)
+    monkeypatch.setattr(no_gpu_mod, "usable_gif_gpu", lambda *_args, **_kwargs: (False, "cpu"))
+    monkeypatch.setattr(no_gpu_mod, "NoGpuWindow", lambda *args, **kwargs: Shown())
+    tab = SimpleNamespace(
+        worker=None,
+        btn_all=MagicMock(),
+        btn_selected=MagicMock(),
+        status_label=MagicMock(),
+        progress_bar=MagicMock(),
+    )
+    controller = SamplerWorkerController(tab)
+    monkeypatch.setattr(
+        SamplerWorkerController,
+        "_collect_config",
+        lambda self, _use: {"files_to_process": ["clip.gif"], "scale_mode": "factor", "scale_factor": 2},
+    )
+    controller._start_worker(False)
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline and "dialog" not in seen:
+        QApplication.processEvents()
+        time.sleep(0.01)
+    assert seen.get("estimate") is not None
+    assert seen["estimate"] is not gui
+    assert seen.get("dialog") is gui
+    assert tab.worker is None

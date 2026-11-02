@@ -1,7 +1,17 @@
 """No-GPU warning for a long GIF resample (C3, #1161, D15, D17, D18, D20).
 
-Shown only when no usable GPU is found, the pre-flight estimate is above
+Shown when this job will run on CPU, the pre-flight estimate is above
 ``gif_upscale.no_gpu_threshold_s``, and ``gif_upscale.no_gpu_prompt`` is on.
+CUDA being present is not enough to hide the window: the default ``lanczos``
+algorithm never takes the GPU path, so a CUDA machine still offers the
+window for that job. ``lanczos3-dering`` with the temporal encoder skips the
+window only when a free allowed card is projected. That projection honors
+the allow-list, current holders, and a pinned device. Admission is
+provisional and is not a lease.
+
+Only the first GIF is timed. A later GIF in the same batch can be slower
+and is not estimated.
+
 Enter accepts the spin-box count and stores it as ``gif_upscale.workers``.
 Shift+Enter continues and leaves that default alone. Closing cancels.
 "Do not ask again" is written only after Enter or Shift+Enter.
@@ -9,6 +19,7 @@ Shift+Enter continues and leaves that default alone. Closing cancels.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -22,6 +33,7 @@ from middleware.src.services.media.gif_upscale.job_settings import (
     WORKERS_KEY,
     no_gpu_prompt_enabled,
     no_gpu_threshold_s,
+    with_job_settings,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
@@ -37,7 +49,12 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from gui.src.helpers.core.sampler_worker import compute_resample_dims
+
 _MAX_WORKERS = 64
+_GPU_ALGORITHM = "lanczos3-dering"
+_GPU_ENCODER = "temporal"
+_PROVISIONAL = "Admission is provisional and is not a lease."
 
 
 @dataclass(frozen=True)
@@ -75,11 +92,14 @@ class NoGpuWindow(QDialog):
         name = source_name or "the first GIF"
 
         self._warning = QLabel(
-            f"No usable GPU was found. {name} is estimated at {total:.0f}s and will be slow."
+            f"This job will run on CPU. {name} is estimated at {total:.0f}s and will be slow. "
+            "Only the first GIF is timed; a later GIF can be slower."
         )
         self._warning.setWordWrap(True)
         self._path = QLabel(path)
         self._path.setWordWrap(True)
+        self._admission = QLabel(_PROVISIONAL)
+        self._admission.setWordWrap(True)
         self._spin = QSpinBox()
         self._spin.setRange(1, _MAX_WORKERS)
         self._spin.setValue(1)
@@ -102,6 +122,7 @@ class NoGpuWindow(QDialog):
         layout = QVBoxLayout(self)
         layout.addWidget(self._warning)
         layout.addWidget(self._path)
+        layout.addWidget(self._admission)
         layout.addLayout(row)
         layout.addWidget(self._d10)
         layout.addWidget(self._remember)
@@ -152,18 +173,63 @@ def apply_no_gpu_choice(config: dict[str, Any], choice: NoGpuChoice, service: An
         config["workers"] = int(choice.workers)
 
 
-def estimate_params(config: dict[str, Any]) -> dict[str, Any]:
-    """The resample request the Sampler would send, without a progress callback."""
-    mode = str(config.get("scale_mode") or "factor")
+def estimate_params(config: dict[str, Any], source_size: tuple[int, int] | None = None) -> dict[str, Any]:
+    """The resample request the Sampler worker would send, without a progress callback.
+
+    When the source size is known, width and height are the fitted pixels from
+    ``compute_resample_dims`` (the same function the worker uses), including a
+    width-only or height-only request. Without a size, a dimensions request
+    keeps the raw spin values so a missing test path is not opened.
+    """
     params: dict[str, Any] = {"algorithm": str(config.get("algorithm") or "lanczos")}
-    if mode == "dimensions":
+    if source_size is not None:
+        width, height = compute_resample_dims(config, int(source_size[0]), int(source_size[1]))
         params["mode"] = "dimensions"
-        params["width"] = int(config.get("target_width") or 0)
-        params["height"] = int(config.get("target_height") or 0)
+        params["width"] = int(width)
+        params["height"] = int(height)
     else:
-        params["mode"] = "factor"
-        params["factor"] = float(config.get("scale_factor") or 1)
+        mode = str(config.get("scale_mode") or "factor")
+        if mode == "dimensions":
+            params["mode"] = "dimensions"
+            params["width"] = int(config.get("target_width") or 0)
+            params["height"] = int(config.get("target_height") or 0)
+        else:
+            params["mode"] = "factor"
+            params["factor"] = float(config.get("scale_factor") or 1)
+    for key in ("device", "allow_devices", "gpu_arbiter", "encoder"):
+        if key not in config:
+            continue
+        value = config.get(key)
+        if value in (None, ""):
+            continue
+        params[key] = value
     return params
+
+
+def _source_size(path: str) -> tuple[int, int] | None:
+    """Pixel size of a real file. A missing path stays None so tests do not open it."""
+    if not os.path.isfile(path):
+        return None
+    from PIL import Image
+
+    with Image.open(path) as image:
+        return int(image.size[0]), int(image.size[1])
+
+
+def _job_uses_gpu(request: dict[str, Any], probe: Callable[[], tuple[bool, str]] | None) -> bool:
+    """Whether this job would take the production GPU path.
+
+    That path is ``lanczos3-dering`` plus the temporal encoder, and a card
+    ``usable_gif_gpu`` still projects as free. The result is provisional and
+    is not a lease. Default ``lanczos`` returns False without asking CUDA,
+    so the no-GPU window can still open on a machine that has a card.
+    """
+    algorithm = str(request.get("algorithm") or "lanczos").strip().lower()
+    encoder = str(request.get("encoder") or _GPU_ENCODER).strip().lower()
+    if algorithm != _GPU_ALGORITHM or encoder != _GPU_ENCODER:
+        return False
+    usable, _label = usable_gif_gpu(probe, params=request)
+    return bool(usable)
 
 
 def _first_gif(files: list[str]) -> str | None:
@@ -171,6 +237,62 @@ def _first_gif(files: list[str]) -> str | None:
         if str(path).lower().endswith(".gif"):
             return str(path)
     return None
+
+
+@dataclass(frozen=True)
+class SlowGifPlan:
+    """Widget-free preflight result. ``prompt`` still needs a dialog on the GUI thread."""
+
+    action: str
+    message: str = ""
+    estimate: Any = None
+    source_name: str = ""
+    settings: Any = None
+
+
+def plan_slow_gif(
+    config: dict[str, Any],
+    *,
+    probe: Callable[[], tuple[bool, str]] | None = None,
+    settings: Any | None = None,
+    estimate_fn: Callable[..., Any] | None = None,
+) -> SlowGifPlan:
+    """Decide whether to start, fail, or prompt. Does not create widgets.
+
+    Safe to call off the GUI thread. The default probe may initialize CUDA
+    and is only reached for a job that would actually take the GPU path.
+    ``settings`` left as None is opened here. Only the first GIF is timed;
+    a later GIF can be slower.
+    """
+    if settings is None:
+        from middleware.src.settings.service import SettingsService
+
+        settings = SettingsService()
+    gif = _first_gif(list(config.get("files_to_process") or []))
+    if gif is None or not no_gpu_prompt_enabled(settings):
+        return SlowGifPlan("start", settings=settings)
+    request = with_job_settings(estimate_params(config, _source_size(gif)), settings)
+    if _job_uses_gpu(request, probe):
+        return SlowGifPlan("start", settings=settings)
+    run = estimate_fn or estimate_gif_job
+    try:
+        estimate = run(
+            gif,
+            request,
+            use_multicore=bool(config.get("use_multicore")),
+            device_probe=probe,
+            settings_service=settings,
+        )
+    except Exception as exc:
+        return SlowGifPlan("fail", message=str(exc), settings=settings)
+    if not should_prompt_no_gpu(
+        usable_gpu=False,
+        estimate_s=float(estimate.total_s),
+        threshold_s=float(no_gpu_threshold_s(settings)),
+        prompt_enabled=True,
+    ):
+        return SlowGifPlan("start", settings=settings)
+    return SlowGifPlan("prompt", estimate=estimate, source_name=gif, settings=settings)
 
 
 def confirm_slow_gif(
@@ -183,44 +305,24 @@ def confirm_slow_gif(
 ) -> bool:
     """True to start the job. False when the user closes the window or the estimate fails.
 
-    The default GPU probe may initialize CUDA. Tests pass ``probe`` and
-    ``settings``. Only the first GIF is timed.
+    The dialog runs on the caller thread. The Sampler controller does not use
+    this; it runs ``plan_slow_gif`` on a worker and shows the dialog from a
+    queued signal. Only the first GIF is timed.
     """
-    gif = _first_gif(list(config.get("files_to_process") or []))
-    if gif is None:
-        return True
     if settings is None:
         from middleware.src.settings.service import SettingsService
 
         settings = SettingsService()
-    if not no_gpu_prompt_enabled(settings):
+    decision = plan_slow_gif(config, probe=probe, settings=settings, estimate_fn=estimate_fn)
+    if decision.action == "start":
         return True
-    usable, _label = usable_gif_gpu(probe)
-    if usable:
-        return True
-    run = estimate_fn or estimate_gif_job
-    try:
-        estimate = run(
-            gif,
-            estimate_params(config),
-            use_multicore=bool(config.get("use_multicore")),
-            device_probe=probe if probe is not None else (lambda: (False, "cpu")),
-            settings_service=settings,
-        )
-    except Exception as exc:
-        QMessageBox.critical(parent, "GIF estimate failed", str(exc))
+    if decision.action == "fail":
+        QMessageBox.critical(parent, "GIF estimate failed", decision.message)
         return False
-    if not should_prompt_no_gpu(
-        usable_gpu=False,
-        estimate_s=float(estimate.total_s),
-        threshold_s=float(no_gpu_threshold_s(settings)),
-        prompt_enabled=True,
-    ):
-        return True
     dialog = NoGpuWindow(
-        estimate,
+        decision.estimate,
         use_multicore=bool(config.get("use_multicore")),
-        source_name=gif,
+        source_name=decision.source_name,
         parent=parent,
     )
     if dialog.exec() != QDialog.DialogCode.Accepted:
