@@ -34,4 +34,8 @@ CI runs `python middleware/validation/check_docs_freshness.py`, which verifies t
 | Cloud sync (`#908`) | `middleware/src/services/drive_sync/` | `contracts/schemas/capability/drive_sync.json` | [Cloud sync (`drive_sync.md`)](drive_sync.md) |
 | Media loader (`#909`) | `middleware/src/services/media_loader/` | `contracts/schemas/capability/media_loader.json` | [Media loader (`media_loader.md`)](media_loader.md) |
 | Authentication (`#918`) | `middleware/src/services/auth/` | `contracts/schemas/capability/auth.json` | [Authentication (`auth.md`)](auth.md) |
+| Anime Stitch Pipeline | `middleware/src/services/asp/` | `contracts/CONTRACTS.sha256` | [ASP (`asp.md`)](asp.md) |
+| Content Recommendation Engine | `middleware/src/services/cre/` | `contracts/CONTRACTS.sha256` | [CRE (`cre.md`)](cre.md) |
+| Cel-Shaded Generator | `middleware/src/services/csg/` | `contracts/schemas/capability/csg.json` | [CSG (`csg.md`)](csg.md) |
+| Hybrid Image Editor | `middleware/src/services/hie/` | `contracts/schemas/capability/hie.json` | [HIE (`hie.md`)](hie.md) |
 | Module Template | `middleware/src/services/<feature>/` | `contracts/CONTRACTS.sha256` | [Module Template (`_template.md`)](_template.md) |

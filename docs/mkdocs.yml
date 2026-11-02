@@ -158,6 +158,10 @@ nav:
       - Overview: modules/index.md
       - Module Template: modules/_template.md
       - Convert Service: modules/convert.md
+      - Anime Stitch Pipeline: modules/asp.md
+      - Content Recommendation Engine: modules/cre.md
+      - Cel-Shaded Generator: modules/csg.md
+      - Hybrid Image Editor: modules/hie.md
   - Tutorials:
       - Overview: tutorials/index.md
       - System Tools: tutorials/system_tools.md
@@ -203,20 +207,121 @@ nav:
       - Content Generation: moon/roadmaps/content_generation.md
       - Development Tool: moon/roadmaps/development_tool.md
       - Documentation: moon/roadmaps/documentation.md
-      - ASP Pipeline (submodule): https://acfharbinger.github.io/Anime-Stitch-Pipeline/app/moon/ROADMAP
-      - Manga Colorization & Animation (submodule): https://acfharbinger.github.io/Cel-Shaded-Generator/app/moon/ROADMAP
-      - Recommendation Engine (submodule): https://acfharbinger.github.io/Content-Recommendation-Engine/app/moon/ROADMAP
+      - ASP Pipeline: asp/moon/ROADMAP.md
+      - Manga Colorization & Animation: csg/moon/ROADMAP.md
+      - Recommendation Engine: cre/moon/ROADMAP.md
+      - Hybrid Image Editor: hie/moon/ROADMAP.md
   - Research:
       - Analytics & Codebase Visualisation: moon/research/Analytics and Codebase Visualization Research.md
       - Image Generation Research: moon/research/Image_Generation_Research.md
-      - ASP Comprehensive Research (submodule): https://acfharbinger.github.io/Anime-Stitch-Pipeline/app/research/ASP_Comprehensive_Research_Report
-      - Image Stitching Research (submodule): https://acfharbinger.github.io/Anime-Stitch-Pipeline/app/research/Image_Stitching_Research
-      - Manga & Animation Research (submodule): https://acfharbinger.github.io/Cel-Shaded-Generator/app/research/Manga%20Colorization%20and%20Animation%20Research
-      - Recommendation Engine Research (submodule): https://acfharbinger.github.io/Content-Recommendation-Engine/app/research/Building%20a%20Smart%20Recommendation%20Engine
-  - Submodules:
-      - ASP: https://acfharbinger.github.io/Anime-Stitch-Pipeline/app/
-      - CSG: https://acfharbinger.github.io/Cel-Shaded-Generator/app/
-      - CRE: https://acfharbinger.github.io/Content-Recommendation-Engine/app/
+      - ASP Comprehensive Research: asp/research/ASP_Comprehensive_Research_Report.md
+      - Image Stitching Research: asp/research/Image_Stitching_Research.md
+      - Manga & Animation Research: csg/research/Manga Colorization and Animation Research.md
+      - Cel-Shaded Art Assistant Research: csg/research/Cel-Shaded Art Assistant Research.md
+      - Recommendation Engine Research: cre/research/Building a Smart Recommendation Engine.md
+      - HIE Research Methodology: hie/moon/research/research_methodology.md
+  - Anime Stitch Pipeline:
+      - Home: asp/index.md
+      - Architecture: asp/ARCHITECTURE.md
+      - Development: asp/DEVELOPMENT.md
+      - Testing: asp/TESTING.md
+      - Dependencies: asp/DEPENDENCIES.md
+      - Dependency Policy: asp/DEPENDENCY_POLICY.md
+      - Documentation Standards: asp/DOCUMENTATION_STANDARDS.md
+      - Benchmarks: asp/BENCHMARKS.md
+      - Troubleshooting: asp/TROUBLESHOOTING.md
+      - Glossary: asp/GLOSSARY.md
+      - Tutorials:
+          - Getting Started with HybridStitch: asp/tutorials/getting-started-hybridstitch.md
+          - ASP Pipeline Overview: asp/tutorials/pipeline-overview.md
+      - Architecture Decisions:
+          - Recording Decisions: asp/adr/0001-record-architecture-decisions.md
+          - Polyglot Module Layout: asp/adr/0002-polyglot-module-layout.md
+      - Roadmap:
+          - Master Roadmap: asp/moon/ROADMAP.md
+          - Change: asp/moon/asp_change_roadmap_2026q3.md
+          - Outreach: asp/moon/asp_outreach_roadmap_2026q3.md
+          - SFW Corpus: asp/moon/asp_sfw_corpus_roadmap_2026q3.md
+          - Wallpaper Mode: asp/moon/asp_wallpaper_mode_roadmap_2026q3.md
+      - Changelog: asp/moon/CHANGELOG.md
+      - Research:
+          - ASP Comprehensive Research: asp/research/ASP_Comprehensive_Research_Report.md
+          - Image Stitching Research: asp/research/Image_Stitching_Research.md
+      - Reports:
+          - ASP Critical Evaluation: asp/reports/ASP_Critical_Evaluation_2026-07-08.md
+          - Image Stitching Report: asp/reports/image_stitching_report.md
+  - Content Recommendation Engine:
+      - Home: cre/README.md
+      - Architecture: cre/ARCHITECTURE.md
+      - Roadmap:
+          - Master Roadmap: cre/moon/ROADMAP.md
+          - Search: cre/moon/roadmaps/search.md
+          - Core: cre/moon/roadmaps/core.md
+          - CLI: cre/moon/roadmaps/cli.md
+          - Ingestion: cre/moon/roadmaps/ingestion.md
+      - Changelog: cre/CHANGELOG.md
+      - Research: cre/research/Building a Smart Recommendation Engine.md
+  - Cel-Shaded Generator:
+      - Home: csg/index.md
+      - Architecture: csg/ARCHITECTURE.md
+      - Portable Project Format: csg/project_format.md
+      - Character Style Bible: csg/style_bible_format.md
+      - Local Model Packages: csg/model_packages.md
+      - Python Module: csg/PYTHON_MODULE.md
+      - Development: csg/DEVELOPMENT.md
+      - Testing: csg/TESTING.md
+      - Dependencies: csg/DEPENDENCIES.md
+      - Dependency Policy: csg/DEPENDENCY_POLICY.md
+      - Documentation Standards: csg/DOCUMENTATION_STANDARDS.md
+      - Benchmarks: csg/BENCHMARKS.md
+      - Troubleshooting: csg/TROUBLESHOOTING.md
+      - Glossary: csg/GLOSSARY.md
+      - Architecture Decisions:
+          - Recording Decisions: csg/adr/0001-record-architecture-decisions.md
+          - Superseded Polyglot Layout: csg/adr/0002-polyglot-module-layout.md
+      - Roadmap:
+          - Master Roadmap: csg/moon/ROADMAP.md
+          - Krita Learning Alpha: csg/moon/roadmaps/krita_learning_alpha.md
+          - Engine Architecture: csg/moon/roadmaps/engine_architecture.md
+          - Reference Coloring: csg/moon/roadmaps/reference_coloring.md
+          - Anime Animation: csg/moon/roadmaps/anime_animation.md
+          - Game Assets: csg/moon/roadmaps/game_assets.md
+          - Agent DCC Tool Access: csg/moon/roadmaps/agent_dcc_tool_access.md
+      - Changelog: csg/moon/CHANGELOG.md
+      - Research:
+          - Manga Colorization & Animation Research: csg/research/Manga Colorization and Animation Research.md
+          - Cel-Shaded Art Assistant Research: csg/research/Cel-Shaded Art Assistant Research.md
+      - Structurizr: csg/structurizr/README.md
+  - Hybrid Image Editor:
+      - Home: hie/index.md
+      - Architecture: hie/ARCHITECTURE.md
+      - Development: hie/DEVELOPMENT.md
+      - Testing: hie/TESTING.md
+      - Dependencies: hie/DEPENDENCIES.md
+      - Dependency Policy: hie/DEPENDENCY_POLICY.md
+      - Documentation Standards: hie/DOCUMENTATION_STANDARDS.md
+      - Benchmarks: hie/BENCHMARKS.md
+      - Troubleshooting: hie/TROUBLESHOOTING.md
+      - Glossary: hie/GLOSSARY.md
+      - Architecture Decisions:
+          - Recording Decisions: hie/adr/0001-record-architecture-decisions.md
+          - Polyglot Module Layout: hie/adr/0002-polyglot-module-layout.md
+          - Hybrid Document and Modifier Graph: hie/adr/0003-hybrid-document-and-modifier-graph.md
+      - Roadmap:
+          - Master Roadmap: hie/moon/ROADMAP.md
+          - Architecture and Data Model: hie/moon/roadmaps/01_architecture_and_data_model.md
+          - Mathematical Optimization Core: hie/moon/roadmaps/02_mathematical_optimization_core.md
+          - Deep Learning and RL: hie/moon/roadmaps/03_deep_learning_and_rl_subsystem.md
+          - Middleware and UI: hie/moon/roadmaps/04_middleware_and_ui_integration.md
+          - Video Editing Extension: hie/moon/roadmaps/05_video_editing_extension.md
+      - Changelog: hie/moon/CHANGELOG.md
+      - Research:
+          - Methodology: hie/moon/research/research_methodology.md
+          - Template: hie/moon/research/TEMPLATE.md
+      - Reports:
+          - Initial Audit: hie/moon/reports/initial_audit_report.md
+          - Template: hie/moon/reports/TEMPLATE.md
+      - Structurizr: hie/structurizr/README.md
   - Changelog: CHANGELOG.md
 
 # Hooks — symlink docs/moon/ and research/ content into docs/ at build time
