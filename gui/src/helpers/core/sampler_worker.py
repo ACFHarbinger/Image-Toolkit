@@ -223,12 +223,16 @@ class SamplerWorker(BaseQThreadWorker):
 
     def _registry_params(self, orig_w: int, orig_h: int) -> dict:
         new_w, new_h = self._compute_dims(orig_w, orig_h)
-        return {
+        params = {
             "mode": "dimensions",
             "width": new_w,
             "height": new_h,
             "algorithm": str(self.config.get("algorithm") or "lanczos").lower(),
         }
+        workers = self.config.get("workers")
+        if isinstance(workers, int) and workers >= 1:
+            params["workers"] = workers
+        return params
 
     def _resample_image(self, in_path: str, out_path: str, src_ext: str, progress) -> bool:
         from middleware.src.services.media.gif_upscale.pipeline import resample_still

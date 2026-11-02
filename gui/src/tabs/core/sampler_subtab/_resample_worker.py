@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QMessageBox
 from ....helpers import SamplerWorker
 from ....theming.theme_api import qss
 from ._tab_bound import TabBoundController
+from .no_gpu_window import confirm_slow_gif
 
 
 class SamplerWorkerController(TabBoundController):
@@ -49,6 +50,8 @@ class SamplerWorkerController(TabBoundController):
         config = self._collect_config(use_selection)
         if not config["files_to_process"]:
             QMessageBox.warning(self.tab, "No Files", "No files to resample.")
+            return
+        if not confirm_slow_gif(config, self.tab):
             return
 
         self.worker = SamplerWorker(config)
