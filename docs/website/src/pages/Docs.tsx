@@ -8,6 +8,13 @@ mermaid.initialize({ startOnLoad: false, theme: 'dark' });
 
 const md = new MarkdownIt({ html: true, linkify: true, typographer: true });
 
+const LAB_DOCS = [
+  { href: '/labs/asp/docs', title: 'Anime Stitch Pipeline' },
+  { href: '/labs/cre/docs', title: 'Content Recommendation Engine' },
+  { href: '/labs/csg/docs', title: 'Cel-Shaded Generator' },
+  { href: '/labs/hie/docs', title: 'Hybrid Image Editor' },
+];
+
 const DOC_PAGES = [
   { id: 'index.md', title: 'Overview' },
   { id: 'ARCHITECTURE.md', title: 'Architecture' },
@@ -71,6 +78,16 @@ export default function Docs() {
           <h2 className="font-bold text-lg text-[#00F0FF]" style={{fontFamily: 'Chakra Petch'}}>Documentation</h2>
         </div>
         <nav className="space-y-2">
+          {LAB_DOCS.map(page => (
+            <Link
+              key={page.href}
+              to={page.href}
+              className="flex items-center justify-between px-3 py-2 rounded-lg text-sm text-[#8c92a0] hover:bg-[rgba(0,240,255,0.05)] hover:text-[#00F0FF]"
+            >
+              {page.title}
+              <ChevronRight className="w-4 h-4 opacity-40" />
+            </Link>
+          ))}
           {DOC_PAGES.map(page => (
             <Link 
               key={page.id} 

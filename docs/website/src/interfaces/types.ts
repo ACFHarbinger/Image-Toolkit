@@ -39,6 +39,8 @@ export interface SubmoduleSite {
   description: string;
   url: string;
   repo: string;
+  /** In-site lab route, without a query string. */
+  route: string;
 }
 
 export interface BenchmarkStat {

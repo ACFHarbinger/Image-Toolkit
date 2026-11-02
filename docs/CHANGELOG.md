@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Added
 
 - The ASP, CRE, CSG, and HIE documentation is part of the main docs nav, including roadmaps, research, reports, and ADRs that used to live only on the separate project sites.
+- The documentation website serves those four projects at `/labs/asp`, `/labs/cre`, `/labs/csg`, and `/labs/hie`, with the original home, pipeline observatory, 3D hero, and document browser. The pipeline preview opens those pages instead of the old standalone sites.
 - Display and Media settings can set a background wallpaper image. The path is the same one Appearance and Themes saves for the window background.
 - When more than one GPU is free, a GIF resample hands the next frame batch to whichever card is idle and writes the frames back in order. A failed card retries that batch once on another card, then on the CPU. One card keeps the previous single-device path.
 - One GPU can overlap the next batch's pinned upload with the previous batch's index download, with at most two batches in flight.

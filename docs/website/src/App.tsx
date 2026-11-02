@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, useLocation, useSearchParams } from "react-router-dom";
 import { Aperture } from "lucide-react";
 import AchievementToast from "./components/AchievementToast";
 import Home from "./pages/Home";
@@ -6,14 +6,23 @@ import RatingsDashboard from "./pages/RatingsDashboard";
 import Docs from "./pages/Docs";
 import Pipeline from "./pages/Pipeline";
 import Journal from "./pages/Journal";
+import { AspDocs, AspHome, AspPipeline } from "./labs/asp";
+import { CreDocs, CreHome, CrePipeline } from "./labs/cre";
+import { CsgDocs, CsgHome, CsgPipeline } from "./labs/csg";
+import { HieDocs, HieHome, HiePipeline } from "./labs/hie";
 import "./App.css";
 
 function Nav() {
   const { pathname } = useLocation();
+  const [search] = useSearchParams();
+  if (search.get("embed") === "1") {
+    return null;
+  }
   const onDash = pathname.startsWith("/dashboard");
   const onJournal = pathname.startsWith("/journal");
   const onDocs = pathname.startsWith("/docs");
   const onPipeline = pathname.startsWith("/pipeline");
+  const onLabs = pathname.startsWith("/labs");
 
   return (
     <nav className="site-nav" aria-label="Primary">
@@ -29,7 +38,7 @@ function Nav() {
         </Link>
 
         <div className="nav-links">
-          <Link to="/" className={!onDash && !onJournal && !onDocs && !onPipeline ? "active" : undefined}>
+          <Link to="/" className={!onDash && !onJournal && !onDocs && !onPipeline && !onLabs ? "active" : undefined}>
             Home
           </Link>
           <Link to="/journal" className={onJournal ? "active" : undefined}>
@@ -40,6 +49,18 @@ function Nav() {
           </Link>
           <Link to="/pipeline" className={onPipeline ? "active" : undefined}>
             Pipeline
+          </Link>
+          <Link to="/labs/asp" className={pathname.startsWith("/labs/asp") ? "active" : undefined}>
+            ASP
+          </Link>
+          <Link to="/labs/cre" className={pathname.startsWith("/labs/cre") ? "active" : undefined}>
+            CRE
+          </Link>
+          <Link to="/labs/csg" className={pathname.startsWith("/labs/csg") ? "active" : undefined}>
+            CSG
+          </Link>
+          <Link to="/labs/hie" className={pathname.startsWith("/labs/hie") ? "active" : undefined}>
+            HIE
           </Link>
           <Link to="/docs" className={onDocs ? "active" : undefined}>
             Docs
@@ -69,6 +90,22 @@ export default function App() {
             <Route path="/pipeline" element={<Pipeline />} />
             <Route path="/docs" element={<Docs />} />
             <Route path="/docs/:fileId" element={<Docs />} />
+            <Route path="/labs/asp" element={<AspHome />} />
+            <Route path="/labs/asp/pipeline" element={<AspPipeline />} />
+            <Route path="/labs/asp/docs" element={<AspDocs />} />
+            <Route path="/labs/asp/docs/*" element={<AspDocs />} />
+            <Route path="/labs/cre" element={<CreHome />} />
+            <Route path="/labs/cre/pipeline" element={<CrePipeline />} />
+            <Route path="/labs/cre/docs" element={<CreDocs />} />
+            <Route path="/labs/cre/docs/*" element={<CreDocs />} />
+            <Route path="/labs/csg" element={<CsgHome />} />
+            <Route path="/labs/csg/pipeline" element={<CsgPipeline />} />
+            <Route path="/labs/csg/docs" element={<CsgDocs />} />
+            <Route path="/labs/csg/docs/*" element={<CsgDocs />} />
+            <Route path="/labs/hie" element={<HieHome />} />
+            <Route path="/labs/hie/pipeline" element={<HiePipeline />} />
+            <Route path="/labs/hie/docs" element={<HieDocs />} />
+            <Route path="/labs/hie/docs/*" element={<HieDocs />} />
           </Routes>
         </main>
         <AchievementToast />

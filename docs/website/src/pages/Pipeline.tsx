@@ -63,7 +63,7 @@ export default function Pipeline() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {submoduleSites.map((site) => {
             const isSelected = selectedSubmodule === site.slug;
-            const targetUrl = site.url;
+            const labPath = `${import.meta.env.BASE_URL.replace(/\/?$/, "/")}labs/${site.route.split("/").pop()}`;
 
             return (
               <div 
@@ -81,7 +81,7 @@ export default function Pipeline() {
                       {site.slug.split('-').map(s => s[0]).join('').toUpperCase()}
                     </span>
                     <a 
-                      href={targetUrl}
+                      href={labPath}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs font-mono text-[#8c92a0] hover:text-[#00f0ff] flex items-center gap-1"
@@ -133,7 +133,7 @@ export default function Pipeline() {
               </button>
             </div>
             <iframe 
-              src={submoduleSites.find(s => s.slug === selectedSubmodule)?.url}
+              src={`${import.meta.env.BASE_URL.replace(/\/?$/, "/")}labs/${submoduleSites.find(s => s.slug === selectedSubmodule)?.route.split("/").pop()}?embed=1`}
               title="Submodule Website Preview"
               className="w-full h-[650px] rounded border border-[#1a1c23]"
             />
