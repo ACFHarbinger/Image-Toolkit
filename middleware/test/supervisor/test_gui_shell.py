@@ -104,14 +104,17 @@ def test_failed_socket_setup_releases_gui_lock(tmp_path):
     lock.release()
 
 
-def test_qt_gate_is_shared_by_default(tmp_path) -> None:
-    assert qt_gate_dir(tmp_path, {}) == tmp_path
-    assert qt_gate_dir(tmp_path, {"IMAGE_TOOLKIT_SIDE_BY_SIDE": "0"}) == tmp_path
+def test_qt_gate_is_separate_by_default(tmp_path) -> None:
+    assert qt_gate_dir(tmp_path, {}) == tmp_path / "gate" / "qt"
+    assert qt_gate_dir(tmp_path, {"IMAGE_TOOLKIT_SINGLE_SHELL": "0"}) == tmp_path / "gate" / "qt"
 
 
-def test_side_by_side_qt_gate_does_not_block_the_tauri_gate(tmp_path) -> None:
-    qt_dir = qt_gate_dir(tmp_path, {"IMAGE_TOOLKIT_SIDE_BY_SIDE": "1"})
-    assert qt_dir != tmp_path
+def test_single_shell_switch_shares_the_gate(tmp_path) -> None:
+    assert qt_gate_dir(tmp_path, {"IMAGE_TOOLKIT_SINGLE_SHELL": "1"}) == tmp_path
+
+
+def test_qt_gate_does_not_block_the_tauri_gate(tmp_path) -> None:
+    qt_dir = qt_gate_dir(tmp_path, {})
     tauri = claim_or_focus(tmp_path)
     assert tauri is not None
     try:

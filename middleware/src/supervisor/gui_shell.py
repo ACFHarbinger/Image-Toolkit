@@ -20,22 +20,22 @@ FOCUSED_OTHER = "FOCUSED_OTHER"
 FOCUS = "FOCUS"
 
 
-SIDE_BY_SIDE_ENV = "IMAGE_TOOLKIT_SIDE_BY_SIDE"
+SINGLE_SHELL_ENV = "IMAGE_TOOLKIT_SINGLE_SHELL"
 
 
 def qt_gate_dir(data_dir: Path, environ: dict[str, str] | None = None) -> Path:
     """Directory the Qt shell claims its single-instance gate in.
 
-    By default Qt and Tauri share ``data_dir``, so whichever starts second
-    focuses the first and exits. With ``IMAGE_TOOLKIT_SIDE_BY_SIDE=1`` Qt
-    claims ``data_dir/gate/qt`` instead, so both can run at once during the
-    migration. Tauri's gate stays in ``data_dir``, and a second Qt window
-    still focuses the first Qt window.
+    Qt claims ``data_dir/gate/qt`` and Tauri claims ``data_dir``, so the two
+    shells run side by side during the migration; a second Qt window still
+    focuses the first Qt window. ``IMAGE_TOOLKIT_SINGLE_SHELL=1`` puts Qt back
+    on the shared ``data_dir`` gate (ADR 0004), where whichever shell starts
+    second focuses the first and exits.
     """
     env = os.environ if environ is None else environ
-    if env.get(SIDE_BY_SIDE_ENV, "").strip().lower() in {"1", "true", "yes", "on"}:
-        return data_dir / "gate" / "qt"
-    return data_dir
+    if env.get(SINGLE_SHELL_ENV, "").strip().lower() in {"1", "true", "yes", "on"}:
+        return data_dir
+    return data_dir / "gate" / "qt"
 
 
 def claim_or_focus(
