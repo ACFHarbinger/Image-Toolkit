@@ -366,6 +366,20 @@ class GpuLeaseArbiter:
     def set_empty_cache(self, hook: Callable[[], None] | None) -> None:
         self._empty_cache = hook
 
+    def release_cached_memory(self) -> None:
+        """Run this lease's ``empty_cache`` hook.
+
+        The process lease's hook is ``release_unused_cuda_blocks``. On the
+        installed torch that call is process-wide; there is no per-device
+        empty. A lease with no hook, including most test arbiters, does
+        nothing. Live tensors are not freed here.
+        """
+        hook = self._empty_cache
+        if hook is None:
+            return
+        with contextlib.suppress(Exception):
+            hook()
+
     def ensure_device_table(self, devices: Sequence[Mapping[str, object]]) -> bool:
         """Install or refresh a per-device table. The caller supplies the rows.
 

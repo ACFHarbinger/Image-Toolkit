@@ -46,6 +46,24 @@ _FIXED_OVERHEAD_GB = 0.35
 _SAFETY_FACTOR = 2.0
 _VRAM_UTILIZATION = 0.70
 _EXACT_INDEX_CHUNK = 262144
+# Device tensors owned by one session. close() drops every name so the
+# caching allocator can return those blocks.
+_SESSION_TENSORS = (
+    "wx_t",
+    "wy_t",
+    "src_x_t",
+    "src_y_t",
+    "x_index_t",
+    "x_weight_t",
+    "x_valid_t",
+    "y_index_t",
+    "y_weight_t",
+    "y_valid_t",
+    "_bayer_t",
+    "_pal_t",
+    "_half_t",
+    "_lut_t",
+)
 
 
 def _load_shared_gif_lease() -> GpuLeaseArbiter:
@@ -87,6 +105,15 @@ def resolve_gif_arbiter(
         ),
         "standalone",
     )
+
+
+def _clear_cublas_workspace(torch: Any) -> None:
+    """Drop the matmul workspace. ``empty_cache`` does not free it, and it is not a Python tensor."""
+    clear = getattr(getattr(torch, "_C", None), "_cuda_clearCublasWorkspaces", None)
+    if not callable(clear):
+        return
+    with contextlib.suppress(Exception):
+        clear()
 
 
 def _job_allow(params: Mapping[str, Any]) -> tuple[int, ...] | None:
@@ -448,16 +475,35 @@ class GpuResampleSession:
             idx_gpu = self._index_tensors(x[..., :3], x[..., 3])
             return idx_gpu.cpu().numpy()
 
+    def release_cached_memory(self) -> None:
+        """Free unused cached blocks through the lease hook without dropping this session.
+
+        Used when a batch is retried smaller. ``close`` drops the session
+        tensors first; this only runs the hook.
+        """
+        if self._closed:
+            return
+        hook = getattr(self.arbiter, "release_cached_memory", None)
+        if callable(hook):
+            with contextlib.suppress(Exception):
+                hook()
+
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
-        self.wx_t = None
-        self.wy_t = None
-        self._bayer_t = None
-        self._pal_t = None
-        self._half_t = None
-        self._lut_t = None
+        for name in _SESSION_TENSORS:
+            if hasattr(self, name):
+                setattr(self, name, None)
+        torch = getattr(self, "_torch", None)
+        if torch is not None:
+            _clear_cublas_workspace(torch)
+        # The hook runs while this device is still leased. The shared lease's
+        # hook is process-wide empty_cache; live tensors are already dropped.
+        hook = getattr(self.arbiter, "release_cached_memory", None)
+        if callable(hook):
+            with contextlib.suppress(Exception):
+                hook()
         with contextlib.suppress(Exception):
             self.arbiter.release(self.owner, device=self.device_index)
 
