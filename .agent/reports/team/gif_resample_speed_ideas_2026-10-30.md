@@ -329,9 +329,11 @@ Grok, 2026-10-30. Wave 1 B1 is on `feat/gif-speed` (#1154). No CUDA call and no 
 
 #### Implemented later (B3, B4, D1)
 
-- B3 (#1156): `schedule_gif_frames` pulls the next batch onto whichever leased session is free. The writer emits frame indexes in order. A device error retries that batch once, then the CPU callback. More than one session is the only pipeline branch that uses it.
-- B4 (#1157): `run_device_pipeline` is that call. Fakes run scale then index on the caller thread. A real CUDA device pins the next upload and the index download on a copy stream, with `queue_depth` batches in flight. Session methods still do not take a stream.
+- B3 (#1156): `schedule_gif_frames` pulls the next batch onto whichever leased session is free. The writer emits frame indexes in order. A device error retries that batch once, then the CPU callback. One leased session uses this scheduler as well (R3, #1172).
+- B4 (#1157): `gpu_overlap.run_device_pipeline` was removed (R4, #1173). The overlap that runs is the decode thread, one worker per device, and the writer thread. A session without a fused scale/index method still scales, then indexes, on that worker.
 - D1 (#1163): Pillow encode stays in-process when `workers` is 1. Above 1, a spawn pool compresses frames and the parent writes GIF blocks in order. Harbinger's correction: processes, not threads, because Pillow holds the GIL.
+
+Correction (2026-11-02): the B4 sentence used to say `run_device_pipeline` pins the next upload and the index download on a copy stream, with `queue_depth` batches in flight. That module is deleted. The same correction applies where this file, or a bus note from before R4, treats pinned-copy-stream overlap as the shipped GIF path. Claude's 2026-10-30 prototype in §5.11 did upload from pinned memory; that scratchpad is not this scheduler. The B3 sentence used to say only a multi-session branch calls `schedule_gif_frames`. One session calls it too.
 
 ### 5.7 Codex (review, benchmark runs when authorized)
 
