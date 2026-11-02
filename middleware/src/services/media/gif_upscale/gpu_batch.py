@@ -14,6 +14,9 @@ sees it.
 from __future__ import annotations
 
 import contextlib
+import gc
+import sys
+import threading
 import time
 import uuid
 from collections.abc import Callable, Mapping, Sequence
@@ -107,13 +110,96 @@ def resolve_gif_arbiter(
     )
 
 
+# Sessions that finished ``__init__`` and have not closed. The cuBLAS clear is
+# process-wide, so a second open session means it must not run.
+_open_sessions = 0
+_open_sessions_lock = threading.Lock()
+
+
+def _retain_open_session() -> None:
+    global _open_sessions
+    with _open_sessions_lock:
+        _open_sessions += 1
+
+
+def _release_open_session() -> None:
+    global _open_sessions
+    with _open_sessions_lock:
+        _open_sessions = max(0, _open_sessions - 1)
+
+
+def _another_session_is_open() -> bool:
+    with _open_sessions_lock:
+        return _open_sessions > 0
+
+
 def _clear_cublas_workspace(torch: Any) -> None:
-    """Drop the matmul workspace. ``empty_cache`` does not free it, and it is not a Python tensor."""
+    """Drop cuBLAS workspaces. ``empty_cache`` does not free them.
+
+    PyTorch 2.9 keeps one process-wide map from ``(handle, stream)`` to the
+    workspace (``clearCublasWorkspaces`` in ``CublasHandlePool.cpp``). Clearing
+    it while another thread is inside cuBLAS drops that thread's workspace.
+    Callers must already have decided that no other admitted work is running.
+    """
     clear = getattr(getattr(torch, "_C", None), "_cuda_clearCublasWorkspaces", None)
     if not callable(clear):
         return
     with contextlib.suppress(Exception):
         clear()
+
+
+def _lease_has_other_holder(arbiter: GpuLeaseArbiter, owner: str, device_index: int | None) -> bool:
+    held = arbiter.snapshot().held_devices
+    if held:
+        return any(
+            held_owner != owner or device_index is None or index != device_index
+            for index, held_owner in held
+        )
+    return arbiter.owner not in (None, owner)
+
+
+def _other_gpu_work(arbiter: GpuLeaseArbiter, owner: str, device_index: int | None) -> bool:
+    """True when a cuBLAS clear could hit someone besides this closing session."""
+    if _another_session_is_open():
+        return True
+    if _lease_has_other_holder(arbiter, owner, device_index):
+        return True
+    try:
+        from middleware.src.comfy_matrix import gpu_lease
+    except Exception:
+        return True
+    if gpu_lease is arbiter:
+        return False
+    return _lease_has_other_holder(gpu_lease, owner, None)
+
+
+def _drop_traceback_locals(exc: BaseException) -> None:
+    """Drop locals in frames the exception still owns.
+
+    A frame that is still executing (the handler, or this function) is left
+    alone. ``frame.clear`` raises on a frame that is executing. The stack
+    text stays; the batch tensors do not.
+    """
+    live: set[int] = set()
+    frame = sys._getframe()
+    while frame is not None:
+        live.add(id(frame))
+        frame = frame.f_back
+    tb = exc.__traceback__
+    while tb is not None:
+        if id(tb.tb_frame) not in live:
+            tb.tb_frame.clear()
+        tb = tb.tb_next
+    gc.collect()
+
+
+def _flush_allocator(arbiter: GpuLeaseArbiter, torch: Any, owner: str, device_index: int | None) -> None:
+    if torch is not None and not _other_gpu_work(arbiter, owner, device_index):
+        _clear_cublas_workspace(torch)
+    hook = getattr(arbiter, "release_cached_memory", None)
+    if callable(hook):
+        with contextlib.suppress(Exception):
+            hook()
 
 
 def _job_allow(params: Mapping[str, Any]) -> tuple[int, ...] | None:
@@ -199,6 +285,7 @@ class GpuResampleSession:
         self.opts = opts
         self.algorithm_id = algorithm_id
         self._closed = False
+        self._counted = False
 
         kernel = lanczos_kernel(3.0)
         self.plan = _clip_plan(opts, algorithm_id, self.src_h, self.src_w, self.dst_h, self.dst_w, 3.0, kernel)
@@ -262,6 +349,8 @@ class GpuResampleSession:
         self._index_quality = self.quality
 
         self._update_opts_metadata()
+        _retain_open_session()
+        self._counted = True
 
     @property
     def device_name(self) -> str:
@@ -495,15 +584,20 @@ class GpuResampleSession:
         for name in _SESSION_TENSORS:
             if hasattr(self, name):
                 setattr(self, name, None)
+        if getattr(self, "_counted", False):
+            self._counted = False
+            _release_open_session()
+        # The handler's traceback can still own this call's batch tensors.
+        # Drop those locals before the allocator flush, or the blocks stay
+        # reserved after close and a second close used to return immediately.
+        exc = sys.exception()
+        if exc is not None:
+            _drop_traceback_locals(exc)
         torch = getattr(self, "_torch", None)
-        if torch is not None:
-            _clear_cublas_workspace(torch)
-        # The hook runs while this device is still leased. The shared lease's
-        # hook is process-wide empty_cache; live tensors are already dropped.
-        hook = getattr(self.arbiter, "release_cached_memory", None)
-        if callable(hook):
-            with contextlib.suppress(Exception):
-                hook()
+        # The cuBLAS clear is process-wide. Skip it while another session or
+        # another lease holder is still in this process. The empty_cache hook
+        # only returns unused caching-allocator blocks.
+        _flush_allocator(self.arbiter, torch, self.owner, int(self.device_index))
         with contextlib.suppress(Exception):
             self.arbiter.release(self.owner, device=self.device_index)
 
@@ -607,9 +701,17 @@ def acquire_gpu_session(
             algorithm_id=algorithm_id,
         )
     except Exception as exc:
-        active_arbiter.release(job_owner, device=device_index)
-        opts["_device"] = "cpu"
+        # Copy the handler locals first. The raised ``__init__`` frame holds
+        # the partial session, and clearing it must not clear this frame.
         reason = f"GPU init failed ({exc}); fell back to CPU"
+        arbiter_ref = active_arbiter
+        owner_ref = job_owner
+        index_ref = device_index
+        torch_ref = torch
+        _drop_traceback_locals(exc)
+        _flush_allocator(arbiter_ref, torch_ref, owner_ref, index_ref)
+        arbiter_ref.release(owner_ref, device=index_ref)
+        opts["_device"] = "cpu"
         opts["_gpu_fallback"] = reason
         return None, reason
 
