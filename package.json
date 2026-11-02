@@ -13,7 +13,7 @@
     "setup": "npm run install:all && npm install --save-dev @types/react-dom",
     "dev": "npm run tauri:dev",
     "build": "npm run tauri:build",
-    "tauri:dev": "npm run tauri dev --workspace=frontend",
+    "tauri:dev": "scripts/clean-snap-env.sh npm run tauri dev --workspace=frontend",
     "tauri:build": "npm run tauri build --workspace=frontend",
     "tauri:check": "cd frontend/src-tauri && cargo check",
     "start-frontend": "npm run start --workspace=frontend",
