@@ -8,7 +8,7 @@ import React, { useMemo, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { HostClient, RustTransport } from '../../hostclient';
 import { useAppStore } from '../../store/appStore';
-import { LogIn, UserPlus, Eye, EyeOff, Sun, Moon } from 'lucide-react';
+import { LogIn, UserPlus, UserRound, KeyRound, Eye, EyeOff, Sun, Moon } from 'lucide-react';
 
 export interface AuthResult {
   success: boolean;
@@ -20,8 +20,31 @@ export interface SessionClient {
 }
 
 export interface AuthBridge {
-  authUnlock(params: { account: string; password: string }): Promise<{ success: boolean; account: string; message: string }>;
+  authUnlock(params: { account: string; password: string }): Promise<{
+    success: boolean;
+    account: string;
+    message: string;
+    profiles?: string[];
+    credentials?: string[];
+  }>;
   authStatus(params: { account: string }): Promise<{ unlocked: boolean; account: string; reason: string }>;
+  authGuest?(params: { username?: string | null }): Promise<{ success: boolean; account: string; anonymous: boolean; message: string }>;
+  authApplyProfile?(params: { account: string; profile: string }): Promise<{
+    success: boolean;
+    account: string;
+    profile: string;
+    message: string;
+    theme: 'dark' | 'light';
+    tab_configurations: Record<string, unknown>;
+  }>;
+}
+
+/** The picker entries, in the order the Qt login offers them. */
+export const DEFAULT_PROFILE = 'Default';
+export const PREVIOUS_PROFILE = 'Previous Profile';
+
+export function profileChoices(profiles: string[]): string[] {
+  return profiles.length === 0 ? [] : [DEFAULT_PROFILE, PREVIOUS_PROFILE, ...[...profiles].sort()];
 }
 
 async function createAccount(account: string, password: string): Promise<AuthResult> {
@@ -39,7 +62,7 @@ interface LoginDialogProps {
 }
 
 export const LoginDialog: React.FC<LoginDialogProps> = ({ session = defaultSession, authClient }) => {
-  const { preferences, setTheme, login } = useAppStore();
+  const { preferences, setTheme, updatePreferences, login } = useAppStore();
   const ownedClient = useMemo(
     () =>
       new HostClient(new RustTransport(), {
@@ -54,6 +77,10 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ session = defaultSessi
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [guestMode, setGuestMode] = useState(false);
+  // Set after a correct password when the account has saved preference profiles.
+  const [picker, setPicker] = useState<{ account: string; choices: string[] } | null>(null);
+  const [choice, setChoice] = useState(PREVIOUS_PROFILE);
 
   const confirmSession = async (account: string) => {
     const opened = await bridge.authUnlock({ account, password });
@@ -66,7 +93,61 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ session = defaultSessi
       setError(status.reason || 'C++ vault session locked');
       return;
     }
-    login(status.account || account);
+    const signedIn = status.account || account;
+    const choices = bridge.authApplyProfile ? profileChoices(opened.profiles ?? []) : [];
+    if (choices.length > 0) {
+      // Previous Profile is the safe default: Default would reset the saved theme and tab settings.
+      setChoice(PREVIOUS_PROFILE);
+      setPicker({ account: signedIn, choices });
+      return;
+    }
+    login(signedIn);
+  };
+
+  const finishProfile = async (apply: boolean) => {
+    if (!picker) {
+      return;
+    }
+    setIsLoading(true);
+    setError('');
+    try {
+      if (apply && bridge.authApplyProfile) {
+        const applied = await bridge.authApplyProfile({ account: picker.account, profile: choice });
+        if (!applied.success) {
+          setError(applied.message || 'Could not apply the profile.');
+          return;
+        }
+        setTheme(applied.theme);
+        updatePreferences({ tabConfigurations: applied.tab_configurations as never });
+      }
+      login(picker.account);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Could not apply the profile.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const guestLogin = async (anonymous: boolean) => {
+    if (!bridge.authGuest) {
+      setError('Guest mode is unavailable.');
+      return;
+    }
+    setIsLoading(true);
+    setError('');
+    try {
+      const name = anonymous ? '' : accountName.trim();
+      const opened = await bridge.authGuest({ username: name || null });
+      if (!opened.success) {
+        setError(opened.message || 'Failed to start the guest session.');
+        return;
+      }
+      login(opened.account, { guest: true });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to start the guest session.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const submit = async (action: "login" | "create") => {
@@ -102,7 +183,11 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ session = defaultSessi
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !isLoading) {
-      void submit("login");
+      if (guestMode) {
+        void guestLogin(false);
+      } else {
+        void submit("login");
+      }
     }
   };
 
@@ -128,7 +213,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ session = defaultSessi
         >
           <h2 className="text-xl font-bold">
             <span className={isDark ? 'text-cyan-400' : 'text-blue-600'}>
-              Welcome - Secure Toolkit Access
+              {picker ? 'Select Preference Profile' : guestMode ? 'Guest Login' : 'Welcome - Secure Toolkit Access'}
             </span>
           </h2>
           <button
@@ -150,8 +235,50 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ session = defaultSessi
             </div>
           )}
 
+          {picker && (
+            <fieldset className="space-y-2" disabled={isLoading}>
+              <legend className={`text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                Choose a system preference setup to apply:
+              </legend>
+              {picker.choices.map((name) => (
+                <label key={name} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="preference-profile"
+                    value={name}
+                    checked={choice === name}
+                    onChange={() => setChoice(name)}
+                  />
+                  {name}
+                </label>
+              ))}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => void finishProfile(false)}
+                  disabled={isLoading}
+                  className={`flex-1 px-4 py-2.5 rounded-lg font-semibold transition-colors ${isDark
+                    ? 'bg-gray-700 text-white hover:bg-gray-600'
+                    : 'bg-gray-200 text-gray-900 hover:bg-gray-300'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={() => void finishProfile(true)}
+                  disabled={isLoading}
+                  className={`flex-1 px-4 py-2.5 rounded-lg font-semibold text-white transition-colors ${isDark
+                    ? 'bg-cyan-600 hover:bg-cyan-500'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  Apply
+                </button>
+              </div>
+            </fieldset>
+          )}
+
           {/* Account Name Input */}
-          <div>
+          {!picker && (<div>
             <label
               htmlFor="accountName"
               className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'
@@ -165,17 +292,23 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ session = defaultSessi
               value={accountName}
               onChange={(e) => setAccountName(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="e.g., user_id_123"
+              placeholder={guestMode ? 'Username (optional for anonymous login)' : 'e.g., user_id_123'}
               disabled={isLoading}
               className={`w-full px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 transition-colors ${isDark
                 ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-cyan-500'
                 : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:ring-blue-500'
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
             />
-          </div>
+          </div>)}
+
+          {guestMode && !picker && (
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Guest mode keeps settings in memory only. Nothing is saved to your account, and the library stays closed.
+            </p>
+          )}
 
           {/* Password Input */}
-          <div>
+          {!guestMode && !picker && (<div>
             <label
               htmlFor="password"
               className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'
@@ -207,10 +340,36 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ session = defaultSessi
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-          </div>
+          </div>)}
 
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-2">
+          {guestMode && !picker && (
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => void guestLogin(true)}
+                disabled={isLoading}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold transition-colors ${isDark
+                  ? 'bg-gray-700 text-white hover:bg-gray-600'
+                  : 'bg-gray-200 text-gray-900 hover:bg-gray-300'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                <UserRound size={18} />
+                Login Anonymously
+              </button>
+              <button
+                onClick={() => void guestLogin(false)}
+                disabled={isLoading}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-white transition-colors ${isDark
+                  ? 'bg-cyan-600 hover:bg-cyan-500'
+                  : 'bg-blue-600 hover:bg-blue-700'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                <LogIn size={18} />
+                Login as Guest
+              </button>
+            </div>
+          )}
+          {!guestMode && !picker && (<div className="flex gap-3 pt-2">
             <button
               onClick={() => void submit("create")}
               disabled={isLoading}
@@ -233,7 +392,25 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ session = defaultSessi
               <LogIn size={18} />
               {isLoading ? 'Authenticating...' : 'Login'}
             </button>
-          </div>
+          </div>)}
+
+          {!picker && (
+            <button
+              type="button"
+              onClick={() => {
+                setGuestMode(!guestMode);
+                setError('');
+              }}
+              disabled={isLoading}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${isDark
+                ? 'text-cyan-400 hover:bg-gray-700'
+                : 'text-blue-600 hover:bg-gray-100'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {guestMode ? <KeyRound size={16} /> : <UserRound size={16} />}
+              {guestMode ? 'Account Access' : 'Guest Mode'}
+            </button>
+          )}
         </div>
       </div>
     </div>

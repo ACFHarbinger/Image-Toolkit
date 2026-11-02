@@ -31,7 +31,7 @@ interface ShellProps {
 }
 
 export function Shell({ showModal }: ShellProps) {
-  const { logout, openSettings, closeSettings, showSettings, setDatabaseConnected, setTheme, preferences, vault } = useAppStore();
+  const { logout, openSettings, closeSettings, showSettings, setDatabaseConnected, setTheme, preferences, vault, isGuest } = useAppStore();
   const entries = useMemo(() => frontendEntries(), []);
   const [activeId, setActiveId] = useState(() => defaultPageId(entries));
   const active = entryById(entries, activeId);
@@ -198,7 +198,7 @@ export function Shell({ showModal }: ShellProps) {
           </ClassicShell>
           <Inspector entry={active} open={inspectorOpen} onToggle={() => setInspectorOpen((open) => !open)} />
         </div>
-        <StatusBar dbStatus={dbStatus} activeId={activeId} windowRole={windowRole} />
+        <StatusBar dbStatus={dbStatus} activeId={activeId} windowRole={windowRole} guest={isGuest} />
       </div>
     </div>
   );

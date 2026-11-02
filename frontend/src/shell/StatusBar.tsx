@@ -6,9 +6,10 @@ interface StatusBarProps {
   dbStatus: DbStatus;
   activeId: string;
   windowRole: string;
+  guest?: boolean;
 }
 
-export function StatusBar({ dbStatus, activeId, windowRole }: StatusBarProps) {
+export function StatusBar({ dbStatus, activeId, windowRole, guest = false }: StatusBarProps) {
   return (
     <footer
       aria-label="Status bar"
@@ -22,6 +23,11 @@ export function StatusBar({ dbStatus, activeId, windowRole }: StatusBarProps) {
       </span>
       <span data-testid="active-catalog-id">{activeId}</span>
       <span data-testid="active-window-role">{windowRole}</span>
+      {guest && (
+        <span data-testid="guest-session" className="ml-auto font-medium text-amber-600 dark:text-amber-400">
+          Guest session: settings are not saved
+        </span>
+      )}
     </footer>
   );
 }
