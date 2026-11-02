@@ -9,11 +9,13 @@ measured full-job time. A GPU job is not timed; the CPU total is an upper bound.
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 import numpy as np
 import pytest
+from middleware.src.core.gpu_lease_arbiter import GpuLeaseArbiter
 from middleware.src.services.media.gif_upscale import estimate as estimate_mod
-from middleware.src.services.media.gif_upscale.base import ResampleCancelled
+from middleware.src.services.media.gif_upscale.base import AlgorithmError, ResampleCancelled
 from middleware.src.services.media.gif_upscale.estimate import (
     estimate_gif_job,
     usable_gif_gpu,
@@ -246,3 +248,170 @@ def test_sample_cap_stays_at_eight_frames(tmp_path) -> None:
     assert result.frame_count == 12
     assert "8 of 12" in result.path
     assert np.isfinite(result.total_s)
+
+
+def _cancel_at(stage_name: str):
+    def progress(stage: str, done: int, total: int) -> None:
+        del total
+        if stage == stage_name and done >= 1:
+            raise ResampleCancelled(stage_name)
+
+    return progress
+
+
+def test_cancel_between_scale_frames(tmp_path) -> None:
+    source = tmp_path / "clip.gif"
+    _gif(source, frames=4)
+    with pytest.raises(ResampleCancelled):
+        estimate_gif_job(
+            str(source),
+            {"factor": 2, "quality": "exact", "progress": _cancel_at("scale")},
+            sample_frames=4,
+            device_probe=_no_gpu,
+            scratch_dir=tmp_path,
+            settings_service=_settings(),
+        )
+
+
+def test_cancel_between_index_frames(tmp_path) -> None:
+    source = tmp_path / "clip.gif"
+    _gif(source, frames=4)
+    with pytest.raises(ResampleCancelled):
+        estimate_gif_job(
+            str(source),
+            {"factor": 2, "quality": "exact", "progress": _cancel_at("index")},
+            sample_frames=4,
+            device_probe=_no_gpu,
+            scratch_dir=tmp_path,
+            settings_service=_settings(),
+        )
+
+
+def test_cancel_between_lzw_frames(tmp_path) -> None:
+    source = tmp_path / "clip.gif"
+    _gif(source, frames=4)
+    with pytest.raises(ResampleCancelled):
+        estimate_gif_job(
+            str(source),
+            {"factor": 2, "quality": "exact", "progress": _cancel_at("lzw")},
+            sample_frames=4,
+            device_probe=_no_gpu,
+            scratch_dir=tmp_path,
+            settings_service=_settings(),
+        )
+    assert not (tmp_path / "gif-estimate-lzw.gif").exists()
+
+
+def test_pinned_device_must_exist_and_admission_is_provisional(tmp_path) -> None:
+    source = tmp_path / "clip.gif"
+    _gif(source, frames=4)
+    result = estimate_gif_job(
+        str(source),
+        {"factor": 2, "algorithm": "lanczos3-dering", "device": "cuda:1", "quality": "exact"},
+        sample_frames=2,
+        device_probe=lambda: (True, "cuda:0"),
+        scratch_dir=tmp_path,
+        settings_service=_settings(),
+    )
+    assert result.device == "cpu"
+    notes = " ".join(result.notes)
+    assert "cuda:1" in notes
+    assert "provisional" in notes.lower()
+
+
+def test_allow_list_and_holder_select_the_projected_card(tmp_path) -> None:
+    source = tmp_path / "clip.gif"
+    _gif(source, frames=4)
+    arbiter = GpuLeaseArbiter(
+        devices=(
+            {"index": 0, "total_gb": 24, "free_gb": 20},
+            {"index": 1, "total_gb": 24, "free_gb": 18},
+        ),
+        allow_devices=(0, 1),
+    )
+    assert arbiter.try_acquire("trainer", device=0)
+    held = estimate_gif_job(
+        str(source),
+        {
+            "factor": 2,
+            "algorithm": "lanczos3-dering",
+            "allow_devices": [0],
+            "gpu_arbiter": arbiter,
+            "quality": "exact",
+        },
+        sample_frames=2,
+        device_probe=lambda: (True, "cuda:0"),
+        scratch_dir=tmp_path,
+        settings_service=_settings(),
+    )
+    assert held.device == "cpu"
+    held_notes = " ".join(held.notes).lower()
+    assert "held" in held_notes
+    assert "provisional" in held_notes
+    free = estimate_gif_job(
+        str(source),
+        {
+            "factor": 2,
+            "algorithm": "lanczos3-dering",
+            "allow_devices": [1],
+            "gpu_arbiter": arbiter,
+            "quality": "exact",
+        },
+        sample_frames=2,
+        device_probe=lambda: (True, "cuda:0"),
+        scratch_dir=tmp_path,
+        settings_service=_settings(),
+    )
+    assert free.device == "cuda:1"
+    assert "provisional" in " ".join(free.notes).lower()
+
+
+def test_gpu_algorithm_is_not_sampled_on_cpu(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "clip.gif"
+    _gif(source, frames=2)
+    calls: list[str] = []
+    real = estimate_mod._one_frame
+
+    def counting(*args, **kwargs):
+        calls.append("scale")
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(estimate_mod, "_one_frame", counting)
+    with pytest.raises(AlgorithmError, match="only times algorithms that run on CPU"):
+        estimate_gif_job(
+            str(source),
+            {"factor": 4, "algorithm": "realesrgan-anime-6b", "quality": "exact"},
+            sample_frames=1,
+            device_probe=_no_gpu,
+            scratch_dir=tmp_path,
+            settings_service=_settings(),
+        )
+    assert calls == []
+
+
+def test_scratch_dirs_are_unique_and_the_default_is_under_downloads(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "clip.gif"
+    _gif(source, frames=2)
+    paths: list[object] = []
+    real_writer = estimate_mod.IndexedGifWriter
+
+    class _RecordingWriter(real_writer):
+        def __init__(self, path, *args, **kwargs):
+            paths.append(path)
+            super().__init__(path, *args, **kwargs)
+
+    monkeypatch.setattr(estimate_mod, "IndexedGifWriter", _RecordingWriter)
+    kwargs = {
+        "sample_frames": 1,
+        "device_probe": _no_gpu,
+        "settings_service": _settings(),
+    }
+    params = {"factor": 2, "quality": "exact"}
+    estimate_gif_job(str(source), params, scratch_dir=tmp_path, **kwargs)
+    estimate_gif_job(str(source), params, scratch_dir=tmp_path, **kwargs)
+    assert paths[0] != paths[1]
+    assert Path(paths[0]).parent != tmp_path
+    assert tmp_path in Path(paths[0]).parents
+    estimate_gif_job(str(source), params, scratch_dir=None, **kwargs)
+    downloads = Path.home() / "Downloads" / "Data" / "Tests"
+    assert downloads in Path(paths[2]).parents
