@@ -12,6 +12,7 @@ import numpy as np
 from middleware.src.services.media.gif_upscale.base import AlgorithmError, ResampleCancelled
 from middleware.src.services.media.gif_upscale.encode import encode_gif
 from middleware.src.services.media.gif_upscale.io import GifClip, decode_gif, iter_gif_frames
+from middleware.src.services.media.gif_upscale.job_settings import with_job_settings
 from middleware.src.services.media.gif_upscale.registry import get_algorithm, list_algorithms
 
 __all__ = ["ResampleCancelled", "list_algorithms", "resample_gif", "resample_still"]
@@ -19,6 +20,7 @@ __all__ = ["ResampleCancelled", "list_algorithms", "resample_gif", "resample_sti
 
 def resample_gif(input_path: str, output_path: str, params: dict[str, Any]) -> dict[str, Any]:
     """Raises ResampleCancelled when ``params["progress"]`` raises it. The partial output is removed."""
+    params = with_job_settings(params)
     progress = params.get("progress")
     try:
         _report(progress, "decode", 0, 1)
@@ -141,7 +143,7 @@ def _resample_gif_in_memory_gpu(
         dither = str(params.get("dither") or "ordered")
         quality = str(params.get("quality") or "balanced")
         started = time.perf_counter()
-        palette = _shared_palette(scaled_u8, colors, "mediancut")
+        palette = _shared_palette(scaled_u8, colors, _palette_mode(params))
         _tick(timings, "palette", started)
         if transparent:
             palette = np.vstack([np.zeros((1, 3), dtype=np.float32), palette])
@@ -287,7 +289,7 @@ def _resample_gif_stream(
         )
         transparent = True
         colors = 255 if transparent else 256
-        palette_mode = "mediancut"
+        palette_mode = _palette_mode(params)
         dither = str(params.get("dither") or "ordered")
         quality = str(params.get("quality") or "balanced")
         _report(progress, "palette", 0, 1)
@@ -467,7 +469,7 @@ def _resample_gif_in_memory_scheduled(
     transparent = any(int(frame[:, :, 3].min()) < 128 for frame in scaled)
     colors = 255 if transparent else 256
     started = time.perf_counter()
-    palette = _shared_palette(scaled, colors, "mediancut")
+    palette = _shared_palette(scaled, colors, _palette_mode(params))
     _tick(timings, "palette", started)
     if transparent:
         palette = np.vstack([np.zeros((1, 3), dtype=np.float32), palette])
@@ -548,7 +550,7 @@ def _resample_gif_stream_scheduled(
     live = [session for session in sessions if not getattr(session, "_closed", False)]
     transparent = True
     colors = 255 if transparent else 256
-    palette_mode = "mediancut"
+    palette_mode = _palette_mode(params)
     dither = str(params.get("dither") or "ordered")
     quality = str(params.get("quality") or "balanced")
     _report(progress, "palette", 0, 1)
@@ -770,6 +772,14 @@ def _iter_rgba(input_path: str, workers: int = 1):
 
         return iter_gif_frames_parallel(input_path, workers)
     return iter_gif_frames(input_path)
+
+
+def _palette_mode(params: dict[str, Any]) -> str:
+    """The shared-palette method: ``params["palette_mode"]``, else median cut. An unknown name raises."""
+    mode = str(params.get("palette_mode") or "mediancut").strip().lower()
+    if mode not in ("mediancut", "libimagequant"):
+        raise AlgorithmError(f"Unknown palette_mode {mode!r}; use mediancut or libimagequant.")
+    return mode
 
 
 def _workers(params: dict[str, Any]) -> int:
