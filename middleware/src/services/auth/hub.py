@@ -62,7 +62,9 @@ def _use_volatile_settings(active: bool, prefs_file: Path | None = None) -> None
         from middleware.src.sidecar.handlers.settings import settings_service
     except ImportError:
         return
-    settings_service().attach_store(SettingScope.ACCOUNT, MemoryStore() if active else default_store(SettingScope.ACCOUNT))
+    settings_service().attach_store(
+        SettingScope.ACCOUNT, MemoryStore() if active else default_store(SettingScope.ACCOUNT)
+    )
     prefs_handler.bind_prefs_paths(prefs=prefs_file if active else None, keybindings=prefs_handler._keybindings_path)
 
 
@@ -141,11 +143,25 @@ class VaultHub:
             raise ValueError("account is empty")
         session = self.session
         if session is None or not getattr(session, "open", False) or getattr(session, "account", None) != cleaned:
-            return {"success": False, "account": cleaned, "profile": profile, "message": NOT_OPENED, "theme": "dark", "tab_configurations": {}}
+            return {
+                "success": False,
+                "account": cleaned,
+                "profile": profile,
+                "message": NOT_OPENED,
+                "theme": "dark",
+                "tab_configurations": {},
+            }
         try:
             applied = session.apply_profile(profile)
         except ValueError as exc:
-            return {"success": False, "account": cleaned, "profile": profile, "message": str(exc), "theme": "dark", "tab_configurations": {}}
+            return {
+                "success": False,
+                "account": cleaned,
+                "profile": profile,
+                "message": str(exc),
+                "theme": "dark",
+                "tab_configurations": {},
+            }
         return {
             "success": True,
             "account": cleaned,
