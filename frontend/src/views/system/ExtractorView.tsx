@@ -199,7 +199,7 @@ export function ExtractorView({ hostClient }: { readonly hostClient: ExtractorCl
   }
 
   return (
-    <form data-testid="extractor-view" onSubmit={onSubmit}>
+    <form data-testid="extractor-view" className="it-form" onSubmit={onSubmit}>
       <ThumbnailGallery
         multiple={false}
         directoryLabel="Video directory"

@@ -215,7 +215,7 @@ export function MergeView({ hostClient }: { readonly hostClient: MergeClient }):
   const rangeEnd = items.length === 0 ? 0 : Math.min(pageStart + queuePageSize, items.length);
 
   return (
-    <form data-testid="merge-view" onSubmit={onSubmit}>
+    <form data-testid="merge-view" className="it-form" onSubmit={onSubmit}>
       <ThumbnailGallery
         multiple
         directoryLabel="Image directory"

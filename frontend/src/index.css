@@ -61,3 +61,96 @@ code {
   font-family:
     source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
+
+/* Raw-markup tool views (Convert, Merge, Extractor) carry no utility classes,
+   and the Tailwind reset strips the browser defaults they relied on. `.it-form`
+   restores spacing, field chrome and button chrome from the shell tokens
+   without changing the markup. Controls wrap in rows; block content (headings,
+   paragraphs, lists, previews) takes a full row. */
+.it-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.75rem;
+  padding: 1.25rem 1.5rem;
+  color: var(--it-color-text);
+  font-size: 0.875rem;
+}
+.it-form > h1,
+.it-form > h2,
+.it-form > p,
+.it-form > ul,
+.it-form > ol,
+.it-form > img,
+.it-form > div {
+  flex: 1 1 100%;
+  margin: 0;
+}
+.it-form > h1 { font-size: 1.25rem; font-weight: 700; }
+.it-form > h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--it-color-border);
+}
+.it-form > p { color: var(--it-color-muted-text); }
+.it-form > p[role="alert"] { color: #dc2626; }
+.it-form > ul,
+.it-form > ol {
+  list-style: none;
+  padding: 0.5rem;
+  max-height: 16rem;
+  overflow-y: auto;
+  border: 1px solid var(--it-color-border);
+  border-radius: 0.5rem;
+  background: var(--it-color-surface);
+}
+.it-form > ul:empty { display: none; }
+.it-form li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  padding: 0.2rem 0.25rem;
+}
+.it-form li > span { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
+.it-form label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+.it-form input:not([type="checkbox"]):not([type="radio"]),
+.it-form select {
+  min-width: 6rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--it-color-border);
+  border-radius: 0.5rem;
+  background-color: var(--it-color-window-bg);
+  color: var(--it-color-text);
+  font-weight: 400;
+}
+.it-form input[type="number"] { width: 6.5rem; min-width: 0; }
+.it-form input:not([type="checkbox"]):not([type="radio"]):not([type="number"]) { flex: 1 1 14rem; min-width: 10rem; }
+.it-form input:focus,
+.it-form select:focus { outline: none; border-color: var(--it-color-accent); }
+.it-form input[type="checkbox"] { width: 1rem; height: 1rem; accent-color: var(--it-color-accent); }
+.it-form button {
+  padding: 0.35rem 0.9rem;
+  border: 1px solid var(--it-color-border);
+  border-radius: 0.5rem;
+  background: var(--it-color-surface);
+  color: var(--it-color-text);
+  font-weight: 500;
+  cursor: pointer;
+}
+.it-form button:hover:not(:disabled) { border-color: var(--it-color-accent); }
+.it-form button[type="submit"],
+.it-form button[aria-pressed="true"] {
+  background: var(--it-color-accent);
+  border-color: var(--it-color-accent);
+  color: #fff;
+}
+.it-form button:disabled { opacity: 0.45; cursor: not-allowed; }
+.it-form img { max-width: 100%; border-radius: 0.5rem; }

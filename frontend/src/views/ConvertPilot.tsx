@@ -251,7 +251,7 @@ export function ConvertPilot({ hostClient }: ConvertPilotProps) {
   };
 
   return (
-    <div data-testid="convert-pilot">
+    <div data-testid="convert-pilot" className="it-form">
       <h1>Convert</h1>
       <p>Calls convert.convert via the injected HostClient.</p>
       <label>
