@@ -864,8 +864,7 @@ path = "gui/src/legacy/__init__.py"
 owner = "Gemini"
 note = "Legacy submodule Qt loaders; retired in #921 with gui/."
 
-# No [[exception]] records yet. Schema (consumed by
-# middleware/validation/check_migration_additive.py, #884):
+# Schema (consumed by middleware/validation/check_migration_additive.py, #884):
 # [[exception]]
 # feature = "<feature id>"     # existing ledger row
 # path = "<exact path or glob>"
@@ -873,3 +872,10 @@ note = "Legacy submodule Qt loaders; retired in #921 with gui/."
 # issue = <int>
 # approved_by = "<agent or Harbinger>"
 # expires = <YYYY-MM-DD>       # optional; expired records do not suppress
+
+[[exception]]
+feature = "window.settings"
+path = "gui/src/windows/settings/*"
+reason = "Harbinger asked on 2026-11-02 for a background wallpaper image on the classic Display and Media tab. Appearance and Themes keeps fit, opacity, blur, and glass; Display and Media writes the same background_config image path."
+issue = 917
+approved_by = "Harbinger"

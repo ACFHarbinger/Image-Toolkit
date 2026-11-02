@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Display and Media settings can set a background wallpaper image. The path is the same one Appearance and Themes saves for the window background.
 - When more than one GPU is free, a GIF resample hands the next frame batch to whichever card is idle and writes the frames back in order. A failed card retries that batch once on another card, then on the CPU. One card keeps the previous single-device path.
 - One GPU can overlap the next batch's pinned upload with the previous batch's index download, with at most two batches in flight.
 - `IndexedGifWriter(..., workers=N)` compresses GIF frames in N processes and writes them in order from the parent. The default `workers=1` stays in-process and does not start a pool.

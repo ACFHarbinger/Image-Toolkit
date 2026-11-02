@@ -1,14 +1,7 @@
-"""Regression: the custom-wallpaper/background-canvas picker must live in
-the "Appearance and Themes" settings tab, not "Display and Media".
+"""The canvas wallpaper controls stay on Appearance and Themes.
 
-User-reported regression: this section used to build inline inside
-_build_appearance_section() (gui/src/windows/settings/_appearance.py),
-placed under "Display and Media". When the newer Theme Studio tab
-(#438/#441) claimed the "Appearance and Themes" name, the wallpaper
-picker was left behind in its old tab -- reported as "the button and
-section to choose your own custom wallpaper(s) ... has disappeared from
-the Appearance and Themes settings tab" (it wasn't deleted, just no
-longer where users look for it).
+Display and Media also has a background image field. That field writes
+the same path the Appearance tab saves.
 """
 
 from __future__ import annotations
@@ -50,12 +43,24 @@ class TestWallpaperSectionPlacement:
         assert window.bg_opacity_slider in appearance_tab.findChildren(QSlider)
         assert window.bg_blur_spin in appearance_tab.findChildren(QSpinBox)
 
-    def test_wallpaper_controls_no_longer_under_display_and_media_tab(self, q_app):
+    def test_display_and_media_sets_the_same_background_image(self, q_app):
         window = SettingsWindow()
         display_media_tab = _find_tab(window, "Display and Media")
         assert display_media_tab is not None, "Display and Media tab not found"
 
+        assert window.display_bg_path_input in display_media_tab.findChildren(QLineEdit)
         assert window.bg_path_input not in display_media_tab.findChildren(QLineEdit)
+
+        window.display_bg_path_input.setText("/tmp/display-wallpaper.png")
+        assert window.bg_path_input.text() == "/tmp/display-wallpaper.png"
+        assert window.glassmorphism_check.isChecked() is True
+        assert window._get_background_config_dict()["image_path"] == "/tmp/display-wallpaper.png"
+
+        window.bg_path_input.setText("/tmp/from-appearance.png")
+        assert window.display_bg_path_input.text() == "/tmp/from-appearance.png"
+
+        window.bg_path_input.clear()
+        assert window.display_bg_path_input.text() == ""
 
     def test_browse_button_still_wired_to_the_picker(self, q_app):
         """The relocated section keeps its real Browse/Clear behavior, not

@@ -313,8 +313,11 @@ class SettingsWindow(
         shortcuts_tab_layout.addWidget(self._build_shortcuts_groupbox())
         self.tab_widget.addTab(shortcuts_tab, "⌨️ Shortcuts")
 
-        # Tab 7: Appearance and Themes (Theme Studio #438 + QSS editor #441)
+        # Tab 7: Appearance and Themes (Theme Studio #438 + QSS editor #441).
+        # Built before the Display and Media image field so that field can
+        # write the canvas path this tab owns.
         theme_studio_tab = self._build_theme_studio_tab()
+        layout_display_media.insertWidget(0, self._build_display_media_background_section())
         self.tab_widget.addTab(theme_studio_tab, "🎨 Appearance and Themes")
 
         # Tab 8: Bulk Pattern Update

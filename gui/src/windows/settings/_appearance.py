@@ -146,13 +146,9 @@ class _AppearanceMixin:
         appearance_layout.addRow("Color Extraction & A11y:", extract_row)
 
         # ------------------------------------------------------------------
-        # 3. Full-Window Background Canvas & Glassmorphism -- MOVED (regression
-        # fix): this section is now built by _build_background_section() and
-        # placed in the "Appearance and Themes" tab (_theme_studio_mixin.py),
-        # not here. It used to live in this groupbox, under "Display and
-        # Media" -- reported missing from "Appearance and Themes" because
-        # that's where users actually expect a "choose your custom wallpaper"
-        # control to be, next to the rest of theming. See _build_background_section().
+        # 3. Full-window background canvas stays in _build_background_section()
+        # on Appearance and Themes. Display and Media has its own image field
+        # (_build_display_media_background_section) that writes the same path.
         # ------------------------------------------------------------------
         # 4. Widget Styling, Typography & Density
         # ------------------------------------------------------------------
@@ -229,16 +225,9 @@ class _AppearanceMixin:
     def _build_background_section(self) -> QGroupBox:
         """Custom wallpaper / full-window background canvas + glassmorphism.
 
-        Regression fix: this used to be built inline inside
-        _build_appearance_section() above and placed under the "Display and
-        Media" settings tab. When the newer Theme Studio tab (#438/#441)
-        became "Appearance and Themes", this section stayed behind in its
-        old location -- reported missing because that's not where users
-        look for a "choose your custom wallpaper" control anymore. Split
-        into its own groupbox so _theme_studio_mixin.py can place it in the
-        tab it now belongs in, without touching the rest of the old
-        appearance section (base theme / palette / corner radius / zoom)
-        this pass isn't scoped to de-duplicate.
+        Fit, opacity, blur, and glassmorphism stay on Appearance and Themes.
+        Display and Media sets the same image path through
+        _build_display_media_background_section().
         """
         bg_groupbox = QGroupBox("Custom Wallpaper // Background Canvas")
         bg_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
@@ -313,6 +302,63 @@ class _AppearanceMixin:
         bg_layout.addRow("Canvas Effects:", sliders_row)
 
         return bg_groupbox
+
+    def _build_display_media_background_section(self) -> QGroupBox:
+        """Background image on Display and Media, stored with the canvas config."""
+        group = QGroupBox("Background Wallpaper")
+        group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        form = QFormLayout(group)
+        form.setContentsMargins(10, 10, 10, 10)
+
+        row = QHBoxLayout()
+        self.display_bg_path_input = QLineEdit(self.bg_path_input.text())
+        self.display_bg_path_input.setObjectName("display_bg_path_input")
+        self.display_bg_path_input.setMinimumHeight(32)
+        self.display_bg_path_input.setPlaceholderText(
+            "Select background image path (e.g. .png, .jpg, .webp)..."
+        )
+        self.display_bg_path_input.setToolTip(
+            "Image drawn behind the application window. Saved with Update settings."
+        )
+        browse = QPushButton("Browse...")
+        browse.setObjectName("display_bg_browse_button")
+        browse.setMinimumHeight(32)
+        browse.setMinimumWidth(95)
+        browse.setStyleSheet(qss("settings_btn_compact", PADDING="4px 12px", FONT_WEIGHT=""))
+        browse.clicked.connect(self._browse_background_image)
+        clear = QPushButton("Clear")
+        clear.setObjectName("display_bg_clear_button")
+        clear.setMinimumHeight(32)
+        clear.setMinimumWidth(75)
+        clear.setStyleSheet(qss("settings_btn_compact", PADDING="4px 12px", FONT_WEIGHT=""))
+        clear.clicked.connect(self.bg_path_input.clear)
+        row.addWidget(self.display_bg_path_input)
+        row.addWidget(browse)
+        row.addWidget(clear)
+        form.addRow("Background Image:", row)
+        self._bind_display_background_mirror()
+        return group
+
+    def _bind_display_background_mirror(self) -> None:
+        """Keep the Display and Media path and the saved canvas path identical."""
+        self._bg_syncing = False
+
+        def to_mirror(text: str) -> None:
+            if self._bg_syncing or self.display_bg_path_input.text() == text:
+                return
+            self._bg_syncing = True
+            self.display_bg_path_input.setText(text)
+            self._bg_syncing = False
+
+        def to_canonical(text: str) -> None:
+            if self._bg_syncing or self.bg_path_input.text() == text:
+                return
+            self._bg_syncing = True
+            self.bg_path_input.setText(text)
+            self._bg_syncing = False
+
+        self.bg_path_input.textChanged.connect(to_mirror)
+        self.display_bg_path_input.textChanged.connect(to_canonical)
 
     # ------------------------------------------------------------------
     # --- Supporting Actions & Helpers ---------------------------------
