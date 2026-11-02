@@ -7,9 +7,11 @@ The default lease is the process shared lease. An injected arbiter stays
 the test and caller path. A CUDA out-of-memory on one card frees that
 session's cache, halves its batch (floor 1), and retries the same frames
 on that card. The card is retired only after a second failure at batch
-size 1; the finish note records the shrink. ``gpu_overlap.run_device_pipeline``
-replaces the per-batch scale+index calls when that module exists and the
-session has no fused scale-and-index (lane B4). This module does not create it.
+size 1; the finish note records the shrink. Scale and index stay fused on
+the device. The copy/compute overlap module was removed after a few-frame
+timing: the fused call already dwarfs the copies, and that module
+round-tripped scaled RGBA. Concurrency is the decode thread, one thread
+per card, and the writer thread.
 """
 
 from __future__ import annotations
@@ -111,15 +113,6 @@ def _split_job(job: _Job, count: int) -> tuple[_Job, _Job | None]:
         0.0,
     )
     return head, tail
-
-
-def _overlap_pipeline() -> Callable[..., Any] | None:
-    """B4 seam. Missing module means call the session scale and index methods."""
-    try:
-        from middleware.src.services.media.gif_upscale.gpu_overlap import run_device_pipeline
-    except ImportError:
-        return None
-    return run_device_pipeline
 
 
 def _params_of(opts: dict[str, Any]) -> dict[str, Any]:
@@ -686,21 +679,11 @@ class _FrameScheduler:
         if self._op == "index":
             started = time.perf_counter()
             return session.index_batch_uint8(frames), 0.0, time.perf_counter() - started
-        # Keep scaled pixels on-device; the legacy overlap adapter round-trips RGBA.
+        # Keep scaled pixels on the device. A session without the fused call
+        # (the test doubles) scales, then indexes.
         fused = getattr(session, "scale_and_index_batch", None)
         if callable(fused):
             return fused(frames)
-        runner = _overlap_pipeline()
-        if runner is not None:
-            # B4 takes (batch_id, frames) pairs and returns (batch_id, indices).
-            # One scheduler batch is one overlapped unit. Time is not split.
-            started = time.perf_counter()
-            results = runner(session, [(0, frames)])
-            elapsed = time.perf_counter() - started
-            if len(results) != 1:
-                raise AlgorithmError("GPU overlap returned an unexpected batch count.")
-            _batch_id, indices = results[0]
-            return indices, elapsed, 0.0
         started = time.perf_counter()
         scaled = session.scale_batch_uint8(frames)
         scale_s = time.perf_counter() - started
