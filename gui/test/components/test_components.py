@@ -158,6 +158,25 @@ class TestOptionalField:
         # The inner widget does not expose an input attribute directly; ensure it is set up
         # No direct assertion on input text needed for this test
 
+    def test_header_matches_glass_inputs_when_a_background_is_set(self, q_app):
+        from gui.src.styles.background_canvas import BackgroundCanvasController, BackgroundConfig
+
+        controller = BackgroundCanvasController.instance()
+        previous = controller.config
+        inner = QWidget()
+        field = OptionalField("Output Directory and Filename", inner, start_open=False)
+        try:
+            assert "rgba(" not in field.header_frame.styleSheet()
+            controller.set_config(
+                BackgroundConfig(image_path="/tmp/bg.png", glassmorphism_enabled=True)
+            )
+            sheet = field.header_frame.styleSheet()
+            assert "rgba(12, 15, 22, 0.55)" in sheet
+            controller.set_config(BackgroundConfig())
+            assert "rgba(" not in field.header_frame.styleSheet()
+        finally:
+            controller.set_config(previous)
+
 
 class TestPropertyComparisonDialog:
     def test_diff_generation(self, q_app):

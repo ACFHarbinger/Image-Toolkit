@@ -295,41 +295,63 @@ class BackgroundCanvasController(QObject):
         return cropped
 
 
+def glass_palette(is_dark: bool = True) -> dict[str, str]:
+    """Translucent surfaces shared by the glass stylesheet and optional fields."""
+    if is_dark:
+        return {
+            "card_bg": "rgba(18, 22, 30, 0.35)",
+            "card_hover": "rgba(25, 32, 44, 0.48)",
+            "pane_bg": "rgba(14, 18, 25, 0.28)",
+            "tab_bg": "rgba(24, 28, 38, 0.45)",
+            "tab_selected": "rgba(10, 14, 20, 0.70)",
+            "list_bg": "rgba(14, 18, 25, 0.38)",
+            "input_bg": "rgba(12, 15, 22, 0.55)",
+            "header_bg": "rgba(14, 18, 24, 0.50)",
+            "dialog_bg": "rgba(20, 24, 32, 0.94)",
+            "menu_bg": "rgba(18, 22, 30, 0.94)",
+            "border_color": "rgba(255, 255, 255, 0.12)",
+            "border_subtle": "rgba(255, 255, 255, 0.06)",
+            "text_color": "#ffffff",
+            "scrollbar_bg": "rgba(20, 24, 32, 0.30)",
+        }
+    return {
+        "card_bg": "rgba(255, 255, 255, 0.45)",
+        "card_hover": "rgba(255, 255, 255, 0.60)",
+        "pane_bg": "rgba(255, 255, 255, 0.30)",
+        "tab_bg": "rgba(240, 242, 248, 0.45)",
+        "tab_selected": "rgba(255, 255, 255, 0.75)",
+        "list_bg": "rgba(255, 255, 255, 0.40)",
+        "input_bg": "rgba(255, 255, 255, 0.65)",
+        "header_bg": "rgba(255, 255, 255, 0.50)",
+        "dialog_bg": "rgba(255, 255, 255, 0.95)",
+        "menu_bg": "rgba(255, 255, 255, 0.95)",
+        "border_color": "rgba(0, 0, 0, 0.10)",
+        "border_subtle": "rgba(0, 0, 0, 0.05)",
+        "text_color": "#1e1e1e",
+        "scrollbar_bg": "rgba(0, 0, 0, 0.10)",
+    }
+
+
 def generate_glassmorphism_qss(config: BackgroundConfig, is_dark: bool = True) -> str:
     """Build QSS snippet for translucent cards, panes, and widgets when background canvas is active."""
     if not config.glassmorphism_enabled or not config.image_path:
         return ""
 
-    if is_dark:
-        card_bg = "rgba(18, 22, 30, 0.35)"
-        card_hover = "rgba(25, 32, 44, 0.48)"
-        pane_bg = "rgba(14, 18, 25, 0.28)"
-        tab_bg = "rgba(24, 28, 38, 0.45)"
-        tab_selected = "rgba(10, 14, 20, 0.70)"
-        list_bg = "rgba(14, 18, 25, 0.38)"
-        input_bg = "rgba(12, 15, 22, 0.55)"
-        header_bg = "rgba(14, 18, 24, 0.50)"
-        dialog_bg = "rgba(20, 24, 32, 0.94)"
-        menu_bg = "rgba(18, 22, 30, 0.94)"
-        border_color = "rgba(255, 255, 255, 0.12)"
-        border_subtle = "rgba(255, 255, 255, 0.06)"
-        text_color = "#ffffff"
-        scrollbar_bg = "rgba(20, 24, 32, 0.30)"
-    else:
-        card_bg = "rgba(255, 255, 255, 0.45)"
-        card_hover = "rgba(255, 255, 255, 0.60)"
-        pane_bg = "rgba(255, 255, 255, 0.30)"
-        tab_bg = "rgba(240, 242, 248, 0.45)"
-        tab_selected = "rgba(255, 255, 255, 0.75)"
-        list_bg = "rgba(255, 255, 255, 0.40)"
-        input_bg = "rgba(255, 255, 255, 0.65)"
-        header_bg = "rgba(255, 255, 255, 0.50)"
-        dialog_bg = "rgba(255, 255, 255, 0.95)"
-        menu_bg = "rgba(255, 255, 255, 0.95)"
-        border_color = "rgba(0, 0, 0, 0.10)"
-        border_subtle = "rgba(0, 0, 0, 0.05)"
-        text_color = "#1e1e1e"
-        scrollbar_bg = "rgba(0, 0, 0, 0.10)"
+    palette = glass_palette(is_dark)
+    card_bg = palette["card_bg"]
+    card_hover = palette["card_hover"]
+    pane_bg = palette["pane_bg"]
+    tab_bg = palette["tab_bg"]
+    tab_selected = palette["tab_selected"]
+    list_bg = palette["list_bg"]
+    input_bg = palette["input_bg"]
+    header_bg = palette["header_bg"]
+    dialog_bg = palette["dialog_bg"]
+    menu_bg = palette["menu_bg"]
+    border_color = palette["border_color"]
+    border_subtle = palette["border_subtle"]
+    text_color = palette["text_color"]
+    scrollbar_bg = palette["scrollbar_bg"]
 
     return f"""
     /* --- Full App Window Background & Glassmorphic Layering (#440) --- */

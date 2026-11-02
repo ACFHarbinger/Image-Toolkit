@@ -45,46 +45,65 @@ class OptionalField(QWidget):
         header_layout.addWidget(self.label)
         header_layout.addStretch(1)
 
-        header_frame = QFrame()
-        header_frame.setLayout(header_layout)
-        header_frame.setFrameShape(QFrame.Shape.Box)
+        self.header_frame = QFrame()
+        self.header_frame.setObjectName("optional_field_header")
+        self.header_frame.setLayout(header_layout)
+        self.header_frame.setFrameShape(QFrame.Shape.StyledPanel)
+        self.header_frame.setAutoFillBackground(False)
+        self._apply_header_style()
+        from gui.src.styles.background_canvas import BackgroundCanvasController
 
-        # Adaptive color based on theme
-        palette = QApplication.palette()
-        base_color = palette.color(QPalette.ColorRole.Base)
-        text_color = palette.color(QPalette.ColorRole.Text)
-        border_color = palette.color(QPalette.ColorRole.Mid)
-        hover_color = (
-            base_color.lighter(110)
-            if base_color.value() < 128
-            else base_color.darker(110)
-        )
-
-        # Use the name strings for CSS
-        text_color_name = text_color.name()
-
-        # Apply the style to the QFrame
-        header_frame.setStyleSheet(
-            qss(
-                "optional_field_header",
-                BASE=base_color.name(),
-                BORDER=border_color.name(),
-                TEXT=text_color_name,
-                HOVER=hover_color.name(),
-            )
-        )
+        BackgroundCanvasController.instance().background_changed.connect(self._apply_header_style)
 
         # Main layout
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
-        main_layout.addWidget(header_frame)
+        main_layout.addWidget(self.header_frame)
         main_layout.addWidget(self.inner_widget)
         self.setLayout(main_layout)
+        self.setAutoFillBackground(False)
+        self.inner_widget.setAutoFillBackground(False)
 
         # Connect toggles
         self.toggle_btn.clicked.connect(self.toggle)
-        header_frame.mousePressEvent = lambda e: self.toggle()
+        self.header_frame.mousePressEvent = lambda e: self.toggle()
+
+    def _apply_header_style(self) -> None:
+        """Match other inputs. The header's own stylesheet would hide app glass QSS."""
+        from gui.src.styles.background_canvas import BackgroundCanvasController, glass_palette
+        from gui.src.theming.theme_api import current_base
+
+        config = BackgroundCanvasController.instance().config
+        glass = bool(config.glassmorphism_enabled and str(config.image_path).strip())
+        if glass:
+            surfaces = glass_palette(current_base() != "light")
+            base = surfaces["input_bg"]
+            border = surfaces["border_color"]
+            text = surfaces["text_color"]
+            hover = surfaces["card_hover"]
+        else:
+            palette = QApplication.palette()
+            base_color = palette.color(QPalette.ColorRole.Base)
+            text_color = palette.color(QPalette.ColorRole.Text)
+            border_color = palette.color(QPalette.ColorRole.Mid)
+            hover_color = (
+                base_color.lighter(110) if base_color.value() < 128 else base_color.darker(110)
+            )
+            base = base_color.name()
+            border = border_color.name()
+            text = text_color.name()
+            hover = hover_color.name()
+
+        self.header_frame.setStyleSheet(
+            qss(
+                "optional_field_header",
+                BASE=base,
+                BORDER=border,
+                TEXT=text,
+                HOVER=hover,
+            )
+        )
 
     def toggle(self):
         visible = not self.inner_widget.isVisible()
