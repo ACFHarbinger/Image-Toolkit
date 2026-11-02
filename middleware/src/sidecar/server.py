@@ -32,7 +32,13 @@ from middleware.src.services.cloud_jobs.projection import CloudProjection
 from middleware.src.services.crawler.service import CrawlerService
 from middleware.src.services.hie.service import HieService
 from middleware.src.services.stitch.status import stitch_status
-from middleware.src.sidecar.handlers.auth import handle_lock, handle_status, handle_unlock
+from middleware.src.sidecar.handlers.auth import (
+    handle_apply_profile,
+    handle_guest,
+    handle_lock,
+    handle_status,
+    handle_unlock,
+)
 from middleware.src.sidecar.handlers.cloud_jobs import (
     BadgeSource,
     JobsSource,
@@ -574,7 +580,13 @@ class SidecarServer:
             return handle_metadata_describe(params)
         if method == "dl.inspect":
             return handle_inspect(params)
-        auth_handler = {"auth.status": handle_status, "auth.unlock": handle_unlock, "auth.lock": handle_lock}.get(method)
+        auth_handler = {
+            "auth.status": handle_status,
+            "auth.unlock": handle_unlock,
+            "auth.lock": handle_lock,
+            "auth.guest": handle_guest,
+            "auth.apply_profile": handle_apply_profile,
+        }.get(method)
         if auth_handler is not None:
             return auth_handler(self.auth, params)
         return _UNHANDLED

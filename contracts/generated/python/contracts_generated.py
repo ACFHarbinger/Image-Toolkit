@@ -1,4 +1,4 @@
-# GENERATED — contract hash 3624089fd7d9b561e8900f0d7db9e39da11aa994b2d92e7cbee47cd74baee130. Do not edit; edit the schema and regenerate.
+# GENERATED — contract hash c30cf0dd6674a685340ce15641f019f568d5adba75e10d53baca8364f72fe25d. Do not edit; edit the schema and regenerate.
 """Generated bridge-contract types. Typing-only: boundary validation of
 envelopes is the bridge package's job (#875).
 """
@@ -8,6 +8,35 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from typing import Any, Literal
+
+@dataclass(frozen=True)
+class AuthApplyProfileParams:
+    account: str
+    profile: str
+
+
+@dataclass(frozen=True)
+class AuthApplyProfileResult:
+    success: bool
+    account: str
+    profile: str
+    message: str
+    theme: str
+    tab_configurations: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class AuthGuestParams:
+    username: (str | None) | None = None
+
+
+@dataclass(frozen=True)
+class AuthGuestResult:
+    success: bool
+    account: str
+    anonymous: bool
+    message: str
+
 
 @dataclass(frozen=True)
 class AuthLockParams:
@@ -43,6 +72,8 @@ class AuthUnlockResult:
     success: bool
     account: str
     message: str
+    profiles: (list[str]) | None = None
+    credentials: (list[str]) | None = None
 
 
 @dataclass(frozen=True)

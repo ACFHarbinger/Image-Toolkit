@@ -80,6 +80,8 @@ def test_unlock_holds_the_fake_session_and_lock_drops_it() -> None:
         "success": True,
         "account": "keeper",
         "message": "C++ vault session open.",
+        "profiles": [],
+        "credentials": [],
     }
     assert password not in json.dumps(opened)
     assert "vses_" not in json.dumps(opened)
@@ -178,3 +180,58 @@ def test_missing_native_module_returns_success_false() -> None:
     assert password not in json.dumps(opened)
     status = _request(server, "auth.status", {"account": "keeper"}, "status")
     assert status["result"]["unlocked"] is False
+
+
+def _private_settings(monkeypatch: Any) -> None:
+    """Keep guest sessions away from the real settings and prefs files."""
+    import middleware.src.settings.adapters as adapters
+    from middleware.src.settings.adapters import MemoryStore
+    from middleware.src.settings.scopes import SettingScope
+    from middleware.src.settings.service import SettingsService
+    from middleware.src.sidecar.handlers import prefs as prefs_handler
+    from middleware.src.sidecar.handlers import settings as settings_handler
+
+    monkeypatch.setattr(settings_handler, "_service", SettingsService(stores={s: MemoryStore() for s in SettingScope}))
+    monkeypatch.setattr(adapters, "default_store", lambda scope, base_dir=None: MemoryStore())
+    monkeypatch.setattr(prefs_handler, "_prefs_path", None)
+    monkeypatch.setattr(prefs_handler, "_keybindings_path", None)
+
+
+def test_guest_opens_over_the_bridge_and_lock_ends_it(monkeypatch: Any) -> None:
+    _private_settings(monkeypatch)
+    server = _ready()
+    named = _request(server, "auth.guest", {"username": " Rui "}, "guest")
+    assert named["result"]["success"] is True
+    assert named["result"]["account"] == "Rui" and named["result"]["anonymous"] is False
+    status = _request(server, "auth.status", {"account": "Rui"}, "status")
+    assert status["result"]["unlocked"] is True and "Guest" in status["result"]["reason"]
+    anonymous = _request(server, "auth.guest", {}, "anon")
+    assert anonymous["result"]["anonymous"] is True and anonymous["result"]["account"].startswith("guest_")
+    gone = _request(server, "auth.status", {"account": "Rui"}, "gone")
+    assert gone["result"]["unlocked"] is False
+    locked = _request(server, "auth.lock", {"account": anonymous["result"]["account"]}, "lock")
+    assert locked["result"]["success"] is True
+
+
+def test_apply_profile_over_the_bridge_returns_theme_and_tabs() -> None:
+    class ProfileSession(FakeSession):
+        def apply_profile(self, choice: str) -> dict[str, Any]:
+            if choice == "Nope":
+                raise ValueError("Unknown preference profile.")
+            return {"theme": "light", "tab_configurations": {"merge": {"engine": "orb"}}, "changed": True}
+
+    server = _ready(lambda account, _password: ProfileSession(account))
+    _request(server, "auth.unlock", {"account": "keeper", "password": "pw"}, "open")
+    applied = _request(server, "auth.apply_profile", {"account": "keeper", "profile": "Night"}, "apply")
+    assert applied["result"] == {
+        "success": True,
+        "account": "keeper",
+        "profile": "Night",
+        "message": "Applied 'Night'.",
+        "theme": "light",
+        "tab_configurations": {"merge": {"engine": "orb"}},
+    }
+    refused = _request(server, "auth.apply_profile", {"account": "keeper", "profile": "Nope"}, "nope")
+    assert refused["result"]["success"] is False and "Unknown" in refused["result"]["message"]
+    other = _request(server, "auth.apply_profile", {"account": "someone", "profile": "Night"}, "other")
+    assert other["result"]["success"] is False

@@ -1,5 +1,26 @@
-// GENERATED — contract hash 3624089fd7d9b561e8900f0d7db9e39da11aa994b2d92e7cbee47cd74baee130. Do not edit; edit the schema and regenerate.
+// GENERATED — contract hash c30cf0dd6674a685340ce15641f019f568d5adba75e10d53baca8364f72fe25d. Do not edit; edit the schema and regenerate.
 
+export interface AuthApplyProfileParams {
+  readonly account: string;
+  readonly profile: string;
+}
+export interface AuthApplyProfileResult {
+  readonly success: boolean;
+  readonly account: string;
+  readonly profile: string;
+  readonly message: string;
+  readonly theme: "dark" | "light";
+  readonly tab_configurations: Record<string, unknown>;
+}
+export interface AuthGuestParams {
+  readonly username?: string | null;
+}
+export interface AuthGuestResult {
+  readonly success: boolean;
+  readonly account: string;
+  readonly anonymous: boolean;
+  readonly message: string;
+}
 export interface AuthLockParams {
   readonly account: string;
 }
@@ -23,4 +44,6 @@ export interface AuthUnlockResult {
   readonly success: boolean;
   readonly account: string;
   readonly message: string;
+  readonly profiles?: Array<string>;
+  readonly credentials?: Array<string>;
 }
