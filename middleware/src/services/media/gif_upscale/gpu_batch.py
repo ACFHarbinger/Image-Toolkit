@@ -1,12 +1,14 @@
 """GPU batch Lanczos3-dering scale + on-device Bayer dither and nearest-palette indexing (#1155).
 
-Acquires a per-device lease from ``GpuLeaseArbiter`` (using live ``cuda_device_table``
-free VRAM when no arbiter is injected), computes a safe frame batch size from free
-VRAM, keeps scaled frames on the GPU through ordered Bayer dithering and palette
-lookup (exact BLAS ``addmm`` for ``quality="exact"``, 7-bit ``128^3`` LUT for
-``"balanced"``/``"fast"``), and downloads only ``uint8`` palette indices (16x less
-Device-to-Host PCIe traffic than ``float32`` RGBA). Falls back cleanly to CPU with
-an explicit reason when no usable GPU or lease is available (D12, D13, D16).
+Device leases come from the process shared lease (``comfy_matrix.gpu_lease``) unless
+the caller injects an arbiter. The shared lease learns the device table on first use.
+A private arbiter is the fallback when that import fails, and tests inject their own.
+Batch size comes from free VRAM at acquire time. Scaled frames stay on the GPU through
+ordered Bayer dithering and palette lookup (exact BLAS ``addmm`` for ``quality="exact"``,
+7-bit ``128^3`` LUT for ``"balanced"``/``"fast"``). Only ``uint8`` palette indices are
+downloaded. A missing GPU or a refused lease falls back to CPU with an explicit reason
+(D12, D13, D16). Another process is not a lease holder here; only the free-VRAM probe
+sees it.
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ from __future__ import annotations
 import contextlib
 import time
 import uuid
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 import numpy as np
@@ -23,6 +25,7 @@ from middleware.src.core.gpu_lease_arbiter import (
     GpuLeaseArbiter,
     cuda_device_table,
     profile_from_env,
+    release_unused_cuda_blocks,
 )
 from middleware.src.services.media.gif_upscale.classical._resize import (
     _LANCZOS_DERING,
@@ -43,6 +46,63 @@ _FIXED_OVERHEAD_GB = 0.35
 _SAFETY_FACTOR = 2.0
 _VRAM_UTILIZATION = 0.70
 _EXACT_INDEX_CHUNK = 262144
+
+
+def _load_shared_gif_lease() -> GpuLeaseArbiter:
+    from middleware.src.comfy_matrix import gpu_lease
+
+    return gpu_lease
+
+
+def resolve_gif_arbiter(
+    table: Sequence[Mapping[str, object]],
+    *,
+    allow_devices: tuple[int, ...] | None = None,
+    shared_loader: Callable[[], GpuLeaseArbiter] | None = None,
+) -> tuple[GpuLeaseArbiter, str]:
+    """Return ``(arbiter, source)`` with source ``shared`` or ``standalone``.
+
+    ``shared_loader`` defaults to the process lease. A loader that raises, or
+    that does not return an arbiter, selects a private arbiter so tests and a
+    broken import still run. The private arbiter is not the process lease and
+    does not exclude other in-process jobs; the finish note says so.
+    """
+    loader = shared_loader if shared_loader is not None else _load_shared_gif_lease
+    loaded: GpuLeaseArbiter | None
+    try:
+        loaded = loader()
+    except Exception:
+        loaded = None
+    if isinstance(loaded, GpuLeaseArbiter):
+        # A legacy holder makes this return False. Callers still acquire on
+        # this same object, so the refusal names that holder.
+        loaded.ensure_device_table(table)
+        return loaded, "shared"
+    return (
+        GpuLeaseArbiter(
+            profile=profile_from_env(),
+            devices=tuple(table),
+            allow_devices=allow_devices,
+            empty_cache=release_unused_cuda_blocks,
+        ),
+        "standalone",
+    )
+
+
+def _job_allow(params: Mapping[str, Any]) -> tuple[int, ...] | None:
+    raw = params.get("allow_devices")
+    if not isinstance(raw, (list, tuple)) or not raw:
+        return None
+    return tuple(int(index) for index in raw)
+
+
+def _note_lease(opts: dict[str, Any], source: str) -> None:
+    opts["_gpu_lease"] = source
+    if source != "standalone":
+        return
+    note = "Shared GPU lease is unavailable; using a standalone lease"
+    previous = opts.get("_gpu_fallback")
+    opts["_gpu_fallback"] = f"{previous}; {note}" if isinstance(previous, str) and previous else note
 
 
 def compute_gpu_batch_size(
@@ -448,26 +508,30 @@ def acquire_gpu_session(
     elif requested_device.isdigit():
         target_device = int(requested_device)
 
-    active_arbiter = arbiter if isinstance(arbiter, GpuLeaseArbiter) else params.get("gpu_arbiter")
-    if not isinstance(active_arbiter, GpuLeaseArbiter):
+    explicit = arbiter if isinstance(arbiter, GpuLeaseArbiter) else params.get("gpu_arbiter")
+    if isinstance(explicit, GpuLeaseArbiter):
+        active_arbiter = explicit
+        opts.setdefault("_gpu_lease", "explicit")
+    else:
         table = cuda_device_table()
         if not table:
             opts["_device"] = "cpu"
             reason = "No usable CUDA devices found; fell back to CPU"
             opts["_gpu_fallback"] = reason
             return None, reason
-        allow = params.get("allow_devices")
-        allow_tuple = tuple(int(x) for x in allow) if isinstance(allow, (list, tuple)) else None
-        active_arbiter = GpuLeaseArbiter(
-            profile=profile_from_env(),
-            devices=table,
-            allow_devices=allow_tuple,
-        )
+        active_arbiter, source = resolve_gif_arbiter(table, allow_devices=_job_allow(params))
+        _note_lease(opts, source)
 
     job_owner = owner or f"gif_upscale_{uuid.uuid4().hex[:8]}"
     # Minimum single-frame estimate so conservative profile can check capacity
     min_est_gb = max(0.25, (src_h * src_w * 56 + dst_h * dst_w * 57) * _SAFETY_FACTOR / (1024**3) + _FIXED_OVERHEAD_GB)
-    if not active_arbiter.try_acquire(job_owner, estimated_gb=min_est_gb, kind="generate", device=target_device):
+    if not active_arbiter.try_acquire(
+        job_owner,
+        estimated_gb=min_est_gb,
+        kind="generate",
+        device=target_device,
+        allow_devices=_job_allow(params),
+    ):
         opts["_device"] = "cpu"
         reason = f"{active_arbiter.refusal_text()} Fell back to CPU"
         opts["_gpu_fallback"] = reason

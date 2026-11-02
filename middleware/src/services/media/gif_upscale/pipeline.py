@@ -884,12 +884,16 @@ def _path_record(opts: dict[str, Any], algorithm_id: str, palette_mode: str) -> 
     kernel = opts.get("_scale_path")
     if not isinstance(kernel, str) or not kernel:
         kernel = algorithm_id
-    return {
+    record = {
         "device": _device_note(opts),
         "kernel": kernel,
         "palette_mode": palette_mode,
         "delta_mode": "off",
     }
+    lease = opts.get("_gpu_lease")
+    if isinstance(lease, str) and lease.strip():
+        record["lease"] = lease.strip()
+    return record
 
 
 def _finish_message(
@@ -903,6 +907,9 @@ def _finish_message(
     route = (
         f"device={path['device']}, kernel={path['kernel']}, palette={path['palette_mode']}, delta={path['delta_mode']}"
     )
+    lease = path.get("lease")
+    if lease:
+        route = f"{route}, lease={lease}"
     if fallback_note:
         route = f"{route}, fallback={fallback_note}"
     stages = ", ".join(f"{stage} {timings[stage]:.3f}s" for stage in _TIMING_STAGES)

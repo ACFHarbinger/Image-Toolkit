@@ -11,6 +11,11 @@ hosts before that scheduler exists.
 ``empty_cache`` fires only on a job-kind transition, and only when no
 device is still held. It releases unused cached CUDA blocks; it does not
 free live tensors and is not a general VRAM fix.
+
+GIF resample calls ``ensure_device_table`` with rows from
+``cuda_device_table`` before it acquires. That is the first attach on the
+process lease. A legacy holder blocks the attach so ``release`` stays on
+the legacy path.
 """
 from __future__ import annotations
 
@@ -354,6 +359,47 @@ class GpuLeaseArbiter:
     def set_empty_cache(self, hook: Callable[[], None] | None) -> None:
         self._empty_cache = hook
 
+    def ensure_device_table(self, devices: Sequence[Mapping[str, object]]) -> bool:
+        """Install or refresh a per-device table. The caller supplies the rows.
+
+        Returns False when a legacy holder is on this lease. The table stays
+        off in that case so ``release`` keeps using the legacy path. Free and
+        total VRAM of unheld rows are refreshed from ``devices``. Held rows
+        are left alone. This method does not read CUDA.
+        """
+        rows = _device_rows(tuple(devices))
+        with self._transition:
+            if self._slots is None:
+                if self._owner is not None or self._lock.locked():
+                    return False
+                self._slots = rows
+                return True
+        with self._admission:
+            self._refresh_free(rows)
+        return True
+
+    def device_indexes(self) -> tuple[int, ...] | None:
+        """Configured device indexes, or None when this lease has no table."""
+        if self._slots is None:
+            return None
+        return tuple(slot.index for slot in self._slots)
+
+    def allow_indexes(self) -> tuple[int, ...] | str | None:
+        """Allow-list for this lease.
+
+        None when there is no table and no env allow-list. A string is a
+        refusal (the env value is not a device list).
+        """
+        if self._slots is None and self._allow_devices is None and os.environ.get(_DEVICES_ENV) is None:
+            return None
+        if self._slots is None and self._allow_devices is not None:
+            return self._allow_devices
+        if self._slots is None:
+            raw = os.environ.get(_DEVICES_ENV)
+            assert raw is not None
+            return _parse_allow_env(raw)
+        return self._allow_indexes()
+
     def note_external_browser(self, active: bool = True) -> None:
         self._external_browser = bool(active)
 
@@ -423,6 +469,7 @@ class GpuLeaseArbiter:
         estimated_gb: float | None = None,
         kind: str | None = None,
         device: int | None = None,
+        allow_devices: Sequence[int] | None = None,
     ) -> bool:
         if self._slots is not None:
             with self._admission:
@@ -431,8 +478,12 @@ class GpuLeaseArbiter:
                     estimated_gb=estimated_gb,
                     kind=kind,
                     device=device,
+                    allow_devices=allow_devices,
                 )
         if device is not None:
+            if self._owner is not None:
+                self._last_refusal = f"GPU admission is held by {self._owner}."
+                return False
             self._last_refusal = "GPU admission refused: no per-device table is configured."
             return False
         # Non-blocking so an overlapping acquire fails closed. The
@@ -525,6 +576,27 @@ class GpuLeaseArbiter:
         self._kind = None
         self._estimated_gb = None
         self._lock.release()
+
+    def _refresh_free(self, rows: tuple[_DeviceSlot, ...]) -> None:
+        assert self._slots is not None
+        incoming = {slot.index: slot for slot in rows}
+        for slot in self._slots:
+            fresh = incoming.get(slot.index)
+            if fresh is None or slot.owner is not None:
+                continue
+            slot.total_gb = fresh.total_gb
+            slot.free_gb = fresh.free_gb
+
+    def _restrict_allow(self, override: Sequence[int] | None) -> tuple[int, ...] | str:
+        base = self._allow_indexes()
+        if isinstance(base, str) or override is None:
+            return base
+        try:
+            wanted = _allow_tuple(override)
+        except ValueError as exc:
+            return str(exc)
+        allowed = set(base)
+        return tuple(index for index in wanted if index in allowed)
 
     def _slot(self, device: int) -> _DeviceSlot | None:
         if self._slots is None:
@@ -622,6 +694,7 @@ class GpuLeaseArbiter:
         estimated_gb: float | None,
         kind: str | None,
         device: int | None,
+        allow_devices: Sequence[int] | None = None,
     ) -> bool:
         self._last_refusal = None
         estimate = _finite_gb(estimated_gb)
@@ -633,9 +706,10 @@ class GpuLeaseArbiter:
         if not self._slots:
             self._last_refusal = "GPU admission refused: no GPU devices are configured."
             return False
+        allow = self._restrict_allow(allow_devices)
         if device is not None:
-            return self._acquire_targeted(owner, estimate, kind, device)
-        return self._acquire_freest(owner, estimate, kind)
+            return self._acquire_targeted(owner, estimate, kind, device, allow)
+        return self._acquire_freest(owner, estimate, kind, allow)
 
     def _acquire_targeted(
         self,
@@ -643,8 +717,8 @@ class GpuLeaseArbiter:
         estimate: float | None,
         kind: str | None,
         device: object,
+        allow: tuple[int, ...] | str,
     ) -> bool:
-        allow = self._allow_indexes()
         if isinstance(allow, str):
             self._last_refusal = allow
             return False
@@ -670,9 +744,9 @@ class GpuLeaseArbiter:
         owner: str,
         estimate: float | None,
         kind: str | None,
+        allow: tuple[int, ...] | str,
     ) -> bool:
         assert self._slots is not None
-        allow = self._allow_indexes()
         if isinstance(allow, str):
             self._last_refusal = allow
             return False

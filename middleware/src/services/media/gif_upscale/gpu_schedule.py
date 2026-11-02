@@ -3,14 +3,15 @@
 Each allow-listed device with free VRAM gets its own session and batch size.
 A free device pulls the next unstarted frames (work stealing). Results may
 finish out of order; one writer thread emits the next frame index only.
-``gpu_overlap.run_device_pipeline`` replaces the per-batch scale+index calls
-when that module exists (lane B4). This module does not create it.
+The default lease is the process shared lease. An injected arbiter stays
+the test and caller path. ``gpu_overlap.run_device_pipeline`` replaces the
+per-batch scale+index calls when that module exists and the session has no
+fused scale-and-index (lane B4). This module does not create it.
 """
 
 from __future__ import annotations
 
 import contextlib
-import os
 import threading
 import time
 import uuid
@@ -21,17 +22,12 @@ from typing import Any
 
 import numpy as np
 
-from middleware.src.core.gpu_lease_arbiter import (
-    GpuLeaseArbiter,
-    cuda_device_table,
-    profile_from_env,
-)
+from middleware.src.core.gpu_lease_arbiter import GpuLeaseArbiter, cuda_device_table
 from middleware.src.services.media.gif_upscale.base import AlgorithmError, ResampleCancelled
 from middleware.src.services.media.gif_upscale.classical._resize import _LANCZOS_DERING
-from middleware.src.services.media.gif_upscale.gpu_batch import acquire_gpu_session
+from middleware.src.services.media.gif_upscale.gpu_batch import acquire_gpu_session, resolve_gif_arbiter
 
 _HOLD_BATCHES = 8
-_DEVICES_ENV = "IMAGE_TOOLKIT_GPU_DEVICES"
 CpuFallback = Callable[[Sequence[Any], str], Any]
 
 
@@ -104,30 +100,28 @@ def _pinned_index(params: dict[str, Any]) -> int | None | str:
 
 
 def _allow_set(arbiter: GpuLeaseArbiter) -> set[int] | None:
-    configured = getattr(arbiter, "_allow_devices", None)
-    if configured is not None:
-        return {int(index) for index in configured}
-    raw = os.environ.get(_DEVICES_ENV)
-    if raw is None:
+    configured = arbiter.allow_indexes()
+    if configured is None:
         return None
-    indexes: set[int] = set()
-    for part in raw.split(","):
-        piece = part.strip()
-        if not piece.isdigit():
-            return set()
-        indexes.add(int(piece))
-    return indexes
+    if isinstance(configured, str):
+        return set()
+    return {int(index) for index in configured}
 
 
-def _candidate_indexes(arbiter: GpuLeaseArbiter) -> list[int] | None:
-    slots = getattr(arbiter, "_slots", None)
-    if not slots:
+def _candidate_indexes(arbiter: GpuLeaseArbiter, opts: dict[str, Any]) -> list[int] | None:
+    indexes = arbiter.device_indexes()
+    if not indexes:
         return None
     allow = _allow_set(arbiter)
-    indexes = [int(slot.index) for slot in slots]
-    if allow is None:
-        return indexes
-    return [index for index in indexes if index in allow]
+    chosen = list(indexes) if allow is None else [index for index in indexes if index in allow]
+    raw = _params_of(opts).get("allow_devices")
+    if isinstance(raw, (list, tuple)) and raw:
+        try:
+            wanted = {int(index) for index in raw}
+        except (TypeError, ValueError):
+            return []
+        chosen = [index for index in chosen if index in wanted]
+    return chosen
 
 
 def _visible_device_table() -> tuple[dict[str, float | int], ...] | None:
@@ -146,19 +140,32 @@ def _visible_device_table() -> tuple[dict[str, float | int], ...] | None:
     return table or None
 
 
+def _remember_standalone(opts: dict[str, Any], source: str) -> None:
+    opts["_gpu_lease"] = source
+    if source != "standalone":
+        return
+    note = "Shared GPU lease is unavailable; using a standalone lease"
+    previous = opts.get("_gpu_fallback")
+    opts["_gpu_fallback"] = f"{previous}; {note}" if isinstance(previous, str) and previous else note
+
+
 def _arbiter_for(opts: dict[str, Any], arbiter: GpuLeaseArbiter | None) -> GpuLeaseArbiter | None:
     if isinstance(arbiter, GpuLeaseArbiter):
+        opts.setdefault("_gpu_lease", "explicit")
         return arbiter
     params = _params_of(opts)
     named = params.get("gpu_arbiter")
     if isinstance(named, GpuLeaseArbiter):
+        opts.setdefault("_gpu_lease", "explicit")
         return named
     table = _visible_device_table()
     if not table:
         return None
     allow = params.get("allow_devices")
-    allow_tuple = tuple(int(index) for index in allow) if isinstance(allow, (list, tuple)) else None
-    return GpuLeaseArbiter(profile=profile_from_env(), devices=table, allow_devices=allow_tuple)
+    allow_tuple = tuple(int(index) for index in allow) if isinstance(allow, (list, tuple)) and allow else None
+    resolved, source = resolve_gif_arbiter(table, allow_devices=allow_tuple)
+    _remember_standalone(opts, source)
+    return resolved
 
 
 def _one_session(
@@ -304,7 +311,7 @@ def acquire_gpu_sessions(
         return _lease_each(indexes=[pinned], **lease)
     if not isinstance(active, GpuLeaseArbiter):
         return _one_session(**lease)
-    indexes = _candidate_indexes(active)
+    indexes = _candidate_indexes(active, opts)
     if not indexes or len(indexes) == 1:
         return _one_session(**lease)
     return _lease_each(indexes=indexes, **lease)

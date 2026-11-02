@@ -120,6 +120,8 @@ def _startup_profile() -> str:
         return PROFILE_BALANCED
 
 
+# GIF resample attaches a device table on its first GPU job (ensure_device_table).
+# Until that call this stays the legacy one-owner mutex. After it, one holder per device.
 gpu_lease = GpuLease(
     profile=_startup_profile(),
     empty_cache=release_unused_cuda_blocks,
