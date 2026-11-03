@@ -8,7 +8,7 @@
 |---|---:|---:|---:|---:|
 | `middleware/src/csg/integrations/krita/pykrita/cel_shaded_generator/docker.py` | 1479 | 4 | 9 | 1492 |
 | `middleware/src/stitching/core/pipeline/run_stage.py` | 1032 | 144 | 54 | 1230 |
-| `middleware/src/services/media/gif_upscale/pipeline.py` | 903 | 6 | 14 | 923 |
+| `middleware/src/services/media/gif_upscale/pipeline.py` | 910 | 6 | 15 | 931 |
 | `middleware/src/csg/project/service.py` | 856 | 0 | 83 | 939 |
 | `middleware/src/csg/integrations/krita/pykrita/cel_shaded_generator/color_docker.py` | 823 | 5 | 45 | 873 |
 | `gui/src/legacy/asp_gui/helpers/_progress_pipeline.py` | 755 | 39 | 38 | 832 |
@@ -56,4 +56,4 @@
 | `gui/src/tabs/core/image_extractor_subtab.py` | 418 | 27 | 20 | 465 |
 | `middleware/src/core/guidance_schema.py` | 415 | 20 | 58 | 493 |
 | `middleware/src/models/core/comfy_manager.py` | 413 | 65 | 46 | 524 |
-| **TOTALS** | **178054** | **9276** | **19459** | **206789** |
+| **TOTALS** | **178198** | **9276** | **19479** | **206953** |
