@@ -264,7 +264,7 @@ def _run_single_stitch(image_paths: list, output: str, renderer: str) -> bool:
 
 def dispatch_stitch(args: dict) -> None:  # noqa: C901
     batch_dir = (args.get("batch_dir") or "").strip()
-    renderer = args.get("renderer") or "median"
+    renderer = args.get("renderer") or "seam"
     resume = bool(args.get("resume"))
 
     if batch_dir:

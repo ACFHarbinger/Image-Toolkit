@@ -223,8 +223,9 @@ class _UIConfigMixin:
         self.use_birefnet_checkbox.setChecked(True)
 
         self.renderer_combo = QComboBox()
-        self.renderer_combo.addItems(["blend", "median", "first"])
+        self.renderer_combo.addItems(["seam", "blend", "median", "first"])
         self.renderer_combo.setToolTip(
+            "seam: Graph-cut seams + multi-band (best measured)\n"
             "blend: Multi-band seamless (robust)\nmedian: Temporal denoising (sharpest)\nfirst: No blending (fast)"
         )
 

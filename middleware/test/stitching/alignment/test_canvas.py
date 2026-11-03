@@ -380,7 +380,13 @@ class TestPanoramaStitchFallback:
     def mock_batch_canvas(self):
         from unittest.mock import patch
 
-        with patch("middleware.src.stitching.alignment.canvas._BATCH_CANVAS", False):
+        with (
+            patch("middleware.src.stitching.alignment.canvas._BATCH_CANVAS", False),
+            patch(
+                "middleware.src.stitching.alignment.canvas._predicted_pano_size",
+                return_value=(128, 64),
+            ),
+        ):
             yield
 
     def _solid_bgr(self, h: int = 64, w: int = 128, v: int = 128) -> np.ndarray:
@@ -394,7 +400,8 @@ class TestPanoramaStitchFallback:
 
         fake_pano = self._solid_bgr(60, 120, 200)
         mock_stitcher = MagicMock()
-        mock_stitcher.stitch.return_value = (cv2.Stitcher_OK, fake_pano)
+        mock_stitcher.estimateTransform.return_value = cv2.Stitcher_OK
+        mock_stitcher.composePanorama.return_value = (cv2.Stitcher_OK, fake_pano)
 
         with patch("cv2.Stitcher_create", return_value=mock_stitcher):
             frames = [self._solid_bgr()]
@@ -409,7 +416,7 @@ class TestPanoramaStitchFallback:
         from middleware.src.errors import CanvasError
 
         mock_stitcher = MagicMock()
-        mock_stitcher.stitch.return_value = (cv2.Stitcher_ERR_NEED_MORE_IMGS, None)
+        mock_stitcher.estimateTransform.return_value = cv2.Stitcher_ERR_NEED_MORE_IMGS
 
         with (
             patch("cv2.Stitcher_create", return_value=mock_stitcher),
@@ -423,7 +430,8 @@ class TestPanoramaStitchFallback:
 
         fake_pano = self._solid_bgr(50, 100, 150)
         mock_stitcher = MagicMock()
-        mock_stitcher.stitch.return_value = (cv2.Stitcher_OK, fake_pano)
+        mock_stitcher.estimateTransform.return_value = cv2.Stitcher_OK
+        mock_stitcher.composePanorama.return_value = (cv2.Stitcher_OK, fake_pano)
         out_path = str(tmp_path / "panorama.png")
 
         with patch("cv2.Stitcher_create", return_value=mock_stitcher):
@@ -438,12 +446,32 @@ class TestPanoramaStitchFallback:
 
         fake_pano = self._solid_bgr(40, 80, 100)
         mock_stitcher = MagicMock()
-        mock_stitcher.stitch.return_value = (cv2.Stitcher_OK, fake_pano)
+        mock_stitcher.estimateTransform.return_value = cv2.Stitcher_OK
+        mock_stitcher.composePanorama.return_value = (cv2.Stitcher_OK, fake_pano)
 
         with patch("cv2.Stitcher_create", return_value=mock_stitcher) as mock_create:
             with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
                 _panorama_stitch_fallback([self._solid_bgr()], f.name)
             mock_create.assert_called_once_with(mode=0)
+
+    def test_refuses_oversized_registration(self, tmp_path):
+        """A degenerate registration (asp_test12) never reaches compose."""
+        from unittest.mock import MagicMock, patch
+
+        from middleware.src.errors import CanvasError
+
+        mock_stitcher = MagicMock()
+        mock_stitcher.estimateTransform.return_value = cv2.Stitcher_OK
+        with (
+            patch("cv2.Stitcher_create", return_value=mock_stitcher),
+            patch(
+                "middleware.src.stitching.alignment.canvas._predicted_pano_size",
+                return_value=(200_000, 900),
+            ),
+            pytest.raises(CanvasError, match="status=-2"),
+        ):
+            _panorama_stitch_fallback([self._solid_bgr()], str(tmp_path / "out.png"))
+        mock_stitcher.composePanorama.assert_not_called()
 
     def test_output_dimensions_match_pano(self, tmp_path):
         """Result image dimensions match the (possibly cropped) stitcher output."""
@@ -454,7 +482,8 @@ class TestPanoramaStitchFallback:
         h, w = 80, 160
         fake_pano = self._solid_bgr(h, w, 200)
         mock_stitcher = MagicMock()
-        mock_stitcher.stitch.return_value = (cv2.Stitcher_OK, fake_pano)
+        mock_stitcher.estimateTransform.return_value = cv2.Stitcher_OK
+        mock_stitcher.composePanorama.return_value = (cv2.Stitcher_OK, fake_pano)
 
         with patch("cv2.Stitcher_create", return_value=mock_stitcher):
             result = _panorama_stitch_fallback([self._solid_bgr()], str(tmp_path / "out.png"))

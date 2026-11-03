@@ -61,7 +61,7 @@ def _load_package(alias: str, src_dir: Path) -> None:
     spec.loader.exec_module(module)
 
 
-_load_package("asp_backend", Path(__file__).resolve().parents[1] / "src")
+_load_package("asp_backend", Path(__file__).resolve().parents[2] / "src" / "stitching")
 
 from asp_backend.ingestion.frame_selection import smart_select_frames  # noqa: E402
 

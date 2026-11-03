@@ -99,7 +99,7 @@ def run_canonical_asp(
     scans_path: str | None,
     policy: SafeAspPolicy | None = None,
     pipeline: AnimeStitchPipeline | None = None,
-    renderer: str = "median",
+    renderer: str = "seam",
 ) -> CanonicalStitchResult:
     """Stitch with the product runner, then apply the injectable Safe ASP policy.
 
