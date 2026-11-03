@@ -2,9 +2,11 @@ import { Database, GitBranch, Search } from "lucide-react";
 import { documentsFromGlob, LabDocs, LabHome, LabPipeline, type LabSite } from "../shared/LabPages";
 
 const raw = {
-  ...import.meta.glob("../../../../recommendation/**/*.md", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob("../../../../recommendation/**/*.rst", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob("../../../../recommendation/**/*.dsl", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../guides/recommendation*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../moon/roadmaps/recommendation*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../moon/research/recommendation*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../moon/recommendation*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../modules/recommendation-LICENSE", { query: "?raw", import: "default", eager: true }),
 } as Record<string, string>;
 
 const site: LabSite = {
@@ -16,15 +18,15 @@ const site: LabSite = {
   heroTitle: ["Find the", "signal."],
   heroDescription: "A privacy-conscious recommendation engine combining vector representations, structured metadata, graph context, and explainable ranking for visual collections.",
   accent: "cyan",
-  repository: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/recommendation",
+  repository: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/guides",
   originalRepository: "https://github.com/ACFHarbinger/Content-Recommendation-Engine",
   modules: [
-    { number: "01", title: "Represent Content", text: "Turn visual assets, metadata, and entities into searchable representations.", detail: "Preserve provenance as content moves from ingestion into the retrieval graph.", action: "Read the architecture", href: "/labs/cre/docs/ARCHITECTURE.md", icon: Database },
+    { number: "01", title: "Represent Content", text: "Turn visual assets, metadata, and entities into searchable representations.", detail: "Preserve provenance as content moves from ingestion into the retrieval graph.", action: "Read the architecture", href: "/labs/cre/docs/guides/recommendation-architecture.md", icon: Database },
     { number: "02", title: "Retrieve Context", text: "Combine semantic similarity with explicit filters and constraints.", detail: "Make recommendations useful without making the ranking process opaque.", action: "Inspect the system", href: "/labs/cre/pipeline", icon: Search },
-    { number: "03", title: "Learn Carefully", text: "Use opt-in interaction signals to improve ranking while respecting local data.", detail: "Measure relevance and explain why a result appeared.", action: "Read the roadmap", href: "/labs/cre/docs/moon/ROADMAP.md", icon: GitBranch },
+    { number: "03", title: "Learn Carefully", text: "Use opt-in interaction signals to improve ranking while respecting local data.", detail: "Measure relevance and explain why a result appeared.", action: "Read the roadmap", href: "/labs/cre/docs/moon/roadmaps/recommendation.md", icon: GitBranch },
   ],
   stages: ["INGEST", "EMBED", "FILTER", "RANK", "EXPLAIN", "FEEDBACK"],
-  documents: documentsFromGlob(raw, "recommendation"),
+  documents: documentsFromGlob(raw),
 };
 
 export function CreHome() {

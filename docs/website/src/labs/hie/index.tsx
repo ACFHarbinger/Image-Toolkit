@@ -2,10 +2,14 @@ import { BrainCircuit, Layers3, SlidersHorizontal } from "lucide-react";
 import { documentsFromGlob, LabDocs, LabHome, LabPipeline, type LabSite } from "../shared/LabPages";
 
 const raw = {
-  ...import.meta.glob("../../../../editor/**/*.md", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob("../../../../editor/**/*.rst", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob("../../../../structurizr/editor/**/*.md", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob("../../../../structurizr/editor/**/*.dsl", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../guides/editor*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../moon/roadmaps/editor*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../moon/research/editor*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../moon/reports/editor*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../moon/editor*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../adr/editor*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../modules/editor-LICENSE", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../moon/architecture/structurizr-editor*", { query: "?raw", import: "default", eager: true }),
 } as Record<string, string>;
 
 const site: LabSite = {
@@ -18,7 +22,7 @@ const site: LabSite = {
   heroDescription:
     "A productive image-first editor combining a hybrid layer-node canvas, C++ optimization, neural models, reinforcement-learning policies, and reproducible pipeline jobs.",
   accent: "violet",
-  repository: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/editor",
+  repository: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/guides",
   originalRepository: "https://github.com/ACFHarbinger/Hybrid-Image-Editor",
   modules: [
     {
@@ -27,7 +31,7 @@ const site: LabSite = {
       text: "Combine familiar layers with optional non-destructive modifier graphs.",
       detail: "Images are one-frame sequences from day one, ready for future video work.",
       action: "Read the architecture",
-      href: "/labs/hie/docs/ARCHITECTURE.md",
+      href: "/labs/hie/docs/guides/editor-architecture.md",
       icon: Layers3,
     },
     {
@@ -36,7 +40,7 @@ const site: LabSite = {
       text: "Compose models and RL policies into inspectable editing proposals.",
       detail: "Localized retouching leads the policy sequence, followed by tone and composition.",
       action: "Inspect the middleware",
-      href: "/labs/hie/docs/moon/roadmaps/04_middleware_and_ui_integration.md",
+      href: "/labs/hie/docs/moon/roadmaps/editor-04_middleware_and_ui_integration.md",
       icon: BrainCircuit,
     },
     {
@@ -45,12 +49,12 @@ const site: LabSite = {
       text: "Run exact, swarm, and evolutionary optimization as cancellable jobs.",
       detail: "Every accepted operation keeps configuration, progress, and provenance.",
       action: "Read the roadmap",
-      href: "/labs/hie/docs/moon/ROADMAP.md",
+      href: "/labs/hie/docs/moon/roadmaps/editor.md",
       icon: SlidersHorizontal,
     },
   ],
   stages: ["DOCUMENT", "MODEL", "POLICY", "JOB", "PREVIEW", "COMMIT"],
-  documents: documentsFromGlob(raw, "editor"),
+  documents: documentsFromGlob(raw),
 };
 
 export function HieHome() {

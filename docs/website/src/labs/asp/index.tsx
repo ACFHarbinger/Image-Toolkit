@@ -2,9 +2,15 @@ import { Camera, GitBranch, ScanLine } from "lucide-react";
 import { documentsFromGlob, LabDocs, LabHome, LabPipeline, type LabSite } from "../shared/LabPages";
 
 const raw = {
-  ...import.meta.glob("../../../../stitching/**/*.md", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob("../../../../stitching/**/*.rst", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob("../../../../stitching/**/*.dsl", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../guides/stitching*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../moon/roadmaps/stitching*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../moon/research/stitching*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../moon/reports/stitching*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../moon/stitching*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../adr/stitching*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../tutorials/stitching*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../sphinx/stitching*", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob("../../../../modules/stitching-LICENSE", { query: "?raw", import: "default", eager: true }),
 } as Record<string, string>;
 
 const site: LabSite = {
@@ -17,7 +23,7 @@ const site: LabSite = {
   heroDescription:
     "A high-performance panorama engine for anime panning shots, built around constrained motion, robust estimation, seam-aware compositing, and honest evaluation.",
   accent: "cyan",
-  repository: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/stitching",
+  repository: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/guides",
   originalRepository: "https://github.com/ACFHarbinger/Anime-Stitch-Pipeline",
   modules: [
     {
@@ -26,7 +32,7 @@ const site: LabSite = {
       text: "Keep source frames, references, and provenance attached from ingestion onward.",
       detail: "Build a searchable sequence workspace before alignment begins.",
       action: "Read the architecture",
-      href: "/labs/asp/docs/ARCHITECTURE.md",
+      href: "/labs/asp/docs/guides/stitching-architecture.md",
       icon: Camera,
     },
     {
@@ -44,12 +50,12 @@ const site: LabSite = {
       text: "Route seams around protected cel regions and preserve review artifacts.",
       detail: "Render panoramas with seam diagnostics instead of hiding quality behind one score.",
       action: "Read the benchmarks",
-      href: "/labs/asp/docs/BENCHMARKS.md",
+      href: "/labs/asp/docs/guides/stitching-benchmarks.md",
       icon: GitBranch,
     },
   ],
   stages: ["INGEST", "MATCH", "GNC-TLS", "BUNDLE", "SEAM", "RENDER"],
-  documents: documentsFromGlob(raw, "stitching"),
+  documents: documentsFromGlob(raw),
 };
 
 export function AspHome() {

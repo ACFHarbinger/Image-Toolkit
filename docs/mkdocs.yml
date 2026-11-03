@@ -194,7 +194,7 @@ nav:
       - Testing: TESTING.md
       - Security: SECURITY.md
       - Dependency Policy: DEPENDENCY_POLICY.md
-      - C4 Models (Structurizr): structurizr/README.md
+      - C4 Models (Structurizr): moon/architecture/structurizr.md
       - Documentation Standards: DOCUMENTATION_STANDARDS.md
   - Roadmaps:
       - Master Roadmap: moon/ROADMAP.md
@@ -208,121 +208,121 @@ nav:
       - Content Generation: moon/roadmaps/content_generation.md
       - Development Tool: moon/roadmaps/development_tool.md
       - Documentation: moon/roadmaps/documentation.md
-      - ASP Pipeline: stitching/moon/ROADMAP.md
-      - Manga Colorization & Animation: cel/moon/ROADMAP.md
-      - Recommendation Engine: recommendation/moon/ROADMAP.md
-      - Hybrid Image Editor: editor/moon/ROADMAP.md
+      - ASP Pipeline: moon/roadmaps/stitching.md
+      - Manga Colorization & Animation: moon/roadmaps/cel.md
+      - Recommendation Engine: moon/roadmaps/recommendation.md
+      - Hybrid Image Editor: moon/roadmaps/editor.md
   - Research:
       - Analytics & Codebase Visualisation: moon/research/Analytics and Codebase Visualization Research.md
       - Image Generation Research: moon/research/Image_Generation_Research.md
-      - ASP Comprehensive Research: stitching/research/ASP_Comprehensive_Research_Report.md
-      - Image Stitching Research: stitching/research/Image_Stitching_Research.md
-      - Manga & Animation Research: cel/research/Manga Colorization and Animation Research.md
-      - Cel-Shaded Art Assistant Research: cel/research/Cel-Shaded Art Assistant Research.md
-      - Recommendation Engine Research: recommendation/research/Building a Smart Recommendation Engine.md
-      - HIE Research Methodology: editor/moon/research/research_methodology.md
+      - ASP Comprehensive Research: moon/research/stitching-ASP_Comprehensive_Research_Report.md
+      - Image Stitching Research: moon/research/stitching-Image_Stitching_Research.md
+      - Manga & Animation Research: moon/research/cel-Manga-Colorization-and-Animation-Research.md
+      - Cel-Shaded Art Assistant Research: moon/research/cel-Cel-Shaded-Art-Assistant-Research.md
+      - Recommendation Engine Research: moon/research/recommendation-Building-a-Smart-Recommendation-Engine.md
+      - HIE Research Methodology: moon/research/editor-research_methodology.md
   - Anime Stitch Pipeline:
-      - Home: stitching/index.md
-      - Architecture: stitching/ARCHITECTURE.md
-      - Development: stitching/DEVELOPMENT.md
-      - Testing: stitching/TESTING.md
-      - Dependencies: stitching/DEPENDENCIES.md
-      - Dependency Policy: stitching/DEPENDENCY_POLICY.md
-      - Documentation Standards: stitching/DOCUMENTATION_STANDARDS.md
-      - Benchmarks: stitching/BENCHMARKS.md
-      - Troubleshooting: stitching/TROUBLESHOOTING.md
-      - Glossary: stitching/GLOSSARY.md
+      - Home: guides/stitching.md
+      - Architecture: guides/stitching-architecture.md
+      - Development: guides/stitching-development.md
+      - Testing: guides/stitching-testing.md
+      - Dependencies: guides/stitching-dependencies.md
+      - Dependency Policy: guides/stitching-dependency-policy.md
+      - Documentation Standards: guides/stitching-documentation-standards.md
+      - Benchmarks: guides/stitching-benchmarks.md
+      - Troubleshooting: guides/stitching-troubleshooting.md
+      - Glossary: guides/stitching-glossary.md
       - Tutorials:
-          - Getting Started with HybridStitch: stitching/tutorials/getting-started-hybridstitch.md
-          - ASP Pipeline Overview: stitching/tutorials/pipeline-overview.md
+          - Getting Started with HybridStitch: tutorials/stitching-getting-started-hybridstitch.md
+          - ASP Pipeline Overview: tutorials/stitching-pipeline-overview.md
       - Architecture Decisions:
-          - Recording Decisions: stitching/adr/0001-record-architecture-decisions.md
-          - Polyglot Module Layout: stitching/adr/0002-polyglot-module-layout.md
+          - Recording Decisions: adr/stitching-0001-record-architecture-decisions.md
+          - Polyglot Module Layout: adr/stitching-0002-polyglot-module-layout.md
       - Roadmap:
-          - Master Roadmap: stitching/moon/ROADMAP.md
-          - Change: stitching/moon/asp_change_roadmap_2026q3.md
-          - Outreach: stitching/moon/asp_outreach_roadmap_2026q3.md
-          - SFW Corpus: stitching/moon/asp_sfw_corpus_roadmap_2026q3.md
-          - Wallpaper Mode: stitching/moon/asp_wallpaper_mode_roadmap_2026q3.md
-      - Changelog: stitching/moon/CHANGELOG.md
+          - Master Roadmap: moon/roadmaps/stitching.md
+          - Change: moon/roadmaps/stitching-change-roadmap-2026q3.md
+          - Outreach: moon/roadmaps/stitching-outreach-roadmap-2026q3.md
+          - SFW Corpus: moon/roadmaps/stitching-sfw-corpus-roadmap-2026q3.md
+          - Wallpaper Mode: moon/roadmaps/stitching-wallpaper-mode-roadmap-2026q3.md
+      - Changelog: moon/stitching-changelog.md
       - Research:
-          - ASP Comprehensive Research: stitching/research/ASP_Comprehensive_Research_Report.md
-          - Image Stitching Research: stitching/research/Image_Stitching_Research.md
+          - ASP Comprehensive Research: moon/research/stitching-ASP_Comprehensive_Research_Report.md
+          - Image Stitching Research: moon/research/stitching-Image_Stitching_Research.md
       - Reports:
-          - ASP Critical Evaluation: stitching/reports/ASP_Critical_Evaluation_2026-07-08.md
-          - Image Stitching Report: stitching/reports/image_stitching_report.md
+          - ASP Critical Evaluation: moon/reports/stitching-ASP_Critical_Evaluation_2026-07-08.md
+          - Image Stitching Report: moon/reports/stitching-image_stitching_report.md
   - Content Recommendation Engine:
-      - Home: recommendation/README.md
-      - Architecture: recommendation/ARCHITECTURE.md
+      - Home: guides/recommendation.md
+      - Architecture: guides/recommendation-architecture.md
       - Roadmap:
-          - Master Roadmap: recommendation/moon/ROADMAP.md
-          - Search: recommendation/moon/roadmaps/search.md
-          - Core: recommendation/moon/roadmaps/core.md
-          - CLI: recommendation/moon/roadmaps/cli.md
-          - Ingestion: recommendation/moon/roadmaps/ingestion.md
-      - Changelog: recommendation/CHANGELOG.md
-      - Research: recommendation/research/Building a Smart Recommendation Engine.md
+          - Master Roadmap: moon/roadmaps/recommendation.md
+          - Search: moon/roadmaps/recommendation-search.md
+          - Core: moon/roadmaps/recommendation-core.md
+          - CLI: moon/roadmaps/recommendation-cli.md
+          - Ingestion: moon/roadmaps/recommendation-ingestion.md
+      - Changelog: moon/recommendation-changelog.md
+      - Research: moon/research/recommendation-Building-a-Smart-Recommendation-Engine.md
   - Cel-Shaded Generator:
-      - Home: cel/index.md
-      - Architecture: cel/ARCHITECTURE.md
-      - Portable Project Format: cel/project_format.md
-      - Character Style Bible: cel/style_bible_format.md
-      - Local Model Packages: cel/model_packages.md
-      - Python Module: cel/PYTHON_MODULE.md
-      - Development: cel/DEVELOPMENT.md
-      - Testing: cel/TESTING.md
-      - Dependencies: cel/DEPENDENCIES.md
-      - Dependency Policy: cel/DEPENDENCY_POLICY.md
-      - Documentation Standards: cel/DOCUMENTATION_STANDARDS.md
-      - Benchmarks: cel/BENCHMARKS.md
-      - Troubleshooting: cel/TROUBLESHOOTING.md
-      - Glossary: cel/GLOSSARY.md
+      - Home: guides/cel.md
+      - Architecture: guides/cel-architecture.md
+      - Portable Project Format: guides/cel-project-format.md
+      - Character Style Bible: guides/cel-style-bible-format.md
+      - Local Model Packages: guides/cel-model-packages.md
+      - Python Module: guides/cel-python-module.md
+      - Development: guides/cel-development.md
+      - Testing: guides/cel-testing.md
+      - Dependencies: guides/cel-dependencies.md
+      - Dependency Policy: guides/cel-dependency-policy.md
+      - Documentation Standards: guides/cel-documentation-standards.md
+      - Benchmarks: guides/cel-benchmarks.md
+      - Troubleshooting: guides/cel-troubleshooting.md
+      - Glossary: guides/cel-glossary.md
       - Architecture Decisions:
-          - Recording Decisions: cel/adr/0001-record-architecture-decisions.md
-          - Superseded Polyglot Layout: cel/adr/0002-polyglot-module-layout.md
+          - Recording Decisions: adr/cel-0001-record-architecture-decisions.md
+          - Superseded Polyglot Layout: adr/cel-0002-polyglot-module-layout.md
       - Roadmap:
-          - Master Roadmap: cel/moon/ROADMAP.md
-          - Krita Learning Alpha: cel/moon/roadmaps/krita_learning_alpha.md
-          - Engine Architecture: cel/moon/roadmaps/engine_architecture.md
-          - Reference Coloring: cel/moon/roadmaps/reference_coloring.md
-          - Anime Animation: cel/moon/roadmaps/anime_animation.md
-          - Game Assets: cel/moon/roadmaps/game_assets.md
-          - Agent DCC Tool Access: cel/moon/roadmaps/agent_dcc_tool_access.md
-      - Changelog: cel/moon/CHANGELOG.md
+          - Master Roadmap: moon/roadmaps/cel.md
+          - Krita Learning Alpha: moon/roadmaps/cel-krita_learning_alpha.md
+          - Engine Architecture: moon/roadmaps/cel-engine_architecture.md
+          - Reference Coloring: moon/roadmaps/cel-reference_coloring.md
+          - Anime Animation: moon/roadmaps/cel-anime_animation.md
+          - Game Assets: moon/roadmaps/cel-game_assets.md
+          - Agent DCC Tool Access: moon/roadmaps/cel-agent_dcc_tool_access.md
+      - Changelog: moon/cel-changelog.md
       - Research:
-          - Manga Colorization & Animation Research: cel/research/Manga Colorization and Animation Research.md
-          - Cel-Shaded Art Assistant Research: cel/research/Cel-Shaded Art Assistant Research.md
-      - Structurizr: structurizr/cel/README.md
+          - Manga Colorization & Animation Research: moon/research/cel-Manga-Colorization-and-Animation-Research.md
+          - Cel-Shaded Art Assistant Research: moon/research/cel-Cel-Shaded-Art-Assistant-Research.md
+      - Structurizr: moon/architecture/structurizr-cel.md
   - Hybrid Image Editor:
-      - Home: editor/index.md
-      - Architecture: editor/ARCHITECTURE.md
-      - Development: editor/DEVELOPMENT.md
-      - Testing: editor/TESTING.md
-      - Dependencies: editor/DEPENDENCIES.md
-      - Dependency Policy: editor/DEPENDENCY_POLICY.md
-      - Documentation Standards: editor/DOCUMENTATION_STANDARDS.md
-      - Benchmarks: editor/BENCHMARKS.md
-      - Troubleshooting: editor/TROUBLESHOOTING.md
-      - Glossary: editor/GLOSSARY.md
+      - Home: guides/editor.md
+      - Architecture: guides/editor-architecture.md
+      - Development: guides/editor-development.md
+      - Testing: guides/editor-testing.md
+      - Dependencies: guides/editor-dependencies.md
+      - Dependency Policy: guides/editor-dependency-policy.md
+      - Documentation Standards: guides/editor-documentation-standards.md
+      - Benchmarks: guides/editor-benchmarks.md
+      - Troubleshooting: guides/editor-troubleshooting.md
+      - Glossary: guides/editor-glossary.md
       - Architecture Decisions:
-          - Recording Decisions: editor/adr/0001-record-architecture-decisions.md
-          - Polyglot Module Layout: editor/adr/0002-polyglot-module-layout.md
-          - Hybrid Document and Modifier Graph: editor/adr/0003-hybrid-document-and-modifier-graph.md
+          - Recording Decisions: adr/editor-0001-record-architecture-decisions.md
+          - Polyglot Module Layout: adr/editor-0002-polyglot-module-layout.md
+          - Hybrid Document and Modifier Graph: adr/editor-0003-hybrid-document-and-modifier-graph.md
       - Roadmap:
-          - Master Roadmap: editor/moon/ROADMAP.md
-          - Architecture and Data Model: editor/moon/roadmaps/01_architecture_and_data_model.md
-          - Mathematical Optimization Core: editor/moon/roadmaps/02_mathematical_optimization_core.md
-          - Deep Learning and RL: editor/moon/roadmaps/03_deep_learning_and_rl_subsystem.md
-          - Middleware and UI: editor/moon/roadmaps/04_middleware_and_ui_integration.md
-          - Video Editing Extension: editor/moon/roadmaps/05_video_editing_extension.md
-      - Changelog: editor/moon/CHANGELOG.md
+          - Master Roadmap: moon/roadmaps/editor.md
+          - Architecture and Data Model: moon/roadmaps/editor-01_architecture_and_data_model.md
+          - Mathematical Optimization Core: moon/roadmaps/editor-02_mathematical_optimization_core.md
+          - Deep Learning and RL: moon/roadmaps/editor-03_deep_learning_and_rl_subsystem.md
+          - Middleware and UI: moon/roadmaps/editor-04_middleware_and_ui_integration.md
+          - Video Editing Extension: moon/roadmaps/editor-05_video_editing_extension.md
+      - Changelog: moon/editor-changelog.md
       - Research:
-          - Methodology: editor/moon/research/research_methodology.md
-          - Template: editor/moon/research/TEMPLATE.md
+          - Methodology: moon/research/editor-research_methodology.md
+          - Template: moon/research/editor-TEMPLATE.md
       - Reports:
-          - Initial Audit: editor/moon/reports/initial_audit_report.md
-          - Template: editor/moon/reports/TEMPLATE.md
-      - Structurizr: structurizr/editor/README.md
+          - Initial Audit: moon/reports/editor-initial_audit_report.md
+          - Template: moon/reports/editor-TEMPLATE.md
+      - Structurizr: moon/architecture/structurizr-editor.md
   - Changelog: CHANGELOG.md
 
 # Hooks — symlink docs/moon/ and research/ content into docs/ at build time

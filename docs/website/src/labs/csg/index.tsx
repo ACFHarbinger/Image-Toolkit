@@ -2,10 +2,14 @@ import { Brush, Film, Layers3 } from "lucide-react";
 import { documentsFromGlob, LabDocs, LabHome, LabPipeline, type LabSite } from "../shared/LabPages";
 
 const raw: Record<string, string> = {
-  ...import.meta.glob<string>("../../../../cel/**/*.md", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob<string>("../../../../cel/**/*.rst", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob<string>("../../../../structurizr/cel/**/*.md", { query: "?raw", import: "default", eager: true }),
-  ...import.meta.glob<string>("../../../../structurizr/cel/**/*.dsl", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob<string>("../../../../guides/cel*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob<string>("../../../../moon/roadmaps/cel*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob<string>("../../../../moon/research/cel*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob<string>("../../../../moon/cel*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob<string>("../../../../adr/cel*.md", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob<string>("../../../../sphinx/cel*", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob<string>("../../../../modules/cel-LICENSE", { query: "?raw", import: "default", eager: true }),
+  ...import.meta.glob<string>("../../../../moon/architecture/structurizr-cel*", { query: "?raw", import: "default", eager: true }),
 };
 
 const site: LabSite = {
@@ -17,7 +21,7 @@ const site: LabSite = {
   heroTitle: ["Shape the", "frame."],
   heroDescription: "A visual-generation and learning workspace for manga colorization, cel-shaded rendering, deformation-aware art assistance, and animation-ready workflows.",
   accent: "rose",
-  repository: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/cel",
+  repository: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/guides",
   originalRepository: "https://github.com/ACFHarbinger/Cel-Shaded-Generator",
   modules: [
     {
@@ -26,7 +30,7 @@ const site: LabSite = {
       text: "Keep line art, masks, and palette decisions explicit throughout colorization.",
       detail: "The drawing remains the source of truth while assistance stays reversible.",
       action: "Read the architecture",
-      href: "/labs/csg/docs/ARCHITECTURE.md",
+      href: "/labs/csg/docs/guides/cel-architecture.md",
       icon: Brush,
     },
     {
@@ -44,12 +48,12 @@ const site: LabSite = {
       text: "Prepare deformation and temporal-consistency workflows for animation.",
       detail: "Still-art tools are designed with frame sequences in mind.",
       action: "Read the project format",
-      href: "/labs/csg/docs/project_format.md",
+      href: "/labs/csg/docs/guides/cel-project-format.md",
       icon: Film,
     },
   ],
   stages: ["INGEST", "MASK", "COLOR", "STYLE", "WARP", "ANIMATE"],
-  documents: documentsFromGlob(raw, "cel"),
+  documents: documentsFromGlob(raw),
 };
 
 export function CsgHome() {

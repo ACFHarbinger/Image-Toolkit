@@ -10,7 +10,7 @@
 
 ## Overview
 
-The Hybrid Image Editor (HIE) capability provides multi-modal image and video sequence editing with intelligent AI and RL co-pilot assistance (E-02 / #915). It wraps the HIE document session and render-graph pipeline (`middleware/src/hie/`, relocated from `submodules/HIE/middleware/src` in #1037) into clean asynchronous bridge methods (`hie.open_document`, `hie.execute_edit`, `hie.export_document`, `hie.list_capabilities`), with seamless fallback when external ML models or GPU accelerators are unavailable. Reference docs live in [`docs/editor/`](../editor/index.md).
+The Hybrid Image Editor (HIE) capability provides multi-modal image and video sequence editing with intelligent AI and RL co-pilot assistance (E-02 / #915). It wraps the HIE document session and render-graph pipeline (`middleware/src/hie/`, relocated from `submodules/HIE/middleware/src` in #1037) into clean asynchronous bridge methods (`hie.open_document`, `hie.execute_edit`, `hie.export_document`, `hie.list_capabilities`), with seamless fallback when external ML models or GPU accelerators are unavailable. Reference docs live in [`docs/guides/editor.md`](../guides/editor.md).
 
 ## Public Surface
 

@@ -8,7 +8,7 @@ export const submoduleSites: SubmoduleSite[] = [
     title: "Anime-Stitch-Pipeline",
     description: "Anime panorama stitching engine (ASP) with 2D motion estimation, GNC-TLS, and cel seam barriers.",
     url: "https://acfharbinger.github.io/Anime-Stitch-Pipeline/app/",
-    repo: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/stitching",
+    repo: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/guides",
     route: "/labs/asp",
   },
   {
@@ -16,7 +16,7 @@ export const submoduleSites: SubmoduleSite[] = [
     title: "Cel-Shaded-Generator",
     description: "Manga lineart colorization, mesh overlay, animation & puppeteering (CSG).",
     url: "https://acfharbinger.github.io/Cel-Shaded-Generator/app/",
-    repo: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/cel",
+    repo: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/guides",
     route: "/labs/csg",
   },
   {
@@ -24,7 +24,7 @@ export const submoduleSites: SubmoduleSite[] = [
     title: "Content-Recommendation-Engine",
     description: "Local-first hybrid vector recommendation engine (CRE) using pgvector.",
     url: "https://acfharbinger.github.io/Content-Recommendation-Engine/app/",
-    repo: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/recommendation",
+    repo: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/guides",
     route: "/labs/cre",
   },
   {
@@ -32,7 +32,7 @@ export const submoduleSites: SubmoduleSite[] = [
     title: "Hybrid-Image-Editor",
     description: "Machine Learning (BiRefNet, Inpainting), RL Brush Assistant & Optimization engine (HIE).",
     url: "https://acfharbinger.github.io/Hybrid-Image-Editor/app/",
-    repo: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/editor",
+    repo: "https://github.com/ACFHarbinger/Image-Toolkit/tree/main/docs/guides",
     route: "/labs/hie",
   },
 ];

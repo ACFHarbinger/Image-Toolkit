@@ -3,7 +3,7 @@
 The model deliberately treats a still image as a one-frame sequence.  UIs can
 therefore share document and undo/redo code when multi-frame editing arrives.
 
-Locked decisions: ``docs/editor/adr/0003-hybrid-document-and-modifier-graph.md``.
+Locked decisions: ``docs/adr/editor-0003-hybrid-document-and-modifier-graph.md``.
 """
 
 from __future__ import annotations

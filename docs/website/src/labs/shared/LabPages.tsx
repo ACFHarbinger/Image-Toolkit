@@ -70,13 +70,13 @@ const ACCENTS = {
   },
 } as const;
 
-/** Turn a Vite raw glob of one lab tree into sidebar documents. */
-export function documentsFromGlob(files: Record<string, string>, slug: string): LabDocument[] {
-  const marker = `/${slug}/`;
+/** Turn a Vite raw glob, keyed from a lab page, into sidebar documents. */
+export function documentsFromGlob(files: Record<string, string>): LabDocument[] {
+  const marker = "../../../../";
   return Object.entries(files)
     .filter(([path]) => !path.includes("/website/"))
     .map(([path, body]) => {
-      const at = path.lastIndexOf(marker);
+      const at = path.indexOf(marker);
       const id = at >= 0 ? path.slice(at + marker.length) : path.split("/").pop() || path;
       const heading = /^#\s+(.+)$/m.exec(body)?.[1]?.trim();
       const kind = id.endsWith(".md") ? "md" : "text";

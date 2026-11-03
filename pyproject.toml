@@ -49,7 +49,7 @@ docs = [
     "mkdocs-material",
     "mkdocstrings[python]",
     "pymdown-extensions",
-    # Absorbed Sphinx API configs (docs/stitching/sphinx, docs/cel/sphinx, docs/sphinx).
+    # Absorbed Sphinx API configs (docs/sphinx/stitching-conf.py, docs/sphinx/cel-conf.py, docs/sphinx).
     "furo>=2024.1.29",
     "myst-nb>=1.1",
     "sphinx>=7.3",
