@@ -11,6 +11,7 @@ a measured, equivalent win in at least one pipeline stage with a working fallbac
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -219,7 +220,7 @@ class TestNumbaAvailability:
         # Search for numba imports in production code
         result = subprocess.run(
             ["grep", "-r", "import numba", "middleware/src/", "backend/", "gui/src/"],
-            cwd="/home/pkhunter/Downloads/Data/Tests/gif-speed",
+            cwd=str(Path(__file__).resolve().parents[4]),
             capture_output=True,
             text=True,
         )
