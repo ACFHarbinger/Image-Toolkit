@@ -3,14 +3,20 @@
 Each allow-listed device with free VRAM gets its own session and batch size.
 A free device pulls the next unstarted frames (work stealing). Results may
 finish out of order; one writer thread emits the next frame index only.
-``gpu_overlap.run_device_pipeline`` replaces the per-batch scale+index calls
-when that module exists (lane B4). This module does not create it.
+The default lease is the process shared lease. An injected arbiter stays
+the test and caller path. A CUDA out-of-memory on one card frees that
+session's cache, halves its batch (floor 1), and retries the same frames
+on that card. The card is retired only after a second failure at batch
+size 1; the finish note records the shrink. Scale and index stay fused on
+the device. The copy/compute overlap module was removed after a few-frame
+timing: the fused call already dwarfs the copies, and that module
+round-tripped scaled RGBA. Concurrency is the decode thread, one thread
+per card, and the writer thread.
 """
 
 from __future__ import annotations
 
 import contextlib
-import os
 import threading
 import time
 import uuid
@@ -21,17 +27,12 @@ from typing import Any
 
 import numpy as np
 
-from middleware.src.core.gpu_lease_arbiter import (
-    GpuLeaseArbiter,
-    cuda_device_table,
-    profile_from_env,
-)
+from middleware.src.core.gpu_lease_arbiter import GpuLeaseArbiter, cuda_device_table
 from middleware.src.services.media.gif_upscale.base import AlgorithmError, ResampleCancelled
 from middleware.src.services.media.gif_upscale.classical._resize import _LANCZOS_DERING
-from middleware.src.services.media.gif_upscale.gpu_batch import acquire_gpu_session
+from middleware.src.services.media.gif_upscale.gpu_batch import acquire_gpu_session, resolve_gif_arbiter
 
 _HOLD_BATCHES = 8
-_DEVICES_ENV = "IMAGE_TOOLKIT_GPU_DEVICES"
 CpuFallback = Callable[[Sequence[Any], str], Any]
 
 
@@ -76,13 +77,42 @@ def _batch_size_of(session: Any) -> int:
     return max(1, size)
 
 
-def _overlap_pipeline() -> Callable[..., Any] | None:
-    """B4 seam. Missing module means call the session scale and index methods."""
-    try:
-        from middleware.src.services.media.gif_upscale.gpu_overlap import run_device_pipeline
-    except ImportError:
-        return None
-    return run_device_pipeline
+def _is_cuda_oom(exc: BaseException) -> bool:
+    """True for ``torch.cuda.OutOfMemoryError`` and a test double of that name."""
+    return type(exc).__name__ == "OutOfMemoryError"
+
+
+def _free_session_cache(session: Any) -> None:
+    release = getattr(session, "release_cached_memory", None)
+    if not callable(release):
+        return
+    with contextlib.suppress(Exception):
+        release()
+
+
+def _split_job(job: _Job, count: int) -> tuple[_Job, _Job | None]:
+    count = max(1, int(count))
+    if len(job.frames) <= count:
+        return job, None
+    head = _Job(
+        job.start,
+        list(job.frames[:count]),
+        list(job.durations[:count]),
+        job.retries,
+        job.device_index,
+        job.scale_s,
+        job.index_s,
+    )
+    tail = _Job(
+        job.start + count,
+        list(job.frames[count:]),
+        list(job.durations[count:]),
+        job.retries,
+        -1,
+        0.0,
+        0.0,
+    )
+    return head, tail
 
 
 def _params_of(opts: dict[str, Any]) -> dict[str, Any]:
@@ -104,30 +134,28 @@ def _pinned_index(params: dict[str, Any]) -> int | None | str:
 
 
 def _allow_set(arbiter: GpuLeaseArbiter) -> set[int] | None:
-    configured = getattr(arbiter, "_allow_devices", None)
-    if configured is not None:
-        return {int(index) for index in configured}
-    raw = os.environ.get(_DEVICES_ENV)
-    if raw is None:
+    configured = arbiter.allow_indexes()
+    if configured is None:
         return None
-    indexes: set[int] = set()
-    for part in raw.split(","):
-        piece = part.strip()
-        if not piece.isdigit():
-            return set()
-        indexes.add(int(piece))
-    return indexes
+    if isinstance(configured, str):
+        return set()
+    return {int(index) for index in configured}
 
 
-def _candidate_indexes(arbiter: GpuLeaseArbiter) -> list[int] | None:
-    slots = getattr(arbiter, "_slots", None)
-    if not slots:
+def _candidate_indexes(arbiter: GpuLeaseArbiter, opts: dict[str, Any]) -> list[int] | None:
+    indexes = arbiter.device_indexes()
+    if not indexes:
         return None
     allow = _allow_set(arbiter)
-    indexes = [int(slot.index) for slot in slots]
-    if allow is None:
-        return indexes
-    return [index for index in indexes if index in allow]
+    chosen = list(indexes) if allow is None else [index for index in indexes if index in allow]
+    raw = _params_of(opts).get("allow_devices")
+    if isinstance(raw, (list, tuple)) and raw:
+        try:
+            wanted = {int(index) for index in raw}
+        except (TypeError, ValueError):
+            return []
+        chosen = [index for index in chosen if index in wanted]
+    return chosen
 
 
 def _visible_device_table() -> tuple[dict[str, float | int], ...] | None:
@@ -146,19 +174,32 @@ def _visible_device_table() -> tuple[dict[str, float | int], ...] | None:
     return table or None
 
 
+def _remember_standalone(opts: dict[str, Any], source: str) -> None:
+    opts["_gpu_lease"] = source
+    if source != "standalone":
+        return
+    note = "Shared GPU lease is unavailable; using a standalone lease"
+    previous = opts.get("_gpu_fallback")
+    opts["_gpu_fallback"] = f"{previous}; {note}" if isinstance(previous, str) and previous else note
+
+
 def _arbiter_for(opts: dict[str, Any], arbiter: GpuLeaseArbiter | None) -> GpuLeaseArbiter | None:
     if isinstance(arbiter, GpuLeaseArbiter):
+        opts.setdefault("_gpu_lease", "explicit")
         return arbiter
     params = _params_of(opts)
     named = params.get("gpu_arbiter")
     if isinstance(named, GpuLeaseArbiter):
+        opts.setdefault("_gpu_lease", "explicit")
         return named
     table = _visible_device_table()
     if not table:
         return None
     allow = params.get("allow_devices")
-    allow_tuple = tuple(int(index) for index in allow) if isinstance(allow, (list, tuple)) else None
-    return GpuLeaseArbiter(profile=profile_from_env(), devices=table, allow_devices=allow_tuple)
+    allow_tuple = tuple(int(index) for index in allow) if isinstance(allow, (list, tuple)) and allow else None
+    resolved, source = resolve_gif_arbiter(table, allow_devices=allow_tuple)
+    _remember_standalone(opts, source)
+    return resolved
 
 
 def _one_session(
@@ -304,7 +345,7 @@ def acquire_gpu_sessions(
         return _lease_each(indexes=[pinned], **lease)
     if not isinstance(active, GpuLeaseArbiter):
         return _one_session(**lease)
-    indexes = _candidate_indexes(active)
+    indexes = _candidate_indexes(active, opts)
     if not indexes or len(indexes) == 1:
         return _one_session(**lease)
     return _lease_each(indexes=indexes, **lease)
@@ -367,6 +408,8 @@ class _FrameScheduler:
         self._hold = 0
         self._pulling = False
         self._retry: deque[_Job] = deque()
+        self._local_retry: dict[int, deque[_Job]] = {}
+        self._oom_strikes: dict[int, int] = {}
         self._pending: dict[int, tuple[_Job, Any]] = {}
         self._decoded: deque[tuple[Any, int]] = deque()
         self._decode_done = self._random
@@ -491,37 +534,116 @@ class _FrameScheduler:
 
     def _worker_loop(self, session: Any) -> None:
         while not self._stop.is_set():
-            job = self._pull(_batch_size_of(session))
+            job = self._take_local_retry(session)
+            from_local = job is not None
+            if job is None:
+                job = self._pull(_batch_size_of(session))
             if job is None:
                 return
+            # A retry queued before the last shrink can be larger than the limit
+            # this card will actually run. Split it before execute, or a 2-frame
+            # tail is counted as a batch-size-1 failure and the card is retired.
+            job = self._fit_batch_limit(session, job, local=from_local)
             try:
                 payload, scale_s, index_s = self._execute(session, job.frames)
             except ResampleCancelled:
                 raise
             except Exception as exc:
+                if self._retry_oom(session, job, exc):
+                    continue
                 self._fail_device(session, job, exc)
                 return
+            self._oom_strikes[id(session)] = 0
             job.device_index = int(session.device_index)
             job.scale_s += scale_s
             job.index_s += index_s
             self._submit(job, payload)
 
+    def _fit_batch_limit(self, session: Any, job: _Job, *, local: bool) -> _Job:
+        head, tail = _split_job(job, _batch_size_of(session))
+        if tail is None:
+            return head
+        if local:
+            self._requeue_local(session, tail)
+            return head
+        with self._lock:
+            self._retry.appendleft(tail)
+            self._cv.notify_all()
+        return head
+
+    def _take_local_retry(self, session: Any) -> _Job | None:
+        with self._lock:
+            queue = self._local_retry.get(id(session))
+            if not queue:
+                return None
+            job = queue.popleft()
+            if not queue:
+                self._local_retry.pop(id(session), None)
+            return job
+
+    def _requeue_local(self, session: Any, job: _Job) -> None:
+        with self._lock:
+            queue = self._local_retry.setdefault(id(session), deque())
+            queue.appendleft(job)
+            self._cv.notify_all()
+
+    def _drain_local(self, session: Any) -> list[_Job]:
+        with self._lock:
+            queue = self._local_retry.pop(id(session), None)
+        if not queue:
+            return []
+        return list(queue)
+
+    def _retry_oom(self, session: Any, job: _Job, exc: Exception) -> bool:
+        """Shrink and retry on this card. False means the caller should retire it."""
+        if not _is_cuda_oom(exc):
+            return False
+        _free_session_cache(session)
+        label = _device_label(session)
+        size = _batch_size_of(session)
+        if size <= 1:
+            strikes = self._oom_strikes.get(id(session), 0) + 1
+            self._oom_strikes[id(session)] = strikes
+            if strikes >= 2:
+                self._note(f"{label} out of memory at batch size 1 again; retiring {label}")
+                return False
+            self._note(f"{label} out of memory at batch size 1; retrying the same batch on {label}")
+            self._requeue_local(session, job)
+            return True
+        new_size = max(1, size // 2)
+        session.batch_size = new_size
+        self._oom_strikes[id(session)] = 0
+        head, tail = _split_job(job, new_size)
+        self._note(f"{label} out of memory; batch size halved from {size} to {new_size} and retried on {label}")
+        if tail is not None:
+            self._requeue_local(session, tail)
+        self._requeue_local(session, head)
+        return True
+
     def _fail_device(self, session: Any, job: _Job, exc: Exception) -> None:
+        stranded = self._drain_local(session)
         others = self._retire(session)
         label = _device_label(session)
         if job.retries < 1 and others:
             job.retries += 1
             self._note(f"{label} failed ({exc}); batch retried on another device")
             with self._lock:
+                for extra in reversed(stranded):
+                    self._retry.appendleft(extra)
                 self._retry.appendleft(job)
                 self._cv.notify_all()
             return
         self._note(f"{label} failed ({exc}); batch retried on CPU")
         self._cpu_job(job)
+        for extra in stranded:
+            self._note(f"frames {extra.start} retried on CPU")
+            self._cpu_job(extra)
         if not others:
             self._drain_cpu()
 
     def _retire(self, session: Any) -> list[Any]:
+        with contextlib.suppress(Exception):
+            session.retired = True
         _safe_close(session)
         with self._lock:
             self._alive.pop(id(session), None)
@@ -557,21 +679,11 @@ class _FrameScheduler:
         if self._op == "index":
             started = time.perf_counter()
             return session.index_batch_uint8(frames), 0.0, time.perf_counter() - started
-        # Keep scaled pixels on-device; the legacy overlap adapter round-trips RGBA.
+        # Keep scaled pixels on the device. A session without the fused call
+        # (the test doubles) scales, then indexes.
         fused = getattr(session, "scale_and_index_batch", None)
         if callable(fused):
             return fused(frames)
-        runner = _overlap_pipeline()
-        if runner is not None:
-            # B4 takes (batch_id, frames) pairs and returns (batch_id, indices).
-            # One scheduler batch is one overlapped unit. Time is not split.
-            started = time.perf_counter()
-            results = runner(session, [(0, frames)])
-            elapsed = time.perf_counter() - started
-            if len(results) != 1:
-                raise AlgorithmError("GPU overlap returned an unexpected batch count.")
-            _batch_id, indices = results[0]
-            return indices, elapsed, 0.0
         started = time.perf_counter()
         scaled = session.scale_batch_uint8(frames)
         scale_s = time.perf_counter() - started

@@ -83,7 +83,6 @@ def _resample_gif_in_memory_gpu(
     progress: Any,
 ) -> dict[str, Any] | None:
     """Run in-memory GIF scale + on-device dither and palette lookup on GPU when available."""
-    from middleware.src.services.media.gif_upscale.encode import IndexedGifWriter, _shared_palette
     from middleware.src.services.media.gif_upscale.gpu_schedule import acquire_gpu_sessions
 
     source_height, source_width = clip.frames[0].shape[:2]
@@ -100,7 +99,7 @@ def _resample_gif_in_memory_gpu(
         opts=opts,
         algorithm_id=algorithm_id,
     )
-    if len(sessions) > 1:
+    if sessions:
         try:
             return _resample_gif_in_memory_scheduled(
                 clip,
@@ -119,71 +118,9 @@ def _resample_gif_in_memory_gpu(
         finally:
             for session in sessions:
                 session.close()
-    gpu_session = sessions[0] if sessions else None
-    if gpu_session is None:
-        if fallback_reason:
-            params["_gpu_fallback"] = fallback_reason
-        return None
-    try:
-        total = len(clip.frames)
-        scaled_u8: list[np.ndarray] = []
-        _report(progress, "scale", 0, total)
-        started = time.perf_counter()
-        step = max(1, gpu_session.batch_size)
-        for start in range(0, total, step):
-            batch = clip.frames[start : start + step]
-            scaled_batch = gpu_session.scale_batch_uint8(batch)
-            for offset, item in enumerate(scaled_batch, start=1):
-                scaled_u8.append(item)
-                _report(progress, "scale", start + offset, total)
-        _tick(timings, "scale", started)
-
-        transparent = any(int(frame[:, :, 3].min()) < 128 for frame in scaled_u8)
-        colors = 255 if transparent else 256
-        dither = str(params.get("dither") or "ordered")
-        quality = str(params.get("quality") or "balanced")
-        started = time.perf_counter()
-        palette = _shared_palette(scaled_u8, colors, _palette_mode(params))
-        _tick(timings, "palette", started)
-        if transparent:
-            palette = np.vstack([np.zeros((1, 3), dtype=np.float32), palette])
-        gpu_session.prepare_palette(palette, transparent=transparent, dither=dither, quality=quality)
-
-        _report(progress, "encode", 0, 1)
-        writer = IndexedGifWriter(
-            output_path, width, height, palette, clip.loop, transparent=transparent, workers=_workers(params)
-        )
-        cancelled = False
-        try:
-            for start in range(0, total, step):
-                batch_u8 = scaled_u8[start : start + step]
-                t_idx = time.perf_counter()
-                indices_batch = gpu_session.index_batch_uint8(batch_u8)
-                _tick(timings, "index", t_idx)
-                for offset in range(indices_batch.shape[0]):
-                    frame_pos = start + offset
-                    _report(progress, "encode", frame_pos, total)
-                    t_lzw = time.perf_counter()
-                    writer.add_frame(indices_batch[offset], clip.durations[frame_pos])
-                    _tick(timings, "lzw", t_lzw)
-        except ResampleCancelled:
-            cancelled = True
-            raise
-        finally:
-            writer.close()
-            if cancelled:
-                Path(output_path).unlink(missing_ok=True)
-        _report(progress, "encode", 1, 1)
-    finally:
-        gpu_session.close()
-    return _gif_success(
-        width,
-        height,
-        output_path,
-        "temporal",
-        timings,
-        _path_record(opts, algorithm_id, "temporal"),
-    )
+    if fallback_reason:
+        params["_gpu_fallback"] = fallback_reason
+    return None
 
 
 def resample_still(input_path: str, output_path: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -255,7 +192,7 @@ def _resample_gif_stream(
         opts=opts,
         algorithm_id=algorithm_id,
     )
-    if len(sessions) > 1:
+    if sessions:
         try:
             return _resample_gif_stream_scheduled(
                 input_path,
@@ -274,118 +211,64 @@ def _resample_gif_stream(
         finally:
             for session in sessions:
                 session.close()
-    gpu_session = sessions[0] if sessions else None
+    samples, count, loop = _palette_samples(
+        input_path,
+        registered,
+        scale,
+        opts,
+        algorithm_id,
+        timings,
+        progress,
+        workers=_workers(params),
+    )
+    transparent = True
+    colors = 255 if transparent else 256
+    palette_mode = _palette_mode(params)
+    dither = str(params.get("dither") or "ordered")
+    quality = str(params.get("quality") or "balanced")
+    _report(progress, "palette", 0, 1)
+    started = time.perf_counter()
+    palette = _shared_palette(samples, colors, palette_mode)
+    _tick(timings, "palette", started)
+    if transparent:
+        palette = np.vstack([np.zeros((1, 3), dtype=np.float32), palette])
+    del samples
+    writer = IndexedGifWriter(
+        output_path, width, height, palette, loop, transparent=transparent, workers=_workers(params)
+    )
+    cancelled = False
+    decoded = None
     try:
-        samples, count, loop = _palette_samples(
-            input_path,
-            registered,
-            scale,
-            opts,
-            algorithm_id,
-            timings,
-            progress,
-            gpu_session=gpu_session,
-            workers=_workers(params),
-        )
-        transparent = True
-        colors = 255 if transparent else 256
-        palette_mode = _palette_mode(params)
-        dither = str(params.get("dither") or "ordered")
-        quality = str(params.get("quality") or "balanced")
-        _report(progress, "palette", 0, 1)
-        started = time.perf_counter()
-        palette = _shared_palette(samples, colors, palette_mode)
-        _tick(timings, "palette", started)
-        if transparent:
-            palette = np.vstack([np.zeros((1, 3), dtype=np.float32), palette])
-        del samples
-        if gpu_session is not None:
-            try:
-                gpu_session.prepare_palette(palette, transparent=transparent, dither=dither, quality=quality)
-            except Exception as exc:
-                gpu_session.close()
-                gpu_session = None
-                opts["_device"] = "cpu"
-                opts["_gpu_fallback"] = f"GPU palette init failed ({exc}); fell back to CPU"
-        writer = IndexedGifWriter(
-            output_path, width, height, palette, loop, transparent=transparent, workers=_workers(params)
-        )
-        cancelled = False
-        decoded = None
-        try:
-            _report(progress, "scale_encode", 0, count)
-            pending: list[tuple[int, np.ndarray, int]] = []
-            decoded = _frame_iter(input_path, params)
-            for seen, (frame, duration, _frame_loop) in enumerate(_timed_frames(decoded, timings), start=1):
-                if gpu_session is not None:
-                    pending.append((seen, frame, duration))
-                    if len(pending) >= gpu_session.batch_size:
-                        gpu_session = _flush_stream_batch(
-                            pending,
-                            gpu_session,
-                            registered,
-                            float(scale),
-                            opts,
-                            algorithm_id,
-                            palette,
-                            transparent,
-                            dither,
-                            quality,
-                            writer,
-                            timings,
-                            progress,
-                            count,
-                        )
-                        pending.clear()
-                else:
-                    _write_cpu_stream_frame(
-                        seen,
-                        frame,
-                        duration,
-                        registered,
-                        float(scale),
-                        opts,
-                        algorithm_id,
-                        palette,
-                        transparent,
-                        dither,
-                        quality,
-                        writer,
-                        timings,
-                        progress,
-                        count,
-                        index_frame,
-                    )
-            if pending:
-                gpu_session = _flush_stream_batch(
-                    pending,
-                    gpu_session,
-                    registered,
-                    float(scale),
-                    opts,
-                    algorithm_id,
-                    palette,
-                    transparent,
-                    dither,
-                    quality,
-                    writer,
-                    timings,
-                    progress,
-                    count,
-                )
-                pending.clear()
-        except ResampleCancelled:
-            cancelled = True
-            raise
-        finally:
-            if decoded is not None:
-                decoded.close()  # stops the decode pool on cancel or error
-            writer.close()
-            if cancelled:
-                Path(output_path).unlink(missing_ok=True)
+        _report(progress, "scale_encode", 0, count)
+        decoded = _frame_iter(input_path, params)
+        for seen, (frame, duration, _frame_loop) in enumerate(_timed_frames(decoded, timings), start=1):
+            _write_cpu_stream_frame(
+                seen,
+                frame,
+                duration,
+                registered,
+                float(scale),
+                opts,
+                algorithm_id,
+                palette,
+                transparent,
+                dither,
+                quality,
+                writer,
+                timings,
+                progress,
+                count,
+                index_frame,
+            )
+    except ResampleCancelled:
+        cancelled = True
+        raise
     finally:
-        if gpu_session is not None:
-            gpu_session.close()
+        if decoded is not None:
+            decoded.close()  # stops the decode pool on cancel or error
+        writer.close()
+        if cancelled:
+            Path(output_path).unlink(missing_ok=True)
     _report(progress, "encode", 1, 1)
     return _gif_success(
         width,
@@ -640,64 +523,6 @@ def _write_cpu_stream_frame(
     _report(progress, "scale_encode", seen, count)
 
 
-def _flush_stream_batch(
-    pending: list[tuple[int, np.ndarray, int]],
-    gpu_session: Any,
-    registered: Any,
-    scale: float,
-    opts: dict[str, Any],
-    algorithm_id: str,
-    palette: np.ndarray,
-    transparent: bool,
-    dither: str,
-    quality: str,
-    writer: Any,
-    timings: dict[str, float],
-    progress: Any,
-    count: int,
-) -> Any:
-    from middleware.src.services.media.gif_upscale.encode import index_frame
-
-    if gpu_session is not None:
-        try:
-            indices_batch, scale_s, index_s = gpu_session.scale_and_index_batch([item[1] for item in pending])
-            timings["scale"] += scale_s
-            timings["index"] += index_s
-            for idx_pos, (seen, _frame, duration) in enumerate(pending):
-                started = time.perf_counter()
-                writer.add_frame(indices_batch[idx_pos], duration)
-                _tick(timings, "lzw", started)
-                _report(progress, "scale_encode", seen, count)
-            return gpu_session
-        except ResampleCancelled:
-            raise
-        except Exception as exc:
-            gpu_session.close()
-            gpu_session = None
-            opts["_device"] = "cpu"
-            opts["_gpu_fallback"] = f"GPU batch failed ({exc}); fell back to CPU"
-    for seen, frame, duration in pending:
-        _write_cpu_stream_frame(
-            seen,
-            frame,
-            duration,
-            registered,
-            scale,
-            opts,
-            algorithm_id,
-            palette,
-            transparent,
-            dither,
-            quality,
-            writer,
-            timings,
-            progress,
-            count,
-            index_frame,
-        )
-    return None
-
-
 def _first_size(input_path: str) -> tuple[int, int]:
     from PIL import Image
 
@@ -884,12 +709,16 @@ def _path_record(opts: dict[str, Any], algorithm_id: str, palette_mode: str) -> 
     kernel = opts.get("_scale_path")
     if not isinstance(kernel, str) or not kernel:
         kernel = algorithm_id
-    return {
+    record = {
         "device": _device_note(opts),
         "kernel": kernel,
         "palette_mode": palette_mode,
         "delta_mode": "off",
     }
+    lease = opts.get("_gpu_lease")
+    if isinstance(lease, str) and lease.strip():
+        record["lease"] = lease.strip()
+    return record
 
 
 def _finish_message(
@@ -903,6 +732,9 @@ def _finish_message(
     route = (
         f"device={path['device']}, kernel={path['kernel']}, palette={path['palette_mode']}, delta={path['delta_mode']}"
     )
+    lease = path.get("lease")
+    if lease:
+        route = f"{route}, lease={lease}"
     if fallback_note:
         route = f"{route}, fallback={fallback_note}"
     stages = ", ".join(f"{stage} {timings[stage]:.3f}s" for stage in _TIMING_STAGES)

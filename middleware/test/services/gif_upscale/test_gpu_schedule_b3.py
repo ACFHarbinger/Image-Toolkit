@@ -223,34 +223,32 @@ def test_streaming_source_writes_frames_in_order() -> None:
     assert writer.frames == [0, 1, 2, 3, 4]
 
 
-def test_overlap_runner_replaces_session_scale_and_index(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_session_without_fused_scales_then_indexes() -> None:
+    """The overlap module is gone. A session without the fused call scales, then indexes."""
+    import middleware.src.services.media.gif_upscale.gpu_schedule as schedule
+
     global _BARRIER
     _BARRIER = None
-    called: list[int] = []
-
-    def run_device_pipeline(session: _Session, batches, **_kwargs: object) -> list[tuple[int, np.ndarray]]:
-        called.append(session.device_index)
-        batch_id, frames = batches[0]
-        ids = [int(frame.reshape(-1)[0]) for frame in frames]
-        session.batches.append(ids)
-        indices = np.stack([np.full((1, 1), frame_id, dtype=np.uint8) for frame_id in ids])
-        return [(batch_id, indices)]
-
-    monkeypatch.setattr(
-        "middleware.src.services.media.gif_upscale.gpu_schedule._overlap_pipeline",
-        lambda: run_device_pipeline,
-    )
+    assert not hasattr(schedule, "_overlap_pipeline")
+    with pytest.raises(ModuleNotFoundError):
+        import middleware.src.services.media.gif_upscale.gpu_overlap  # noqa: F401
+    order: list[str] = []
     only = _Session(0)
 
-    def forbid_scale(frames: list[np.ndarray]) -> list[np.ndarray]:
-        del frames
-        raise AssertionError("scale_batch_uint8 should not run when overlap is present")
+    def scale(frames: list[np.ndarray]) -> list[np.ndarray]:
+        order.append("scale")
+        return _Session.scale_batch_uint8(only, frames)
 
-    only.scale_batch_uint8 = forbid_scale  # type: ignore[method-assign]
+    def index(frames: list[np.ndarray]) -> np.ndarray:
+        order.append("index")
+        return _Session.index_batch_uint8(only, frames)
+
+    only.scale_batch_uint8 = scale  # type: ignore[method-assign]
+    only.index_batch_uint8 = index  # type: ignore[method-assign]
     writer = _Writer()
     schedule_gif_frames([only], _frames(2), [40, 40], writer)
     assert writer.frames == [0, 1]
-    assert called == [0]
+    assert order == ["scale", "index"]
 
 
 def test_fused_scale_index_keeps_intermediate_on_device():
