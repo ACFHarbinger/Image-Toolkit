@@ -85,7 +85,7 @@ def _load_package(alias: str, src_dir: Path) -> None:
     spec.loader.exec_module(module)
 
 
-_load_package("asp_backend", Path(__file__).resolve().parents[1] / "src")
+_load_package("asp_backend", Path(__file__).resolve().parents[2] / "src" / "stitching")
 _load_package("asp_backend_benchmark", Path(__file__).resolve().parent)
 
 from asp_backend.alignment.bundle_adjust import _bundle_adjust_affine  # noqa: E402

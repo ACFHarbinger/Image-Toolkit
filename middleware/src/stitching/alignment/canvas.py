@@ -238,6 +238,27 @@ def _reuse_simple_stitch(output_path: str) -> Image.Image | None:
     return None
 
 
+def _scan_stitch_attempts(n: int) -> list[tuple[str, list[int], int, float]]:
+    """The fallback's retry ladder as (name, frame indices, mode, registration
+    resolution). Shared with the OpenCV contrast harness so its baseline is
+    exactly the one the benchmark scores."""
+    if n < 2:
+        return []
+    every = list(range(n))
+    attempts: list[tuple[str, list[int], int, float]] = [
+        ("scans-0.8", every, 1, 0.8),
+        ("scans-0.4", every, 1, 0.4),
+    ]
+    if n > 8:
+        attempts.append(
+            ("scans-sub8", [int(i) for i in np.linspace(0, n - 1, 8, dtype=int)], 1, 0.6)
+        )
+    if n >= 3:
+        attempts.append(("scans-ends", [0, n // 2, n - 1], 1, 0.6))
+    attempts.append(("pano-0.6", every[: min(12, n)], 0, 0.6))
+    return attempts
+
+
 def _scan_stitch_fallback(
     frames: list[np.ndarray],
     output_path: str,
@@ -257,21 +278,10 @@ def _scan_stitch_fallback(
     """
     logger.info("[Stitch] FALLBACK: using OpenCV SCANS mode.")
     usable = [f for f in frames if isinstance(f, np.ndarray) and f.size > 0]
-    attempts: list[tuple[str, list[np.ndarray], int, float]] = []
-    if len(usable) >= 2:
-        attempts.append(("scans-0.8", usable, 1, 0.8))
-        attempts.append(("scans-0.4", usable, 1, 0.4))
-        if len(usable) > 8:
-            idx = np.linspace(0, len(usable) - 1, 8, dtype=int)
-            attempts.append(
-                ("scans-sub8", [usable[int(i)] for i in idx], 1, 0.6)
-            )
-        if len(usable) >= 3:
-            mid = len(usable) // 2
-            attempts.append(
-                ("scans-ends", [usable[0], usable[mid], usable[-1]], 1, 0.6)
-            )
-        attempts.append(("pano-0.6", usable[: min(12, len(usable))], 0, 0.6))
+    attempts = [
+        (name, [usable[i] for i in idx], mode, resol)
+        for name, idx, mode, resol in _scan_stitch_attempts(len(usable))
+    ]
 
     last_status = -1
     for name, fr, mode, resol in attempts:
