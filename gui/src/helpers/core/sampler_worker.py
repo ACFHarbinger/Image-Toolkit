@@ -15,6 +15,28 @@ from gui.src.helpers.core.config_types import SamplerConfig
 
 logger = logging.getLogger(__name__)
 
+
+def compute_resample_dims(config: Any, orig_w: int, orig_h: int) -> tuple[int, int]:
+    """Pixels the Sampler worker will request. Width-only and height-only keep aspect."""
+    scale_mode = config.get("scale_mode", "factor")
+    if scale_mode == "factor":
+        factor = float(config.get("scale_factor", 2.0))
+        return max(1, round(orig_w * factor)), max(1, round(orig_h * factor))
+    tw: Optional[int] = config.get("target_width")
+    th: Optional[int] = config.get("target_height")
+    preserve = config.get("preserve_aspect_ratio", True)
+    if tw and th:
+        if preserve:
+            ratio = min(tw / orig_w, th / orig_h)
+            return max(1, round(orig_w * ratio)), max(1, round(orig_h * ratio))
+        return tw, th
+    if tw:
+        return tw, max(1, round(orig_h * (tw / orig_w)))
+    if th:
+        return max(1, round(orig_w * (th / orig_h))), th
+    return orig_w, orig_h
+
+
 class SamplerWorker(BaseQThreadWorker):
     """Resample images, GIFs, and videos to new dimensions or a scale factor."""
 
@@ -191,31 +213,7 @@ class SamplerWorker(BaseQThreadWorker):
     # ------------------------------------------------------------------
 
     def _compute_dims(self, orig_w: int, orig_h: int) -> tuple[int, int]:
-        scale_mode = self.config.get("scale_mode", "factor")
-        if scale_mode == "factor":
-            factor = float(self.config.get("scale_factor", 2.0))
-            new_w = max(1, round(orig_w * factor))
-            new_h = max(1, round(orig_h * factor))
-        else:
-            tw: Optional[int] = self.config.get("target_width")
-            th: Optional[int] = self.config.get("target_height")
-            preserve = self.config.get("preserve_aspect_ratio", True)
-            if tw and th:
-                if preserve:
-                    ratio = min(tw / orig_w, th / orig_h)
-                    new_w = max(1, round(orig_w * ratio))
-                    new_h = max(1, round(orig_h * ratio))
-                else:
-                    new_w, new_h = tw, th
-            elif tw:
-                new_w = tw
-                new_h = max(1, round(orig_h * (tw / orig_w)))
-            elif th:
-                new_h = th
-                new_w = max(1, round(orig_w * (th / orig_h)))
-            else:
-                new_w, new_h = orig_w, orig_h
-        return new_w, new_h
+        return compute_resample_dims(self.config, orig_w, orig_h)
 
     # ------------------------------------------------------------------
     # Image resampling (Pillow)
@@ -223,12 +221,16 @@ class SamplerWorker(BaseQThreadWorker):
 
     def _registry_params(self, orig_w: int, orig_h: int) -> dict:
         new_w, new_h = self._compute_dims(orig_w, orig_h)
-        return {
+        params = {
             "mode": "dimensions",
             "width": new_w,
             "height": new_h,
             "algorithm": str(self.config.get("algorithm") or "lanczos").lower(),
         }
+        workers = self.config.get("workers")
+        if isinstance(workers, int) and workers >= 1:
+            params["workers"] = workers
+        return params
 
     def _resample_image(self, in_path: str, out_path: str, src_ext: str, progress) -> bool:
         from middleware.src.services.media.gif_upscale.pipeline import resample_still

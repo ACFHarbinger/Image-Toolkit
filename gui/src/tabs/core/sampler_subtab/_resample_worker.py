@@ -2,12 +2,50 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QCoreApplication, Qt, QTimer, Slot
-from PySide6.QtWidgets import QMessageBox
+from typing import Any
+
+from PySide6.QtCore import QCoreApplication, QObject, Qt, QThread, QTimer, Signal, Slot
+from PySide6.QtWidgets import QDialog, QMessageBox
 
 from ....helpers import SamplerWorker
 from ....theming.theme_api import qss
+from . import no_gpu_window as no_gpu_mod
 from ._tab_bound import TabBoundController
+
+
+class _GifPreflightThread(QThread):
+    """Runs the GIF estimate off the GUI thread and returns a plan."""
+
+    decided = Signal(object)
+
+    def __init__(self, config: dict[str, Any]) -> None:
+        super().__init__()
+        self._config = config
+
+    def run(self) -> None:
+        try:
+            decision = no_gpu_mod.plan_slow_gif(self._config)
+        except Exception as exc:
+            decision = no_gpu_mod.SlowGifPlan("fail", message=str(exc))
+        self.decided.emit(decision)
+
+
+class _PreflightDeliver(QObject):
+    """Lives on the GUI thread so the plan arrives through a queued signal."""
+
+    def __init__(self, controller: SamplerWorkerController, config: dict[str, Any], selection: bool) -> None:
+        super().__init__(QCoreApplication.instance())
+        self._controller = controller
+        self._config = config
+        self._selection = selection
+
+    @Slot(object)
+    def deliver(self, decision: object) -> None:
+        try:
+            self._controller._on_preflight(decision, self._config, self._selection)
+        finally:
+            self._controller._forget_preflight(self)
+            self.deleteLater()
 
 
 class SamplerWorkerController(TabBoundController):
@@ -46,11 +84,68 @@ class SamplerWorkerController(TabBoundController):
             self.status_label.setText("Cancelling…")  # pyrefly: ignore [missing-attribute]
             return
 
+        if self._preflight_busy():
+            return
         config = self._collect_config(use_selection)
         if not config["files_to_process"]:
             QMessageBox.warning(self.tab, "No Files", "No files to resample.")
             return
+        self.btn_all.setEnabled(False)
+        self.btn_selected.setEnabled(False)
+        self.status_label.setText("Estimating…")  # pyrefly: ignore [missing-attribute]
+        thread = _GifPreflightThread(config)
+        deliver = _PreflightDeliver(self, config, bool(use_selection))
+        thread.decided.connect(deliver.deliver, Qt.ConnectionType.QueuedConnection)
+        live = getattr(self, "_gif_preflight_live", None)
+        if live is None:
+            live = []
+            self._gif_preflight_live = live
+        live.append((thread, deliver))
+        thread.start()
 
+    def _preflight_busy(self) -> bool:
+        """True while an estimate thread is running or its plan is not handled yet."""
+        return bool(getattr(self, "_gif_preflight_live", None))
+
+    def _forget_preflight(self, deliver: _PreflightDeliver) -> None:
+        self._gif_preflight_live = [
+            pair for pair in list(getattr(self, "_gif_preflight_live", ()) or ()) if pair[1] is not deliver
+        ]
+
+    def _on_preflight(self, decision: object, config: dict[str, Any], selection: bool) -> None:
+        if not isinstance(decision, no_gpu_mod.SlowGifPlan):
+            self._release_after_preflight("Estimate failed")
+            return
+        if decision.action == "fail":
+            QMessageBox.critical(self.tab, "GIF estimate failed", decision.message or "Estimate failed")
+            self._release_after_preflight("Estimate failed")
+            return
+        if decision.action == "prompt":
+            dialog = no_gpu_mod.NoGpuWindow(
+                decision.estimate,
+                use_multicore=bool(config.get("use_multicore")),
+                source_name=decision.source_name,
+                parent=self.tab,
+            )
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                self._release_after_preflight("Cancelled")
+                return
+            no_gpu_mod.apply_no_gpu_choice(config, dialog.choice, decision.settings)
+        self._launch_resample(config, selection)
+
+    def _release_after_preflight(self, message: str) -> None:
+        """Re-enable the buttons. Does not retire a worker."""
+        self.btn_all.setEnabled(True)
+        self.btn_all.setText("Resample All in Directory")
+        self.btn_all.setStyleSheet(qss("shared_button"))
+        if hasattr(self, "on_selection_changed"):
+            self.on_selection_changed()
+        else:
+            self.btn_selected.setEnabled(True)
+        self.btn_selected.setStyleSheet(qss("shared_button"))
+        self.status_label.setText(message)  # pyrefly: ignore [missing-attribute]
+
+    def _launch_resample(self, config: dict[str, Any], use_selection: bool) -> None:
         self.worker = SamplerWorker(config)
         # Queued: these slots touch widgets and must not run inside run().
         queued = Qt.ConnectionType.QueuedConnection
