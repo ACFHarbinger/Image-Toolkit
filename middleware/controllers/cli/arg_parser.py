@@ -304,9 +304,9 @@ def add_stitch_args(parser):
     )
     parser.add_argument(
         "--renderer",
-        default="median",
-        choices=["median", "first", "blend"],
-        help="Render mode passed to AnimeStitchPipeline (default: median)",
+        default="seam",
+        choices=["seam", "median", "first", "blend"],
+        help="Render mode passed to AnimeStitchPipeline (default: seam)",
     )
     return parser
 

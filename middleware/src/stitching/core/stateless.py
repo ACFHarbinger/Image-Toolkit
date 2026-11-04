@@ -30,6 +30,31 @@ def _highpass(gray: np.ndarray, sigma: float = 3.0) -> np.ndarray:
     return hp
 
 
+def _dark_border_box(
+    arr: np.ndarray, pct: float = 0.35, abs_max: float | None = None
+) -> tuple[int, int, int, int]:
+    """(top, bot, left, right) after dropping dark edge rows/columns.
+
+    A row/column is dark when its mean is below ``pct`` of the median (and
+    below ``abs_max`` when given, so only near-black bars qualify).
+    """
+    h, w = arr.shape[:2]
+    if h < 8 or w < 8:
+        return 0, h, 0, w
+    gray = arr.mean(axis=2)
+    row_m = gray.mean(axis=1)
+    col_m = gray.mean(axis=0)
+    thr_r = max(float(np.median(row_m) or 1.0) * pct, 4.0)
+    thr_c = max(float(np.median(col_m) or 1.0) * pct, 4.0)
+    if abs_max is not None:
+        thr_r, thr_c = min(thr_r, abs_max), min(thr_c, abs_max)
+    rows = np.flatnonzero(row_m >= thr_r)
+    cols = np.flatnonzero(col_m >= thr_c)
+    if rows.size == 0 or cols.size == 0:
+        return 0, h, 0, w
+    return int(rows[0]), int(rows[-1]) + 1, int(cols[0]), int(cols[-1]) + 1
+
+
 def _trim_dark_border(arr: np.ndarray, pct: float = 0.35) -> np.ndarray:
     """
     Remove broadcast-safe dark bars (common in anime BDs cropped for TV).
@@ -37,34 +62,8 @@ def _trim_dark_border(arr: np.ndarray, pct: float = 0.35) -> np.ndarray:
     Uses a higher default threshold (0.35) so that letterbox bars and dim
     player-chrome rows are removed while keeping actual scene content.
     """
-    if arr.shape[0] < 8 or arr.shape[1] < 8:
-        return arr
-    gray = arr.mean(axis=2)
-    row_m = gray.mean(axis=1)
-    col_m = gray.mean(axis=0)
-    med_r = float(np.median(row_m)) or 1.0
-    med_c = float(np.median(col_m)) or 1.0
-    thr_r = max(med_r * pct, 4.0)
-    thr_c = max(med_c * pct, 4.0)
-
-    top = next((y for y in range(len(row_m)) if row_m[y] >= thr_r), 0)
-    bot = (
-        next(
-            (y for y in range(len(row_m) - 1, -1, -1) if row_m[y] >= thr_r),
-            len(row_m) - 1,
-        )
-        + 1
-    )
-    left = next((x for x in range(len(col_m)) if col_m[x] >= thr_c), 0)
-    right = (
-        next(
-            (x for x in range(len(col_m) - 1, -1, -1) if col_m[x] >= thr_c),
-            len(col_m) - 1,
-        )
-        + 1
-    )
-
-    trimmed = arr[top:bot, left:right]
+    t, b, left, r = _dark_border_box(arr, pct)
+    trimmed = arr[t:b, left:r]
     return trimmed if trimmed.size > 0 else arr
 
 
@@ -303,6 +302,7 @@ def _largest_valid_rect(mask: np.ndarray) -> tuple[int, int, int, int]:
 __all__ = [
     "_luma",
     "_highpass",
+    "_dark_border_box",
     "_trim_dark_border",
     "_laplacian_blend",
     "_seam_dp",

@@ -1001,8 +1001,18 @@ class _RunStageMixin(_Base):
         # blurs in proportion to overlap inconsistency across frames.  Switching
         # to 'first' (first-frame-wins per canvas pixel) avoids cross-frame
         # averaging at boundary zones and matches what SCANS naturally produces.
-        effective_renderer = self.renderer
-        if self.renderer == "median" and N >= 3:
+        # ASP_RENDERER overrides the constructor (e.g. "seam": graph-cut seams +
+        # multiband, the SCANS composer; it replaces Stage 11 as well).
+        effective_renderer = os.environ.get("ASP_RENDERER", "").strip() or self.renderer
+        _render_frames = frames
+        if effective_renderer == "seam" and os.environ.get("ASP_SEAM_INPUT", "raw") == "raw":
+            # SCANS composes uncorrected frames; BaSiC/BG photometric cast halos.
+            _sf = scans_frames or _reload_scans_frames(image_paths)
+            if len(_sf) == N and all(
+                a.shape == b.shape for a, b in zip(_sf, frames, strict=True)
+            ):
+                _render_frames = _sf
+        if effective_renderer == "median" and N >= 3:
             _dy_steps = [
                 abs(float(affines[k][1, 2]) - float(affines[k - 1][1, 2]))
                 for k in range(1, N)
@@ -1017,7 +1027,7 @@ class _RunStageMixin(_Base):
                 )
 
         canvas, valid_mask, warped_corr, warped_fgs = _render(
-            frames,
+            _render_frames,
             affines,
             bg_masks,
             canvas_h,
@@ -1084,7 +1094,8 @@ class _RunStageMixin(_Base):
         )
 
         # ── Stage 11: Foreground composite ──────────────────────────────────
-        if self.composite_fg and self.use_birefnet:
+        # Seams already give each region one owner frame; no FG overlay.
+        if self.composite_fg and self.use_birefnet and effective_renderer != "seam":
             _seam_meta: dict = {}
             canvas = _composite_foreground(
                 [],

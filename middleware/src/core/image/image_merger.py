@@ -79,6 +79,7 @@ class ImageMerger(
         use_loftr     : enable LoFTR feature matching (falls back to template if False).
         use_ecc       : enable pyramid ECC sub-pixel refinement.
         renderer      : 'blend'  (sequential Laplacian seam, robust) |
+                        'seam' (graph-cut + multiband, default) |
                         'median' (Overmix temporal denoising) |
                         'first'  (fast, no blending).
         composite_fg  : re-paste the foreground character on the background.
@@ -100,7 +101,7 @@ class ImageMerger(
             "use_basic": kwargs.get("use_basic", False),
             "use_loftr": kwargs.get("use_loftr", True),
             "use_ecc": kwargs.get("use_ecc", False),
-            "renderer": kwargs.get("renderer", "median"),
+            "renderer": kwargs.get("renderer", "seam"),
             "composite_fg": kwargs.get("composite_fg", True),
             "motion_model": kwargs.get("motion_model", "translation"),
             "edge_crop": kwargs.get("edge_crop", 80),

@@ -7,6 +7,7 @@ import numpy as np
 from .first import _render_first
 from .laplacian import _render_laplacian
 from .median import _render_median
+from .seam import _render_seam
 
 
 def _render(
@@ -30,6 +31,9 @@ def _render(
             _baselines=baselines,
             confidence_weights=confidence_weights,
         )
+    elif renderer == "seam":
+        c, v = _render_seam(frames, affines, canvas_h, canvas_w)
+        return c, v, [], []
     elif renderer == "first":
         c, v = _render_first(frames, affines, canvas_h, canvas_w)
         return c, v, [], []

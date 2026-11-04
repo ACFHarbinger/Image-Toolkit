@@ -49,7 +49,9 @@ class AnimeStitchPipeline(
     use_birefnet : enable BiRefNet foreground masking (character exclusion).
     use_loftr    : enable LoFTR dense matching (falls back to template match if False).
     use_ecc      : enable ECC sub-pixel refinement after bundle adjustment.
-    renderer     : 'median' — temporal Overmix-style median (suppresses noise);
+    renderer     : 'seam'   — graph-cut seams + multiband blend on raw frames
+                   (OpenCV SCANS composer; default, replaces composite_fg);
+                   'median' — temporal Overmix-style median (suppresses noise);
                    'first'  — always use the first valid frame per canvas pixel;
                    'blend'  — sequential Laplacian blend (nearest to SCANS mode).
     composite_fg : paste the foreground character from the best single frame back
@@ -67,7 +69,7 @@ class AnimeStitchPipeline(
         use_roma: bool = True,
         use_sea_raft: bool = True,
         use_ecc: bool = True,
-        renderer: str = "median",  # 'median' | 'first' | 'blend'
+        renderer: str = "seam",  # 'seam' | 'median' | 'first' | 'blend'
         composite_fg: bool = True,
         laplacian_bands: int = LAPLACIAN_BANDS,
         edge_crop: int = 30,

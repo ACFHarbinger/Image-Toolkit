@@ -15,6 +15,7 @@ Split by role:
   _median_fastpath.py    -- _render_median's C++/GPU fast path (Phase 5e)
   median.py                -- _render_median: chunked Python path + orchestration
   first.py                  -- _render_first
+  seam.py                   -- _render_seam (graph-cut seams + multiband)
   laplacian.py              -- _render_laplacian
   dispatch.py                -- _render, the renderer-mode dispatcher
 """
@@ -26,6 +27,7 @@ from .dispatch import _render
 from .first import _render_first
 from .laplacian import _render_laplacian
 from .median import _render_median
+from .seam import _render_seam
 
 __all__ = [
     "_native",
@@ -33,6 +35,7 @@ __all__ = [
     "_render_median",
     "_render_first",
     "_render_laplacian",
+    "_render_seam",
     "_cluster_animation_phases",
     "_adaptive_render_gain_clamp",
     "_check_gain_chain_drift",

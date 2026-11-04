@@ -5,10 +5,15 @@ Canvas geometry, frame loading and normalization, and SCANS-mode fallback.
 from __future__ import annotations
 
 import logging
+import os
 
 import cv2
 import numpy as np
-from middleware.src.stitching.core.stateless import _largest_valid_rect, _trim_dark_border
+from middleware.src.stitching.core.stateless import (
+    _dark_border_box,
+    _largest_valid_rect,
+    _trim_dark_border,
+)
 from middleware.src.constants import CANVAS_MAX_DIM
 from middleware.src.errors import CanvasError
 from PIL import Image
@@ -28,17 +33,34 @@ except ImportError:
     _BATCH_CANVAS = False
 
 
+# Near-black ceiling for a letterbox bar in sequence mode (8-bit mean).
+_LETTERBOX_MAX = 24.0
+
+
 def _load_frames(paths: list[str]) -> list[np.ndarray]:
-    """Read frames from disk, trim broadcast dark borders, drop unreadables."""
-    frames = []
+    """Read frames from disk, trim broadcast dark borders, drop unreadables.
+
+    ``ASP_DARK_TRIM``: ``sequence`` (default) trims only near-black bars that
+    every frame shares (same box for all); ``frame`` (legacy) trims each frame
+    on its own, which also cuts dark scene content; ``off`` keeps frames whole.
+    """
+    imgs = []
     for p in paths:
         img = cv2.imread(p)
         if img is None:
             logger.warning(f"[Stitch] Warning: could not read '{p}' — skipping.")
             continue
-        img = _trim_dark_border(img)
-        frames.append(img)
-    return frames
+        imgs.append(img)
+    mode = os.environ.get("ASP_DARK_TRIM", "sequence").strip().lower()
+    if mode == "off" or not imgs:
+        return imgs
+    if mode == "sequence" and len({im.shape for im in imgs}) == 1:
+        boxes = np.array([_dark_border_box(im, abs_max=_LETTERBOX_MAX) for im in imgs])
+        t, b = int(boxes[:, 0].min()), int(boxes[:, 1].max())
+        left, r = int(boxes[:, 2].min()), int(boxes[:, 3].max())
+        if b > t and r > left:
+            return [np.ascontiguousarray(im[t:b, left:r]) for im in imgs]
+    return [_trim_dark_border(im) for im in imgs]
 
 
 def _normalise_widths(frames: list[np.ndarray]) -> list[np.ndarray]:
@@ -193,19 +215,87 @@ def _telea_fill_gaps(canvas: np.ndarray, gap_mask: np.ndarray) -> np.ndarray:
     )
 
 
-def _try_opencv_stitch(
-    frames: list[np.ndarray],
-    mode: int,
-    registration_resol: float,
-) -> tuple[int, np.ndarray | None]:
-    """One OpenCV Stitcher attempt. status 0 is OK."""
+# Status for a Stitcher attempt refused because its predicted canvas is too big.
+PANO_TOO_LARGE = -2
+
+
+def _predicted_pano_size(stitcher, frames: list[np.ndarray], mode: int) -> tuple[int, int]:
+    """Full-resolution (w, h) that ``composePanorama`` would allocate.
+
+    Call after ``estimateTransform``. Mirrors Stitcher's compose step at
+    ORIG_RESOL: median focal as warper scale, cameras rescaled from work
+    scale, union of the per-image warp ROIs.
+    """
+    cams = list(stitcher.cameras())
+    comp = [int(i) for i in np.asarray(stitcher.component()).ravel()]
+    if not cams or len(comp) != len(cams):
+        return 0, 0
+    aspect = 1.0 / max(float(stitcher.workScale()), 1e-9)
+    scale = float(np.median([c.focal for c in cams])) * aspect
+    warper = cv2.PyRotationWarper("affine" if mode == 1 else "spherical", scale)
+    x0 = y0 = np.inf
+    x1 = y1 = -np.inf
+    for cam, i in zip(cams, comp, strict=True):
+        f = cam.focal * aspect
+        K = np.array(
+            [[f, 0, cam.ppx * aspect], [0, f * cam.aspect, cam.ppy * aspect], [0, 0, 1]],
+            np.float32,
+        )
+        h, w = frames[i].shape[:2]
+        rx, ry, rw, rh = warper.warpRoi((w, h), K, np.asarray(cam.R, np.float32))
+        x0, y0 = min(x0, rx), min(y0, ry)
+        x1, y1 = max(x1, rx + rw), max(y1, ry + rh)
+    return int(x1 - x0), int(y1 - y0)
+
+
+def _pano_size_ok(size: tuple[int, int], frames: list[np.ndarray]) -> bool:
+    """Reject degenerate registrations before they allocate the canvas.
+
+    A real panorama of these frames is no larger than their summed area;
+    ``ASP_PANORAMA_MAX_AREA_RATIO`` (default 4) bounds the slack.
+    """
+    w, h = size
+    try:
+        ratio = float(os.environ.get("ASP_PANORAMA_MAX_AREA_RATIO", "4"))
+    except ValueError:
+        ratio = 4.0
+    total = sum(f.shape[0] * f.shape[1] for f in frames)
+    return 0 < w <= CANVAS_MAX_DIM and 0 < h <= CANVAS_MAX_DIM and w * h <= ratio * total
+
+
+def _guarded_stitcher(frames: list[np.ndarray], mode: int, registration_resol: float):
+    """Estimate a Stitcher and check its canvas size. Returns (status, stitcher)."""
     cv2.ocl.setUseOpenCL(False)
     try:
         stitcher = cv2.Stitcher_create(mode=mode)  # type: ignore[attr-defined]
     except AttributeError:
         stitcher = cv2.createStitcher(mode == 1)  # type: ignore[attr-defined]
     stitcher.setRegistrationResol(registration_resol)
-    status, pano = stitcher.stitch(frames)
+    status = int(stitcher.estimateTransform(frames))
+    if status != cv2.Stitcher_OK:
+        return status, None
+    size = _predicted_pano_size(stitcher, frames, mode)
+    if not _pano_size_ok(size, frames):
+        logger.warning(
+            "[Stitch]   OpenCV %s registration predicts a %dx%d canvas; refusing it.",
+            "SCANS" if mode == 1 else "PANORAMA",
+            *size,
+        )
+        return PANO_TOO_LARGE, None
+    return status, stitcher
+
+
+def _try_opencv_stitch(
+    frames: list[np.ndarray],
+    mode: int,
+    registration_resol: float,
+) -> tuple[int, np.ndarray | None]:
+    """One OpenCV Stitcher attempt. status 0 is OK; ``PANO_TOO_LARGE`` is
+    a registration whose canvas would exceed ``_pano_size_ok``."""
+    status, stitcher = _guarded_stitcher(frames, mode, registration_resol)
+    if stitcher is None:
+        return status, None
+    status, pano = stitcher.composePanorama()
     return int(status), pano if status == cv2.Stitcher_OK else None
 
 
@@ -321,6 +411,13 @@ def _panorama_stitch_fallback(
     through to the SCANS path.
     """
     logger.info("[Stitch] §1.3B: Trying PANORAMA stitcher before SCANS.")
+    # Native stitch() has no size check: a degenerate scroll registration
+    # asked for >60 GB on asp_test12. Preflight with the same defaults.
+    status, stitcher = _guarded_stitcher(frames, 0, 0.6)
+    if stitcher is None:
+        raise CanvasError(
+            f"PANORAMA stitcher failed (status={status}); caller should try SCANS."
+        )
 
     pano = None
     if _BATCH_CANVAS:
@@ -340,14 +437,8 @@ def _panorama_stitch_fallback(
             logger.debug(f"[Stitch] batch.canvas.panorama_stitch_fallback fallback: {_e}")
 
     if pano is None:
-        # Python fallback path
-        cv2.ocl.setUseOpenCL(False)
-        try:
-            stitcher = cv2.Stitcher_create(mode=0)  # type: ignore[attr-defined] # cv2-stub gap
-        except AttributeError:
-            stitcher = cv2.createStitcher(False)  # type: ignore[attr-defined] # cv2-stub gap
-        stitcher.setRegistrationResol(0.8)
-        status, pano = stitcher.stitch(frames)
+        # Python fallback path: compose the preflight registration.
+        status, pano = stitcher.composePanorama()
         if status != cv2.Stitcher_OK:
             raise CanvasError(
                 f"PANORAMA stitcher failed (status={status}); caller should try SCANS."

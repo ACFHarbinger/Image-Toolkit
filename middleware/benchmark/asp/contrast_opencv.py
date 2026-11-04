@@ -49,6 +49,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from middleware.src.stitching.alignment.canvas import (  # noqa: E402
     _largest_valid_rect,
+    _load_frames,
     _normalise_widths,
     _scan_stitch_attempts,
 )
@@ -537,8 +538,12 @@ def contrast(dataset_dir: str, out_dir: str, args) -> dict[str, Any]:
         key = "asp_geom+asp_comp" if asp["identity"] == "raw_asp" else f"asp published ({asp['identity']})"
         report["outputs"][key] = {"shape": list(img.shape[:2]), "gt_ssim": _gt_ssim(img, gt)}
     if affines:
-        idx = [names.index(n) for n in asp["kept_paths"]]
-        mixed = crop_valid(compose_opencv_style([frames[i] for i in idx], affines))
+        # ASP's poses were estimated on its own loaded frames (dark-border
+        # trim applied), so compose those, not the untrimmed harness frames.
+        # Load the full input set: ASP_DARK_TRIM=sequence picks its box from it.
+        asp_frames = _normalise_widths(_load_frames(paths))
+        kept = [asp_frames[names.index(n)] for n in asp["kept_paths"]]
+        mixed = crop_valid(compose_opencv_style(kept, affines))
         cv2.imwrite(os.path.join(out_dir, "asp_geom+cv_comp.png"), mixed)
         report["outputs"]["asp_geom+cv_comp"] = {"shape": list(mixed.shape[:2]), "gt_ssim": _gt_ssim(mixed, gt)}
         if fwd_cv is not None and cv.get("mode") == 1:  # PANORAMA cameras are not affine
