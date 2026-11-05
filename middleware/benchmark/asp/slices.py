@@ -192,9 +192,22 @@ CANONICAL_SLICES: dict[str, DevelopmentSlice] = {
 
 
 def get_slice(name: str) -> DevelopmentSlice:
-    """Retrieve a versioned slice by name or alias."""
+    """Retrieve a versioned slice by name or alias.
+
+    Canonical slices win. A user subset is consulted only on a miss. The
+    import is lazy because the library constructs ``DevelopmentSlice``, and
+    the class-name check accepts that slice when this file is also loaded
+    under a package alias (a second module object for the same class).
+    """
     key = name.strip().lower()
     if key not in CANONICAL_SLICES:
+        try:
+            from middleware.benchmark.asp.evaluation.other.case_library import user_slice
+        except ImportError:
+            user_slice = None
+        found = user_slice(name) if user_slice is not None else None
+        if isinstance(found, DevelopmentSlice) or type(found).__name__ == "DevelopmentSlice":
+            return found
         available = ", ".join(sorted(CANONICAL_SLICES.keys()))
         raise KeyError(f"Unknown benchmark slice {name!r}. Available: {available}")
     return CANONICAL_SLICES[key]
