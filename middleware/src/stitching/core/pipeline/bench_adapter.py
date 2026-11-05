@@ -36,8 +36,12 @@ def bench_legacy_enabled() -> bool:
 
 
 def bench_ungated_enabled() -> bool:
-    """#30: keep Raw ASP as the published result; still record Safe/SCANS."""
-    return os.environ.get("ASP_BENCH_UNGATED", "0") == "1"
+    """#30: keep Raw ASP as the published result; still record Safe/SCANS.
+
+    Default since 2026-11-05: the policy swapped OpenCV's whole output in for
+    ASP's, which hid what ASP produced. ASP_BENCH_UNGATED=0 restores it.
+    """
+    return os.environ.get("ASP_BENCH_UNGATED", "1") == "1"
 
 
 # Run-internal floors that can replace a would-be Raw ASP composite with
@@ -54,8 +58,13 @@ _UNGATED_RUN_ENV = {
 
 
 def apply_ungated_gate_env() -> dict[str, str]:
-    """Force run-internal ungated knobs. Returns the effective config."""
-    if not bench_ungated_enabled():
+    """Force run-internal ungated knobs. Returns the effective config.
+
+    Only for an explicit ASP_BENCH_UNGATED=1: since 2026-11-05 those
+    gates switch the renderer instead of returning SCANS, so the default
+    (ungated) run has nothing to force.
+    """
+    if os.environ.get("ASP_BENCH_UNGATED") != "1":
         return {}
     for key, value in _UNGATED_RUN_ENV.items():
         os.environ[key] = value

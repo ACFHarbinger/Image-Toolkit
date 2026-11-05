@@ -1,12 +1,9 @@
 """Pre-Stage-5: deduplicate near-static consecutive frames.
 
 Extracted from ``AnimeStitchPipeline.run()`` as a standalone function -- pure
-code motion, no logic change (see _photometric_stage.py's docstring). This
-block has exactly one early-return (falls back to SCANS when dedup leaves
-fewer than 2 frames); the sentinel-return pattern below preserves that
-without introducing new control-flow machinery -- the caller checks
-`early_result is not None` and returns it directly, exactly mirroring the
-original inline `if N < 2: return ...`.
+code motion (see _photometric_stage.py's docstring). When dedup leaves
+fewer than 2 frames it returns a sentinel and the caller registers the
+pre-dedup set (2026-11-05: no more wholesale SCANS output here).
 """
 
 from __future__ import annotations
@@ -15,11 +12,7 @@ import logging
 
 import cv2
 import numpy as np
-from middleware.src.stitching.alignment.canvas import _scan_stitch_fallback
 from middleware.src.constants import NEAR_DUP_LUMA_THRESH
-from PIL import Image
-
-from ._frame_utils import _reload_scans_frames
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +24,12 @@ def _dedup_near_static_frames(
     image_paths: list[str],
     N: int,
     output_path: str,
-) -> tuple[Image.Image | None, list[np.ndarray], list[np.ndarray], list[np.ndarray | None], list[str], int]:
+) -> tuple[str | None, list[np.ndarray], list[np.ndarray], list[np.ndarray | None], list[str], int]:
     """Drop consecutive frames whose luma is near-identical to the last kept one.
 
     Returns ``(early_result, frames, scans_frames, bg_masks, image_paths, N)``.
-    ``early_result`` is the SCANS-fallback Image when dedup leaves fewer than
-    2 frames (caller must ``return early_result`` immediately in that case);
-    otherwise it's None and the other five values are the (possibly
+    ``early_result`` is ``"too_few_frames"`` when dedup leaves fewer than 2
+    frames (the caller then registers the pre-dedup set); otherwise it's None and the other five values are the (possibly
     unchanged) updated state to continue the pipeline with.
     """
     if N < 3:
@@ -77,9 +69,9 @@ def _dedup_near_static_frames(
             f"removed, {N} remain."
         )
         if N < 2:
-            _sf = scans_frames or _reload_scans_frames(image_paths)
+            # The caller routes registration to the pre-dedup set.
             return (
-                _scan_stitch_fallback(_sf, output_path),
+                "too_few_frames",
                 frames,
                 scans_frames,
                 bg_masks,
