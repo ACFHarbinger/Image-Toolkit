@@ -58,3 +58,46 @@ def test_scan_fallback_raises_when_no_retry_and_no_sibling(tmp_path: Path) -> No
     dest = tmp_path / "panorama.png"
     with pytest.raises(CanvasError, match="SCANS fallback failed"):
         _scan_stitch_fallback([], str(dest))
+
+
+def _record_attempts(monkeypatch) -> list[int]:
+    """Patch the Stitcher attempt to fail and record each frame-set size."""
+    from middleware.src.stitching.alignment import canvas
+
+    seen: list[int] = []
+
+    def fake(frames, mode, resol):
+        seen.append(len(frames))
+        return 1, None
+
+    monkeypatch.setattr(canvas, "_try_opencv_stitch", fake)
+    return seen
+
+
+def test_scan_fallback_tries_full_set_first_when_dedup_left_too_few(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """asp_test79: dedup on bad edges left 2 of 27 frames; SCANS needs the rest."""
+    seen = _record_attempts(monkeypatch)
+    full = [np.zeros((8, 8, 3), np.uint8) for _ in range(27)]
+    with pytest.raises(CanvasError):
+        _scan_stitch_fallback(full[:2], str(tmp_path / "p.png"), full_frames=full)
+    assert seen[0] == 27 and 2 in seen
+
+
+def test_scan_fallback_keeps_dedup_set_first_when_it_is_substantial(
+    tmp_path: Path, monkeypatch
+) -> None:
+    seen = _record_attempts(monkeypatch)
+    full = [np.zeros((8, 8, 3), np.uint8) for _ in range(16)]
+    with pytest.raises(CanvasError):
+        _scan_stitch_fallback(full[:13], str(tmp_path / "p.png"), full_frames=full)
+    assert seen[0] == 13 and 16 in seen
+
+
+def test_scan_fallback_without_full_set_is_unchanged(tmp_path: Path, monkeypatch) -> None:
+    seen = _record_attempts(monkeypatch)
+    frames = [np.zeros((8, 8, 3), np.uint8) for _ in range(5)]
+    with pytest.raises(CanvasError):
+        _scan_stitch_fallback(frames, str(tmp_path / "p.png"))
+    assert set(seen) <= {5, 3}

@@ -352,6 +352,7 @@ def _scan_stitch_attempts(n: int) -> list[tuple[str, list[int], int, float]]:
 def _scan_stitch_fallback(
     frames: list[np.ndarray],
     output_path: str,
+    full_frames: list[np.ndarray] | None = None,
 ) -> Image.Image:
     """
     Fall back to OpenCV SCANS mode when the main pipeline cannot find
@@ -365,12 +366,25 @@ def _scan_stitch_fallback(
     smart-selected sets even when the bench's earlier simple stitch
     succeeded. Retry a few registrations, then reuse opencv_stitch.png
     rather than raising CanvasError and aborting the dataset.
+
+    ``full_frames`` is the pre-dedup set. When dedup left fewer than
+    ``max(3, half)`` of it, the full set goes first (dedup on bad edges
+    collapsed 27 frames to 2 on asp_test79); otherwise it is the retry.
     """
     logger.info("[Stitch] FALLBACK: using OpenCV SCANS mode.")
-    usable = [f for f in frames if isinstance(f, np.ndarray) and f.size > 0]
+
+    def _ok(fs):
+        return [f for f in (fs or []) if isinstance(f, np.ndarray) and f.size > 0]
+
+    usable, full = _ok(frames), _ok(full_frames)
+    frame_sets = [usable]
+    if len(full) > len(usable):
+        thin = len(usable) < max(3, len(full) // 2)
+        frame_sets = [full, usable] if thin else [usable, full]
     attempts = [
-        (name, [usable[i] for i in idx], mode, resol)
-        for name, idx, mode, resol in _scan_stitch_attempts(len(usable))
+        (f"{name}{'-full' if fs is full else ''}", [fs[i] for i in idx], mode, resol)
+        for fs in frame_sets
+        for name, idx, mode, resol in _scan_stitch_attempts(len(fs))
     ]
 
     last_status = -1
