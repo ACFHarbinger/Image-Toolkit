@@ -57,11 +57,13 @@ def test_archive_list_previous_and_compare(tmp_path, monkeypatch):
     assert run_history.previous_run("asp_test02", latest).meta["label"] == "first"
 
     rows = run_history.compare(latest)
+    combined = rows[0].pop("combined")
     assert rows == [{
         "case": "asp_test01", "asp": 0.85, "asp_prev": 0.70, "prev_run": prev.run_id,
         "opencv": 0.8, "overmix": None, "hugin": None, "identity": None,
         "registration": None,
     }]
+    assert combined["asp"] is None  # no coverage recorded in these rows
     # identical OpenCV outputs are stored once
     blobs = list((root / ".blobs").iterdir())
     assert len(blobs) == 4  # 3 distinct ASP images + 1 shared OpenCV image

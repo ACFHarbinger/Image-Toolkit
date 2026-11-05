@@ -205,8 +205,15 @@ def previous_run(case: str, before: RunInfo, root: Path | None = None) -> RunInf
     return older[-1] if older else None
 
 
-def _gt(row: dict, key: str) -> float | None:
-    return ((row.get("ground_truth") or {}).get(key) or {}).get("fair_ssim_vs_gt")
+def _gt(row: dict, key: str, field: str = "fair_ssim_vs_gt") -> float | None:
+    return ((row.get("ground_truth") or {}).get(key) or {}).get(field)
+
+
+def _combined(row: dict, key: str) -> float | None:
+    """SSIM x GT coverage: uncovered GT counts as a miss, so a tight crop
+    is not rewarded (asp_test46: OpenCV covers 49% of the GT, ASP 98%)."""
+    s, c = _gt(row, key), _gt(row, key, "fair_cov_vs_gt")
+    return None if s is None or c is None else round(s * c, 4)
 
 
 def compare(run: RunInfo, prev: RunInfo | None = None, root: Path | None = None) -> list[dict]:
@@ -227,6 +234,13 @@ def compare(run: RunInfo, prev: RunInfo | None = None, root: Path | None = None)
             "hugin": _gt(cur, "metrics_hugin"),
             "identity": cur.get("result_identity"),
             "registration": (cur.get("registration_route") or {}).get("selected"),
+            "combined": {
+                "asp": _combined(cur, "metrics_asp"),
+                "asp_prev": _combined(p.result(case), "metrics_asp") if p else None,
+                "opencv": _combined(cur, "metrics_simple"),
+                "overmix": _combined(cur, "metrics_overmix"),
+                "hugin": _combined(cur, "metrics_hugin"),
+            },
         })
     return rows
 
@@ -314,16 +328,18 @@ def _print_compare(run: RunInfo, rows: list[dict]) -> None:
             f"  {r.get('registration') or r.get('identity') or ''}"
         )
 
-    def mean_delta(a: str, b: str) -> tuple[float | None, int, int]:
-        pairs = [(r[a], r[b]) for r in rows if r[a] is not None and r[b] is not None]
+    def mean_delta(get, a: str, b: str) -> tuple[float | None, int, int]:
+        pairs = [(get(r)[a], get(r)[b]) for r in rows if get(r)[a] is not None and get(r)[b] is not None]
         if not pairs:
             return None, 0, 0
         return sum(x - y for x, y in pairs) / len(pairs), sum(x > y for x, y in pairs), len(pairs)
 
-    for other in ("asp_prev", "opencv", "overmix", "hugin"):
-        m, wins, n = mean_delta("asp", other)
-        if m is not None:
-            print(f"ASP vs {other:<8} mean Δ {m:+.4f}  ahead on {wins}/{n}")
+    for label, get in (("SSIM (shared region)", lambda r: r), ("SSIM x coverage", lambda r: r["combined"])):
+        print(label)
+        for other in ("asp_prev", "opencv", "overmix", "hugin"):
+            m, wins, n = mean_delta(get, "asp", other)
+            if m is not None:
+                print(f"  ASP vs {other:<8} mean Δ {m:+.4f}  ahead on {wins}/{n}")
     print(f"ASP unscoreable: {sum(r['asp'] is None for r in rows)}/{len(rows)}")
 
 
