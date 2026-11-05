@@ -14,6 +14,7 @@ import numpy as np
 from ..constants.schema import IMAGE_ASP, IMAGE_GROUND_TRUTH, IMAGE_SIMPLE
 from ..logic import visualizations_basic as vb
 from ..logic import visualizations_matching as vm
+from ..logic import visualizations_stitch as stitch
 from .tool_tab_base import ToolTabBase
 
 
@@ -41,6 +42,14 @@ class VisualizationTab(ToolTabBase):
         self._add_tool("ORB matches", lambda: self._pair(lambda a, b: vm.feature_match_figure(a, b, "orb")))
         self._add_tool("SIFT matches", lambda: self._pair(lambda a, b: vm.feature_match_figure(a, b, "sift")))
         self._add_tool("Optical flow (HSV)", lambda: self._pair(vm.optical_flow_hsv_figure))
+        self._add_tool("Seam energy", lambda: self._single(stitch.seam_energy_figure))
+        self._add_tool("Band intersection", self._band_intersection)
+        self._add_tool("Local SSIM", lambda: self._pair(stitch.local_ssim_map))
+        self._add_tool("Delta E", lambda: self._pair(stitch.delta_e_map))
+        self._add_tool("Edge disagreement", lambda: self._pair(stitch.edge_disagreement))
+        self._add_tool("Ghost residual", lambda: self._pair(stitch.ghost_residual))
+        self._add_tool("Coverage gap", lambda: self._pair(stitch.coverage_gap))
+        self._add_tool("Laplacian residual", lambda: self._pair(stitch.laplacian_residual))
 
     def _on_context_changed(self) -> None:
         keys = self.available()
@@ -64,6 +73,12 @@ class VisualizationTab(ToolTabBase):
     def _single(self, fn):
         img = self._selected()
         return None if img is None else fn(img)
+
+    def _band_intersection(self):
+        img = self._selected()
+        if img is None:
+            return None
+        return stitch.band_intersection_figure(img, bands=16)
 
     def _pair(self, fn):
         a = self.image(self._source.currentData())

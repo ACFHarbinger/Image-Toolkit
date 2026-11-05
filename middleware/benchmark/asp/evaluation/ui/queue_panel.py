@@ -7,6 +7,9 @@ beyond a text line, and — because Skip didn't record history — no way back t
 something you'd passed. A visible, clickable list of all 97 with their state is
 also what makes a partially-finished pass resumable in practice: you can see at
 a glance what's left.
+
+Search, a saved subset, and an added case directory only change which names are
+listed. Next / Back still walk the session order.
 """
 
 from __future__ import annotations
@@ -15,16 +18,23 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QProgressBar,
+    QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
 from ..constants.user_interface import COL_GOOD, COL_TEXT_DIM, COL_WARN, SCORE_COLORS
+from ..other.case_library import add_directory, selectable_subsets, upsert_subset
 from ..other.session import EvaluationSession
+from .theme import subtle
 
 FILTER_ALL = "all"
 FILTER_TODO = "todo"
@@ -39,8 +49,33 @@ _FILTERS = (
 )
 
 
+def _message(exc: BaseException) -> str:
+    return str(exc) or exc.__class__.__name__
+
+
+def _subset_payload(row: object) -> dict | None:
+    if not isinstance(row, dict):
+        return None
+    name = str(row.get("name") or "").strip()
+    if not name:
+        return None
+    kind = str(row.get("kind") or "")
+    raw_ids = row.get("case_ids")
+    if not isinstance(raw_ids, (list, tuple)):
+        raw_ids = []
+    return {
+        "name": name,
+        "kind": kind,
+        "description": str(row.get("description") or ""),
+        "case_ids": [str(case) for case in raw_ids],
+        "label": f"{name} ({kind})" if kind else name,
+    }
+
+
 class QueuePanel(QWidget):
     datasetSelected = Signal(str)
+    directoriesChanged = Signal()
+    subsetChanged = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -51,15 +86,43 @@ class QueuePanel(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
 
+        self._case_line = QLabel("Case: —")
+        self._case_line.setProperty("role", "heading")
+        layout.addWidget(self._case_line)
+
+        self._search = QLineEdit()
+        self._search.setPlaceholderText("Search cases")
+        self._search.setClearButtonEnabled(True)
+        self._search.textChanged.connect(self._on_search_changed)
+        layout.addWidget(self._search)
+
+        self._subset = QComboBox()
+        self._subset.currentIndexChanged.connect(self._on_subset_changed)
+        layout.addWidget(self._subset)
+        self._subset_hint = subtle("")
+        self._subset_hint.setWordWrap(True)
+        layout.addWidget(self._subset_hint)
+
+        self._save_subset_btn = QPushButton("Save subset…")
+        self._save_subset_btn.clicked.connect(self._save_subset)
+        self._add_dir_btn = QPushButton("Add directory…")
+        self._add_dir_btn.clicked.connect(self._add_directory)
+        layout.addWidget(self._save_subset_btn)
+        layout.addWidget(self._add_dir_btn)
+
         self._filter = QComboBox()
         for key, label in _FILTERS:
             self._filter.addItem(label, key)
-        self._filter.currentIndexChanged.connect(lambda _i: self.refresh())
+        self._filter.currentIndexChanged.connect(self._on_filter_changed)
         layout.addWidget(self._filter)
 
         self._list = QListWidget()
         self._list.currentItemChanged.connect(self._on_current_changed)
         layout.addWidget(self._list, stretch=1)
+
+        self._empty = subtle("")
+        self._empty.setWordWrap(True)
+        layout.addWidget(self._empty)
 
         self._progress = QProgressBar()
         self._progress.setTextVisible(True)
@@ -68,34 +131,78 @@ class QueuePanel(QWidget):
         self._summary.setProperty("role", "subtle")
         self._summary.setWordWrap(True)
         layout.addWidget(self._summary)
+        self._status = subtle("")
+        self._status.setWordWrap(True)
+        layout.addWidget(self._status)
+        self._reload_subsets()
 
     def set_session(self, session: EvaluationSession) -> None:
         self._session = session
         self.refresh()
 
+    def select_all_cases(self) -> None:
+        """Drop the subset filter so a newly added directory is visible."""
+        if self._subset.currentIndex() != 0:
+            self._subset.setCurrentIndex(0)
+            return
+        self.refresh()
+
     def refresh(self) -> None:
         if self._session is None:
+            self._case_line.setText("Case: —")
+            self._empty.setText("")
             return
         mode = self._filter.currentData()
+        query = self._search.text().strip().casefold()
+        subset = self._subset_ids()
         self._suppress = True
         try:
             self._list.clear()
             for name in self._session.order:
+                if not self._include_name(name, mode, query, subset):
+                    continue
                 rated = self._session.is_rated(name)
                 skipped = self._session.is_skipped(name) and not rated
-                if mode == FILTER_TODO and rated:
-                    continue
-                if mode == FILTER_RATED and not rated:
-                    continue
-                if mode == FILTER_SKIPPED and not skipped:
-                    continue
                 self._list.addItem(self._make_item(name, rated, skipped))
             self._select_current()
         finally:
             self._suppress = False
+        self._update_case_line()
+        self._update_empty()
+        self._update_subset_hint()
         self._update_progress()
+        self.subsetChanged.emit()
+
+    def _include_name(self, name: str, mode, query: str, subset: set[str] | None) -> bool:
+        if subset is not None and name not in subset:
+            return False
+        if query and query not in name.casefold():
+            return False
+        assert self._session is not None
+        rated = self._session.is_rated(name)
+        skipped = self._session.is_skipped(name) and not rated
+        if mode == FILTER_TODO and rated:
+            return False
+        if mode == FILTER_RATED and not rated:
+            return False
+        return not (mode == FILTER_SKIPPED and not skipped)
+
+    def _subset_ids(self) -> set[str] | None:
+        data = self._subset.currentData()
+        if not isinstance(data, dict):
+            return None
+        return set(data.get("case_ids") or [])
+
+    def shows_all_cases(self) -> bool:
+        """True when compare should see every case in the run, not the queue filter."""
+        if self._search.text().strip():
+            return False
+        if self._filter.currentData() != FILTER_ALL:
+            return False
+        return not isinstance(self._subset.currentData(), dict)
 
     def _make_item(self, name: str, rated: bool, skipped: bool) -> QListWidgetItem:
+        assert self._session is not None
         entry = self._session.evaluations.get(name)
         if rated and entry is not None:
             marker = "●"
@@ -117,7 +224,7 @@ class QueuePanel(QWidget):
             return
         for row in range(self._list.count()):
             item = self._list.item(row)
-            if item.data(Qt.ItemDataRole.UserRole) == self._session.current:
+            if item is not None and item.data(Qt.ItemDataRole.UserRole) == self._session.current:
                 self._list.setCurrentRow(row)
                 self._list.scrollToItem(item)
                 return
@@ -129,7 +236,32 @@ class QueuePanel(QWidget):
         if name and self._session is not None and name != self._session.current:
             self.datasetSelected.emit(name)
 
+    def _on_search_changed(self, _text: str) -> None:
+        self.refresh()
+
+    def _on_filter_changed(self, _index: int) -> None:
+        self.refresh()
+
+    def _on_subset_changed(self, _index: int) -> None:
+        self.refresh()
+
+    def _update_case_line(self) -> None:
+        current = self._session.current if self._session is not None else None
+        self._case_line.setText(f"Case: {current}" if current else "Case: —")
+
+    def _update_empty(self) -> None:
+        if self._session is None or self._list.count():
+            self._empty.setText("")
+            return
+        self._empty.setText("No cases match.")
+
+    def _update_subset_hint(self) -> None:
+        data = self._subset.currentData()
+        text = str(data.get("description") or "") if isinstance(data, dict) else ""
+        self._subset_hint.setText(text)
+
     def _update_progress(self) -> None:
+        assert self._session is not None
         progress = self._session.progress()
         self._progress.setMaximum(max(1, progress.total))
         self._progress.setValue(progress.rated)
@@ -142,8 +274,110 @@ class QueuePanel(QWidget):
             parts.append(f"at #{progress.position}")
         self._summary.setText(" · ".join(parts))
 
+    def active_names(self) -> list[str]:
+        names: list[str] = []
+        for row in range(self._list.count()):
+            item = self._list.item(row)
+            if item is None:
+                continue
+            name = item.data(Qt.ItemDataRole.UserRole)
+            if name:
+                names.append(str(name))
+        return names
+
     def visible_names(self) -> list[str]:
-        return [
-            self._list.item(row).data(Qt.ItemDataRole.UserRole)
-            for row in range(self._list.count())
-        ]
+        return self.active_names()
+
+    def _reload_subsets(self, select: str | None = None) -> None:
+        if select is None:
+            current = self._subset.currentData()
+            if isinstance(current, dict):
+                select = str(current.get("name") or "")
+        self._subset.blockSignals(True)
+        self._subset.clear()
+        self._subset.addItem("All cases", None)
+        try:
+            rows = selectable_subsets()
+        except Exception as exc:
+            self._status.setText(_message(exc))
+            rows = []
+        for row in rows:
+            info = _subset_payload(row)
+            if info is None:
+                continue
+            self._subset.addItem(info["label"], info)
+        self._subset.setCurrentIndex(self._subset_index(select))
+        self._subset.blockSignals(False)
+        self.refresh()
+
+    def _subset_index(self, name: str | None) -> int:
+        if not name:
+            return 0
+        for index in range(self._subset.count()):
+            data = self._subset.itemData(index)
+            if isinstance(data, dict) and data.get("name") == name:
+                return index
+        return 0
+
+    def _save_subset(self) -> None:
+        if self._session is None:
+            self._status.setText("No cases loaded.")
+            return
+        prompted = self._prompt_subset()
+        if prompted is None:
+            return
+        name, description = prompted
+        if not name:
+            self._status.setText("Enter a subset name.")
+            return
+        try:
+            saved = upsert_subset(name, self.active_names(), description=description)
+        except Exception as exc:
+            self._status.setText(_message(exc))
+            return
+        chosen = saved.get("name", name) if isinstance(saved, dict) else name
+        self._status.setText(f"Saved subset {chosen}.")
+        self._reload_subsets(select=str(chosen))
+
+    def _prompt_subset(self) -> tuple[str, str] | None:
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Save subset")
+        form = QVBoxLayout(dialog)
+        form.addWidget(QLabel("Name"))
+        name_edit = QLineEdit()
+        name_edit.setPlaceholderText("Required")
+        form.addWidget(name_edit)
+        form.addWidget(QLabel("Description"))
+        desc_edit = QLineEdit()
+        form.addWidget(desc_edit)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
+        )
+        form.addWidget(buttons)
+
+        def _try_accept() -> None:
+            if name_edit.text().strip():
+                dialog.accept()
+
+        buttons.accepted.connect(_try_accept)
+        buttons.rejected.connect(dialog.reject)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        return name_edit.text().strip(), desc_edit.text().strip()
+
+    def _add_directory(self) -> None:
+        chosen = QFileDialog.getExistingDirectory(
+            self,
+            "Add cases directory",
+            "",
+            QFileDialog.Option.DontUseNativeDialog | QFileDialog.Option.ShowDirsOnly,
+        )
+        if not chosen:
+            return
+        try:
+            add_directory(chosen)
+        except Exception as exc:
+            self._status.setText(_message(exc))
+            return
+        self._status.setText(f"Added {chosen}.")
+        self.directoriesChanged.emit()
