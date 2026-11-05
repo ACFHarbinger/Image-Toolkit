@@ -91,36 +91,61 @@ def _camera_forward(R, work_scale: float) -> np.ndarray:
 
 def opencv_scans_registration(
     frames: list[np.ndarray],
+    bg_masks: list[np.ndarray | None] | None = None,
+    tries: int | None = None,
 ) -> tuple[list[np.ndarray], list[int], dict] | None:
     """OpenCV SCANS registration (the fallback's retry ladder, SCANS only):
-    (forward affines, component frame indices in temporal order, detail)."""
+    (forward affines, component frame indices in temporal order, detail).
+
+    OpenCV's RANSAC draws from a shared RNG, so one estimate on the same
+    frames can be badly wrong (asp_test04 2026-11-05: 1 of 5 draws put a
+    frame at 2.7x scale, 3000 px off; ASP got that draw, the bench's OpenCV
+    run a good one). The first ladder step that succeeds is drawn ``tries``
+    times with fixed seeds and the most consistent pose set is kept.
+    """
     from middleware.src.stitching.alignment.canvas import (
         _guarded_stitcher,
         _scan_stitch_attempts,
     )
 
+    if tries is None:
+        tries = max(1, int(os.environ.get("ASP_OPENCV_REG_TRIES", "3")))
+    masks = bg_masks if bg_masks is not None and len(bg_masks) == len(frames) else [None] * len(frames)
     for name, idx, mode, resol in _scan_stitch_attempts(len(frames)):
         if mode != 1:
             continue
-        try:
-            status, stitcher = _guarded_stitcher([frames[i] for i in idx], mode, resol)
-        except cv2.error as exc:
-            logger.info("[Stitch]   OpenCV registration %s raised %s", name, exc)
-            continue
-        logger.info("[Stitch]   OpenCV registration %s n=%d status=%s", name, len(idx), status)
-        if stitcher is None:
-            continue
-        comp = [idx[int(c)] for c in stitcher.component()]
-        cams = stitcher.cameras()
-        if len(comp) < 2 or len(cams) != len(comp):
-            continue
-        fwd = [_camera_forward(c.R, stitcher.workScale()) for c in cams]
-        order = np.argsort(comp)  # keep temporal order
-        return (
-            [fwd[k] for k in order],
-            [comp[k] for k in order],
-            {"attempt": name, "registration_resol": resol, "n_input": len(frames)},
-        )
+        draws = []
+        for seed in range(tries):
+            cv2.setRNGSeed(seed)
+            try:
+                status, stitcher = _guarded_stitcher([frames[i] for i in idx], mode, resol)
+            except cv2.error as exc:
+                logger.info("[Stitch]   OpenCV registration %s raised %s", name, exc)
+                continue
+            logger.info(
+                "[Stitch]   OpenCV registration %s seed=%d n=%d status=%s", name, seed, len(idx), status
+            )
+            if stitcher is None:
+                continue
+            comp = [idx[int(c)] for c in np.asarray(stitcher.component()).ravel()]
+            cams = stitcher.cameras()
+            if len(comp) < 2 or len(cams) != len(comp):
+                continue
+            fwd = [_camera_forward(c.R, stitcher.workScale()) for c in cams]
+            order = np.argsort(comp)  # keep temporal order
+            fwd, comp = [fwd[k] for k in order], [comp[k] for k in order]
+            score = pose_consistency([frames[i] for i in comp], [masks[i] for i in comp], fwd)
+            # A draw that keeps more frames covers more; misses already cost.
+            draws.append((score["mean"] - 0.001 * len(comp), seed, fwd, comp, score))
+        if draws:
+            _, seed, fwd, comp, score = min(draws, key=lambda d: d[0])
+            return fwd, comp, {
+                "attempt": name,
+                "registration_resol": resol,
+                "n_input": len(frames),
+                "seed": seed,
+                "draws": [{"seed": d[1], "n": len(d[3]), "mean": d[4]["mean"]} for d in draws],
+            }
     return None
 
 

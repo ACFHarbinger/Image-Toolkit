@@ -914,7 +914,7 @@ class _RunStageMixin(_Base):
             if len(ctx["frames"]) < 2:
                 continue
             raw = ctx["scans_frames"] or _reload_scans_frames(ctx["image_paths"])
-            got = opencv_scans_registration(raw)
+            got = opencv_scans_registration(raw, ctx["bg_masks"])
             if got is None:
                 continue
             fwd, idx, detail = got
