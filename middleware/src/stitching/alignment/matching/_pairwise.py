@@ -17,6 +17,7 @@ from middleware.src.constants import MATCH_EDGE_CROP, MAX_DX_DRIFT_RATIO
 from ._estimators import estimate_affine2d, estimate_affine_partial2d
 from ._matchers import _phase_correlate, _segment_guided_match, _template_match
 from ._math import _compute_bg_match_ratio, _compute_translation_spread, _extract_similarity
+from ._refine import keep_unverified, refine_enabled, refine_translation
 from ._sampling import _sample_bg_points_grid
 
 logger = logging.getLogger(__name__)
@@ -392,6 +393,27 @@ def _match_pair(  # noqa: C901
         except Exception:
             pass
 
+    # ── Sub-pixel refinement (pyramid ECC over matcher + SIFT hypotheses) ──
+    # The matchers above are coarse (EfficientLoFTR: ~16 px grid at 1080p).
+    refined = False
+    if refine_enabled():
+        cands = [] if M is None else [(float(M[0, 2]), float(M[1, 2]))]
+        r = refine_translation(img_i, img_j, m_i, m_j, cands)
+        if r is not None:
+            M_ref = np.eye(2, 3, dtype=np.float32) if M is None else M.astype(np.float32).copy()
+            M_ref[0, 2], M_ref[1, 2] = r[0], r[1]
+            if _is_valid(M_ref):
+                logger.debug(
+                    f"[Stitch]   {i}→{j}: refined dx={r[0]:.2f} dy={r[1]:.2f} cc={r[2]:.3f}"
+                )
+                M, mean_conf, refined = M_ref, r[2], True
+        if not refined and M is not None and not keep_unverified():
+            logger.info(
+                f"[Stitch]   {i}→{j}: dx={M[0, 2]:.1f} dy={M[1, 2]:.1f} not verified "
+                "by refinement — dropping edge."
+            )
+            M = None
+
     if M is None:
         logger.info(f"[Stitch]   {i}→{j}: all methods failed — skipping edge.")
         return None
@@ -411,7 +433,15 @@ def _match_pair(  # noqa: C901
     # Convention: M[1,2] = dy where dy = y_j - y_i (forward-shift: LoFTR/PC).
     # Canvas placement: ty_j = ty_i - dy, so residual pi_global = pj_global
     # requires pts_j = pts_i + M[:2, 2].
-    if actual_pts_i is not None and actual_pts_j is not None:
+    if refined:
+        # Matched points carry the coarse shift; anchor on the refined one.
+        pts_i = (
+            actual_pts_i
+            if actual_pts_i is not None
+            else _sample_bg_points_grid(m_i, H, W, n=50, grid=(4, 4))
+        )
+        pts_j = pts_i + M[:2, 2]
+    elif actual_pts_i is not None and actual_pts_j is not None:
         pts_i = actual_pts_i
         pts_j = actual_pts_j
     else:
