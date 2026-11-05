@@ -30,7 +30,7 @@ python middleware/benchmark/bench_models.py --save
 
 # Extraction memory/time (gif/video/frame paths, #484) — tree peak RSS + wall
 # per arm in fresh subprocesses; outputs under ~/Downloads/Data/Tests/.
-# Multi-arm runs go through Codex per the RESOURCE RULE.
+# Full multi-arm runs go through Claude or Codex per the RESOURCE RULE.
 QT_QPA_PLATFORM=offscreen python middleware/benchmark/bench_extraction_memory.py
 ```
 
