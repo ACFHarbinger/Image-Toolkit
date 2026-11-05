@@ -114,3 +114,11 @@ def test_auto_prefers_opencv_when_asp_dedup_collapsed():
     cv = _cand(SOURCE_OPENCV, _true_affines(6), fr)
     pick, tele = choose([asp, cv], 6, "auto")
     assert pick.source == SOURCE_OPENCV and tele["reason"] == "asp_dropped_frames"
+
+
+def test_degenerate_pose_counts_as_a_miss():
+    fr = _strip(3)
+    aff = _true_affines(3)
+    aff[1] = np.float32([[0, 0, 0], [0, 0, 60]])  # singular camera (asp_test34)
+    s = pose_consistency(fr, [None] * 3, aff)
+    assert s["misses"] == 2

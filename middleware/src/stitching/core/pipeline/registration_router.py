@@ -132,6 +132,9 @@ def opencv_scans_registration(
             if len(comp) < 2 or len(cams) != len(comp):
                 continue
             fwd = [_camera_forward(c.R, stitcher.workScale()) for c in cams]
+            if not all(_plausible(A) for A in fwd):  # asp_test34: singular camera
+                logger.info("[Stitch]   OpenCV registration %s seed=%d: degenerate pose", name, seed)
+                continue
             order = np.argsort(comp)  # keep temporal order
             fwd, comp = [fwd[k] for k in order], [comp[k] for k in order]
             score = pose_consistency([frames[i] for i in comp], [masks[i] for i in comp], fwd)
@@ -147,6 +150,15 @@ def opencv_scans_registration(
                 "draws": [{"seed": d[1], "n": len(d[3]), "mean": d[4]["mean"]} for d in draws],
             }
     return None
+
+
+def _plausible(A: np.ndarray) -> bool:
+    """Finite, non-degenerate frame->canvas affine (scale within 1/4..4)."""
+    A = np.asarray(A, np.float64)
+    if A.shape != (2, 3) or not np.isfinite(A).all():
+        return False
+    det = abs(float(np.linalg.det(A[:, :2])))
+    return 1 / 16 < det < 16
 
 
 def _to3(A: np.ndarray) -> np.ndarray:
@@ -167,6 +179,10 @@ def pose_consistency(
     errs: list[float] = []
     misses = 0
     for i in range(len(frames) - 1):
+        if not (_plausible(affines[i]) and _plausible(affines[i + 1])):
+            errs.append(_MISS_PENALTY)
+            misses += 1
+            continue
         a, b = frames[i], frames[i + 1]
         ga = cv2.resize(cv2.cvtColor(a, cv2.COLOR_BGR2GRAY), None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
         gb = cv2.resize(cv2.cvtColor(b, cv2.COLOR_BGR2GRAY), None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
