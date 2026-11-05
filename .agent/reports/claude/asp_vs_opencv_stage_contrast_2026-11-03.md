@@ -227,3 +227,12 @@ Findings:
 - The v1 fair metric's unmasked ECC polish misconverged on outputs with black wedges (asp_test92 0.789 vs 0.878); v2 scores both alignments.
 
 Open: 95 (−0.042), 04 (−0.022), 49 (−0.016) on shared-region SSIM; compositing (FG-aware seams) is the next lever for beating OpenCV rather than matching it.
+
+### Full corpus (run `20261105-040053-full-auto-v2`, 97/97, metric v2)
+
+- All 97 outputs are ASP's own (88 OpenCV poses, 9 ASP poses). 55 GT cases: ASP 0 unscoreable, OpenCV 3.
+- vs OpenCV, SSIM on the shared region (n=52): mean −0.003, median −0.004, ahead 17, behind by >0.02 on 6. Per source A/B/C: −0.002 / −0.007 / −0.003.
+- vs OpenCV, SSIM×coverage: mean +0.076 (source B +0.17: OpenCV covers little), median −0.010; source A median −0.018. ASP crops tighter than OpenCV on many A cases.
+- vs Overmix SSIM +0.027 (28/46), vs Hugin +0.123 (8/8).
+- Before (main's ASP outputs from 2026-11-04, contrast harness, rescored v2): −0.057 vs OpenCV, ahead 8/47, 6 cases missing/unscoreable. Branch vs those: +0.051, better on 34/49.
+- Largest shared-region deficits: 54, 43 (ASP poses), 25, 42, 95, 04. asp_test34 crashed on a degenerate OpenCV draw (fixed `b20a1f5d2`, rerun into the same run).
