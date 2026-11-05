@@ -256,8 +256,7 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         self.load_dir_btn = QPushButton("Load Directory…")
         self.load_dir_btn.setToolTip(
             "Point the inspector at another data directory — a benchmark base dir, "
-            "or a renderer-export bundle of asp_testXX/ subdirectories. Cases from "
-            "directories added in the queue stay in the list."
+            "or a renderer-export bundle of asp_testXX/ subdirectories."
         )
         self.load_dir_btn.clicked.connect(self._load_directory)
         header.addWidget(self.title_label)

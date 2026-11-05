@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from middleware.benchmark.asp.evaluation.other.case_library import upsert_subset
 from middleware.benchmark.asp.evaluation.other.run_library import snapshot_outputs
 from middleware.benchmark.asp.evaluation.other.session import EvaluationSession
 from middleware.benchmark.asp.evaluation.ui.coherence_v2_tab import CoherenceV2Tab
@@ -41,6 +42,17 @@ def test_queue_subset_filters_to_chosen_ids(qapp, tmp_path, monkeypatch):
     )
     panel._subset.setCurrentIndex(panel._subset.count() - 1)
     assert panel.active_names() == ["gamma_case"]
+
+
+@pytest.mark.inspector_ui
+def test_load_subset_button_selects_saved_subset(qapp, tmp_path, monkeypatch):
+    monkeypatch.setenv("ASP_EVAL_LIBRARY", str(tmp_path / "library.json"))
+    upsert_subset("small", ["beta_case"], description="seam")
+    panel = QueuePanel()
+    panel.set_session(_session(tmp_path))
+    assert panel._load_subset_btn.text() == "Load subset…"
+    assert panel._select_subset_named("small")
+    assert panel.active_names() == ["beta_case"]
 
 
 @pytest.mark.inspector_ui

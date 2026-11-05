@@ -8,8 +8,9 @@ something you'd passed. A visible, clickable list of all 97 with their state is
 also what makes a partially-finished pass resumable in practice: you can see at
 a glance what's left.
 
-Search, a saved subset, and an added case directory only change which names are
-listed. Next / Back still walk the session order.
+Search and a saved subset only change which names are listed. Next / Back
+still walk the session order. Load subset applies a subset that was already
+saved.
 """
 
 from __future__ import annotations
@@ -20,7 +21,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
-    QFileDialog,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -32,7 +32,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..constants.user_interface import COL_GOOD, COL_TEXT_DIM, COL_WARN, SCORE_COLORS
-from ..other.case_library import add_directory, selectable_subsets, upsert_subset
+from ..other.case_library import selectable_subsets, upsert_subset
 from ..other.session import EvaluationSession
 from .theme import subtle
 
@@ -105,10 +105,11 @@ class QueuePanel(QWidget):
 
         self._save_subset_btn = QPushButton("Save subset…")
         self._save_subset_btn.clicked.connect(self._save_subset)
-        self._add_dir_btn = QPushButton("Add directory…")
-        self._add_dir_btn.clicked.connect(self._add_directory)
+        self._load_subset_btn = QPushButton("Load subset…")
+        self._load_subset_btn.setToolTip("Apply a saved subset to the queue")
+        self._load_subset_btn.clicked.connect(self._load_subset)
         layout.addWidget(self._save_subset_btn)
-        layout.addWidget(self._add_dir_btn)
+        layout.addWidget(self._load_subset_btn)
 
         self._filter = QComboBox()
         for key, label in _FILTERS:
@@ -339,6 +340,67 @@ class QueuePanel(QWidget):
         self._status.setText(f"Saved subset {chosen}.")
         self._reload_subsets(select=str(chosen))
 
+    def _select_subset_named(self, name: str) -> bool:
+        """Select a saved subset by name. False when that name is not in the menu."""
+        key = name.strip()
+        if not key:
+            return False
+        for index in range(self._subset.count()):
+            data = self._subset.itemData(index)
+            if isinstance(data, dict) and data.get("name") == key:
+                self._subset.setCurrentIndex(index)
+                return True
+        return False
+
+    def _load_subset(self) -> None:
+        self._reload_subsets()
+        choices: list[tuple[str, dict]] = []
+        for index in range(self._subset.count()):
+            data = self._subset.itemData(index)
+            if isinstance(data, dict) and data.get("name"):
+                choices.append((str(data["name"]), data))
+        if not choices:
+            self._status.setText("No saved subsets.")
+            return
+        chosen = self._prompt_load_subset(choices)
+        if chosen is None:
+            return
+        if not self._select_subset_named(chosen):
+            self._status.setText(f"No subset named {chosen}.")
+            return
+        self._status.setText(f"Loaded subset {chosen}.")
+
+    def _prompt_load_subset(self, choices: list[tuple[str, dict]]) -> str | None:
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Load subset")
+        form = QVBoxLayout(dialog)
+        listing = QListWidget()
+        for name, data in choices:
+            count = len(data.get("case_ids") or [])
+            label = str(data.get("label") or name)
+            item = QListWidgetItem(f"{label}  ·  {count} cases")
+            description = str(data.get("description") or "")
+            if description:
+                item.setToolTip(description)
+            item.setData(Qt.ItemDataRole.UserRole, name)
+            listing.addItem(item)
+        listing.setCurrentRow(0)
+        listing.itemDoubleClicked.connect(lambda _item: dialog.accept())
+        form.addWidget(listing)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        form.addWidget(buttons)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        current = listing.currentItem()
+        if current is None:
+            return None
+        name = current.data(Qt.ItemDataRole.UserRole)
+        return str(name) if name else None
+
     def _prompt_subset(self) -> tuple[str, str] | None:
         dialog = QDialog(self)
         dialog.setWindowTitle("Save subset")
@@ -364,20 +426,3 @@ class QueuePanel(QWidget):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return None
         return name_edit.text().strip(), desc_edit.text().strip()
-
-    def _add_directory(self) -> None:
-        chosen = QFileDialog.getExistingDirectory(
-            self,
-            "Add cases directory",
-            "",
-            QFileDialog.Option.DontUseNativeDialog | QFileDialog.Option.ShowDirsOnly,
-        )
-        if not chosen:
-            return
-        try:
-            add_directory(chosen)
-        except Exception as exc:
-            self._status.setText(_message(exc))
-            return
-        self._status.setText(f"Added {chosen}.")
-        self.directoriesChanged.emit()
