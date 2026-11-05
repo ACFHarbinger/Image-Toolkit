@@ -34,6 +34,29 @@ python middleware/benchmark/bench_models.py --save
 QT_QPA_PLATFORM=offscreen python middleware/benchmark/bench_extraction_memory.py
 ```
 
+### ASP stitch benchmark
+
+Env as in `tools/benchmark/justfile` (`PYTHONPATH=<repo>`, `ASP_DETERMINISTIC=1`, …).
+
+```bash
+B=middleware/benchmark/asp
+python $B/bench_anime_stitch.py --slice asp_dev_v1 --workers 2 --label my-change
+python $B/bench_anime_stitch.py --slice asp_dev_v1 --workers 2 --resume-run <id>  # after a guard stop
+python $B/run_history.py list
+python $B/run_history.py compare [--run <id>] [--prev <id>]  # ASP vs previous ASP, OpenCV, Overmix, Hugin
+just asp-benchmark-assess [--run <id>] [--prev <id>]        # inspector, adds an "ASP (previous run)" panel
+```
+
+- `--slice`: named subsets in `slices.py`. `asp_dev_v1` = 19 GT cases, balanced over the
+  three corpus sources (1-42+97, 43-72, 73-96).
+- `--workers N`: one isolated worker per dataset, round-robin over GPUs. Use 1 per GPU:
+  two per 24 GB card trip the 85% VRAM guard.
+- Every run is archived under `~/Downloads/Data/Tests/asp-benchmark/runs/<id>/`
+  (outputs, result rows, `run.json` with git sha + ASP_* env, `code.patch` if dirty).
+- GT score: `fair_ssim_vs_gt` (`fair_gt.py`: similarity registration to the GT, SSIM on
+  the shared region, coverage separate). The verdict uses it; `aligned_ssim_vs_gt` is
+  kept but is framing-sensitive.
+
 ## Benchmark Reports
 
 Reports are automatically saved to `middleware/benchmark/results/` with detailed JSON format containing:
