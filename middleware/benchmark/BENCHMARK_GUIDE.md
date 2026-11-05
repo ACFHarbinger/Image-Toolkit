@@ -181,8 +181,8 @@ just benchmark-save
 ### Streamlit Not Found
 
 ```bash
-# Install dependencies
-pip install -r middleware/ui/requirements.txt
+# streamlit/plotly live in middleware's `benchmark` group (`just dev::sync` installs all groups)
+uv sync --package image-toolkit-middleware --group benchmark --inexact --frozen
 ```
 
 ### Inconsistent Results
