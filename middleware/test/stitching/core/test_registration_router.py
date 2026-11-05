@@ -106,3 +106,11 @@ def test_single_candidate():
     fr = _strip(3)
     pick, tele = choose([_cand(SOURCE_OPENCV, _true_affines(3), fr)], 3, "asp")
     assert pick.source == SOURCE_OPENCV and tele["reason"] == "only_candidate"
+
+
+def test_auto_prefers_opencv_when_asp_dedup_collapsed():
+    fr = _strip(6)
+    asp = _cand(SOURCE_ASP, _true_affines(2), fr[:2])  # asp_test95: 37 -> 3 frames
+    cv = _cand(SOURCE_OPENCV, _true_affines(6), fr)
+    pick, tele = choose([asp, cv], 6, "auto")
+    assert pick.source == SOURCE_OPENCV and tele["reason"] == "asp_dropped_frames"

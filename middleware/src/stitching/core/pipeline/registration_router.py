@@ -211,6 +211,9 @@ def choose(
         pick, tele["reason"] = cv, "mode_opencv"
     elif len(cv.affines) < _MIN_KEPT_FRAC * n_frames <= len(asp.affines):
         pick, tele["reason"] = asp, "opencv_dropped_frames"
+    elif len(asp.affines) < _MIN_KEPT_FRAC * n_frames <= len(cv.affines):
+        # spatial dedup on bad edges (asp_test95: 37 -> 3 frames)
+        pick, tele["reason"] = cv, "asp_dropped_frames"
     elif asp.score["mean"] < (1.0 - _ASP_MARGIN) * cv.score["mean"]:
         pick, tele["reason"] = asp, "asp_more_consistent"
     else:
