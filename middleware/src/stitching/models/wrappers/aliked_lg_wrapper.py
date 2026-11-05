@@ -17,6 +17,7 @@ keypoints, before falling back to template matching.
 from __future__ import annotations
 
 import logging
+import os
 
 import cv2
 import numpy as np
@@ -31,6 +32,11 @@ except ImportError:
 
 from middleware.src.constants.models import WRAPPERS_ALIKED_LG_WRAPPER__MIN_INLIERS
 from middleware.src.models.core.base import ModelWrapper, lazy_load
+
+# DISK runs at this long side (px). Full 1080p frames held ~20 GB of VRAM on
+# asp_test89 (2026-11-05), tripping the bench guard; LightGlue keypoints are
+# refined by ECC downstream (_refine.py), so the coarser scale costs little.
+_DISK_MAX_SIDE = int(os.environ.get("ASP_DISK_MAX_SIDE", "1024"))
 
 logger = logging.getLogger(__name__)
 
@@ -80,9 +86,10 @@ class ALIKEDLightGlueWrapper(ModelWrapper):
                 )
             else:
                 self._detector = KF.DISK.from_pretrained("depth").eval().to(self.device)
-            self._lightglue = (
-                KF.LightGlue(features=self._feature_name).eval().to(self.device)
-            )
+            # ALIKED path calls LightGlue on feature dicts; DISK goes through
+            # LightGlueMatcher, which takes descriptors + LAFs.
+            lg_cls = KF.LightGlue if self._feature_name == "aliked" else KF.LightGlueMatcher
+            self._lightglue = lg_cls(self._feature_name).eval().to(self.device)
             self._matcher = self._lightglue
         else:
             self._detector.to(self.device).eval()
@@ -133,12 +140,17 @@ class ALIKEDLightGlueWrapper(ModelWrapper):
         conf         : (K,) float32 match confidence.
         """
 
-        h, w = img_i.shape[:2]
+        long_side = max(*img_i.shape[:2], *img_j.shape[:2])
+        scale = 1.0
+        if self._feature_name != "aliked" and _DISK_MAX_SIDE > 0 and long_side > _DISK_MAX_SIDE:
+            scale = _DISK_MAX_SIDE / long_side
 
-        # Convert to float32 grayscale tensors in [0,1] — kornia expects (1,1,H,W)
+        # ALIKED and DISK both take RGB float tensors in [0,1], (1,3,H,W).
         def _to_tensor(img: np.ndarray) -> torch.Tensor:
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
-            return torch.from_numpy(gray)[None, None].to(self.device)
+            if scale != 1.0:
+                img = cv2.resize(img, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+            rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+            return torch.from_numpy(rgb).permute(2, 0, 1)[None].contiguous().to(self.device)
 
         t_i = _to_tensor(img_i)
         t_j = _to_tensor(img_j)
@@ -169,31 +181,31 @@ class ALIKEDLightGlueWrapper(ModelWrapper):
                 with torch.no_grad():
                     feats_i = detector(t_i, n=2048, pad_if_not_divisible=True)
                     feats_j = detector(t_j, n=2048, pad_if_not_divisible=True)
-                kp_i = feats_i[0].keypoints.cpu().numpy()   # (N, 2)
-                kp_j = feats_j[0].keypoints.cpu().numpy()
-                desc_i = feats_i[0].descriptors.cpu()        # (N, D)
-                desc_j = feats_j[0].descriptors.cpu()
+                kpt_i, kpt_j = feats_i[0].keypoints, feats_j[0].keypoints  # (N, 2)
 
-                laf_i = KF.laf_from_center_scale_ori(
-                    torch.from_numpy(kp_i)[None].float(),
-                    torch.ones(1, len(kp_i), 1, 1),
-                    torch.zeros(1, len(kp_i), 1),
-                ).to(self.device)
-                laf_j = KF.laf_from_center_scale_ori(
-                    torch.from_numpy(kp_j)[None].float(),
-                    torch.ones(1, len(kp_j), 1, 1),
-                    torch.zeros(1, len(kp_j), 1),
-                ).to(self.device)
+                def _laf(k: torch.Tensor) -> torch.Tensor:
+                    n = len(k)
+                    return KF.laf_from_center_scale_ori(
+                        k[None].float(),
+                        torch.ones(1, n, 1, 1, device=k.device),
+                        torch.zeros(1, n, 1, device=k.device),
+                    )
 
                 with torch.no_grad():
-                    result = lg({
-                        "image0": {"keypoints": laf_i, "descriptors": desc_i[None].to(self.device)},
-                        "image1": {"keypoints": laf_j, "descriptors": desc_j[None].to(self.device)},
-                    })
-                idxs = result["matches"][0].cpu().numpy()   # (M, 2)
-                mconf = result["scores"][0].cpu().numpy()   # (M,)
-                pts_i = kp_i[idxs[:, 0]]
-                pts_j = kp_j[idxs[:, 1]]
+                    dists, idxs_t = lg(
+                        feats_i[0].descriptors,
+                        feats_j[0].descriptors,
+                        _laf(kpt_i),
+                        _laf(kpt_j),
+                        hw1=tuple(t_i.shape[-2:]),
+                        hw2=tuple(t_j.shape[-2:]),
+                    )
+                idxs = idxs_t.cpu().numpy()  # (M, 2)
+                # LightGlueMatcher returns distances (1 - score); keep a score.
+                mconf = (1.0 - dists.squeeze(-1)).cpu().numpy()
+                kp_i, kp_j = kpt_i.cpu().numpy(), kpt_j.cpu().numpy()
+                pts_i = kp_i[idxs[:, 0]] / scale
+                pts_j = kp_j[idxs[:, 1]] / scale
 
         # Confidence filter
         keep = mconf >= conf_thresh
