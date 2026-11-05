@@ -152,6 +152,8 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         default_display_mode: str = DISPLAY_RAW,
         results_path: str | None = None,
         theme: str | None = None,
+        run=None,
+        prev_run=None,
     ):
         super().__init__()
         self.setWindowTitle("Benchmark Evaluation Inspector")
@@ -167,10 +169,14 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         self.base_dir = base_dir
         self.repo_root = repo_root
         self.results_path = results_path
+        # run_history.RunInfo: an archived bench run to inspect, and the run
+        # shown as "ASP (previous run)" (None = newest older run per case).
+        self.run = run
+        self.prev_run = prev_run
         self._assets = None
         self._edge_builder = EdgeBuilder()
 
-        names = discovery.discover_datasets(base_dir)
+        names = discovery.discover_datasets(base_dir, run)
         self.session = EvaluationSession(names, out_path, redo=redo)
         self.total_datasets = len(names)
 
@@ -365,7 +371,8 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
             return
         self._edge_builder.reset()
         self._assets = discovery.load_test_assets(
-            self.base_dir, name, self.repo_root, self.results_path
+            self.base_dir, name, self.repo_root, self.results_path,
+            run=self.run, prev=self.prev_run,
         )
         images = discovery.load_images(self._assets)
         entry = self.session.entry(name)
@@ -402,6 +409,9 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         return [*SCORABLE_KEYS, *RENDERER_EXPORT_KEYS]
 
     def _run_label(self) -> str:
+        if self.run is not None:
+            prev = self.prev_run.run_id if self.prev_run is not None else "newest older run"
+            return f"run {self.run.run_id} vs {prev}"
         metrics = discovery.load_metrics(self.repo_root, self.results_path)
         metadata = metrics.get("__metadata__") or {}
         timestamp = metadata.get("timestamp", "")

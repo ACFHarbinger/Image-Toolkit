@@ -469,9 +469,10 @@ def test_load_images_decodes_only_what_exists(tmp_path):
     assert set(images) == {"asp", "simple", "overmix"}
 
 
-def test_metrics_cache_is_keyed_per_results_file(tmp_path):
+def test_metrics_cache_is_keyed_per_results_file(tmp_path, monkeypatch):
     """Two runs must not evict each other — the diagnostics tab reads both for
     its cross-run regression check."""
+    monkeypatch.setenv("ASP_BENCH_RESULTS_DIR", str(tmp_path / "bench-results"))
     results_dir = tmp_path / "backend" / "benchmark" / "output"
     results_dir.mkdir(parents=True)
     for stamp, sharpness in (("20260101_000000", 1.0), ("20260102_000000", 2.0)):

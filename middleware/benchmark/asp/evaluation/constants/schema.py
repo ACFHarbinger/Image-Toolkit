@@ -19,6 +19,9 @@ IMAGE_SIMPLE = "simple"
 IMAGE_OVERMIX = "overmix"
 IMAGE_HUGIN = "hugin"
 IMAGE_GROUND_TRUTH = "ground_truth"
+# The same case from an earlier archived bench run (run_history.py). Shown
+# for comparison only: never scored, never written as a top-level key.
+IMAGE_ASP_PREV = "asp_prev"
 
 # Renderer-export arms. Present only when the inspector is pointed at a
 # renderer-export bundle (a directory of asp_testXX/ subdirs each holding
@@ -32,6 +35,7 @@ IMAGE_P1P2 = "p1p2_multiband"
 
 COMPARATORS = (
     (IMAGE_ASP, "ASP"),
+    (IMAGE_ASP_PREV, "ASP (previous run)"),
     # Display label only — "OpenCV (SCANS)" now that there's more than one
     # ASP alternative (Overmix, Hugin). The internal key stays "simple": it's
     # the literal JSON field bench_anime_stitch.py's _load_human_evaluations()
