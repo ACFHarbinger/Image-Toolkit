@@ -422,6 +422,24 @@ class ControlPointEditor(QWidget):
     def get_homography(self) -> np.ndarray | None:
         return self._H
 
+    def set_homography(self, homography: np.ndarray | None) -> None:
+        """Seed the solved homography without replacing placed control points.
+
+        ASP hands off a global-affine pair this way. The user can still
+        place points and Solve to replace it.
+        """
+        if homography is None:
+            self._H = None
+            return
+        self._H = np.asarray(homography, dtype=np.float64).reshape(3, 3).copy()
+        self._status.setText(
+            "ASP alignment loaded. Add or move points, then Solve to replace it."
+        )
+
+    def clear_solution(self) -> None:
+        """Drop the solved homography. Placed points stay until Clear All."""
+        self._H = None
+
     def fit_views(self):
         """Re-fit both canvases — call after the tab becomes visible."""
         self._canvas_a._fit_image()

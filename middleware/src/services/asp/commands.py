@@ -7,6 +7,7 @@ and canvas rendering operations (W0-03 Phase C, #867).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from middleware.src.services.base import Command, Result
 
@@ -38,6 +39,9 @@ class StitchResult(Result):
     elapsed_seconds: float = 0.0
     metrics: dict[str, float] = field(default_factory=dict)
     error: str | None = None
+    # JSON payload from :func:`handoff.hybrid_handoff_payload`, when the run
+    # recorded a session HybridStitch can refine. Absent on validation failures.
+    hybrid_handoff: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
