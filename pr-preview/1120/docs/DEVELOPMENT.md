@@ -20,9 +20,9 @@ just asp-benchmark-assess # human coherence rating inspector (ASP)
 just benchmark-dashboard  # Streamlit IT performance dashboard
 ```
 
-## Submodules (Absorbed)
+## Absorbed Modules
 
-The submodules are fully absorbed in-tree (W0-03 #867): Anime-Stitch-Pipeline (`submodules/ASP`), Cel-Shaded-Generator (`submodules/CSG`), Content-Recommendation-Engine (`submodules/CRE`), and Hybrid-Image-Editor (`submodules/HIE`). No `git submodule update` is needed; all code is checked directly into the repository.
+The previous external submodules are fully absorbed into the monorepo (W0-03 #867/#1039): Anime-Stitch-Pipeline (`middleware/src/stitching`, `backend/src/asp`), Cel-Shaded-Generator (`middleware/src/csg`), Content-Recommendation-Engine (`middleware/src/cre`), and Hybrid-Image-Editor (`middleware/src/hie`, `backend/src/hie`). No `git submodule update` is needed; all code is checked directly into the monorepo.
 
 ## Documentation website
 
