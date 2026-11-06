@@ -245,9 +245,9 @@ class _UIConfigMixin:
         self.lbl_edge_crop = QLabel("Edge Crop (px):")
         self.edge_crop_spinbox = QSpinBox()
         self.edge_crop_spinbox.setRange(0, 500)
-        self.edge_crop_spinbox.setValue(30)
+        self.edge_crop_spinbox.setValue(0)
         self.edge_crop_spinbox.setToolTip(
-            "Crops left/right edges to neutralize vignettes before stitching."
+            "Pixels trimmed from every side of the ASP result (0 = keep the full valid area)."
         )
 
         self.lbl_pyramid_levels = QLabel("Pyramid Levels:")

@@ -348,7 +348,7 @@ class _StitchPanelBuildMixin(_Base):
 
         self._edge_crop_spin = QSpinBox()
         self._edge_crop_spin.setRange(0, 100)
-        self._edge_crop_spin.setValue(30)
+        self._edge_crop_spin.setValue(0)
         self._edge_crop_spin.setToolTip(
             "Pixels to strip from each long edge after final crop.\n"
             "Removes alignment artefacts at panorama borders."

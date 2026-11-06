@@ -72,7 +72,7 @@ class AnimeStitchPipeline(
         renderer: str = "seam",  # 'seam' | 'median' | 'first' | 'blend'
         composite_fg: bool = True,
         laplacian_bands: int = LAPLACIAN_BANDS,
-        edge_crop: int = 30,
+        edge_crop: int = 0,  # px off every side after the valid crop; 30 cost ~3% coverage (2026-11-06)
         motion_model: str = "translation",  # 'translation', 'translation_scale', or 'affine'
         **kwargs,
     ):

@@ -171,7 +171,7 @@ class _ConfigPersistenceMixin:
                 self.overmix_render_combo.setCurrentIndex(idx)
 
             self.edge_crop_spinbox.setValue(
-                ek.get("edge_crop", config.get("edge_crop_px", 30))
+                ek.get("edge_crop", config.get("edge_crop_px", 0))
             )
             self.pyramid_levels_spinbox.setValue(
                 ek.get("laplacian_bands", config.get("pyramid_levels", 8))
