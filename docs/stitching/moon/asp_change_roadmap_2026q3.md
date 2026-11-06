@@ -240,7 +240,14 @@ manifest/telemetry harness landed 2026-08-20 (Grok, issue #46:
 manifest with git/profile/hashes/RSS/VRAM, `compare_traces` for the
 same-manifest exit). The layered synthetic pan/hold fixture generator
 landed 2026-08-20 (Gemini, issue #47 closed: `synthetic.py`,
-`generate_layered_pan_sequence`, 5 passing unit tests). **All M0 deliverables are complete.**
+`generate_layered_pan_sequence`, 5 passing unit tests). **Image-Toolkit
+#1103** keeps it as its own module at
+`middleware/src/stitching/alignment/synthetic.py`: a static plate, 2–3
+world-fixed RGBA cels, known integer camera velocity, and known hold IDs.
+`middleware/benchmark/asp/generate_samples.py` stays the unlayered
+onboarding scrolls. `middleware/test/stitching/alignment/test_synthetic_fixture.py`
+recovers the known `(dx, dy)` and hold IDs from the rendered frames and
+does not read the anime corpus. **All M0 deliverables are complete.**
 
 Deliverables:
 

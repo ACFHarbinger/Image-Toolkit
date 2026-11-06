@@ -1,14 +1,15 @@
-"""Procedural layered synthetic pan/hold fixture generator (M0 — issue #47).
+"""Procedural layered synthetic pan/hold fixture generator (M0c — #1103).
 
-Generates synthetic anime-style pan sequences comprising:
-1. Static background plate (rich high-frequency textures / gradient scenery).
-2. Configurable camera panning trajectory with known ground-truth velocity (dx, dy).
-3. 2–3 held foreground character cels (RGBA layers) with distinct hold intervals.
-4. Accurate ground-truth annotations: camera trajectory, inter-frame displacements,
-   cel hold IDs, active frame spans, and ground-truth composite panorama.
+Builds a static background plate, a camera pan with known velocity, and 2–3
+world-fixed RGBA character cels that each own a known hold ID. This is a
+fixture module, not an onboarding-sample helper: ``generate_samples.py``
+still only makes unlayered gradient and pattern scrolls.
 
-Enables unit tests to verify translation recovery, phase correlation, and hold
-segmentation without requiring external anime video files or GPU dependencies.
+Camera positions are integer pixels. ``ground_truth_displacements`` is the
+per-frame camera-window step a registration test should recover; when
+``pan_dx`` and ``pan_dy`` are integers, every step equals that velocity.
+Held cels stay fixed on the plate, so inside one hold the frame sequence is
+a pure translation, and a new hold is a new drawing.
 """
 
 from __future__ import annotations
@@ -117,51 +118,116 @@ def _create_textured_background(
     return bg
 
 
+# hold id, pose name, BGR accent, description. Order is the hold order.
+_HOLD_SPECS: tuple[tuple[str, str, tuple[int, int, int], str], ...] = (
+    ("hold_alpha", "pose_a", (40, 60, 220), "Character in pose A"),
+    ("hold_beta", "pose_b", (200, 80, 40), "Character in pose B"),
+    ("hold_gamma", "pose_c", (40, 170, 70), "Character in pose C"),
+)
+
+
+def _validate_generation(num_frames: int, num_cels: int) -> None:
+    if num_frames < 2:
+        raise ValueError("num_frames must be at least 2")
+    if num_cels not in (2, 3):
+        raise ValueError("num_cels must be 2 or 3")
+    if num_frames < num_cels:
+        raise ValueError("num_frames must be at least num_cels so every hold has a frame")
+
+
+def _hold_frame_spans(num_frames: int, num_cels: int) -> list[tuple[int, int]]:
+    """Contiguous half-open frame spans, one per held cel.
+
+    Earlier holds absorb the remainder so every span is nonempty when
+    ``num_frames >= num_cels``.
+    """
+    base, extra = divmod(num_frames, num_cels)
+    spans: list[tuple[int, int]] = []
+    start = 0
+    for index in range(num_cels):
+        length = base + (1 if index < extra else 0)
+        spans.append((start, start + length))
+        start += length
+    return spans
+
+
 def _create_character_cel(
     width: int,
     height: int,
     pose_name: str,
     color_accent: tuple[int, int, int],
 ) -> np.ndarray:
-    """Render an RGBA character cel with solid cel shading and bold dark outlines."""
+    """Render an RGBA character cel with solid cel shading and bold dark outlines.
+
+    Coordinates are fractions of the cel bitmap so a smaller frame still gets
+    a cel that fits inside the camera.
+    """
     rgba = np.zeros((height, width, 4), dtype=np.uint8)
+    cx = width / 2.0
+    cy = height / 2.0
 
-    cx, cy = width // 2, height // 2
+    def xy(px: float, py: float) -> tuple[int, int]:
+        return int(round(cx + px * width)), int(round(cy + py * height))
 
-    # Draw body / torso
-    torso_pts = np.array(
-        [
-            [cx - 30, cy + 50],
-            [cx + 30, cy + 50],
-            [cx + 20, cy - 20],
-            [cx - 20, cy - 20],
-        ],
+    torso = np.array(
+        [xy(-0.22, 0.28), xy(0.22, 0.28), xy(0.14, -0.06), xy(-0.14, -0.06)],
         dtype=np.int32,
     )
-    cv2.fillPoly(rgba, [torso_pts], (*color_accent, 255))
-    cv2.polylines(rgba, [torso_pts], isClosed=True, color=(10, 10, 10, 255), thickness=2)
+    ink = (10, 10, 10, 255)
+    cv2.fillPoly(rgba, [torso], (*color_accent, 255))
+    cv2.polylines(rgba, [torso], isClosed=True, color=ink, thickness=2)
 
-    # Draw head
-    head_center = (cx, cy - 45)
-    head_radius = 26
+    head_radius = max(3, int(round(min(width, height) * 0.16)))
+    head_center = xy(0.0, -0.28)
     cv2.circle(rgba, head_center, head_radius, (210, 225, 245, 255), -1)
-    cv2.circle(rgba, head_center, head_radius, (10, 10, 10, 255), 2)
+    cv2.circle(rgba, head_center, head_radius, ink, 2)
 
-    # Draw pose-specific limbs
     if pose_name == "pose_a":
-        # Left and right arms standard
-        cv2.line(rgba, (cx - 20, cy - 10), (cx - 50, cy + 20), (10, 10, 10, 255), 3)
-        cv2.line(rgba, (cx + 20, cy - 10), (cx + 50, cy + 20), (10, 10, 10, 255), 3)
+        cv2.line(rgba, xy(-0.14, -0.04), xy(-0.38, 0.16), ink, 3)
+        cv2.line(rgba, xy(0.14, -0.04), xy(0.38, 0.16), ink, 3)
     elif pose_name == "pose_b":
-        # Raised right arm
-        cv2.line(rgba, (cx - 20, cy - 10), (cx - 45, cy + 30), (10, 10, 10, 255), 3)
-        cv2.line(rgba, (cx + 20, cy - 10), (cx + 55, cy - 40), (10, 10, 10, 255), 3)
+        cv2.line(rgba, xy(-0.14, -0.04), xy(-0.34, 0.22), ink, 3)
+        cv2.line(rgba, xy(0.14, -0.04), xy(0.40, -0.30), ink, 3)
     else:
-        # Cross arms
-        cv2.line(rgba, (cx - 20, cy - 10), (cx + 15, cy + 10), (10, 10, 10, 255), 3)
-        cv2.line(rgba, (cx + 20, cy - 10), (cx - 15, cy + 10), (10, 10, 10, 255), 3)
+        cv2.line(rgba, xy(-0.14, -0.04), xy(0.12, 0.10), ink, 3)
+        cv2.line(rgba, xy(0.14, -0.04), xy(-0.12, 0.10), ink, 3)
 
     return rgba
+
+
+def _held_cels_for_spans(
+    spans: list[tuple[int, int]],
+    camera_positions: list[tuple[int, int]],
+    frame_width: int,
+    frame_height: int,
+) -> list[HeldCel]:
+    cel_w = max(8, min(140, frame_width // 3))
+    cel_h = max(8, min(180, frame_height // 2))
+    if cel_w >= frame_width or cel_h >= frame_height:
+        raise ValueError("frame is too small to place a held cel inside the camera")
+
+    cels: list[HeldCel] = []
+    specs = _HOLD_SPECS[: len(spans)]
+    for (start, end), (hold_id, pose, color, description) in zip(spans, specs, strict=True):
+        cam_x, cam_y = camera_positions[start]
+        # Anchor the drawing to the plate, centered on the first frame of this
+        # hold. It does not follow the camera, so the rest of the hold is the
+        # same pixels translated by the camera step.
+        world_pos = (
+            cam_x + (frame_width - cel_w) // 2,
+            cam_y + (frame_height - cel_h) // 2,
+        )
+        cels.append(
+            HeldCel(
+                cel_id=f"cel_{len(cels) + 1:02d}",
+                hold_id=hold_id,
+                active_frames=tuple(range(start, end)),
+                world_pos=world_pos,
+                rgba=_create_character_cel(cel_w, cel_h, pose, color),
+                description=f"{description} ({hold_id})",
+            )
+        )
+    return cels
 
 
 def _alpha_blend(
@@ -205,22 +271,25 @@ def generate_layered_pan_sequence(
     frame_height: int = 300,
     pan_dx: float = 0.0,
     pan_dy: float = 40.0,
+    num_cels: int = 2,
     seed: int = 42,
 ) -> SyntheticPanSequence:
     """Procedurally generate a layered synthetic pan sequence with held cels.
 
     Args:
-        num_frames: Number of animation frames to render.
+        num_frames: Number of animation frames to render (at least 2).
         frame_width: Width of each output frame in pixels.
         frame_height: Height of each output frame in pixels.
-        pan_dx: Relative horizontal camera velocity per frame (pixels).
-        pan_dy: Relative vertical camera velocity per frame (pixels).
+        pan_dx: Horizontal camera velocity per frame, in pixels.
+        pan_dy: Vertical camera velocity per frame, in pixels.
+        num_cels: How many held RGBA cels to place. Must be 2 or 3.
         seed: PRNG seed for deterministic procedural generation.
 
     Returns:
         SyntheticPanSequence containing rendered frames, ground truth composite,
         camera trajectories, exact displacements, and held cel descriptors.
     """
+    _validate_generation(num_frames, num_cels)
     rng = np.random.default_rng(seed)
 
     # Compute required background plate dimensions
@@ -250,44 +319,12 @@ def generate_layered_pan_sequence(
         dy = float(camera_positions[i + 1][1] - camera_positions[i][1])
         displacements.append((dx, dy))
 
-    # 3. Create Held Character Cels
-    cel_w, cel_h = 140, 180
-    cels: list[HeldCel] = []
-
-    # Cel 1 (Hold A): Active on first half of frames
-    half_pt = num_frames // 2
-    cel_1_rgba = _create_character_cel(cel_w, cel_h, "pose_a", (40, 60, 220))
-    cel_1_world_pos = (
-        start_cam_x + (frame_width - cel_w) // 2,
-        start_cam_y + (frame_height - cel_h) // 2,
-    )
-    cels.append(
-        HeldCel(
-            cel_id="cel_01",
-            hold_id="hold_alpha",
-            active_frames=tuple(range(0, half_pt)),
-            world_pos=cel_1_world_pos,
-            rgba=cel_1_rgba,
-            description="Character in pose A (hold 1)",
-        )
-    )
-
-    # Cel 2 (Hold B): Active on second half of frames
-    cel_2_rgba = _create_character_cel(cel_w, cel_h, "pose_b", (200, 80, 40))
-    # Slightly shifted along the pan axis to model a distinct held keyframe
-    cel_2_world_pos = (
-        int(start_cam_x + pan_dx * half_pt) + (frame_width - cel_w) // 2,
-        int(start_cam_y + pan_dy * half_pt) + (frame_height - cel_h) // 2,
-    )
-    cels.append(
-        HeldCel(
-            cel_id="cel_02",
-            hold_id="hold_beta",
-            active_frames=tuple(range(half_pt, num_frames)),
-            world_pos=cel_2_world_pos,
-            rgba=cel_2_rgba,
-            description="Character in pose B (hold 2)",
-        )
+    # 3. Held character cels, one drawing per contiguous hold.
+    cels = _held_cels_for_spans(
+        _hold_frame_spans(num_frames, num_cels),
+        camera_positions,
+        frame_width,
+        frame_height,
     )
 
     # 4. Render Individual Camera Frames
@@ -327,6 +364,7 @@ def generate_layered_pan_sequence(
         held_cels=cels,
         metadata={
             "num_frames": num_frames,
+            "num_cels": num_cels,
             "pan_dx": pan_dx,
             "pan_dy": pan_dy,
             "seed": seed,

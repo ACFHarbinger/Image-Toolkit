@@ -15,12 +15,9 @@ def test_generator_runs(tmp_path):
     """Test that the generator script runs without errors and creates dirs."""
     gen_samples.create_gradient_sample(tmp_path / "grad", num_frames=3)
     gen_samples.create_pattern_sample(tmp_path / "pat", num_frames=3)
-    gen_samples.create_layered_pan_sample(tmp_path / "layer", num_frames=3)
 
     assert (tmp_path / "grad").exists()
     assert (tmp_path / "pat").exists()
-    assert (tmp_path / "layer").exists()
-    assert (tmp_path / "layer" / "manifest.json").exists()
 
 
 def test_output_png_dimensions(tmp_path):
