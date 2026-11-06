@@ -118,6 +118,17 @@ QComboBox QAbstractItemView {{
     outline: none;
 }}
 QComboBox::drop-down {{ border: none; width: 18px; }}
+/* The cursor-tool menu: the toolbar's main control. */
+QComboBox[role="tool"] {{
+    background: {p['accent_dim']};
+    border: 2px solid {p['accent']};
+    color: {p['bg']};
+    font-weight: 700;
+    padding: 4px 10px;
+}}
+QComboBox[role="tool"]:hover {{ background: {p['accent']}; }}
+QComboBox[role="tool"] QAbstractItemView {{ color: {p['text']}; font-weight: 600; }}
+QLabel[role="toolLabel"] {{ color: {p['accent']}; font-weight: 700; }}
 
 QCheckBox, QRadioButton {{ spacing: 6px; background: transparent; }}
 QCheckBox::indicator, QRadioButton::indicator {{

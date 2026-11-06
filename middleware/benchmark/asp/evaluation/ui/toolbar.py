@@ -58,8 +58,19 @@ class InspectorToolbar(QWidget):
         self._tool_combo.currentIndexChanged.connect(
             lambda _i: self.modeChanged.emit(self._tool_combo.currentData())
         )
-        layout.addWidget(QLabel("Tool"))
+        # The main control: what a drag on the images does.
+        self._tool_combo.setProperty("role", "tool")
+        self._tool_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self._tool_combo.setToolTip(
+            "Cursor tool: Navigate to pan and zoom, Draw region to mark an artifact"
+        )
+        tool_label = QLabel("Tool")
+        tool_label.setProperty("role", "toolLabel")
+        layout.addWidget(tool_label)
         layout.addWidget(self._tool_combo)
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.VLine)
+        layout.addWidget(separator)
 
         self._display_check = QCheckBox("Pixel values")
         self._display_check.setToolTip(
