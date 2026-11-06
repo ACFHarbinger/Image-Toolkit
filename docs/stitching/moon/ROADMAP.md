@@ -141,6 +141,21 @@ rematches only if a hop is missing. `ASP_EDGELESS_REPROPOSAL=0` (default
 on) disables all edgeless recovery for A/B. Unit tests cover compose/filter/flag; full-97 still
 needs Harbinger authorization — this change is not itself a DoD close.
 
+**#472 wiring after the monorepo move (2026-11-06).** The recovery lives
+in `AnimeStitchPipeline._recover_edgeless_edges` (`run_stage.py`): empty
+filtered graph, at least two retained frames, master switch on, then
+compose (opt-in) and otherwise rematch, then the same filter. SCANS is
+still the caller's fallback when nothing survives. Compose stays default
+off. `just asp-benchmark-verify` is still those five datasets
+(`asp_test04`, `asp_test08`, `asp_test09`, `asp_test27`, `asp_test57`)
+via `middleware/benchmark/asp/bench_anime_stitch.py`. That script's
+`asp_backend` alias pointed at `middleware/benchmark/src` after the move
+off `backend/benchmark/`; it now points at `middleware/src/stitching`.
+A requested `--tests` name that is not under `--data-dir` exits non-zero.
+The verify command and a full-97 yield check (raw-ASP above 18/97, no
+regression, deterministic protocol, compose only as an explicit A/B)
+were not run in this change. `data/asp/dump` is not in the tree.
+
 **#472 full-97 validation (2026-09-17, Harbinger-authorized) — DoD not met on
 raw-ASP yield, but the fix's own mechanism confirms clean.** Segmented run
 (1–25/26–50/51–75/76–97, `ASP_DISABLE_PANORAMA_FALLBACK=1`, merged
@@ -208,6 +223,26 @@ first dataset when the built-in host-RAM guardrail reached 85% (threshold
 `CUBLAS_WORKSPACE_CONFIG=:4096:8`; each can be overridden in the caller's
 environment. Full-97 confirmation remains outstanding until host memory
 headroom is sufficient to pass the guardrail.
+
+**#654 follow-up (2026-11-06) — exact band under the benchmark protocol,
+noise floor for the unseeded pair.** The seed audit above still holds:
+`configure_reproducibility()` is a no-op unless `ASP_DETERMINISTIC=1`, and
+turning it on for every GUI run would pin Torch threads to 1 and disable
+cuDNN autotune. Benchmark recipes keep the flag on, and the bench worker
+applies it before model warmup. `torch.use_deterministic_algorithms(...,
+warn_only=True)` does not promise every kernel is deterministic, and
+`CUBLAS_WORKSPACE_CONFIG` / `PYTHONHASHSEED` have to be set before process
+start (the recipe does that; a library call cannot). Until two full-97
+passes under that protocol match, do not treat one JSON file as the
+Ground-Rule #1 reference. Compare with
+`middleware/src/stitching/core/pipeline/yield_reference.py`:
+`accept_as_deterministic_reference` is true only for an exact identity and
+gate-family match. The 2026-09-17 unseeded swap (RAW_ASP count tied at 18,
+9 names gained and 9 lost) is recorded as
+`UNSEEDED_FULL97_20260917_BAND` so that pair can be recognized. That band
+is not a pass criterion for a code change. The same-day 3/9 count movement
+is outside it. Full-97 A/B is still a Harbinger-authorized host run; it
+was not repeated here.
 
 **Comparator coverage prep (2026-08-31, #474).** Overmix remains absent for
 all 97 reference cases. The repaired `just bench::asp-run-overmix` invokes
@@ -623,6 +658,12 @@ tools not present in a plain checkout.**
 1. **One change → one benchmark → keep or revert.** 5-test verify
    (`just asp-benchmark-verify`) per change; full 97 (`just asp-benchmark`, ~2.5 h)
    before any default flips. Record the JSON filename in the item when done.
+   Compare two benchmark JSON files with
+   `middleware/src/stitching/core/pipeline/yield_reference.py`. Under the
+   benchmark recipe's deterministic defaults, only an exact identity and
+   gate-family match is a fixed reference (refs #654). The unseeded
+   18-name RAW_ASP swap is a noise floor for that historical pair, not a
+   tolerance that accepts a new change.
 2. **Human visual verdict outranks every metric.** No item is "done" on SSIM alone;
    side-by-side montages (ASP | simple | Overmix | GT) are part of the definition of
    done. No automated metric currently measures structural coherence.

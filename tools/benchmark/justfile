@@ -86,6 +86,8 @@ asp-benchmark-resume:
 # Run ASP benchmark on the standard quality-verification test suite:
 # test09 (canonical seam-tear), test27 (full-body portrait), test08 (high-motion),
 # test57 (comparable), test04 (gate fallback).
+# The corpus is local (data/asp/dump is not in git). A --tests name that is
+# not a directory exits 2 instead of an empty successful run.
 asp-benchmark-verify:
     @echo "🎞️  Running ASP quality-verification suite (5 tests)..."
     {{_ASP_ENV}} {{_IT_PY}} \

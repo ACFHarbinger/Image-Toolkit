@@ -82,6 +82,175 @@ def test_edgeless_compose_flag_defaults_off(monkeypatch):
     assert edgeless_compose_enabled() is False
 
 
+def _recovery_host(filter_fn, rematch_fn):
+    return SimpleNamespace(
+        _filter_edges=filter_fn,
+        _rematch_retained_adjacent_edges=rematch_fn,
+    )
+
+
+def _recover(host, pre_edges, post_paths):
+    frames = [np.zeros((8, 8, 3), dtype=np.uint8) for _ in range(len(post_paths))]
+    # 15 adjacent hops index originals 0..15. Shorter graphs use the post paths.
+    pre_paths = (
+        [f"f{i}.png" for i in range(len(pre_edges) + 1)]
+        if len(pre_edges) > 2
+        else list(post_paths)
+    )
+    counts: dict = {}
+    edges = _RunStageMixin._recover_edgeless_edges(
+        host,
+        [],
+        frames=frames,
+        bg_masks=[None] * len(frames),
+        image_paths=post_paths,
+        pre_dedup_paths=pre_paths,
+        pre_dedup_edges=pre_edges,
+        active_loftr=None,
+        edge_stage_counts=counts,
+        frame_h=8,
+        frame_w=8,
+    )
+    return edges, counts
+
+
+def test_edgeless_recovery_disabled_skips_compose_and_rematch(monkeypatch):
+    monkeypatch.setenv("ASP_EDGELESS_REPROPOSAL", "0")
+    monkeypatch.setenv("ASP_EDGELESS_COMPOSE", "1")
+    calls = {"filter": 0, "rematch": 0}
+
+    def fake_filter(*_args, **_kwargs):
+        calls["filter"] += 1
+        return []
+
+    def fake_rematch(*_args, **_kwargs):
+        calls["rematch"] += 1
+        return []
+
+    edges, counts = _recover(
+        _recovery_host(fake_filter, fake_rematch),
+        [_edge(0, 1, 0.0, 20.0)],
+        ["f0.png", "f1.png"],
+    )
+    assert edges == []
+    assert calls == {"filter": 0, "rematch": 0}
+    assert counts == {}
+
+
+def test_edgeless_recovery_compose_off_rematches(monkeypatch):
+    monkeypatch.delenv("ASP_EDGELESS_COMPOSE", raising=False)
+    monkeypatch.delenv("ASP_EDGELESS_REPROPOSAL", raising=False)
+    calls = {"rematch": 0, "filtered_sources": []}
+
+    def fake_filter(edges, *_args, **_kwargs):
+        calls["filtered_sources"].append([edge.get("source") for edge in edges])
+        return list(edges)
+
+    def fake_rematch(*_args, **_kwargs):
+        calls["rematch"] += 1
+        return [_edge(0, 1, 0.0, 80.0)]
+
+    pre = [_edge(i, i + 1, 0.0, 20.0) for i in range(15)]
+    edges, counts = _recover(
+        _recovery_host(fake_filter, fake_rematch),
+        pre,
+        ["f0.png", "f15.png"],
+    )
+    assert calls["rematch"] == 1
+    assert counts["edgeless_compose_input"] == 0
+    assert counts["edgeless_reproposal_input"] == 1
+    assert counts["edgeless_reproposal_output"] == 1
+    assert len(edges) == 1
+    assert edges[0].get("source") != "edgeless_compose"
+
+
+def test_edgeless_recovery_compose_keeps_chain_and_skips_rematch(monkeypatch):
+    monkeypatch.setenv("ASP_EDGELESS_COMPOSE", "1")
+    monkeypatch.delenv("ASP_EDGELESS_REPROPOSAL", raising=False)
+    calls = {"rematch": 0}
+
+    def fake_filter(edges, *_args, **_kwargs):
+        # The 50 px floor is the real filter's job; here we only check that
+        # the composed chain is what gets filtered, and that it is kept.
+        assert edges and edges[0].get("source") == "edgeless_compose"
+        assert float(edges[0]["M"][1, 2]) == pytest.approx(300.0)
+        return list(edges)
+
+    def fake_rematch(*_args, **_kwargs):
+        calls["rematch"] += 1
+        return []
+
+    pre = [_edge(i, i + 1, 0.0, 20.0) for i in range(15)]
+    edges, counts = _recover(
+        _recovery_host(fake_filter, fake_rematch),
+        pre,
+        ["f0.png", "f15.png"],
+    )
+    assert calls["rematch"] == 0
+    assert counts["edgeless_compose_input"] == 1
+    assert counts["edgeless_compose_output"] == 1
+    assert "edgeless_reproposal_input" not in counts
+    assert edges[0]["source"] == "edgeless_compose"
+
+
+def test_edgeless_recovery_rematches_when_composed_chain_is_filtered_out(monkeypatch):
+    monkeypatch.setenv("ASP_EDGELESS_COMPOSE", "1")
+    monkeypatch.delenv("ASP_EDGELESS_REPROPOSAL", raising=False)
+
+    def fake_filter(edges, *_args, **_kwargs):
+        if edges and edges[0].get("source") == "edgeless_compose":
+            return []
+        return list(edges)
+
+    def fake_rematch(*_args, **_kwargs):
+        return [_edge(0, 1, 0.0, 80.0)]
+
+    pre = [_edge(i, i + 1, 0.0, 20.0) for i in range(15)]
+    edges, counts = _recover(
+        _recovery_host(fake_filter, fake_rematch),
+        pre,
+        ["f0.png", "f15.png"],
+    )
+    assert counts["edgeless_compose_input"] == 1
+    assert counts["edgeless_compose_output"] == 0
+    assert counts["edgeless_reproposal_output"] == 1
+    assert len(edges) == 1
+
+
+def test_edgeless_recovery_rematches_when_a_compose_hop_is_missing(monkeypatch):
+    monkeypatch.setenv("ASP_EDGELESS_COMPOSE", "1")
+    monkeypatch.delenv("ASP_EDGELESS_REPROPOSAL", raising=False)
+    calls = {"rematch": 0}
+
+    def fake_filter(edges, *_args, **_kwargs):
+        return list(edges)
+
+    def fake_rematch(*_args, **_kwargs):
+        calls["rematch"] += 1
+        return [_edge(0, 1, 0.0, 80.0)]
+
+    # Missing hop 1→2, so the retained pair cannot be composed.
+    pre = [_edge(0, 1, 0.0, 20.0), _edge(2, 3, 0.0, 20.0)]
+    frames = [np.zeros((8, 8, 3), dtype=np.uint8) for _ in range(2)]
+    counts: dict = {}
+    edges = _RunStageMixin._recover_edgeless_edges(
+        _recovery_host(fake_filter, fake_rematch),
+        [],
+        frames=frames,
+        bg_masks=[None, None],
+        image_paths=["a.png", "d.png"],
+        pre_dedup_paths=["a.png", "b.png", "c.png", "d.png"],
+        pre_dedup_edges=pre,
+        active_loftr=None,
+        edge_stage_counts=counts,
+        frame_h=8,
+        frame_w=8,
+    )
+    assert counts["edgeless_compose_input"] == 0
+    assert calls["rematch"] == 1
+    assert len(edges) == 1
+
+
 def test_edgeless_reproposal_matches_only_retained_neighbours(monkeypatch):
     import middleware.src.stitching.alignment.matching as matching
 

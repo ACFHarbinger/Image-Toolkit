@@ -28,7 +28,6 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 import time
 from pathlib import Path
@@ -36,32 +35,20 @@ from pathlib import Path
 from PIL import Image
 
 
-def _load_package(alias: str, src_dir: Path) -> None:
-    """Register ``src_dir`` under ``alias`` in ``sys.modules``, the same
-    collision-avoiding pattern ``backend/test/conftest.py`` uses for
-    ``asp_backend`` (see issue #3: this repo's and Image-Toolkit's
-    top-level ``backend`` packages share a name, so a raw absolute
-    ``backend.X`` import resolves inconsistently depending on which repo's
-    package Python's import system finds first — this script needs to be
-    run by file path (``python backend/benchmark/run_hugin.py``), not
-    ``-m backend.benchmark.run_hugin``, for the same reason). A no-op when
-    the alias is already registered (e.g. by Image-Toolkit's own
-    bootstrap)."""
+def _install_asp_backend() -> None:
+    """Alias ``asp_backend`` to ``middleware/src/stitching`` (see bootstrap.py)."""
     import importlib.util
 
-    if alias in sys.modules or not src_dir.is_dir():
-        return
-    spec = importlib.util.spec_from_file_location(
-        alias, src_dir / "__init__.py", submodule_search_locations=[str(src_dir)]
-    )
+    boot_path = Path(__file__).resolve().parent / "bootstrap.py"
+    spec = importlib.util.spec_from_file_location("_asp_bench_bootstrap", boot_path)
     if spec is None or spec.loader is None:
-        return
+        raise RuntimeError(f"missing ASP benchmark bootstrap: {boot_path}")
     module = importlib.util.module_from_spec(spec)
-    sys.modules[alias] = module
     spec.loader.exec_module(module)
+    module.install_asp_backend()
 
 
-_load_package("asp_backend", Path(__file__).resolve().parents[1] / "src")
+_install_asp_backend()
 
 from asp_backend.ingestion.frame_selection import smart_select_frames  # noqa: E402
 

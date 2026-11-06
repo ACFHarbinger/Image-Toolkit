@@ -465,48 +465,21 @@ class _RunStageMixin(_Base):
                 "filter_output": len(edges),
             }
         )
-        # Spatial dedup can make frames that were farther apart than the
-        # initial temporal window become neighbours.  Their old skip edge was
-        # dropped with the endpoints. If ASP_EDGELESS_COMPOSE=1 (default off,
-        # #472), first compose the original adjacent hops between retained
-        # frames (no rematch, no threshold change); if that is empty or
-        # filtered out -- or compose is off -- rematch those neighbours.
-        # ASP_EDGELESS_REPROPOSAL=0 disables all edgeless recovery.
-        if not edges and N >= 2 and edgeless_reproposal_enabled():
-            composed_edges: list = []
-            kept_orig = (
-                kept_original_indices(_pre_dedup_paths, image_paths)
-                if edgeless_compose_enabled()
-                else None
-            )
-            if kept_orig is not None:
-                composed_edges = compose_retained_adjacent_edges(
-                    _pre_dedup_edges, kept_orig, frames, bg_masks
-                )
-            edge_stage_counts["edgeless_compose_input"] = len(composed_edges)
-            if composed_edges:
-                edges = self._filter_edges(
-                    composed_edges, image_paths, H, W, frames, bg_masks
-                )
-            edge_stage_counts["edgeless_compose_output"] = len(edges)
-            if not edges:
-                reproposed_edges = self._rematch_retained_adjacent_edges(
-                    frames, bg_masks, _active_loftr
-                )
-                edges = self._filter_edges(
-                    reproposed_edges, image_paths, H, W, frames, bg_masks
-                )
-                edge_stage_counts.update(
-                    {
-                        "edgeless_reproposal_input": len(reproposed_edges),
-                        "edgeless_reproposal_output": len(edges),
-                    }
-                )
-            if edges:
-                logger.info(
-                    "[Stitch] Edgeless spatial-dedup recovery retained %d adjacent edges.",
-                    len(edges),
-                )
+        # Spatial dedup can drop the skip-edge that used to connect frames
+        # which are now neighbours. Recover that graph before the SCANS
+        # fallback (refs #472). Compose stays opt-in.
+        edges = self._recover_edgeless_edges(
+            edges,
+            frames=frames,
+            bg_masks=bg_masks,
+            image_paths=image_paths,
+            pre_dedup_paths=_pre_dedup_paths,
+            pre_dedup_edges=_pre_dedup_edges,
+            active_loftr=_active_loftr,
+            edge_stage_counts=edge_stage_counts,
+            frame_h=H,
+            frame_w=W,
+        )
         from middleware.src.stitching.alignment.registration_telemetry import (
             collect_registration_telemetry,
             edge_graph_components,
@@ -1233,6 +1206,63 @@ class _RunStageMixin(_Base):
             proposal_telemetry=proposal_telemetry,
             extra_proposals=extra_proposals,
         )
+
+    def _recover_edgeless_edges(
+        self,
+        edges: list,
+        *,
+        frames: list,
+        bg_masks: list,
+        image_paths: list[str],
+        pre_dedup_paths: list[str],
+        pre_dedup_edges: list,
+        active_loftr,
+        edge_stage_counts: dict,
+        frame_h: int,
+        frame_w: int,
+    ) -> list:
+        """Re-propose edges when filtering left an edgeless retained graph.
+
+        ``ASP_EDGELESS_COMPOSE=1`` (default off, refs #472) chains the
+        pre-dedup adjacent hops between retained frames and re-runs
+        ``_filter_edges`` with the 50 px static floor unchanged. Rematch of
+        the new neighbours runs only when that chain is absent or the filter
+        drops it. ``ASP_EDGELESS_REPROPOSAL=0`` skips both. The caller falls
+        back to SCANS when this still returns no edges.
+        """
+        if edges or len(frames) < 2 or not edgeless_reproposal_enabled():
+            return edges
+        composed: list = []
+        kept_orig = (
+            kept_original_indices(pre_dedup_paths, image_paths)
+            if edgeless_compose_enabled()
+            else None
+        )
+        if kept_orig is not None:
+            composed = compose_retained_adjacent_edges(
+                pre_dedup_edges, kept_orig, frames, bg_masks
+            )
+        edge_stage_counts["edgeless_compose_input"] = len(composed)
+        if composed:
+            edges = self._filter_edges(
+                composed, image_paths, frame_h, frame_w, frames, bg_masks
+            )
+        edge_stage_counts["edgeless_compose_output"] = len(edges)
+        if not edges:
+            reproposed = self._rematch_retained_adjacent_edges(
+                frames, bg_masks, active_loftr
+            )
+            edges = self._filter_edges(
+                reproposed, image_paths, frame_h, frame_w, frames, bg_masks
+            )
+            edge_stage_counts["edgeless_reproposal_input"] = len(reproposed)
+            edge_stage_counts["edgeless_reproposal_output"] = len(edges)
+        if edges:
+            logger.info(
+                "[Stitch] Edgeless spatial-dedup recovery retained %d adjacent edges.",
+                len(edges),
+            )
+        return edges
 
     def _rematch_retained_adjacent_edges(self, frames, bg_masks, active_loftr):
         """Match only neighbours created by spatial dedup's frame removal."""

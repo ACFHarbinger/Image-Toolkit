@@ -108,8 +108,13 @@ def _bootstrap_repo_root() -> str:
 
 
 _REPO_ROOT = Path(_bootstrap_repo_root())
-_load_package("middleware.src.stitching", _REPO_ROOT / "backend" / "src")
-_load_package("middleware.src.stitching_evaluation", _REPO_ROOT / "backend" / "benchmark" / "evaluation")
+# Absorbed out of the ASP submodule: stitching is middleware/src/stitching,
+# and the inspector package is middleware/benchmark/asp/evaluation.
+_load_package("middleware.src.stitching", _REPO_ROOT / "middleware" / "src" / "stitching")
+_load_package(
+    "middleware.src.stitching_evaluation",
+    _REPO_ROOT / "middleware" / "benchmark" / "asp" / "evaluation",
+)
 
 from middleware.src.stitching_evaluation.constants.user_interface import (  # noqa: E402
     DISPLAY_PIXEL,
