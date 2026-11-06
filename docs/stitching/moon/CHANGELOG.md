@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **#1103 (M0c) layered synthetic pan/hold fixture:**
+  `middleware/src/stitching/alignment/synthetic.py`
+  (`generate_layered_pan_sequence`) builds a static plate plus 2–3
+  world-fixed RGBA cels with a known integer camera velocity and known
+  hold IDs. It stays its own module.
+  `middleware/benchmark/asp/generate_samples.py` is only the unlayered
+  onboarding scrolls. `test_synthetic_fixture.py` recovers that `(dx, dy)`
+  and the hold IDs from the rendered frames; it does not read the anime
+  corpus. The stitcher does not consume the fixture.
+
 - **E1 ASP main CI hygiene (2026-09-20, Grok):** `CI` on main was red
   for every recent merge (including #54/#55). Jobs classified: (1)
   lint-test-backend/gui — real: `ruff check .` at 100 cols scanned
