@@ -571,6 +571,15 @@ class SidecarServer:
             return handle_render_viewport(self.hie_service, params)
         return _UNHANDLED
 
+    def _dispatch_stitch(self, method: str, params: dict[str, Any]) -> Any:
+        if method == "stitch.status":
+            return handle_stitch_status(self._get_stitch_service(), params)
+        if method == "stitch.run":
+            return handle_stitch_run(self._get_stitch_service(), params)
+        if method == "stitch.canvas":
+            return handle_stitch_canvas(self._get_stitch_service(), params)
+        return _UNHANDLED
+
     def _dispatch_system_pages(self, method: str, params: dict[str, Any]) -> Any:
         if method == "merge.concatenate":
             return handle_concatenate(params)
@@ -588,12 +597,9 @@ class SidecarServer:
             return start_extractor_extract_range(self.jobs, params)
         if method == "extractor.cut_sheet":
             return start_extractor_cut_sheet(self.jobs, params)
-        if method == "stitch.status":
-            return handle_stitch_status(self._get_stitch_service(), params)
-        if method == "stitch.run":
-            return handle_stitch_run(self._get_stitch_service(), params)
-        if method == "stitch.canvas":
-            return handle_stitch_canvas(self._get_stitch_service(), params)
+        stitch_result = self._dispatch_stitch(method, params)
+        if stitch_result is not _UNHANDLED:
+            return stitch_result
         if method == "logs.read":
             return handle_logs_read(params)
         if method == "metadata.describe":

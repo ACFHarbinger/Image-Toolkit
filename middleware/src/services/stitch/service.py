@@ -145,13 +145,15 @@ class StitchService:
             canvas_h = f_h
 
         # Update panel diagnostics
-        self._panel_state["stitch.canvas"].update({
-            "started": True,
-            "reason": f"Canvas layout computed: {canvas_w}x{canvas_h} across {num} frames",
-            "canvas_width": canvas_w,
-            "canvas_height": canvas_h,
-            "frames_count": num,
-        })
+        self._panel_state["stitch.canvas"].update(
+            {
+                "started": True,
+                "reason": f"Canvas layout computed: {canvas_w}x{canvas_h} across {num} frames",
+                "canvas_width": canvas_w,
+                "canvas_height": canvas_h,
+                "frames_count": num,
+            }
+        )
 
         return {
             "success": True,
@@ -251,13 +253,15 @@ class StitchService:
             canvas_w, canvas_h = int(size[0]), int(size[1])
 
         out = Path(output_path)
-        self._panel_state["stitch.stitch"].update({
-            "started": True,
-            "reason": f"Pipeline complete: generated {canvas_w}x{canvas_h}",
-            "canvas_width": canvas_w,
-            "canvas_height": canvas_h,
-            "frames_count": len(frames),
-        })
+        self._panel_state["stitch.stitch"].update(
+            {
+                "started": True,
+                "reason": f"Pipeline complete: generated {canvas_w}x{canvas_h}",
+                "canvas_width": canvas_w,
+                "canvas_height": canvas_h,
+                "frames_count": len(frames),
+            }
+        )
 
         return {
             "success": True,

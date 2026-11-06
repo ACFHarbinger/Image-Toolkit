@@ -100,6 +100,32 @@ def test_hie_export_document_dispatch(tmp_path: Path) -> None:
         assert decoded.size == (2, 2)
 
 
+def test_hie_render_viewport_dispatch(tmp_path: Path) -> None:
+    source = tmp_path / "view.png"
+    Image.new("RGB", (200, 150), (10, 20, 30)).save(source)
+    server = _ready()
+    opened = _request(server, "hie.open_document", {"source": str(source)}, "open-for-view")
+    assert opened["result"]["success"] is True
+    response = _request(
+        server,
+        "hie.render_viewport",
+        {
+            "document_id": opened["result"]["document_id"],
+            "zoom": 1.5,
+            "pan_x": 10,
+            "pan_y": 20,
+        },
+        "view-1",
+    )
+    result = response["result"]
+    assert result["success"] is True
+    assert result["document_id"] == opened["result"]["document_id"]
+    assert result["width"] == 200
+    assert result["height"] == 150
+    assert result["layers"]
+    assert result["layers"][0]["visible"] is True
+
+
 def test_hie_list_capabilities_dispatch() -> None:
     server = _ready()
     response = _request(

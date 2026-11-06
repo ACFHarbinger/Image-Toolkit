@@ -124,9 +124,7 @@ def test_run_stitch_headless(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     assert stat["frames_count"] == 3
 
 
-def test_run_stitch_headless_keeps_eleven_frames(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_stitch_headless_keeps_eleven_frames(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     frames_dir = tmp_path / "frames11"
     frames_dir.mkdir()
     created: list[Path] = []
@@ -163,45 +161,53 @@ def test_sidecar_stitch_dispatch(tmp_path: Path) -> None:
         stdout=io.StringIO(),
         stitch_service=StitchService(runner=_runner),
     )
-    server.handle_frame({
-        "jsonrpc": "2.0",
-        "id": "1",
-        "method": "system.handshake",
-        "params": {
-            "protocol": "image-toolkit-bridge",
-            "client": {"name": "test", "version": "1.0.0"},
-        },
-    })
+    server.handle_frame(
+        {
+            "jsonrpc": "2.0",
+            "id": "1",
+            "method": "system.handshake",
+            "params": {
+                "protocol": "image-toolkit-bridge",
+                "client": {"name": "test", "version": "1.0.0"},
+            },
+        }
+    )
 
     # Status
-    status_res = server.handle_frame({
-        "jsonrpc": "2.0",
-        "id": "2",
-        "method": "stitch.status",
-        "params": {"route": "stitch.graph"},
-    })
+    status_res = server.handle_frame(
+        {
+            "jsonrpc": "2.0",
+            "id": "2",
+            "method": "stitch.status",
+            "params": {"route": "stitch.graph"},
+        }
+    )
     assert status_res["result"]["route"] == "stitch.graph"
     assert status_res["result"]["panel"] == "Match Graph"
 
     # Canvas
-    canvas_res = server.handle_frame({
-        "jsonrpc": "2.0",
-        "id": "3",
-        "method": "stitch.canvas",
-        "params": {"input_dir": str(frames_dir)},
-    })
+    canvas_res = server.handle_frame(
+        {
+            "jsonrpc": "2.0",
+            "id": "3",
+            "method": "stitch.canvas",
+            "params": {"input_dir": str(frames_dir)},
+        }
+    )
     assert canvas_res["result"]["success"] is True
     assert canvas_res["result"]["num_frames"] == 2
 
     # Run
-    run_res = server.handle_frame({
-        "jsonrpc": "2.0",
-        "id": "4",
-        "method": "stitch.run",
-        "params": {
-            "input_dir": str(frames_dir),
-            "output_path": str(tmp_path / "comp.png"),
-        },
-    })
+    run_res = server.handle_frame(
+        {
+            "jsonrpc": "2.0",
+            "id": "4",
+            "method": "stitch.run",
+            "params": {
+                "input_dir": str(frames_dir),
+                "output_path": str(tmp_path / "comp.png"),
+            },
+        }
+    )
     assert run_res["result"]["success"] is True
     assert run_res["result"]["frames_processed"] == 2
