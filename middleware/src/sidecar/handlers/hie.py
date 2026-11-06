@@ -84,3 +84,19 @@ def handle_list_capabilities(
         "models_available": list(res.models_available),
         "error": res.error,
     }
+
+
+def handle_render_viewport(
+    service: HieService | None, params: dict[str, Any]
+) -> dict[str, Any]:
+    """Dispatch hie.render_viewport onto HieService."""
+    svc = service or HieService()
+    return svc.render_viewport(
+        document_id=str(params["document_id"]),
+        zoom=params.get("zoom"),
+        pan_x=params.get("pan_x"),
+        pan_y=params.get("pan_y"),
+        viewport_width=params.get("viewport_width"),
+        viewport_height=params.get("viewport_height"),
+    )
+

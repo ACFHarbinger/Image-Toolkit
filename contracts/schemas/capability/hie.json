@@ -112,6 +112,51 @@
         },
         "error": { "type": ["string", "null"] }
       }
+    },
+    "RenderViewportParams": {
+      "title": "RenderViewportParams",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document_id"],
+      "properties": {
+        "document_id": { "type": "string", "minLength": 1 },
+        "zoom": { "type": ["number", "null"], "minimum": 0.01 },
+        "pan_x": { "type": ["number", "null"] },
+        "pan_y": { "type": ["number", "null"] },
+        "viewport_width": { "type": ["integer", "null"], "minimum": 1 },
+        "viewport_height": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    },
+    "HieLayer": {
+      "title": "HieLayer",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "visible", "opacity"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "visible": { "type": "boolean" },
+        "opacity": { "type": "number" },
+        "blend_mode": { "type": ["string", "null"] }
+      }
+    },
+    "RenderViewportResult": {
+      "title": "RenderViewportResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "document_id", "elapsed_seconds"],
+      "properties": {
+        "success": { "type": "boolean" },
+        "document_id": { "type": "string" },
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 },
+        "layers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/HieLayer" }
+        },
+        "elapsed_seconds": { "type": "number", "minimum": 0 },
+        "error": { "type": ["string", "null"] }
+      }
     }
   }
 }
