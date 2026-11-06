@@ -77,3 +77,33 @@ def test_legacy_defect_with_no_per_output_severity_reads_ungraded(qapp):
     for img in ("asp", "simple"):
         panel._set_severity_image(img)
         assert panel._severity_rows["banding"]._severity is None
+
+
+def test_defect_button_traces_every_coherence_rated_output(qapp):
+    panel = ScoringPanel()
+    panel.set_comparators(["asp", "simple", "overmix"])
+    entry = RatingEntry()
+    entry.set_score("asp", "coherence", 3)
+    entry.set_score("simple", "coherence", 2)
+    entry.set_severity("simple", "ghosting", 2)
+    panel.load_entry(entry)
+
+    panel.toggle_defect("color_shift")
+    assert panel.entry().defect_severity == {
+        "asp": {"color_shift": 1},
+        "simple": {"ghosting": 2, "color_shift": 1},
+    }  # overmix has no coherence score
+    assert panel._defect_buttons["color_shift"].isChecked()
+
+    panel.toggle_defect("color_shift")
+    assert panel.entry().defect_severity == {"simple": {"ghosting": 2}}
+    assert panel.entry().defects == ["ghosting"]
+
+
+def test_defect_button_without_scores_uses_grade_output(qapp):
+    panel = ScoringPanel()
+    panel.set_comparators(["asp", "simple"])
+    panel.load_entry(RatingEntry())
+    panel._set_severity_image("simple")
+    panel.toggle_defect("blur")
+    assert panel.entry().defect_severity == {"simple": {"blur": 1}}
