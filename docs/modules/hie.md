@@ -6,11 +6,11 @@
 | **Service Package** | `middleware/src/services/hie/` |
 | **Frontend View** | `frontend/src/tabs/editor/` |
 | **Contract Schema** | `contracts/schemas/capability/hie.json` |
-| **Contract SHA-256** | `b300d650a20b3df3cd66fc020c024b136af52e3b6aab1e7b38f51e50963ce075` |
+| **Contract SHA-256** | `78c9b2e828feec25169f854c5910f37784b5309efb4f5084995851040569cfb7` |
 
 ## Overview
 
-The Hybrid Image Editor (HIE) capability provides multi-modal image and video sequence editing with intelligent AI and RL co-pilot assistance (E-02 / #915). It wraps the HIE document session and render-graph pipeline (`middleware/src/hie/`, relocated from `submodules/HIE/middleware/src` in #1037) into clean asynchronous bridge methods (`hie.open_document`, `hie.execute_edit`, `hie.export_document`, `hie.list_capabilities`), with seamless fallback when external ML models or GPU accelerators are unavailable. Reference docs live in [`docs/editor/`](../editor/index.md).
+The Hybrid Image Editor (HIE) capability provides multi-modal image and video sequence editing with intelligent AI and RL co-pilot assistance (E-02 / #915). It wraps the HIE document session and render-graph pipeline (`middleware/src/hie/`, relocated from `submodules/HIE/middleware/src` in #1037) into clean asynchronous bridge methods (`hie.open_document`, `hie.execute_edit`, `hie.export_document`, `hie.list_capabilities`, `hie.render_viewport`), with seamless fallback when external ML models or GPU accelerators are unavailable. Reference docs live in [`docs/editor/`](../editor/index.md).
 
 ## Public Surface
 
@@ -20,7 +20,7 @@ The Hybrid Image Editor (HIE) capability provides multi-modal image and video se
   - Protocol: `HieServiceProtocol`
   - Implementation: `HieService`
 - **Sidecar Handlers (`middleware/src/sidecar/handlers/hie.py`):**
-  - Handlers: `handle_open_document`, `handle_execute_edit`, `handle_export_document`, `handle_list_capabilities`
+  - Handlers: `handle_open_document`, `handle_execute_edit`, `handle_export_document`, `handle_list_capabilities`, `handle_render_viewport`
 - **Frontend Client (`frontend/src/hostclient/client.ts`):**
   - Typed methods: `hieOpenDocument`, `hieExecuteEdit`, `hieExportDocument`, `hieListCapabilities`
 - **C++ Native Entrypoints:** none on the bridge contract; the compiled solver sources live at `backend/src/hie/` and are linked into the `backend` extension. Delegates through the Python orchestrator.
@@ -33,6 +33,7 @@ The Hybrid Image Editor (HIE) capability provides multi-modal image and video se
   - `hie.execute_edit`: Apply editing operations (brush assistant, tone agent, crop composition) to an active document session.
   - `hie.export_document`: Render and export a document session to destination media.
   - `hie.list_capabilities`: Query supported operations and available neural model adapters.
+  - `hie.render_viewport`: Return layer metadata and document bounds for a canvas viewport.
 - **Events:** none
 
 ## Accessibility & Known Gaps
