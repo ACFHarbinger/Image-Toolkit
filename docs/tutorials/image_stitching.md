@@ -91,7 +91,7 @@ Human-in-the-loop review now lives in a dedicated **HITL** group box, sitting be
 - **Load** — replay a saved HITL session non-interactively (all prior override decisions applied, no dialogs).
 - **Browse…** — opens the HITL Session Browser to inspect, delete, export, or replay saved sessions. The status label next to the buttons (e.g. *"No session loaded"*) always shows what's currently active.
 
-**▶ Stitch Panorama** runs the staged pipeline (progress bar counts stages); the log streams details; the **Stitch Result** box previews the output with a **Before/After** toggle and quality metrics. **■ Cancel** stops a running stitch; **⬡ Edges** / **⬗ Canvas** open the intermediate-stage inspectors described above (only enabled when **Save intermediate stage outputs** was on for the last run).
+**▶ Stitch Panorama** runs the staged pipeline (progress bar counts stages); the log streams details; the **Stitch Result** box previews the output with a **Before/After** toggle, quality metrics, and **Refine in Hybrid Stitch**. That button loads the finished ASP frames into Hybrid Stitch and seeds adjacent alignments when the run produced them. **■ Cancel** stops a running stitch; **⬡ Edges** / **⬗ Canvas** open the intermediate-stage inspectors described above (only enabled when **Save intermediate stage outputs** was on for the last run).
 
 ---
 
@@ -199,7 +199,7 @@ Automatically discovers the best stitching *chain* from a pool of candidate fram
 The fully manual, human-in-the-loop stitcher — for shots where the automatic pipeline fails (heavy parallax, effects layers, extreme style). You align *one pair at a time* with hand-placed correspondences, then render. Five tool tabs sit across the top of the working area; the **Sequence** and **Working Pair** sidebar on the left (buttons enlarged to 36px tall) stays the same across all of them.
 
 - **Sequence** (left sidebar) — the ordered frame list (**Add Frames…** / **Remove Selected** / **Move Up** / **Move Down** / **Clear All**).
-- **Working Pair** — picks **Frame A** and **Frame B**, **Load Pair →** loads them into the active tool, and **✔ Accept H** stores the currently solved homography + seam for that pair. Work through the sequence pair by pair, accepting each. **✔ Use as Stitch List** sends the sequence back to the Stitch tab if you want the automatic pipeline to try it instead.
+- **Working Pair** — picks **Frame A** and **Frame B**, **Load Pair →** loads them into the active tool, and **✔ Accept H** stores the currently solved homography + seam for that pair. Work through the sequence pair by pair, accepting each. **✔ Use as Stitch List** sends the sequence back to the Stitch tab if you want the automatic pipeline to try it instead. The other direction lives on the Stitch result: **Refine in Hybrid Stitch** loads that ASP run's frames here and seeds each adjacent alignment when the pipeline produced one.
 
 === "Control Points"
     Two synchronized canvases (A and B); click matching points in both images (left[i] ↔ right[i]). **Add Points**, **Clear All**, **Auto-Detect (ORB)** (seed points from feature matching), **Suggest Next** (proposes the next correspondence to place).

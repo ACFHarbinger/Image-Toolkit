@@ -1409,8 +1409,11 @@ but should stay visible rather than silently vanish.*
   flow override). The evaluation credits Overmix's interactive workflow as good
   product design (§8); revisit only if Phase 2's automated compositing leaves a
   test class no automated policy can resolve.
-- **ASP → HybridStitch handoff** — integration into the main app's general stitch
-  tab, once quality no longer needs the benchmark harness to validate every change.
+- **ASP → HybridStitch handoff** — [DONE, issue #1088] the Stitch tab's
+  **Refine in Hybrid Stitch** button passes the finished ASP result
+  (`middleware/src/services/asp/handoff.py`) into HybridStitch. Adjacent
+  homographies are seeded from the session affines when they match the kept
+  frames; a fallback with no usable alignment still loads the frames.
 
 ---
 

@@ -8,6 +8,7 @@ from gui.src.constants import (
     STITCH_THUMB_W,
 )
 from gui.src.styles import apply_shadow_effect
+from middleware.src.services.asp.handoff import AspHybridHandoff
 from PySide6.QtCore import (
     QSize,
     Qt,
@@ -256,6 +257,26 @@ class RealHybridStitchPanel(QWidget):
         self._sequence = list(paths)
         self._refresh_list()
 
+    def apply_asp_handoff(self, handoff: AspHybridHandoff | dict) -> AspHybridHandoff:
+        """Replace the sequence with an ASP result and seed its alignments.
+
+        Seam paint and color corrections stay local to HybridStitch, so a new
+        ASP result clears them. The seeded homographies are the ones Load Pair
+        and Render use until the user accepts a replacement.
+        """
+        parsed = AspHybridHandoff.from_payload(handoff)
+        self._sequence = list(parsed.image_paths)
+        self._homographies = {
+            (pair.index_a, pair.index_b): np.asarray(pair.matrix, dtype=np.float64)
+            for pair in parsed.pair_homographies
+        }
+        self._seam_masks.clear()
+        self._corrections.clear()
+        self._cp_editor.clear_solution()
+        self._refresh_list()
+        self._update_render_panel()
+        return parsed
+
     def _add_frames(self):
         start = os.path.dirname(self._sequence[-1]) if self._sequence else ""
         files, _ = QFileDialog.getOpenFileNames(
@@ -365,7 +386,10 @@ class RealHybridStitchPanel(QWidget):
         self._cc_widget.set_adjacent_path(pb)
         key = (ia, ib)
         if key in self._homographies:
+            self._cp_editor.set_homography(self._homographies[key])
             self._refresh_seam_painter(pa, pb, cc_a, cc_b, self._homographies[key])
+        else:
+            self._cp_editor.clear_solution()
 
     def _accept_pair(self):
         H = self._cp_editor.get_homography()

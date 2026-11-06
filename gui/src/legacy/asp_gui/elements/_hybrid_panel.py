@@ -1,12 +1,19 @@
-"""Hybrid Stitch sub-tab: thin wrapper around HybridStitchPanel.
+"""Hybrid Stitch sub-tab.
 
-Extracted from ``stitch_tab.py`` -- pure code motion, no logic change.
+Hosts both directions of the frame handoff: Hybrid Stitch → Stitch
+(``sequence_accepted``) and a finished ASP result → Hybrid Stitch (#1088).
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
+from middleware.src.services.asp.handoff import (
+    AspHybridHandoff,
+    HandoffContractError,
+    handoff_summary,
+)
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox, QWidget
 
@@ -47,6 +54,44 @@ class _HybridPanelMixin(_Base):
             f"Loaded {len(paths)} frame(s) into the Stitch tab.\n"
             "Switch to the Stitch tab to run the pipeline.",
         )
+
+    def _clear_asp_hybrid_handoff(self) -> None:
+        """Drop the previous ASP result so a new run cannot refine stale frames."""
+        self._asp_hybrid_handoff = None
+        button = getattr(self, "_btn_refine_hybrid", None)
+        if button is not None:
+            button.setEnabled(False)
+
+    @Slot(object)
+    def _on_asp_hybrid_handoff(self, payload: object) -> None:
+        """Store a finished ASP result until the user sends it to Hybrid Stitch."""
+        try:
+            if not isinstance(payload, (AspHybridHandoff, Mapping)):
+                raise HandoffContractError("hybrid handoff payload must be an object", field="payload")
+            handoff = AspHybridHandoff.from_payload(payload)
+        except HandoffContractError as exc:
+            self._clear_asp_hybrid_handoff()
+            self._log_append(f"[Stitch] Hybrid handoff unavailable: {exc}")
+            return
+        self._asp_hybrid_handoff = handoff
+        self._btn_refine_hybrid.setEnabled(True)
+        self._log_append(
+            f"[Stitch] Hybrid Stitch handoff ready — {len(handoff.image_paths)} frames, "
+            f"{len(handoff.pair_homographies)} seeded pair(s)."
+        )
+
+    def _handoff_asp_to_hybrid(self) -> None:
+        """Load the last ASP result into Hybrid Stitch and switch to that tab."""
+        handoff = getattr(self, "_asp_hybrid_handoff", None)
+        if handoff is None:
+            return
+        self._hybrid_panel.apply_asp_handoff(handoff)
+        index = self._tab_widget.indexOf(self.hybrid_stitch_panel)
+        if index >= 0:
+            self._tab_widget.setCurrentIndex(index)
+        summary = handoff_summary(handoff)
+        self._log_append("[Stitch] " + summary.replace("\n", " "))
+        QMessageBox.information(self, "Hybrid Stitch", summary)
 
 
 __all__ = ["_HybridPanelMixin"]

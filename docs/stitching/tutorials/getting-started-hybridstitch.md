@@ -189,3 +189,13 @@ it with a confirmation dialog. From there you can run the automated
 `AnimeStitchPipeline` on the same frames instead of, or before, doing a
 manual HybridStitch pass. See the [ASP Pipeline Overview](pipeline-overview.md)
 for what that automated path does.
+
+The reverse handoff starts on the Stitch tab. After an ASP run, **Refine in
+Hybrid Stitch** (on the Stitch Result bar) loads the frames that run kept
+into this sidebar and switches you here. When the pipeline solved a global
+alignment, each adjacent pair is seeded with that homography: **Load Pair →**
+shows it, and you can move control points and Solve to replace it, or paint
+the seam and warp from there. A SCANS fallback, or any run that did not
+produce a matching affine per kept frame, still loads the frames and leaves
+the pairs for you to align. Video-extracted frames are not handed off; those
+files are removed when the stitch finishes.

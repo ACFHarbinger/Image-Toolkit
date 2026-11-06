@@ -121,6 +121,37 @@ class _ProgressPipeline(AnimeStitchPipeline):
         """Emit a HITL checkpoint event and block until the UI calls resume()."""
         return self._pause_cb(event, data)
 
+    def note_hybrid_handoff(
+        self,
+        image_paths: list[str],
+        output_path: str,
+        affines: list | None = None,
+        *,
+        identity: str | None = None,
+        fallback_reason: str | None = None,
+    ) -> None:
+        """Remember the frames and affines HybridStitch can refine.
+
+        Copies the matrices immediately. Later in-place nudges of ``affines``
+        must call this again; the handoff reads the last snapshot.
+        """
+        copied: list | None = None
+        if affines:
+            copied = [np.asarray(item).tolist() for item in affines]
+        self._hybrid_handoff_state = {
+            "image_paths": [str(path) for path in image_paths],
+            "output_path": output_path,
+            "affines": copied,
+            "identity": identity,
+            "fallback_reason": fallback_reason,
+        }
+
+    def hybrid_handoff_payload(self) -> dict | None:
+        """JSON handoff for the canonical session, else the legacy snapshot."""
+        from middleware.src.services.asp.handoff import hybrid_handoff_payload as build_payload
+
+        return build_payload(self)
+
     def _check_cancel(self):
         if self._cancel_flag[0]:
             raise InterruptedError("Stitch cancelled by user.")
@@ -555,6 +586,12 @@ class _ProgressPipeline(AnimeStitchPipeline):
             result = self._scan_stitch_fallback(frames, output_path)
             _trace["success"] = True
             _write_trace()
+            self.note_hybrid_handoff(
+                image_paths,
+                output_path,
+                identity="scans",
+                fallback_reason="no_edges",
+            )
             return result
 
         _emit(6)
@@ -873,6 +910,12 @@ class _ProgressPipeline(AnimeStitchPipeline):
 
         _trace["success"] = True
         _write_trace()
+        self.note_hybrid_handoff(
+            image_paths,
+            output_path,
+            affines,
+            identity="raw_asp",
+        )
 
         # S88: autosave HITL session after successful run
         if self._hitl_session_overrides:
