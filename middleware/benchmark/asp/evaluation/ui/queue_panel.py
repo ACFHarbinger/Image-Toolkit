@@ -8,9 +8,9 @@ something you'd passed. A visible, clickable list of all 97 with their state is
 also what makes a partially-finished pass resumable in practice: you can see at
 a glance what's left.
 
-Search and a saved subset only change which names are listed. Next / Back
-still walk the session order. Load subset applies a subset that was already
-saved.
+Search only changes which names are listed. A selected subset also scopes
+Save & Next / Skip to its cases; Back still walks history. Load subset applies
+a subset that was already saved.
 """
 
 from __future__ import annotations
@@ -193,6 +193,10 @@ class QueuePanel(QWidget):
         if not isinstance(data, dict):
             return None
         return set(data.get("case_ids") or [])
+
+    def subset_names(self) -> set[str] | None:
+        """Case ids of the selected subset, None for "All cases"."""
+        return self._subset_ids()
 
     def shows_all_cases(self) -> bool:
         """True when compare should see every case in the run, not the queue filter."""

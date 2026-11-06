@@ -438,6 +438,8 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
     def _sync_active_cases(self) -> None:
         panel = getattr(self, "runs_panel", None)
         queue = getattr(self, "queue_panel", None)
+        if queue is not None and getattr(self, "session", None) is not None:
+            self.session.set_scope(queue.subset_names())
         if panel is None or queue is None:
             return
         if queue.shows_all_cases():
