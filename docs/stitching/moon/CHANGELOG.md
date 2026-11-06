@@ -5,6 +5,32 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **refs #654 / refs #472 (2026-11-06):** product-path
+  `AnimeStitchPipeline.run()` stays non-deterministic unless
+  `ASP_DETERMINISTIC=1`. That flag already seeds Python/NumPy/OpenCV/Torch,
+  disables cuDNN autotune, and asks for deterministic algorithms
+  (`warn_only=True`). It also pins Torch threads to 1, so it stays off on
+  the GUI path. Benchmark recipes already default the flag, seed 42,
+  `PYTHONHASHSEED=42`, and `CUBLAS_WORKSPACE_CONFIG=:4096:8`; the bench
+  worker now applies the flag before any conv, not only inside
+  `PipelineSession.create()`. A 9-case audit matched exactly under that
+  protocol. Full-97 still has no paired confirmation (the 2026-10-02
+  attempt stopped on the host RAM guardrail), and `warn_only` can leave
+  some kernels free, so a Ground-Rule #1 checkpoint is exact only when
+  `reference_status()` says so (`middleware/src/stitching/core/pipeline/yield_reference.py`).
+  The unseeded 9-in/9-out pair (count tied at 18, symmetric difference 18)
+  is a documented noise floor, not an acceptance band.
+  Edgeless recovery is still the post-filter path: compose retained
+  adjacent hops when `ASP_EDGELESS_COMPOSE=1` (default off), else rematch,
+  else the caller falls back to SCANS. `ASP_EDGELESS_REPROPOSAL=0` disables
+  both. `just asp-benchmark-verify` is still the five-dataset command
+  (`asp_test04/08/09/27/57`). Its script was aliasing `asp_backend` at
+  `middleware/benchmark/src` after the monorepo move; it now aliases
+  `middleware/src/stitching`. Explicit `--tests` names that are not on disk
+  exit non-zero instead of reporting an empty selection as success.
+  Not run here: `just asp-benchmark-verify`, and a Harbinger-authorized
+  full-97 (deterministic protocol; compose only as an explicit A/B). Raw-ASP
+  yield above 18/97 is still unmeasured, so the compose default stays off.
 - **#1103 (M0c) layered synthetic pan/hold fixture:**
   `middleware/src/stitching/alignment/synthetic.py`
   (`generate_layered_pan_sequence`) builds a static plate plus 2–3
