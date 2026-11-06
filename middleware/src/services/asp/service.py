@@ -19,6 +19,7 @@ from middleware.src.services.asp.commands import (
     StitchCommand,
     StitchResult,
 )
+from middleware.src.services.asp.handoff import hybrid_handoff_payload
 from middleware.src.services.asp.protocols import StitchServiceProtocol
 from middleware.src.services.base import CommandValidationError
 
@@ -93,6 +94,7 @@ class StitchService(StitchServiceProtocol):
                 num_frames=len(command.image_paths),
                 elapsed_seconds=elapsed,
                 metrics=metrics,
+                hybrid_handoff=hybrid_handoff_payload(pipeline),
             )
         except Exception as exc:
             return StitchResult(

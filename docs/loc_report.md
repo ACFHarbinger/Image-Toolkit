@@ -56,4 +56,4 @@
 | `gui/src/tabs/core/image_extractor_subtab.py` | 418 | 27 | 20 | 465 |
 | `middleware/src/core/guidance_schema.py` | 415 | 20 | 58 | 493 |
 | `middleware/src/models/core/comfy_manager.py` | 413 | 65 | 46 | 524 |
-| **TOTALS** | **178198** | **9276** | **19479** | **206953** |
+| **TOTALS** | **178223** | **9271** | **19488** | **206982** |

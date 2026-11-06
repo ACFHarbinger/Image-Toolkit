@@ -61,10 +61,10 @@ deliberate "safe fallback," not a crash.
 
 A practical workflow: run the automated pipeline first. If the result looks
 right, you're done. If it fell back to SCANS, or the composite has visible
-seam problems or duplicated anatomy, load the same frames into HybridStitch
-(you can hand a HybridStitch sequence over to the Stitch tab too, and vice
-versa — see the HybridStitch tutorial's last section) and align/seam/warp
-the problem pair by hand instead.
+seam problems or duplicated anatomy, click **Refine in Hybrid Stitch** on
+the Stitch result. That loads the frames ASP kept and, when the run solved
+an alignment, seeds each adjacent pair so you can correct it by hand.
+**✔ Use as Stitch List** in HybridStitch sends a sequence back the other way.
 
 ## Further reading
 

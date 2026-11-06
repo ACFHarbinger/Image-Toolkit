@@ -93,6 +93,7 @@ class _StitchTabHost(Protocol):
     _match_count_label: QLabel
     _btn_before_after: QPushButton
     _btn_generate_scans: QPushButton
+    _btn_refine_hybrid: QPushButton
     _btn_inspect_edges: QPushButton
     _btn_inspect_canvas: QPushButton
     _result_group: QGroupBox
@@ -102,6 +103,9 @@ class _StitchTabHost(Protocol):
     _progress: QProgressBar
     _stage_label: QLabel
     _log: QTextEdit
+    _asp_hybrid_handoff: Any
+    _hybrid_panel: Any
+    hybrid_stitch_panel: QWidget
 
     # ── Sequence-builder panel widgets (_seq_panel_build.py) ─────────────
     _seq_chain_table: QTableWidget
@@ -159,6 +163,9 @@ class _StitchTabHost(Protocol):
     def _stats_on_error(self, msg: str) -> Any: ...
     def _toggle_before_after(self, checked: bool) -> None: ...
     def _generate_scans_comparison(self) -> None: ...
+    def _clear_asp_hybrid_handoff(self) -> None: ...
+    def _on_asp_hybrid_handoff(self, payload: object) -> None: ...
+    def _handoff_asp_to_hybrid(self) -> None: ...
 
 
 __all__ = ["_StitchTabHost"]

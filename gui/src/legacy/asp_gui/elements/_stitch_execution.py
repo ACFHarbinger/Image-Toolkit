@@ -115,6 +115,7 @@ class _StitchExecutionMixin(_Base):
                 return
             self._output_path.setText(out)
 
+        self._clear_asp_hybrid_handoff()
         self._btn_stitch.setEnabled(False)
         self._btn_cancel.setEnabled(True)
         self._progress.setValue(0)
@@ -166,6 +167,7 @@ class _StitchExecutionMixin(_Base):
         self._stitch_worker.sig_stage.connect(self._on_stage)
         self._stitch_worker.sig_log.connect(self._log_append)
         self._stitch_worker.sig_finished.connect(self._on_stitch_finished)
+        self._stitch_worker.sig_hybrid_handoff.connect(self._on_asp_hybrid_handoff)
         self._stitch_worker.sig_error.connect(self._on_stitch_error)
         self._stitch_worker.finished.connect(self._on_stitch_thread_done)
         self._stitch_worker.finished.connect(self._stitch_worker.deleteLater)
@@ -231,6 +233,7 @@ class _StitchExecutionMixin(_Base):
     @Slot(str)
     def _on_stitch_error(self, msg: str):
         self._log_append(f"[Stitch] Error: {msg}")
+        self._clear_asp_hybrid_handoff()
         if "Cancelled" not in msg:
             QMessageBox.critical(self, "Stitch Error", msg)
 

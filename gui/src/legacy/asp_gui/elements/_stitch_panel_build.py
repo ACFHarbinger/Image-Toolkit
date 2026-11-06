@@ -547,10 +547,18 @@ class _StitchPanelBuildMixin(_Base):
             "blocking the interface."
         )
         self._btn_generate_scans.clicked.connect(self._generate_scans_comparison)
+        self._btn_refine_hybrid = QPushButton("Refine in Hybrid Stitch")
+        self._btn_refine_hybrid.setToolTip(
+            "Send this ASP result into Hybrid Stitch for manual alignment, "
+            "seam, and warp refinement."
+        )
+        self._btn_refine_hybrid.setEnabled(False)
+        self._btn_refine_hybrid.clicked.connect(self._handoff_asp_to_hybrid)
         self._result_metrics_label = QLabel("")
         self._result_metrics_label.setStyleSheet("color: #aaa; font-size: 10px;")
         result_toolbar.addWidget(self._btn_before_after)
         result_toolbar.addWidget(self._btn_generate_scans)
+        result_toolbar.addWidget(self._btn_refine_hybrid)
         result_toolbar.addStretch()
         result_toolbar.addWidget(self._result_metrics_label)
         result_layout.addLayout(result_toolbar)
