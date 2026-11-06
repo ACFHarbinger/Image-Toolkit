@@ -91,3 +91,25 @@ def test_visualization_tab_lists_stitch_tools(qapp):
     names = [name for name, _handler in tab._tools]
     assert "Local SSIM" in names
     assert "Seam energy" in names
+
+
+def test_mark_button_toggles_move_and_mark(qapp):
+    from ..constants.user_interface import MODE_BBOX, MODE_NAVIGATE, MODE_PROBE
+    from ..ui.toolbar import InspectorToolbar
+
+    bar = InspectorToolbar()
+    seen: list[str] = []
+    bar.modeChanged.connect(seen.append)
+    assert bar.mode() == MODE_NAVIGATE and not bar._mark_btn.isChecked()
+
+    bar._mark_btn.click()
+    assert bar.mode() == MODE_BBOX and bar._mark_btn.isChecked()
+    assert bar._mark_btn.text() == "▭ Mark"
+    bar._mark_btn.click()
+    assert bar.mode() == MODE_NAVIGATE and bar._mark_btn.text() == "✥ Move"
+
+    bar.set_mode(MODE_PROBE)  # the combo's other tools leave the button off
+    assert not bar._mark_btn.isChecked()
+    bar._mark_btn.click()
+    assert bar.mode() == MODE_BBOX
+    assert seen == [MODE_BBOX, MODE_NAVIGATE, MODE_PROBE, MODE_BBOX]

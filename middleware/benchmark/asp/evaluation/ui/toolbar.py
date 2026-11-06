@@ -27,6 +27,8 @@ from ..constants.user_interface import (
     DISPLAY_PIXEL,
     DISPLAY_RAW,
     LAYOUTS,
+    MODE_BBOX,
+    MODE_NAVIGATE,
     TOOL_MODES,
 )
 
@@ -55,11 +57,20 @@ class InspectorToolbar(QWidget):
         for key, label, hint in TOOL_MODES:
             self._tool_combo.addItem(label, key)
             self._tool_combo.setItemData(self._tool_combo.count() - 1, hint, 3)  # ToolTipRole
-        self._tool_combo.currentIndexChanged.connect(
-            lambda _i: self.modeChanged.emit(self._tool_combo.currentData())
+        self._tool_combo.currentIndexChanged.connect(self._on_tool_changed)
+        # One-click switch between panning and marking artifacts; the combo
+        # keeps Link / Probe and both stay in sync.
+        self._mark_btn = QPushButton()
+        self._mark_btn.setCheckable(True)
+        self._mark_btn.setToolTip(
+            "Switch the cursor between moving the images (drag to pan) and "
+            "marking artifacts (drag a box, then tag it). Shortcut: M"
         )
+        self._mark_btn.clicked.connect(self.toggle_mark_mode)
+        layout.addWidget(self._mark_btn)
         layout.addWidget(QLabel("Tool"))
         layout.addWidget(self._tool_combo)
+        self._sync_mark_button()
 
         self._display_check = QCheckBox("Pixel values")
         self._display_check.setToolTip(
@@ -173,6 +184,20 @@ class InspectorToolbar(QWidget):
 
     def set_display_pixel(self, enabled: bool) -> None:
         self._display_check.setChecked(enabled)
+
+    def _on_tool_changed(self, _index: int) -> None:
+        self._sync_mark_button()
+        self.modeChanged.emit(self._tool_combo.currentData())
+
+    def _sync_mark_button(self) -> None:
+        marking = self.mode() == MODE_BBOX
+        self._mark_btn.setChecked(marking)
+        self._mark_btn.setText("▭ Mark" if marking else "✥ Move")
+
+    def toggle_mark_mode(self) -> None:
+        """Mark from any other tool; back to Move from Mark."""
+        self.set_mode(MODE_NAVIGATE if self.mode() == MODE_BBOX else MODE_BBOX)
+        self._sync_mark_button()  # clicked already flipped the check state
 
     def set_mode(self, key: str) -> None:
         index = self._tool_combo.findData(key)

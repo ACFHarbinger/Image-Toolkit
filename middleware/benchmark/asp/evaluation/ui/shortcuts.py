@@ -71,6 +71,7 @@ def install(window) -> None:
     bind("B", lambda: window.toolbar.set_mode(MODE_BBOX))
     bind("L", lambda: window.toolbar.set_mode(MODE_POINT))
     bind("V", lambda: window.toolbar.set_mode(MODE_PROBE))
+    bind("M", window.toolbar.toggle_mark_mode)
 
     # Navigation / persistence
     bind("Space", window._go_next)
