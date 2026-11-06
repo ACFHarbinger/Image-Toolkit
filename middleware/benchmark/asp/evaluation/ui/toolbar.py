@@ -27,6 +27,8 @@ from ..constants.user_interface import (
     DISPLAY_PIXEL,
     DISPLAY_RAW,
     LAYOUTS,
+    MODE_BBOX,
+    MODE_NAVIGATE,
     TOOL_MODES,
 )
 
@@ -184,6 +186,20 @@ class InspectorToolbar(QWidget):
 
     def set_display_pixel(self, enabled: bool) -> None:
         self._display_check.setChecked(enabled)
+
+    def _on_tool_changed(self, _index: int) -> None:
+        self._sync_mark_button()
+        self.modeChanged.emit(self._tool_combo.currentData())
+
+    def _sync_mark_button(self) -> None:
+        marking = self.mode() == MODE_BBOX
+        self._mark_btn.setChecked(marking)
+        self._mark_btn.setText("▭ Mark" if marking else "✥ Move")
+
+    def toggle_mark_mode(self) -> None:
+        """Mark from any other tool; back to Move from Mark."""
+        self.set_mode(MODE_NAVIGATE if self.mode() == MODE_BBOX else MODE_BBOX)
+        self._sync_mark_button()  # clicked already flipped the check state
 
     def set_mode(self, key: str) -> None:
         index = self._tool_combo.findData(key)
