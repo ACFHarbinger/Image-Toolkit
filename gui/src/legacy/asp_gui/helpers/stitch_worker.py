@@ -27,6 +27,8 @@ class StitchWorker(QThread):
     sig_log = Signal(str)
     sig_finished = Signal(str)  # output_path
     sig_error = Signal(str)
+    # JSON payload (AspHybridHandoff.to_payload) for the Stitch tab button.
+    sig_hybrid_handoff = Signal(object)
 
     # HITL checkpoint signals — emitted when the pipeline pauses for review.
     # Each carries a plain dict of intermediate state (numpy arrays included).
@@ -233,6 +235,22 @@ class StitchWorker(QThread):
             self._hitl_session_overrides["video"] = override
         return override
 
+    def _emit_hybrid_handoff(self, pipeline) -> None:
+        """Publish the ASP result for Hybrid Stitch.
+
+        Video frames live in a temp dir removed in ``run``'s ``finally``.
+        Handing those paths over would open files that are already gone.
+        """
+        payload = pipeline.hybrid_handoff_payload()
+        if payload is None:
+            return
+        if self._video_path:
+            self.sig_log.emit(
+                "[Stitch] Hybrid Stitch handoff skipped — video frames are temporary."
+            )
+            return
+        self.sig_hybrid_handoff.emit(payload)
+
     @gc_disabled_run
     def run(self):
         cfg = self._pipeline_config
@@ -327,6 +345,7 @@ class StitchWorker(QThread):
             if self._exclusion_masks:
                 pipeline.exclusion_masks = self._exclusion_masks
             pipeline.run(image_paths, self._output_path)
+            self._emit_hybrid_handoff(pipeline)
             self.sig_finished.emit(self._output_path)
         except InterruptedError as e:
             self.sig_error.emit(f"Cancelled: {e}")

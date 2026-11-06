@@ -264,3 +264,22 @@ def test_hie_list_capabilities() -> None:
     assert "open_media" in result.capabilities
     assert "crop_composition" in result.capabilities
     assert "birefnet" in result.models_available
+
+
+def test_hie_render_viewport(tmp_path: Path) -> None:
+    from PIL import Image
+    sample = tmp_path / "img.png"
+    Image.new("RGB", (200, 150), (100, 150, 200)).save(sample)
+
+    service = HieService()
+    open_res = service.open_document(HieOpenDocumentCommand(source=str(sample)))
+    assert open_res.success is True
+
+    vp = service.render_viewport(open_res.document_id, zoom=1.5, pan_x=10, pan_y=20)
+    assert vp["success"] is True
+    assert vp["document_id"] == open_res.document_id
+    assert vp["width"] == 200
+    assert vp["height"] == 150
+    assert len(vp["layers"]) >= 1
+    assert vp["layers"][0]["visible"] is True
+

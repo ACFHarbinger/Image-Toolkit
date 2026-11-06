@@ -76,6 +76,7 @@ class StitchTab(
         # ── Stitch state ─────────────────────────────────────────────────
         self._frame_paths: list[str] = []
         self._manual_affines: dict[tuple[int, int], np.ndarray] = {}
+        self._asp_hybrid_handoff = None
         self._current_pair: tuple[int, int] = (0, 1)
         self._last_selected_dir: str = ""
         self._last_stages_dir: str = ""

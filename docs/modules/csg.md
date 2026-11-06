@@ -6,10 +6,10 @@
 | **Service Package** | `middleware/src/services/csg/service.py` |
 | **Frontend View** | `submodules/CSG/gui/src/tabs/` (migrating to Wave 8 #916 E-03 `frontend/src/views/manga/`) |
 | **Contract Schema** | `contracts/CONTRACTS.sha256` |
-| **Contract SHA-256** | `3624089fd7d9b561e8900f0d7db9e39da11aa994b2d92e7cbee47cd74baee130` |
+| **Contract SHA-256** | `9fe77d2de0e32c92dfddbdf87c37a1f78a2aa550494a3394c78ad951fd387f08` |
 | **Frontend View** | `frontend/src/views/manga/` (Wave 8 #916 E-03: `MangaWorkspaceView` + per-mode wrappers) |
 | **Contract Schema** | `contracts/schemas/capability/csg.json` |
-| **Contract SHA-256** | `3624089fd7d9b561e8900f0d7db9e39da11aa994b2d92e7cbee47cd74baee130` |
+| **Contract SHA-256** | `b57fa3df7c9fdac12abbe617be1910b1c921283a962495768ba208ce0257e617` |
 
 ## Overview
 

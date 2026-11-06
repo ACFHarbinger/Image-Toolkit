@@ -60,33 +60,31 @@ except Exception:
     pass
 
 
-def _load_package(alias: str, src_dir: Path) -> None:
-    """Register ``src_dir`` under ``alias`` in ``sys.modules``, the same
-    collision-avoiding pattern ``backend/test/conftest.py`` uses for
-    ``asp_backend`` (see issue #3: this repo's and Image-Toolkit's
-    top-level ``backend`` packages share a name, so a raw absolute
-    ``backend.X`` import resolves inconsistently depending on which repo's
-    package Python's import system finds first — this script needs to be
-    run by file path (``python backend/benchmark/bench_anime_stitch.py``),
-    not ``-m backend.benchmark.bench_anime_stitch``, for the same reason).
-    A no-op when the alias is already registered (e.g. by Image-Toolkit's
-    own bootstrap)."""
+def _load_benchmark_aliases() -> None:
+    """Bind ``asp_backend`` to ``middleware/src/stitching``.
+
+    The pre-move relative path ``parents[1] / "src"`` pointed at the ASP
+    submodule's ``backend/src``. This file now lives under
+    ``middleware/benchmark/asp/``, so that relative path is
+    ``middleware/benchmark/src``, which is not a package. ``bootstrap.py``
+    is loaded by file location so this works when the script is executed
+    directly (``just asp-benchmark-verify``) and when pytest has already
+    registered the alias.
+    """
     import importlib.util
 
-    if alias in sys.modules or not src_dir.is_dir():
-        return
-    spec = importlib.util.spec_from_file_location(
-        alias, src_dir / "__init__.py", submodule_search_locations=[str(src_dir)]
-    )
+    boot_path = Path(__file__).resolve().parent / "bootstrap.py"
+    spec = importlib.util.spec_from_file_location("_asp_bench_bootstrap", boot_path)
     if spec is None or spec.loader is None:
-        return
+        raise RuntimeError(f"missing ASP benchmark bootstrap: {boot_path}")
     module = importlib.util.module_from_spec(spec)
-    sys.modules[alias] = module
     spec.loader.exec_module(module)
+    module.load_benchmark_aliases()
 
 
 _load_package("asp_backend", Path(__file__).resolve().parents[2] / "src" / "stitching")
 _load_package("asp_backend_benchmark", Path(__file__).resolve().parent)
+_load_benchmark_aliases()
 
 from asp_backend.alignment.bundle_adjust import _bundle_adjust_affine  # noqa: E402
 from asp_backend.alignment.canvas import (  # noqa: E402
@@ -151,7 +149,19 @@ except RuntimeError:
     pass
 torch.set_num_threads(int(_THREAD_CAP))
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+# Benchmark recipes export ASP_DETERMINISTIC before this process starts.
+# Pin kernels here, before any conv autotune; PipelineSession.create()
+# reseeds at run(). Importing the bench module from pytest must not reseed
+# that process, so this is limited to the script entry point. The product
+# path leaves the flag unset: thread pin and cuDNN autotune-off are a
+# reference-run cost (refs #654).
+if __name__ == "__main__":
+    from middleware.src.stitching.core.pipeline.manifest import (  # noqa: E402
+        configure_reproducibility,
+    )
+
+    configure_reproducibility()
+
 os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 
 
@@ -3866,6 +3876,16 @@ def _checkpoint_done_names() -> set[str]:
     }
 
 
+def missing_requested_datasets(requested: list[str], selected: list[str]) -> list[str]:
+    """Names passed to ``--tests`` that are not directories under the data root.
+
+    ``just asp-benchmark-verify`` names five datasets explicitly. A missing
+    corpus used to fall through to "No datasets matched" and exit 0.
+    """
+    found = {os.path.basename(path) for path in selected}
+    return [name for name in requested if name not in found]
+
+
 def _resolve_datasets(base_dir: str, args) -> list[str]:
     """
     Return an ordered list of dataset directories to process based on CLI args.
@@ -4021,6 +4041,15 @@ Examples:
 
     base_dir = args.data_dir
     datasets = _resolve_datasets(base_dir, args)
+    if args.tests:
+        missing = missing_requested_datasets(args.tests, datasets)
+        if missing:
+            print(
+                "ASP benchmark: requested dataset(s) not found under "
+                f"{base_dir}: {', '.join(missing)}",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
 
     if not datasets:
         print("No datasets matched the selection criteria.")

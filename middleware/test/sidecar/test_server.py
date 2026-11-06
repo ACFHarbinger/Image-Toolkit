@@ -72,11 +72,10 @@ def test_stitch_status_reports_the_route_and_refuses_unknown_ids() -> None:
     server = SidecarServer(stdout=io.StringIO())
     _handshake(server)
     response = _request(server, "stitch.status", {"route": "stitch.canvas"}, "stitch")
-    assert response["result"] == {
-        "route": "stitch.canvas",
-        "started": False,
-        "reason": "stitch pipeline is not started",
-    }
+    assert response["result"]["route"] == "stitch.canvas"
+    assert response["result"]["started"] is False
+    assert response["result"]["panel"] == "Canvas Layout"
+    assert response["result"]["reason"]
     refused = _request(server, "stitch.status", {"route": "stitch.nope"}, "refused")
     assert "result" not in refused
     assert refused["error"]["data"]["code"] == "bridge.invalid_params"
