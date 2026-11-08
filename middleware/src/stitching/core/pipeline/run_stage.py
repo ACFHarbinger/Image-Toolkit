@@ -38,7 +38,6 @@ from middleware.src.stitching.alignment.canvas import (
     _detect_scroll_axis,
     _load_frames,
     _normalise_widths,
-    _panorama_stitch_fallback,
     _scan_stitch_fallback,
     _telea_fill_gaps,
 )
@@ -79,6 +78,15 @@ from ._frame_utils import (
 from ._photometric_stage import _apply_background_photometric_normalization
 from ._pipeline_protocol import _PipelineHost
 from ._probes import _DY_CV_MAX, BaSiCWrapper, Image, torch
+from .registration_router import (
+    SOURCE_ASP,
+    SOURCE_OPENCV,
+    PoseCandidate,
+    choose,
+    opencv_scans_registration,
+    pose_consistency,
+    registration_mode,
+)
 from .session import (
     PipelineSession,
     PipelineStage,
@@ -87,15 +95,6 @@ from .session import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _panorama_fallback_allowed(n_frames: int) -> bool:
-    """Keep OpenCV PANORAMA fallback within a bounded workload."""
-    try:
-        max_frames = int(os.environ.get("ASP_PANORAMA_MAX_FRAMES", "12"))
-    except ValueError:
-        max_frames = 12
-    return max_frames > 0 and n_frames <= max_frames
 
 
 def _stage4_memory_snapshot() -> dict[str, float | None]:
@@ -339,6 +338,14 @@ class _RunStageMixin(_Base):
         session.note_gain_telemetry(_gain_telem)
         session.mark(PipelineStage.PHOTOMETRIC_BG)
 
+        # Pre-dedup lists: the registration router's second frame set.
+        _full_ctx = {
+            "frames": list(frames),
+            "scans_frames": list(scans_frames),
+            "bg_masks": list(bg_masks),
+            "image_paths": list(image_paths),
+        }
+
         # ── Pre-stage 5: Deduplicate near-static consecutive frames ─────────
         _early, frames, scans_frames, bg_masks, image_paths, N = (
             _dedup_near_static_frames(
@@ -347,12 +354,48 @@ class _RunStageMixin(_Base):
         )
         if _early is not None:
             session.mark_dropped_paths(image_paths, "near_static")
-            session.record_fallback(ResultIdentity.SCANS, "dedup_too_few_frames")
-            session.record_artifact("scans_path", output_path)
-            session.finish(success=True, identity=ResultIdentity.SCANS)
-            return _early
+            return self._route_registration_failure(
+                "dedup_too_few_frames",
+                session=session,
+                output_path=output_path,
+                hires_keyframes=hires_keyframes,
+                cv_cand=None,
+                cur=None,
+                full=_full_ctx,
+            )
         session.mark_dropped_paths(image_paths, "near_static")
         session.mark(PipelineStage.DEDUP, n=N)
+
+        # ── Registration routing (per stage, 2026-11-05) ────────────────────
+        # OpenCV SCANS registration is one pose source, ASP's matching + BA the
+        # other; either feeds the same ASP stages 8-13 (_finish_from_poses).
+        _reg_mode = registration_mode()
+        _n_registration_frames = N
+        _cv_cand = None
+        if _reg_mode != "asp":
+            _cv_cand = self._opencv_candidate({
+                    "frames": frames,
+                    "scans_frames": scans_frames,
+                    "bg_masks": bg_masks,
+                    "image_paths": image_paths,
+                }, _full_ctx)
+            session.record_artifact("opencv_registration_ok", _cv_cand is not None)
+        if _reg_mode == "opencv" and _cv_cand is not None:
+            _cv_cand.score = pose_consistency(
+                _cv_cand.scans_frames, _cv_cand.bg_masks, _cv_cand.affines
+            )
+            _pick, _route = choose([_cv_cand], N, _reg_mode)
+            session.record_artifact("registration_route", _route)
+            return self._finish_from_poses(
+                _cv_cand,
+                session=session,
+                output_path=output_path,
+                hires_keyframes=hires_keyframes,
+                pose_source=SOURCE_OPENCV,
+                health_valid=True,
+                motion_model="affine",
+                refine=False,
+            )
 
         # P1's one-plate model must not cross a pose change. Keep this
         # conservative source-sequence signal even if later spatial dedup
@@ -410,11 +453,17 @@ class _RunStageMixin(_Base):
                 )
                 N = len(frames)
                 if N < 2:
-                    session.record_fallback(ResultIdentity.SCANS, "spatial_dedup_too_few_frames")
-                    session.record_artifact("scans_path", output_path)
-                    session.finish(success=True, identity=ResultIdentity.SCANS)
-                    _sf = scans_frames or _reload_scans_frames(image_paths)
-                    return _scan_stitch_fallback(_sf, output_path)
+                    return self._route_registration_failure(
+                        "spatial_dedup_too_few_frames",
+                        session=session,
+                        output_path=output_path,
+                        hires_keyframes=hires_keyframes,
+                        cv_cand=_cv_cand,
+                        cur={"frames": frames, "scans_frames": scans_frames,
+                             "bg_masks": bg_masks, "image_paths": image_paths},
+                        full=_full_ctx,
+                        plate_source_has_multiple_phases=plate_source_has_multiple_phases,
+                    )
         session.mark(PipelineStage.SPATIAL_DEDUP, dropped=_total_spa_dropped)
         edge_stage_counts.update(
             {
@@ -573,12 +622,18 @@ class _RunStageMixin(_Base):
         session.mark(PipelineStage.MATCH, n_edges=len(edges))
         logger.info(f"[Stitch] Stages 5-6 complete: {len(edges)} valid edges found.")
         if not edges:
-            warnings.warn("[Stitch] No valid edges — falling back to scan stitch.", stacklevel=2)
-            session.record_fallback(ResultIdentity.SCANS, "no_valid_edges")
-            session.record_artifact("scans_path", output_path)
-            session.finish(success=True, identity=ResultIdentity.SCANS)
-            _sf = scans_frames or _reload_scans_frames(image_paths)
-            return _scan_stitch_fallback(_sf, output_path)
+            logger.info("[Stitch] No valid edges — routing registration to OpenCV.")
+            return self._route_registration_failure(
+                "no_valid_edges",
+                session=session,
+                output_path=output_path,
+                hires_keyframes=hires_keyframes,
+                cv_cand=_cv_cand,
+                cur={"frames": frames, "scans_frames": scans_frames,
+                     "bg_masks": bg_masks, "image_paths": image_paths},
+                full=_full_ctx,
+                plate_source_has_multiple_phases=plate_source_has_multiple_phases,
+            )
 
         # ── §1.15: Edge graph connectivity gate ───────────────────────────────
         # A disconnected edge graph would make bundle adjustment assign wrong
@@ -606,11 +661,17 @@ class _RunStageMixin(_Base):
                 _n_components,
             )
             if os.environ.get("ASP_STRICT_EDGE_GRAPH_GATE", "0") == "1":
-                session.record_fallback(ResultIdentity.SCANS, "disconnected_edge_graph")
-                session.record_artifact("scans_path", output_path)
-                session.finish(success=True, identity=ResultIdentity.SCANS)
-                _sf = scans_frames or _reload_scans_frames(image_paths)
-                return _scan_stitch_fallback(_sf, output_path)
+                return self._route_registration_failure(
+                    "disconnected_edge_graph",
+                    session=session,
+                    output_path=output_path,
+                    hires_keyframes=hires_keyframes,
+                    cv_cand=_cv_cand,
+                    cur={"frames": frames, "scans_frames": scans_frames,
+                         "bg_masks": bg_masks, "image_paths": image_paths},
+                    full=_full_ctx,
+                    plate_source_has_multiple_phases=plate_source_has_multiple_phases,
+                )
             logger.info(
                 "[Stitch] §1.15: proceeding to bundle adjust + affine recovery "
                 "(gap-fill reconstructs isolated frames; set "
@@ -746,58 +807,18 @@ class _RunStageMixin(_Base):
                             reason="deferred_min_gap_to_registration_review",
                         )
                 if not health.valid:
-                    # §1.3B: PANORAMA stitcher handles scale/rotation that
-                    # translation-only validation rejects; try before SCANS.
-                    _disable_panorama = os.environ.get(
-                        "ASP_DISABLE_PANORAMA_FALLBACK", "0"
-                    ) == "1"
-                    if _panorama_fallback_allowed(N) and not _disable_panorama:
-                        try:
-                            print(
-                                f"[Stitch]   Affine recovery failed; trying PANORAMA "
-                                f"fallback for {N} frames...",
-                                flush=True,
-                            )
-                            _sf = scans_frames or _reload_scans_frames(image_paths)
-                            _pano = _panorama_stitch_fallback(_sf, output_path)
-                            # PANORAMA is a safe-policy fallback algorithm, not a
-                            # fourth output identity. Raw/Safe/SCANS stay disjoint for
-                            # the M0 result schema and future parity comparisons.
-                            session.record_fallback(
-                                ResultIdentity.SAFE_ASP,
-                                str(health.reason),
-                                algorithm="panorama",
-                            )
-                            session.record_artifact("safe_asp_path", output_path)
-                            session.record_artifact("fallback_algorithm", "panorama")
-                            session.finish(success=True, identity=ResultIdentity.SAFE_ASP)
-                            return _pano
-                        except Exception as _pano_e:
-                            logger.info(
-                                f"[Stitch]   PANORAMA fallback failed ({_pano_e}); using SCANS."
-                            )
-                    else:
-                        logger.info(
-                            "[Stitch]   Skipping PANORAMA fallback for %d frames "
-                            "(disabled=%s, ASP_PANORAMA_MAX_FRAMES=%s); using SCANS.",
-                            N,
-                            _disable_panorama,
-                            os.environ.get("ASP_PANORAMA_MAX_FRAMES", "12"),
-                        )
-                        print(
-                            f"[Stitch]   Affine recovery failed; {N} frames exceed the "
-                            "PANORAMA safety limit, using SCANS.",
-                            flush=True,
-                        )
-                    warnings.warn(
-                        f"[Stitch] Affine validation FAILED ({health.reason}) after retries. "
-                        f"Falling back to SCANS stitch.", stacklevel=2
+                    # Used to try a whole-output PANORAMA, then SCANS (§1.3B).
+                    return self._route_registration_failure(
+                        f"affine_invalid:{health.reason}",
+                        session=session,
+                        output_path=output_path,
+                        hires_keyframes=hires_keyframes,
+                        cv_cand=_cv_cand,
+                        cur={"frames": frames, "scans_frames": scans_frames,
+                             "bg_masks": bg_masks, "image_paths": image_paths},
+                        full=_full_ctx,
+                        plate_source_has_multiple_phases=plate_source_has_multiple_phases,
                     )
-                    session.record_fallback(ResultIdentity.SCANS, f"affine_invalid:{health.reason}")
-                    session.record_artifact("scans_path", output_path)
-                    session.finish(success=True, identity=ResultIdentity.SCANS)
-                    _sf = scans_frames or _reload_scans_frames(image_paths)
-                    return _scan_stitch_fallback(_sf, output_path)
         if not session.artifacts.get("affine_health"):
             session.record_artifact(
                 "affine_health",
@@ -817,9 +838,165 @@ class _RunStageMixin(_Base):
             reason=getattr(health, "reason", None),
         )
 
+        # ── Stage 7c: registration routing ────────────────────────────────
+        _asp_cand = PoseCandidate.subset(
+            SOURCE_ASP,
+            affines,
+            list(range(N)),
+            {
+                "frames": frames,
+                "scans_frames": scans_frames or _reload_scans_frames(image_paths),
+                "bg_masks": bg_masks,
+                "image_paths": image_paths,
+            },
+            {"pose_source": _pose_source, "health_reason": health.reason},
+        )
+        _cands = [_asp_cand]
+        if _reg_mode != "asp" and _cv_cand is not None:
+            _cands.append(_cv_cand)
+        _pick, _route = choose(_cands, _n_registration_frames, _reg_mode)
+        session.record_artifact("registration_route", _route)
+        logger.info(
+            "[Stitch] Stage 7c: registration %s (%s).", _pick.source, _route.get("reason")
+        )
+        _is_asp = _pick.source == SOURCE_ASP
+        return self._finish_from_poses(
+            _pick,
+            session=session,
+            output_path=output_path,
+            hires_keyframes=hires_keyframes,
+            pose_source=_pose_source if _is_asp else _pick.source,
+            health_valid=bool(health.valid) if _is_asp else True,
+            motion_model=_motion_model if _is_asp else "affine",
+            refine=_is_asp,
+            edges=edges if _is_asp else [],
+            phase_ids=phase_ids if _is_asp else None,
+            plate_source_has_multiple_phases=plate_source_has_multiple_phases,
+        )
+
+    def _opencv_candidate(self, cur: dict | None, full: dict | None):
+        """OpenCV SCANS registration on the current frame set; the pre-dedup
+        set goes first when dedup left fewer than ``max(3, half)`` of it, and
+        is the retry otherwise (2026-11-04: dedup on bad edges collapsed
+        asp_test79 from 27 frames to 2)."""
+        sets = [("current", cur)] if cur else []
+        if full and (not cur or len(full["frames"]) > len(cur["frames"])):
+            thin = not cur or len(cur["frames"]) < max(3, len(full["frames"]) // 2)
+            sets = [("full", full), *sets] if thin else [*sets, ("full", full)]
+        for label, ctx in sets:
+            if len(ctx["frames"]) < 2:
+                continue
+            raw = ctx["scans_frames"] or _reload_scans_frames(ctx["image_paths"])
+            got = opencv_scans_registration(raw, ctx["bg_masks"])
+            if got is None:
+                continue
+            fwd, idx, detail = got
+            detail["frame_set"] = label
+            return PoseCandidate.subset(
+                SOURCE_OPENCV, fwd, idx, dict(ctx, scans_frames=raw), detail
+            )
+        return None
+
+    def _route_registration_failure(
+        self,
+        reason: str,
+        *,
+        session: PipelineSession,
+        output_path: str,
+        hires_keyframes,
+        cv_cand,
+        cur: dict | None,
+        full: dict | None,
+        plate_source_has_multiple_phases: bool = False,
+    ) -> Image.Image:
+        """ASP registration failed (``reason``): continue with OpenCV's
+        poses through ASP's own stages. Only when OpenCV registration fails
+        too does the run end with the old whole-output SCANS/PANORAMA ladder."""
+        cand = cv_cand if cv_cand is not None else self._opencv_candidate(cur, full)
+        if cand is not None:
+            cand.score = cand.score or pose_consistency(
+                cand.scans_frames, cand.bg_masks, cand.affines
+            )
+            session.record_artifact(
+                "registration_route",
+                {
+                    "mode": registration_mode(),
+                    "selected": cand.source,
+                    "reason": f"asp_failed:{reason}",
+                    "candidates": {cand.source: {"n_frames": len(cand.affines),
+                                                  "score": cand.score, **cand.detail}},
+                },
+            )
+            logger.info(
+                "[Stitch] ASP registration failed (%s); continuing with OpenCV poses "
+                "(%d frames).", reason, len(cand.affines),
+            )
+            return self._finish_from_poses(
+                cand,
+                session=session,
+                output_path=output_path,
+                hires_keyframes=hires_keyframes,
+                pose_source=SOURCE_OPENCV,
+                health_valid=True,
+                motion_model="affine",
+                refine=False,
+                plate_source_has_multiple_phases=plate_source_has_multiple_phases,
+            )
+        warnings.warn(
+            f"[Stitch] No registration ({reason}; OpenCV SCANS failed too) — "
+            "last-resort whole-output OpenCV stitch.",
+            stacklevel=2,
+        )
+        session.record_fallback(ResultIdentity.SCANS, f"no_registration:{reason}")
+        session.record_artifact("scans_path", output_path)
+        session.finish(success=True, identity=ResultIdentity.SCANS)
+        src = cur or full or {}
+        sf = src.get("scans_frames") or _reload_scans_frames(src.get("image_paths", []))
+        full_sf = (full or {}).get("scans_frames") or None
+        return _scan_stitch_fallback(sf, output_path, full_frames=full_sf)
+
+    def _finish_from_poses(  # noqa: C901
+        self,
+        cand,
+        *,
+        session: PipelineSession,
+        output_path: str,
+        hires_keyframes: dict[int, str] | None,
+        pose_source: str,
+        health_valid: bool,
+        motion_model: str,
+        refine: bool,
+        edges: list | None = None,
+        phase_ids: list[int] | None = None,
+        plate_source_has_multiple_phases: bool = False,
+    ) -> Image.Image:
+        """Stages 8-13 + save for one chosen pose set (``PoseCandidate``).
+
+        Every registration route ends here, so ASP's refine / render / trim /
+        crop stages run whatever the pose source.
+        """
+        frames = list(cand.frames)
+        scans_frames = list(cand.scans_frames)
+        bg_masks = list(cand.bg_masks)
+        image_paths = list(cand.image_paths)
+        affines = [np.asarray(a, np.float32).copy() for a in cand.affines]
+        N = len(frames)
+        edges = edges or []
+        _motion_model = motion_model
+        session.record_artifact("frame_count", N)
+        session.record_artifact("registration_source", pose_source)
+        if phase_ids is not None and len(phase_ids) != N:
+            phase_ids = None
+
         # ── Stage 8: Sub-pixel refinement ────────────────────────────────────
-        affines, _refine_src = self._refine_subpixel(frames, affines, bg_masks)
-        session.mark(PipelineStage.REFINE, method=_refine_src)
+        # OpenCV poses are not refined: ECC on top of them was neutral to
+        # negative on the corpus (2026-11-04 Phase B).
+        if refine:
+            affines, _refine_src = self._refine_subpixel(frames, affines, bg_masks)
+            session.mark(PipelineStage.REFINE, method=_refine_src)
+        else:
+            _refine_src = "none"
+            session.mark(PipelineStage.REFINE, skipped=True, source=pose_source)
 
         # ── Stage 8.8: Hires keyframe substitution (§9C — Sprint 8) ────────
         # All heavy computation above ran on proxy (1080p) frames. If the caller
@@ -881,9 +1058,9 @@ class _RunStageMixin(_Base):
                     "tx": round(float(affines[i][0, 2]), 3),
                     "ty": round(float(affines[i][1, 2]), 3),
                     "motion_model": str(_motion_model),
-                    "source": _pose_source,
+                    "source": pose_source,
                     "refined_by": _refine_src,
-                    "valid": bool(health.valid),
+                    "valid": bool(health_valid),
                 }
                 for i in range(N)
             ]
@@ -893,40 +1070,20 @@ class _RunStageMixin(_Base):
             f"canvas {canvas_w}×{canvas_h}."
         )
 
-        # §3.14 — Scroll axis classification (logged; horizontal → SCANS fallback).
-        # Compositing assumes vertical strips; horizontal scroll produces garbled output
-        # without a full horizontal-strip compositing mode (not yet implemented).
+        # ── Render routing gates ─────────────────────────────────────────────
+        # Horizontal scroll, irregular steps (dy_cv), extreme 2D motion and thin
+        # multi-frame coverage used to return OpenCV's whole output. They are
+        # renderer limits (vertical-strip median/composite), so now they only
+        # route Stage 10 to the seam renderer, which has none of them.
+        _render_reasons: list[str] = []
         scroll_axis = _detect_scroll_axis(affines)
         logger.info(f"[Stitch] Stage 9.5: scroll axis = '{scroll_axis}'.")
         if scroll_axis == "horizontal":
-            logger.info(
-                "[Stitch] Horizontal scroll (tx_range >> ty_range) — vertical-strip "
-                "compositing not applicable; falling back to SCANS."
-            )
-            session.record_fallback(ResultIdentity.SCANS, "horizontal_scroll")
-            session.record_artifact("scans_path", output_path)
-            session.finish(success=True, identity=ResultIdentity.SCANS)
-            return _scan_stitch_fallback(scans_frames, output_path)
-
-        # ── §4.7: dy_cv pre-detection gate ───────────────────────────────────
-        # When step-size CV is high the scroll is too irregular for ARAP/seam
-        # compositing — SCANS trivially handles these sequences.
-        if _DY_CV_MAX > 0.0:
+            _render_reasons.append("horizontal_scroll")
+        if _DY_CV_MAX > 0.0 and N >= 2:
             _dy_cv_gate = _compute_dy_cv(affines)
-            _dy_cv_adaptive_max = _compute_adaptive_dy_cv_max(N, _DY_CV_MAX)
-            if _dy_cv_gate >= _dy_cv_adaptive_max:
-                logger.info(
-                    "[Stitch] §4.7/§5.8: dy_cv=%.3f ≥ %.2f (irregular scroll, N=%d) "
-                    "→ SCANS fallback (ASP seam routing degrades severely at high dy_cv).",
-                    _dy_cv_gate,
-                    _dy_cv_adaptive_max,
-                    N,
-                )
-                session.record_fallback(ResultIdentity.SCANS, "dy_cv_gate")
-                session.record_artifact("scans_path", output_path)
-                session.finish(success=True, identity=ResultIdentity.SCANS)
-                _sf = scans_frames or _reload_scans_frames(image_paths)
-                return _scan_stitch_fallback(_sf, output_path)
+            if _dy_cv_gate >= _compute_adaptive_dy_cv_max(N, _DY_CV_MAX):
+                _render_reasons.append("dy_cv_gate")
 
         # P1.3 — Compute per-frame matching confidence for weighted median (W3).
         # Each frame's confidence = the maximum edge weight of its adjacent edges.
@@ -940,32 +1097,25 @@ class _RunStageMixin(_Base):
                 _frame_confs[_fj] = max(_frame_confs[_fj], _w)
         _frame_confs = np.clip(_frame_confs, 0.0, 1.0)
 
-        # ── Stage 9.5: Alignment stability gate ─────────────────────────────
-        # Log severe 2D motion but only abort at a very high threshold — the
-        # render gate (in the calling benchmark) uses a SCANS-relative comparison
-        # and catches genuinely degraded composites regardless of motion pattern.
-        # Hard-abort threshold raised to 200px (was 50px); scenes with horizontal
-        # drift up to ~2 frame-widths can still produce acceptable composites.
-        # Override: ASP_ALIGN_GATE_DX env var (default 200; set to 50 to restore
-        # the old strict behaviour; set to 9999 to disable entirely).
         try:
             _align_dx_limit = float(os.environ.get("ASP_ALIGN_GATE_DX", "200"))
         except ValueError:
             _align_dx_limit = 200.0
         _txs_gate = [float(affines[i][0, 2]) for i in range(N)]
         _dx_gate = [abs(_txs_gate[i + 1] - _txs_gate[i]) for i in range(N - 1)]
-        if _dx_gate:
-            _dx_p75 = float(np.percentile(_dx_gate, 75))
-            if _dx_p75 > _align_dx_limit:
-                logger.info(
-                    f"[Stitch] Alignment stability gate: 75th-pct |dx|={_dx_p75:.1f}px "
-                    f"> {_align_dx_limit:.0f}px limit — extreme 2D motion, "
-                    f"falling back to SCANS."
-                )
-                session.record_fallback(ResultIdentity.SCANS, "align_dx_gate")
-                session.record_artifact("scans_path", output_path)
-                session.finish(success=True, identity=ResultIdentity.SCANS)
-                return _scan_stitch_fallback(scans_frames, output_path)
+        if _dx_gate and float(np.percentile(_dx_gate, 75)) > _align_dx_limit:
+            _render_reasons.append("align_dx_gate")
+        # Stage 10.5 coverage needs only the poses, so it is decided here.
+        _row_cov, _pct_cov_multi, _cov_median = _compute_row_coverage(
+            affines, frames, canvas_h
+        )
+        _n_cov_total = int((_row_cov > 0).sum())
+        try:
+            _cov_min_pct = float(os.environ.get("ASP_COV_MIN_MULTI_PCT", "0.30"))
+        except ValueError:
+            _cov_min_pct = 0.30
+        if _n_cov_total > 0 and _pct_cov_multi < _cov_min_pct:
+            _render_reasons.append("coverage_gate")
         session.mark(PipelineStage.ALIGN_GATES, scroll_axis=scroll_axis)
 
         # ── Stage 10: Temporal renderer ─────────────────────────────────────
@@ -977,6 +1127,17 @@ class _RunStageMixin(_Base):
         # ASP_RENDERER overrides the constructor (e.g. "seam": graph-cut seams +
         # multiband, the SCANS composer; it replaces Stage 11 as well).
         effective_renderer = os.environ.get("ASP_RENDERER", "").strip() or self.renderer
+        if _render_reasons and effective_renderer != "seam":
+            logger.info(
+                "[Stitch] Render routing: %s → seam renderer (was %s).",
+                ",".join(_render_reasons),
+                effective_renderer,
+            )
+            effective_renderer = "seam"
+        session.record_artifact(
+            "render_route",
+            {"renderer": effective_renderer, "reasons": list(_render_reasons)},
+        )
         _render_frames = frames
         if effective_renderer == "seam" and os.environ.get("ASP_SEAM_INPUT", "raw") == "raw":
             # SCANS composes uncorrected frames; BaSiC/BG photometric cast halos.
@@ -1025,41 +1186,11 @@ class _RunStageMixin(_Base):
                 _p4_uncertain_px,
             )
 
-        # ── Stage 10.5: Multi-frame canvas coverage gate (§0 item 2) ─────────
-        # For each canvas row count how many frames contribute content.
-        # If < ASP_COV_MIN_MULTI_PCT (default 30%) of content rows have ≥2-frame
-        # coverage, the temporal median is effectively "first-frame-wins" across
-        # the entire canvas — it cannot suppress animation ghosting.  Composite
-        # on such a canvas would amplify ghosting rather than remove it.
-        # Conservative default (30%) avoids false positives while catching truly
-        # degenerate selections (e.g., 2 widely-spaced frames in a tall canvas).
-        _row_cov, _pct_cov_multi, _cov_median = _compute_row_coverage(
-            affines, frames, canvas_h
-        )
-        _n_cov_total = int((_row_cov > 0).sum())
-        _n_cov_multi = (
-            int((_row_cov[_row_cov > 0] >= 2).sum()) if _n_cov_total > 0 else 0
-        )
+        # ── Stage 10.5: coverage (decided before Stage 10; see render routing)
         logger.info(
-            f"[Stitch] Stage 10.5: coverage — "
-            f"{_n_cov_multi}/{_n_cov_total} rows ({_pct_cov_multi:.0%}) "
-            f"have ≥2-frame coverage; median={_cov_median:.1f}"
+            f"[Stitch] Stage 10.5: {_pct_cov_multi:.0%} of content rows have "
+            f"≥2-frame coverage; median={_cov_median:.1f}"
         )
-        if _n_cov_total > 0:
-            try:
-                _cov_min_pct = float(os.environ.get("ASP_COV_MIN_MULTI_PCT", "0.30"))
-            except ValueError:
-                _cov_min_pct = 0.30
-            if _pct_cov_multi < _cov_min_pct:
-                logger.info(
-                    f"[Stitch] Stage 10.5: coverage gate — {_pct_cov_multi:.0%} < "
-                    f"{_cov_min_pct:.0%} threshold, temporal median insufficient "
-                    f"for deghosting → SCANS fallback."
-                )
-                session.record_fallback(ResultIdentity.SCANS, "coverage_gate")
-                session.record_artifact("scans_path", output_path)
-                session.finish(success=True, identity=ResultIdentity.SCANS)
-                return _scan_stitch_fallback(scans_frames, output_path)
         session.mark(
             PipelineStage.COVERAGE_GATE,
             pct_multi=_pct_cov_multi,

@@ -55,10 +55,13 @@ class ToolTabBase(QWidget):
         self._controls = QVBoxLayout()
         self._controls.setContentsMargins(0, 0, 0, 0)
         self._controls.setSpacing(4)
+        self._case_label = QLabel("Case: —")
+        self._case_label.setProperty("role", "heading")
         left = QWidget()
         left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(6)
+        left_layout.addWidget(self._case_label)
         left_layout.addWidget(self._tool_list, stretch=1)
         left_layout.addLayout(self._controls)
 
@@ -127,6 +130,12 @@ class ToolTabBase(QWidget):
         if token != self._cache_token:
             self._cache.clear()
             self._cache_token = token
+        label = token.strip() if isinstance(token, str) else ""
+        self._case_label.setText(f"Case: {label}" if label else "Case: —")
+        # A tool result owns the status line; don't replace it with the case name.
+        tool_showing = self._current_widget is not None or self._tool_list.currentRow() >= 0
+        if label and not tool_showing:
+            self._status.setText(f"Case: {label}")
         self._on_context_changed()
 
     def _on_context_changed(self) -> None:

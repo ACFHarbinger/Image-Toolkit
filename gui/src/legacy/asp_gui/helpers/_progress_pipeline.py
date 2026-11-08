@@ -81,7 +81,7 @@ def _build_pipeline_kwargs(cfg: dict) -> dict:
         composite_fg=cfg.get("composite_fg", True),
         laplacian_bands=cfg.get("laplacian_bands", 5),
         stitch_net_ckpt=cfg.get("stitch_net_ckpt", ""),
-        edge_crop=cfg.get("edge_crop", 30),
+        edge_crop=cfg.get("edge_crop", 0),
         motion_model=cfg.get("motion_model", "translation"),
     )
 

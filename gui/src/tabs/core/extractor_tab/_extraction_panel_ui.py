@@ -155,8 +155,14 @@ class ExtractorExtractionPanelUIController(TabBoundController):
             ]
         )
         self.combo_smart_method.setCurrentText("mpdecimate (De-duplicate)")
-        self.combo_smart_method.setEnabled(False)
-        self.check_smart_extract.toggled.connect(self.combo_smart_method.setEnabled)
+        self.combo_smart_method.setToolTip(
+            "Smart Extract filter. Picking one turns Smart Extract on."
+        )
+        # Always clickable: a combo disabled until the checkbox is ticked read
+        # as broken. A user pick (activated, not restores) enables the mode.
+        self.combo_smart_method.activated.connect(
+            lambda _i: self.check_smart_extract.setChecked(True)
+        )
         extract_config_layout.addWidget(self.combo_smart_method)
 
         extract_config_layout.addStretch()

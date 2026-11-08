@@ -31,6 +31,17 @@ def build_parser(doc: str) -> argparse.ArgumentParser:
              "from. Defaults to the most recent run.",
     )
     parser.add_argument(
+        "--run", default=None, metavar="ID",
+        help="Inspect an archived bench run (run_history.py): an id, id prefix, path "
+             "or 'none'. Default: the latest archived run, if any. ASP/OpenCV/metrics "
+             "then come from that run.",
+    )
+    parser.add_argument(
+        "--prev", default=None, metavar="ID",
+        help="Run shown as 'ASP (previous run)'. Default: per case, the newest run "
+             "older than --run that has it.",
+    )
+    parser.add_argument(
         "--redo", action="store_true",
         help="Re-walk datasets that already have an evaluation (default: start at the "
              "first unrated one). Every dataset is reachable from the queue sidebar "

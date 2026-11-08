@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
 from ..constants.schema import (
     COMPARATOR_TITLES,
     DEFECTS,
+    IMAGE_ASP,
 )
 from ..constants.user_interface import (
     COL_TEXT_DIM,
@@ -48,6 +49,7 @@ from ..constants.user_interface import (
     MODE_POINT,
 )
 from ..other import discovery
+from ..other.case_library import cases_in_directory, list_directories, resolve_case_file
 from ..other.schema import RatingEntry
 from ..other.session import EvaluationSession
 from ..other.settings import load_settings
@@ -61,6 +63,7 @@ from .diagnostics_tab import DiagnosticsTab
 from .metrics_panel import MetricsPanel
 from .panel_grid import PanelGrid
 from .queue_panel import QueuePanel
+from .run_library_panel import RunLibraryPanel
 from .scoring_panel import ScoringPanel
 from .settings_flow import SettingsFlowMixin
 from .theme import apply_theme, heading, subtle
@@ -79,6 +82,20 @@ _DBG_INSPECTOR: bool = False
 def _dbg(*parts) -> None:  # noqa: D103 — internal debug helper
     if _DBG_INSPECTOR:
         print("[DBG-INSPECTOR]", *parts, flush=True)
+
+
+def _directory_path(entry: object) -> str:
+    if isinstance(entry, str):
+        return entry
+    if isinstance(entry, dict):
+        path = entry.get("path") or entry.get("dir") or ""
+        return str(path) if path else ""
+    path = getattr(entry, "path", "")
+    return str(path) if path else ""
+
+
+def _exc_message(exc: BaseException) -> str:
+    return str(exc) or exc.__class__.__name__
 
 
 class _ElidingLabel(QLabel):
@@ -152,6 +169,8 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         default_display_mode: str = DISPLAY_RAW,
         results_path: str | None = None,
         theme: str | None = None,
+        run=None,
+        prev_run=None,
     ):
         super().__init__()
         self.setWindowTitle("Benchmark Evaluation Inspector")
@@ -167,10 +186,14 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         self.base_dir = base_dir
         self.repo_root = repo_root
         self.results_path = results_path
+        # run_history.RunInfo: an archived bench run to inspect, and the run
+        # shown as "ASP (previous run)" (None = newest older run per case).
+        self.run = run
+        self.prev_run = prev_run
         self._assets = None
         self._edge_builder = EdgeBuilder()
 
-        names = discovery.discover_datasets(base_dir)
+        names = discovery.discover_datasets(base_dir, run)
         self.session = EvaluationSession(names, out_path, redo=redo)
         self.total_datasets = len(names)
 
@@ -180,7 +203,9 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         self._resize_timer.setSingleShot(True)
         self._resize_timer.timeout.connect(self._fit_all)
         self._fitting: bool = False  # re-entrancy guard for _fit_all
+        self._apply_case_names(self._merged_case_names(self.base_dir))
         self.queue_panel.set_session(self.session)
+        self._sync_run_source()
         _dbg("InspectorWindow.__init__: construction complete")
         _dbg(
             f"  window size: {self.width()}x{self.height()}"
@@ -231,8 +256,7 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         self.load_dir_btn = QPushButton("Load Directory…")
         self.load_dir_btn.setToolTip(
             "Point the inspector at another data directory — a benchmark base dir, "
-            "or a renderer-export bundle of asp_testXX/ subdirectories. Only the "
-            "asp_testXX datasets present there are shown."
+            "or a renderer-export bundle of asp_testXX/ subdirectories."
         )
         self.load_dir_btn.clicked.connect(self._load_directory)
         header.addWidget(self.title_label)
@@ -249,6 +273,11 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         self.top_tabs = QTabWidget()
         self.top_tabs.addTab(self._build_rate_tab(default_display_mode), "Rate")
         self.top_tabs.addTab(self._build_analyze_tab(), "Analyze")
+        self.runs_panel = RunLibraryPanel(root=None)
+        self.runs_panel.openCase.connect(self.open_dataset)
+        self.top_tabs.addTab(self.runs_panel, "Runs")
+        self.queue_panel.subsetChanged.connect(self._sync_active_cases)
+        self.queue_panel.directoriesChanged.connect(self._on_case_directories_changed)
         outer.addWidget(self.top_tabs, stretch=1)
 
         self.pixel_label = _ElidingLabel("Pixel: —")
@@ -359,15 +388,108 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
 
     # -- dataset loading -----------------------------------------------------
 
+    def _merged_case_names(self, base_dir: str, *, include_run: bool = True) -> list[str]:
+        run = self.run if include_run else None
+        names = set(discovery.discover_datasets(base_dir, run))
+        try:
+            directories = list_directories()
+        except Exception as exc:
+            self.status_label.setText(_exc_message(exc))
+            return sorted(names)
+        for entry in directories:
+            path = _directory_path(entry)
+            if not path:
+                continue
+            try:
+                found = cases_in_directory(path)
+            except Exception as exc:
+                self.status_label.setText(_exc_message(exc))
+                continue
+            names.update(str(case) for case in found if case)
+        return sorted(names)
+
+    def _apply_case_names(self, names: list[str]) -> None:
+        """Swap the queue order. Ratings stay on the session; only the names move."""
+        if not hasattr(self.session, "order") or list(self.session.order) == list(names):
+            return
+        current = self.session.current
+        self.session.order = list(names)
+        self.total_datasets = len(names)
+        if current in self.session.order or not names:
+            return
+        self.session.go_to(names[0], record_history=False)
+
+    def _on_case_directories_changed(self) -> None:
+        before = self.session.current
+        self._apply_case_names(self._merged_case_names(self.base_dir))
+        self.queue_panel.select_all_cases()
+        self._sync_run_source()
+        if self.session.current and self.session.current != before:
+            self._load_current()
+            return
+        self._update_header()
+
+    def _sync_run_source(self) -> None:
+        panel = getattr(self, "runs_panel", None)
+        if panel is None:
+            return
+        panel.set_source(self.base_dir, list(self.session.order))
+
+    def _sync_active_cases(self) -> None:
+        panel = getattr(self, "runs_panel", None)
+        queue = getattr(self, "queue_panel", None)
+        if queue is not None and getattr(self, "session", None) is not None:
+            self.session.set_scope(queue.subset_names())
+        if panel is None or queue is None:
+            return
+        if queue.shows_all_cases():
+            panel.set_active_cases(None)
+        else:
+            panel.set_active_cases(queue.active_names())
+
+    def _images_for(self, name: str) -> dict:
+        images = discovery.load_images(self._assets)
+        if images:
+            return images
+        extra = self._library_case_image(name)
+        if extra is None:
+            return images
+        return {IMAGE_ASP: extra}
+
+    def _library_case_image(self, name: str):
+        import cv2
+
+        try:
+            directories = list_directories()
+        except Exception as exc:
+            self.status_label.setText(_exc_message(exc))
+            return None
+        for entry in directories:
+            path = _directory_path(entry)
+            if not path:
+                continue
+            try:
+                found = resolve_case_file(path, name)
+            except Exception as exc:
+                self.status_label.setText(_exc_message(exc))
+                continue
+            if not found or not os.path.isfile(found):
+                continue
+            image = cv2.imread(found)
+            if image is not None:
+                return image
+        return None
+
     def _load_current(self) -> None:
         name = self.session.current
         if name is None:
             return
         self._edge_builder.reset()
         self._assets = discovery.load_test_assets(
-            self.base_dir, name, self.repo_root, self.results_path
+            self.base_dir, name, self.repo_root, self.results_path,
+            run=self.run, prev=self.prev_run,
         )
-        images = discovery.load_images(self._assets)
+        images = self._images_for(name)
         entry = self.session.entry(name)
 
         self.grid.set_images(images)
@@ -402,6 +524,9 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         return [*SCORABLE_KEYS, *RENDERER_EXPORT_KEYS]
 
     def _run_label(self) -> str:
+        if self.run is not None:
+            prev = self.prev_run.run_id if self.prev_run is not None else "newest older run"
+            return f"run {self.run.run_id} vs {prev}"
         metrics = discovery.load_metrics(self.repo_root, self.results_path)
         metadata = metrics.get("__metadata__") or {}
         timestamp = metadata.get("timestamp", "")
@@ -622,7 +747,7 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         if not chosen:
             return
 
-        names = discovery.discover_datasets(chosen)
+        names = self._merged_case_names(chosen, include_run=False)
         if not names:
             QMessageBox.information(
                 self,
@@ -643,6 +768,7 @@ class InspectorWindow(AnnotationFlowMixin, SettingsFlowMixin, QMainWindow):
         self.session = EvaluationSession(names, out_path, redo=False)
         self.total_datasets = len(names)
         self.queue_panel.set_session(self.session)
+        self._sync_run_source()
         if self.session.current:
             self._load_current()
         else:

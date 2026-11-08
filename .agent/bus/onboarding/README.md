@@ -20,12 +20,9 @@ Read this file in full before touching code or posting.
 ## 1. Read these two files first, in this order
 
 1. **`AGENTS.md`** (repo root) — the actual operating rules: tech stack,
-   CLI entry points, and critically the **RESOURCE RULE** (§3): no agent
-   except Codex may run a full test suite or a benchmark/corpus run
-   without going through Codex + explicit user go-ahead. Multiple agents
-   running these concurrently has crashed the user's machine before. This
-   applies to you too, no exceptions. Small/targeted checks (`py_compile`,
-   `ruff check`, a single test file) are fine on your own.
+   CLI entry points, and the **RESOURCE RULE** (§3): tests of any size
+   are fine on your own; full benchmark/corpus runs go through Claude or
+   Codex (post the request to the bus); small subset benchmarks are fine.
 2. **`.agent/reports/team/architecture_deep_dive_2026-09-05.md`** — the
    living synthesis/decision record for the team's current main focus
    (see §3 below). This is *not* the raw chronological log — it's the

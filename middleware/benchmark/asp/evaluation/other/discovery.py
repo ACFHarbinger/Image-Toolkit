@@ -14,6 +14,10 @@ anything:
 - ``{base_dir}/ground_truth/{name}.{png,jpg,jpeg}``
 - the ``paths``/``metrics_*`` fields of the newest ``anime_stitch_*.json``
 
+With a run from the bench run history (``run_history.py``), ASP / OpenCV /
+metrics come from that archived run instead, and ``asp_prev`` is the same
+case from an older run (by default the newest older run that has it).
+
 The comparator paths come from the results JSON's own ``overmix_path`` /
 ``hugin_path`` fields when present, and fall back to the documented on-disk
 convention when the JSON predates those fields — so a test's Overmix output is
@@ -30,9 +34,12 @@ import os
 import cv2
 import numpy as np
 
+from middleware.benchmark.asp import run_history
+
 from ..constants.schema import (
     COMPARATOR_KEYS,
     IMAGE_ASP,
+    IMAGE_ASP_PREV,
     IMAGE_GROUND_TRUTH,
     IMAGE_HUGIN,
     IMAGE_OVERMIX,
@@ -71,7 +78,7 @@ class TestAssets:
         return self.paths.get(IMAGE_GROUND_TRUTH)
 
 
-def discover_datasets(base_dir: str) -> list[str]:
+def discover_datasets(base_dir: str, run: run_history.RunInfo | None = None) -> list[str]:
     """Dataset names available under ``base_dir``.
 
     Standard benchmark layout: ``{base_dir}/output/{name}_anime_stitch.png``.
@@ -85,6 +92,8 @@ def discover_datasets(base_dir: str) -> list[str]:
     for p in sorted(glob.glob(os.path.join(out_dir, "asp_test*_anime_stitch.png"))):
         names.add(os.path.basename(p)[: -len("_anime_stitch.png")])
     names.update(_discover_renderer_export_datasets(base_dir))
+    if run is not None:
+        names.update(run.cases())
     return sorted(names)
 
 
@@ -126,8 +135,16 @@ _METRICS_CACHE: dict[str, dict[str, dict]] = {}
 
 def results_files(repo_root: str) -> list[str]:
     """Every ``anime_stitch_*.json`` results file, oldest first."""
-    results_dir = os.path.join(repo_root, "backend", "benchmark", "output")
-    return sorted(glob.glob(os.path.join(results_dir, "anime_stitch_*.json")))
+    # The bench writes to resource_guard.results_directory() (outside the
+    # checkout); the in-repo path is where pre-2026-10 runs lived.
+    dirs = [
+        os.path.expanduser(
+            os.environ.get("ASP_BENCH_RESULTS_DIR", "~/Downloads/Data/Tests/asp-benchmark")
+        ),
+        os.path.join(repo_root, "backend", "benchmark", "output"),
+    ]
+    files = [f for d in dirs for f in glob.glob(os.path.join(d, "anime_stitch_*.json"))]
+    return sorted(files, key=os.path.basename)
 
 
 def load_metrics(repo_root: str, results_path: str | None = None) -> dict[str, dict]:
@@ -202,10 +219,32 @@ def _load_renderer_export_assets(base_dir: str, name: str) -> TestAssets:
 
 
 def load_test_assets(
-    base_dir: str, name: str, repo_root: str, results_path: str | None = None
+    base_dir: str,
+    name: str,
+    repo_root: str,
+    results_path: str | None = None,
+    run: run_history.RunInfo | None = None,
+    prev: run_history.RunInfo | None = None,
 ) -> TestAssets:
-    if is_renderer_export_dir(base_dir):
+    """``run``: take ASP/OpenCV/metrics from that archived run. ``prev``: the
+    run to show as ``asp_prev`` (default: newest older run with ``name``)."""
+    if is_renderer_export_dir(base_dir) and run is None:
         return _load_renderer_export_assets(base_dir, name)
+    if run is not None and run.has(name):
+        assets = load_test_assets(base_dir, name, repo_root, results_path)
+        entry = run.result(name)
+        paths = dict(assets.paths)
+        for key, fname in ((IMAGE_ASP, "asp.png"), (IMAGE_SIMPLE, "opencv.png")):
+            p = run.image(name, fname)
+            if p is not None:
+                paths[key] = str(p)
+        older = prev if prev is not None and prev.has(name) else (
+            None if prev is not None else run_history.previous_run(name, run, run.path.parent)
+        )
+        p = older.image(name) if older is not None else None
+        if p is not None:
+            paths[IMAGE_ASP_PREV] = str(p)
+        return dataclasses.replace(assets, paths=paths, metrics=entry or assets.metrics)
 
     out_dir = os.path.join(base_dir, "output")
     test_out_dir = os.path.join(base_dir, name, "output")

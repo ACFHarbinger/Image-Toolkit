@@ -335,7 +335,7 @@ def run_asp(
     apply_ungated_gate_env()  # the bench does this before every canonical run
     os.makedirs(out_dir, exist_ok=True)
     work = os.path.join(out_dir, "asp_output.png")
-    pipe = AnimeStitchPipeline(renderer="median")
+    pipe = AnimeStitchPipeline()  # product defaults (renderer: seam)
     session = PipelineSession.create(paths, work, config=snapshot_pipeline_config(pipe))
     spy: dict[str, Any] = {}
 
@@ -550,6 +550,22 @@ def contrast(dataset_dir: str, out_dir: str, args) -> dict[str, Any]:
             report["pose_disagreement"] = pose_disagreement(
                 cv["component_paths"], fwd_cv, asp["kept_paths"], affines
             )
+
+    # Poses for offline experiments. OpenCV's are on the untrimmed harness
+    # frames; ASP's are on its own loaded (dark-trimmed) frames.
+    poses = {
+        "cv": None if fwd_cv is None else {
+            "mode": cv.get("mode"),
+            "paths": cv.get("component_paths"),
+            "forward": [np.asarray(f, float).tolist() for f in fwd_cv],
+        },
+        "asp": None if not affines else {
+            "paths": asp["kept_paths"],
+            "affines": [np.asarray(a, float).tolist() for a in affines],
+        },
+    }
+    with open(os.path.join(out_dir, "poses.json"), "w") as fh:
+        json.dump(poses, fh)
 
     if args.inject_opencv_edges:
         inj = run_asp(

@@ -146,8 +146,24 @@ def build_dashboard(args):
     smoke test can build it under an offscreen QPA without an event loop."""
     from middleware.src.stitching_evaluation.ui.main_window import InspectorWindow
 
+    from middleware.benchmark.asp import run_history
+
     repo_root = repo_root_from(__file__)
     default_view = DISPLAY_PIXEL if args.default_view == "pixel" else DISPLAY_RAW
+    run = prev = None
+    run_spec = getattr(args, "run", None)
+    if run_spec is None:
+        run = run_history.resolve_run("latest")  # None when there is no history yet
+    elif run_spec != "none":
+        run = run_history.resolve_run(run_spec)
+        if run is None:
+            raise SystemExit(f"No archived run matches {args.run!r} under {run_history.history_root()}")
+    if getattr(args, "prev", None):
+        prev = run_history.resolve_run(args.prev)
+        if prev is None:
+            raise SystemExit(f"No archived run matches {args.prev!r}")
+        if run is None:
+            run = run_history.resolve_run("latest")
     window = InspectorWindow(
         base_dir=args.data_dir,
         out_path=_resolve_out_path(args, repo_root),
@@ -156,6 +172,8 @@ def build_dashboard(args):
         default_display_mode=default_view,
         results_path=getattr(args, "results", None),
         theme=getattr(args, "theme", None),
+        run=run,
+        prev_run=prev,
     )
     start_at = getattr(args, "start_at", None)
     if start_at:

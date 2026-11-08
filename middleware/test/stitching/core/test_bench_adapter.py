@@ -93,7 +93,8 @@ class TestRunCanonicalAsp:
         assert "geometry" in obs
         assert "fallback_reason" in obs
 
-    def test_policy_reject_keeps_raw_and_publishes_scans(self, tmp_path):
+    def test_policy_reject_keeps_raw_and_publishes_scans(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("ASP_BENCH_UNGATED", "0")  # opt back in to the swap
         raw_path = str(tmp_path / "raw.png")
         safe_path = str(tmp_path / "safe.png")
         scans = np.full((80, 48, 3), 128, dtype=np.uint8)

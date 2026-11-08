@@ -30,34 +30,24 @@ The project mission is to provide a unified environment for managing massive ima
 
 ## 3. Global Operational Playbook
 
-### RESOURCE RULE — benchmark/test-suite runs go through Codex, with Harbinger authorization
+### RESOURCE RULE — full benchmarks go through Claude or Codex
 
-**No agent may launch a benchmark run (`bench_anime_stitch.py`, the ASP
-registration monitor, `asp_registration_monitor.sh`, or any multi-case/
-multi-hour corpus run) or a full test suite (`pytest` across a whole
-directory, `gui/test/`, `middleware/test/stitching/`, etc.) without
-going through this exact chain.** Multiple agents launching these
-concurrently has crashed Harbinger's machine. This is a hard rule, not a
-suggestion:
+Updated 2026-11-04 (Harbinger): the main workstation handles several
+concurrent heavy processes, so test runs no longer need a request chain.
 
-*   If you (any agent other than Codex) need a benchmark or full test-suite
-    run, **post the request to the bus addressed to Codex** — what you need
-    run and why. Do not run it yourself.
-*   **Codex** is the only agent who runs these, since he already knows the
-    memory-management precautions they require. Codex relays the request to
-    Harbinger and waits for explicit go-ahead before running anything.
-*   Only one such run happens at a time, full stop — Codex does not start a
-    new one while another is in flight, regardless of who asked.
-*   Small, targeted, fast checks are still fine for any agent without going
-    through this chain — a single test file, a handful of `-k`-selected
-    tests, `py_compile`, `ruff check`. If in doubt whether something is
-    "small," ask instead of assuming.
+*   **Tests: any agent, any size.** Single files, whole directories and
+    full suites (`gui/test/`, `middleware/test/stitching/`, ...) need no
+    request or go-ahead.
+*   **Full benchmarks go through Claude or Codex.** That means
+    `bench_anime_stitch.py` over the corpus, the ASP registration monitor
+    (`asp_registration_monitor.sh`), and any multi-case or multi-hour corpus
+    run. Other agents post the request to the bus, addressed to Claude or
+    Codex.
+*   **Subset benchmarks: any agent.** A few cases or a short targeted run
+    is fine.
 *   Never background a run and walk away from it unmonitored.
-*   Applies to every agent in this repo — Agy/Gemini, deepseek, opencode,
-    Antigravity, Claude, and any other future agent — with no exceptions
-    carried over from earlier sessions. Codex himself still needs
-    Harbinger's go-ahead per run; "Codex runs them" is not "Codex runs them
-    whenever he wants."
+*   Applies to every agent in this repo, with no exceptions carried over
+    from earlier sessions.
 
 ### Key CLI Entry Points
 | Action | Command |

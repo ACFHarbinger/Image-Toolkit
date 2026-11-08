@@ -82,3 +82,18 @@ def test_run_button_disabled_under_two(q_app, tmp_path):
     sm.select(tab.gallery.model.index(1, 0), sm.SelectionFlag.Select)
     assert tab.run_button.isEnabled()  # 2 selected
     tab.close()
+
+
+def test_ctrl_d_clears_gallery_selection(q_app, tmp_path):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    tab = _make_tab(q_app, tmp_path, n=6)
+    for p in tab.gallery_image_paths[:3]:
+        tab.toggle_selection(p)
+    QTest.keyClick(tab.gallery.view, Qt.Key.Key_D, Qt.KeyboardModifier.ControlModifier)
+    assert tab.gallery.selected_files() == [] and tab.selected_files == []
+    assert not tab.run_button.isEnabled()
+    tab.select_all_items()
+    assert len(tab.selected_files) == 6
+    tab.close()

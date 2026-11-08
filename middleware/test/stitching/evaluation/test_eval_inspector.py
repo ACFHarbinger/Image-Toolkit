@@ -598,7 +598,7 @@ def test_ground_truth_checkbox_off_reflows_the_remaining_panels(grid):
 
 def test_reorder_moves_source_into_targets_slot(grid):
     grid.reorder("ground_truth", "asp")
-    assert grid.order() == ["ground_truth", "asp", "simple", "overmix", "hugin", *_TRAIL]
+    assert grid.order() == ["ground_truth", "asp", "asp_prev", "simple", "overmix", "hugin", *_TRAIL]
     assert grid.visible() == ["ground_truth", "asp", "simple", "overmix"]
 
 
@@ -644,12 +644,12 @@ def test_custom_order_persists_across_a_new_tests_images(grid):
 
 def test_set_order_replaces_and_appends_missing_keys(grid):
     grid.set_order(["ground_truth", "simple"])
-    assert grid.order() == ["ground_truth", "simple", "asp", "overmix", "hugin", *_TRAIL]
+    assert grid.order() == ["ground_truth", "simple", "asp", "asp_prev", "overmix", "hugin", *_TRAIL]
 
 
 def test_set_order_ignores_unknown_keys(grid):
     grid.set_order(["ground_truth", "not_a_real_key", "asp"])
-    assert grid.order() == ["ground_truth", "asp", "simple", "overmix", "hugin", *_TRAIL]
+    assert grid.order() == ["ground_truth", "asp", "asp_prev", "simple", "overmix", "hugin", *_TRAIL]
 
 
 def test_order_changed_signal_fires_on_reorder(grid):

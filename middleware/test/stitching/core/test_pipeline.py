@@ -23,7 +23,7 @@ from middleware.src.stitching.core.pipeline import (  # noqa: E402
     _spatial_dedup_frames,
     run_stage,
 )
-from middleware.src.stitching.core.pipeline.run_stage import _panorama_fallback_allowed, _refine_masks_for_plate
+from middleware.src.stitching.core.pipeline.run_stage import _refine_masks_for_plate
 from middleware.src.constants.animation import (  # noqa: E402
     HIGH_CONF_EDGE_THRESH,
 )
@@ -47,19 +47,6 @@ def _make_mask(h: int = 4, w: int = 4) -> np.ndarray:
 
 def _make_edge(i: int, j: int, dy: float, dx: float = 0.0) -> dict:
     return {"i": i, "j": j, "M": _make_affine(dy=dy, dx=dx)}
-
-
-class TestPanoramaFallbackSafety:
-    def test_default_limit_rejects_large_sequences(self, monkeypatch):
-        monkeypatch.delenv("ASP_PANORAMA_MAX_FRAMES", raising=False)
-        assert _panorama_fallback_allowed(12)
-        assert not _panorama_fallback_allowed(13)
-
-    def test_limit_can_be_overridden_or_disabled(self, monkeypatch):
-        monkeypatch.setenv("ASP_PANORAMA_MAX_FRAMES", "24")
-        assert _panorama_fallback_allowed(22)
-        monkeypatch.setenv("ASP_PANORAMA_MAX_FRAMES", "0")
-        assert not _panorama_fallback_allowed(2)
 
 
 class TestP4MaskRefinement:

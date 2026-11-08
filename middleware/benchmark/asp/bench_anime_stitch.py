@@ -113,6 +113,7 @@ from asp_backend.core.pipeline.safety_policy import (  # noqa: E402
     default_benchmark_policy,
 )
 from asp_backend.core.validation import _validate_affines  # noqa: E402
+from asp_backend_benchmark.fair_gt import fair_gt_score  # noqa: E402
 from asp_backend.ingestion.frame_selection import (  # noqa: E402
     detect_animation_phases,
     phase_spans,
@@ -655,7 +656,11 @@ def _compute_gt_metrics(
     aligned_ssim = _compute_aligned_ssim(output_img, gt_img)
     psnr_val = _psnr(output_img, gt_img)
     sc_val = _seam_coherence(output_img)
+    fair = fair_gt_score(output_img, gt_img)
     return {
+        # Framing-independent (fair_gt.py); the verdict prefers it.
+        "fair_ssim_vs_gt": fair["ssim"],
+        "fair_cov_vs_gt": fair["cov"],
         "ssim_vs_gt": round(ssim_val, 4) if not math.isnan(ssim_val) else None,
         "aligned_ssim_vs_gt": round(aligned_ssim, 4)
         if not math.isnan(aligned_ssim)
@@ -703,8 +708,14 @@ def _gt_verdict(
     it measures structural similarity to the *intended* output, not the presence
     of high-frequency edge artifacts introduced by banding or misalignment.
     """
-    asp_ssim = asp_gt.get("aligned_ssim_vs_gt", asp_gt.get("ssim_vs_gt"))
-    sim_ssim = sim_gt.get("aligned_ssim_vs_gt", sim_gt.get("ssim_vs_gt"))
+    asp_ssim, sim_ssim = asp_gt.get("fair_ssim_vs_gt"), sim_gt.get("fair_ssim_vs_gt")
+    if asp_ssim is not None and sim_ssim is None:
+        return "asp_better"  # OpenCV output does not register to the GT
+    if asp_ssim is None and sim_ssim is not None:
+        return "simple_better"
+    if asp_ssim is None and sim_ssim is None:
+        asp_ssim = asp_gt.get("aligned_ssim_vs_gt", asp_gt.get("ssim_vs_gt"))
+        sim_ssim = sim_gt.get("aligned_ssim_vs_gt", sim_gt.get("ssim_vs_gt"))
     if asp_ssim is None or sim_ssim is None:
         return None
     if asp_ssim > sim_ssim * 1.03:  # 3 % margin to avoid noise-driven flips
@@ -1254,6 +1265,9 @@ def _process_dataset_canonical(
     built["safe_asp_counterfactual"] = result.extra.get("safe_asp_counterfactual")
     built["ungated_gate_config"] = result.extra.get("ungated_gate_config")
     built["observability"] = result.extra.get("observability") or session.observability()
+    # Per-stage routing (2026-11-05): which pose source and renderer ran.
+    built["registration_route"] = session.artifacts.get("registration_route")
+    built["render_route"] = session.artifacts.get("render_route")
     return built
 
 
@@ -2375,6 +2389,10 @@ def _build_result(
             "available": has_gt,
             "metrics_asp": gt_metrics_asp,
             "metrics_simple": gt_metrics_sim,
+            "metrics_overmix": (
+                _compute_gt_metrics(overmix_img, gt_img) if has_gt else {}
+            ),
+            "metrics_hugin": _compute_gt_metrics(hugin_img, gt_img) if has_gt else {},
             "verdict": gt_ver,
         },
         # --- §0.1/0.2 human coherence evaluations (None if this dataset hasn't
@@ -3842,17 +3860,36 @@ def default_checkpoint_path() -> str:
     return str(results_directory() / "_checkpoint.json")
 
 
-def _process_isolated(dataset: str) -> dict | None:
-    """Release all native/model allocations by exiting after each dataset."""
+def _process_isolated(dataset: str, gpu: int | None = None) -> dict | None:
+    """Release all native/model allocations by exiting after each dataset.
+
+    ``gpu`` pins the worker to one CUDA device (``--workers`` round-robin).
+    """
     directory = Path(default_checkpoint_path()).parent
     directory.mkdir(parents=True, exist_ok=True)
+    env = dict(os.environ)
+    # BiRefNet sizes its batch from free VRAM: batch 3 peaks at ~21 GB on a
+    # 24 GB card, which alone trips the 85% VRAM guard. Masks don't depend
+    # on the batch size.
+    env.setdefault("ASP_BIREFNET_MAX_BATCH_SIZE", "1")
+    if gpu is not None:
+        env["CUDA_VISIBLE_DEVICES"] = str(gpu)
     with tempfile.TemporaryDirectory(dir=directory, prefix="worker-") as temporary:
         result_path = Path(temporary) / "result.json"
-        subprocess.run(
-            [sys.executable, "-u", __file__, "--worker-dataset", dataset,
-             "--worker-result", str(result_path)],
-            check=True,
-        )
+        log_path = Path(temporary) / "worker.log"
+        cmd = [sys.executable, "-u", __file__, "--worker-dataset", dataset,
+               "--worker-result", str(result_path)]
+        if gpu is None:
+            subprocess.run(cmd, check=True, env=env)
+        else:
+            # Parallel workers would interleave on stdout; keep each log whole.
+            with log_path.open("w") as log:
+                proc = subprocess.run(cmd, env=env, stdout=log, stderr=subprocess.STDOUT)
+            tail = log_path.read_text(errors="replace").splitlines()[-15:]
+            print(f"  [worker gpu{gpu}] {os.path.basename(dataset)} rc={proc.returncode}")
+            if proc.returncode != 0:
+                print("\n".join("    " + t for t in tail))
+                proc.check_returncode()
         return json.loads(result_path.read_text(encoding="utf-8"))
 
 
@@ -3905,7 +3942,13 @@ def _resolve_datasets(base_dir: str, args) -> list[str]:
         d for d in glob.glob(os.path.join(base_dir, "asp_test*")) if os.path.isdir(d)
     )
 
-    if args.tests:
+    if getattr(args, "slice", None):
+        from asp_backend_benchmark.slices import get_slice_cases
+
+        wanted = get_slice_cases(args.slice)
+        by_name = {os.path.basename(d): d for d in all_dirs}
+        selected = [by_name[n] for n in wanted if n in by_name]
+    elif args.tests:
         # Explicit names, e.g. asp_test04 asp_test27
         name_set = set(args.tests)
         selected = [d for d in all_dirs if os.path.basename(d) in name_set]
@@ -4027,6 +4070,34 @@ Examples:
         metavar="DIR",
         help="Root data directory containing asp_testXX subdirectories",
     )
+    parser.add_argument(
+        "--slice",
+        metavar="NAME",
+        help="Run a named dev slice from slices.py (e.g. asp_dev_v1, smoke_v1)",
+    )
+    parser.add_argument(
+        "--label",
+        metavar="TEXT",
+        help="Tag this run in the run history (also sets ASP_EXPERIMENT_LABEL)",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Datasets in parallel, round-robin over the CUDA devices (default 1)",
+    )
+    parser.add_argument(
+        "--resume-run",
+        metavar="ID",
+        help="Continue an archived run (e.g. one the resource guard stopped): "
+        "skip its archived cases and add the rest to it",
+    )
+    parser.add_argument(
+        "--no-history",
+        action="store_true",
+        help="Do not archive this run under <results dir>/runs/",
+    )
     parser.add_argument("--worker-dataset", help=argparse.SUPPRESS)
     parser.add_argument("--worker-result", help=argparse.SUPPRESS)
     args = parser.parse_args()
@@ -4072,10 +4143,50 @@ Examples:
     results = []
     if args.resume_checkpoint and Path(_checkpoint_path).is_file():
         results = json.loads(Path(_checkpoint_path).read_text(encoding="utf-8"))
+    if args.label:
+        os.environ["ASP_EXPERIMENT_LABEL"] = args.label
+    from asp_backend_benchmark import run_history
+
+    _run_dir = None
+    if args.resume_run:
+        _prior = run_history.resolve_run(args.resume_run)
+        if _prior is None:
+            parser.error(f"no archived run matches {args.resume_run!r}")
+        _run_dir = _prior.path
+        _done = set(_prior.cases())
+        datasets = [d for d in datasets if os.path.basename(d) not in _done]
+        print(f"[History] Resuming {_run_dir} ({len(_done)} archived, {len(datasets)} to run)")
+    elif not args.no_history:
+        _run_dir = run_history.new_run(
+            [os.path.basename(d) for d in datasets], label=args.label, slice_name=args.slice
+        )
+        print(f"[History] Archiving this run to {_run_dir}")
+    _n_gpu = torch.cuda.device_count() if torch.cuda.is_available() else 0
+    _workers = max(1, int(args.workers or 1))
+    if _workers > 1:
+        import concurrent.futures as _cf
+
+        _pool = _cf.ThreadPoolExecutor(max_workers=_workers)
+        _futures = [
+            _pool.submit(_process_isolated, ds, (i % _n_gpu) if _n_gpu else None)
+            for i, ds in enumerate(datasets)
+        ]
+
+        def _ordered():
+            # Completion order, so the guardrail and checkpoint see progress.
+            fut_to_ds = dict(zip(_futures, datasets, strict=True))
+            for fut in _cf.as_completed(_futures):
+                yield fut_to_ds[fut], fut
+    else:
+        _pool = None
+
+        def _ordered():
+            for ds in datasets:
+                yield ds, None
     failed = False
-    for ds in datasets:
+    for ds, _fut in _ordered():
         try:
-            result = _process_isolated(ds)
+            result = _fut.result() if _fut is not None else _process_isolated(ds)
         except Exception as _ds_exc:
             # A single dataset's uncaught exception (e.g. SCANS fallback
             # failure inside process_dataset's own fallback path) must not
@@ -4092,6 +4203,11 @@ Examples:
             # crashes. Persist progress after every dataset so a killed run
             # loses at most the in-flight dataset, not the whole batch.
             write_json_atomic(Path(_checkpoint_path), results)
+            if _run_dir is not None:
+                try:
+                    run_history.archive_case(_run_dir, result)
+                except Exception as _arch_exc:  # history must never fail a run
+                    print(f"  [History] archive failed for {result.get('name')}: {_arch_exc!r}")
         gc.collect()
         # Unconditional (unlike _log_resource's internal per-stage flush,
         # still gated behind ASP_RESOURCE_FLUSH_CUDA): this fires once per
@@ -4119,15 +4235,25 @@ Examples:
                 f"{len(results)} dataset(s) already completed are still written out below."
             )
             failed = True
+            if _pool is not None:
+                _pool.shutdown(wait=False, cancel_futures=True)
             break
+    if _pool is not None:
+        _pool.shutdown(wait=True)
 
     if results:
         output_dir = os.path.join(base_dir, "output")
         os.makedirs(output_dir, exist_ok=True)
         generate_report(results, output_dir)
-        generate_json_results(results, suite_start)
+        _json_path = generate_json_results(results, suite_start)
         print(f"\nAll done. {len(results)} datasets processed.")
     else:
+        _json_path = None
         print("No results to report.")
+    if _run_dir is not None:
+        run_history.finish_run(
+            _run_dir, status="failed" if failed else "done", results_json=_json_path
+        )
+        print(f"[History] {_run_dir}  —  compare: python {Path(__file__).parent / 'run_history.py'} compare")
 
     raise SystemExit(1 if failed else 0)

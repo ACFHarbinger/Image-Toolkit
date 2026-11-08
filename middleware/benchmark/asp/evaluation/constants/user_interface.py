@@ -100,10 +100,10 @@ MODE_POINT = "point"
 MODE_PROBE = "probe"
 
 TOOL_MODES = (
-    (MODE_NAVIGATE, "Navigate", "Drag to pan, wheel to zoom"),
-    (MODE_BBOX, "Draw region", "Drag a box around a defect, then tag it"),
-    (MODE_POINT, "Link", "Click a point or drag a region in 2+ panels, then Enter to link them"),
-    (MODE_PROBE, "Probe pixels", "Hover to read values; click to pin a readout"),
+    (MODE_NAVIGATE, "✥  Navigate  (N)", "Drag to pan, wheel to zoom"),
+    (MODE_BBOX, "▭  Draw region  (B)", "Drag a box around a defect, then tag it"),
+    (MODE_POINT, "↔  Link  (L)", "Click a point or drag a region in 2+ panels, then Enter to link them"),
+    (MODE_PROBE, "⌖  Probe pixels  (V)", "Hover to read values; click to pin a readout"),
 )
 
 # Display modes. DISPLAY_PIXEL overlays a per-pixel grid with numeric RGB

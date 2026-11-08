@@ -182,3 +182,57 @@ keep-biggest-component (item 2 above).
 
 - Tests: stitching suite 1318 passed. The 3 failures also fail on main (`test_audit_recomputes_strip_banding`, `test_compute_all_metrics_emits_strip_banding`, `test_severe_gradient_clip_routes_to_hugin`).
 - Not done: a full-corpus rerun with defaults. Outside these 3 cases the defaults equal the seam+seqtrim run.
+
+## 2026-11-04: registration bugs, a fairer metric, and the real gap
+
+**The bench GT metric is framing-sensitive.** `_compute_aligned_ssim` resizes the output to the GT's w×h (aspect not kept), then aligns with Euclidean ECC (no scale). Cropping the same image by 30 px moves the score −0.047 (asp_test27) to +0.060 (asp_test16). Offline scorer `fairscore.py` (scratch): SIFT similarity + affine ECC registration of the output onto the GT, SSIM on the joint valid region, coverage reported separately. It agrees with eyeballing: asp_test05 ASP has a doubled collar and smeared sleeve (fair 0.76 vs OpenCV 0.97; old metric 0.734 vs 0.747).
+
+**Fair-metric baseline (current defaults):** OpenCV 0.834, ASP 0.780 (n=47, ASP ahead on 9). Old metric: −0.004.
+
+**Bugs found:**
+- HF EfficientLoFTR returns integer coarse-grid keypoints at 640×480 (non-uniform resize). ASP's primary pair translations are quantised to 16.2 px and often 0 (asp_test27: 64.8 or 0 where truth is 74/66). Median error vs OpenCV's confident pairs: 11 px, 53% >10 px.
+- Spatial dedup then drops "static" frames that moved: 27→2 (asp_test79). SCANS fallback received the 2 survivors and failed: no output on asp_test25/34/50/79/90.
+- ALIKED is absent in kornia 0.8.2, so the wrapper runs DISK. Every call failed: grayscale input (DISK needs RGB) and the wrong LightGlue API.
+
+**Fixes (uncommitted on main):**
+- `matching/_refine.py`: candidates (matcher median + SIFT/RANSAC at 0.5×) refined by pyramid ECC on the background mask, unmasked retry, best correlation kept. Pair error median 11.4 → 1.2 px, 0.1 s/pair. `ASP_EDGE_REFINE=0` off; `ASP_EDGE_DROP_UNVERIFIED=1` drops edges it cannot verify (subset: fixed 04/43/95, broke 46; off by default).
+- SCANS fallback takes the pre-dedup set when dedup left < max(3, half).
+- DISK wrapper: RGB input, `LightGlueMatcher`.
+- Harness: product default renderer (was pinned to `median`, so earlier runs only had seam via `ASP_RENDERER`); writes `poses.json`.
+
+**Result (`asp-refine-corpus-2026-11-04`, 97/97 rc=0, 22 min, 4 workers):** old metric: ASP output on 55/55 GT cases (was 50), mean −0.003, median 0.000, ASP ahead on 28. Fair metric: flat (ASP 0.779 vs OpenCV 0.831). Gains (asp_test05 +0.13, 31 +0.12, 49 +0.11, 46 +0.10, three new outputs ≈ OpenCV) are cancelled by cases that used to fail the affine health gate into SCANS and now render ASP poses that are wrong (asp_test84 canvas 11023 px tall, 92, 57, 83).
+
+**Ceiling checks:**
+- Oracle best-of(ASP, OpenCV) per case: +0.0013 over OpenCV on the fair metric.
+- OpenCV poses + bg-masked pairwise ECC + robust LSQ (45 cases): −0.009 mean (17 better, 18 worse). Gating on overlap NCC consistency doesn't predict GT gain (−0.0085).
+- So OpenCV's SCANS registration is near what photometric refinement reaches. The residual GT gap looks like compositing choices (which frame supplies a region while characters move), not geometry.
+
+## 2026-11-05: per-stage routing, dev slice, run history
+
+Branch `feat/asp-stage-routing`. Slice `asp_dev_v1` (19 GT cases, all three corpus sources). Fair GT metric v2 (`fair_gt.py`: the better of SIFT and ECC alignment). Runs under `~/Downloads/Data/Tests/asp-benchmark/runs/`.
+
+| run | SSIM vs OpenCV | SSIM×cov vs OpenCV | unscoreable |
+|---|---:|---:|---:|
+| baseline-pre-router (wholesale SCANS/Safe swaps) | −0.061 (1/17) | −0.075 | 2 |
+| route-asp (ASP poses when valid) | −0.070 | −0.135 | 2 |
+| route-opencv (OpenCV poses forced) | −0.020 | +0.002 | 1 |
+| route-auto | −0.016 | +0.015 | 0 |
+| route-auto-v2 (best-of-3 OpenCV draws, asp-drop rule) | **−0.0075** (4/18) | **+0.039** (6/18) | 0 |
+
+Findings:
+- The baseline's published "ASP" was OpenCV's own image on 6/19 cases (SCANS fallback or Safe-ASP swap). Both are gone; whole-output SCANS is only the last resort when OpenCV registration also fails.
+- `auto` picks per case within ~0.01 of the best of `asp`/`opencv` (oracle). Background-overlap consistency ranks pose sets correctly when they differ a lot (04: ASP 0.797 vs OpenCV poses 0.693).
+- OpenCV SCANS registration is non-deterministic (shared RANSAC RNG): asp_test04 drew a pose set with a frame at 2.7× scale. Seeded best-of-3 fixes it (0.797 → 0.837).
+- With identical poses ASP's render ≈ OpenCV's composite on the shared region (asp_test92: 0.99 SSIM between them). Most remaining SSIM gaps are crop/coverage trade-offs: 46 (OpenCV covers 49% of GT, ASP 98%), 54 (35% vs 79%).
+- The v1 fair metric's unmasked ECC polish misconverged on outputs with black wedges (asp_test92 0.789 vs 0.878); v2 scores both alignments.
+
+Open: 95 (−0.042), 04 (−0.022), 49 (−0.016) on shared-region SSIM; compositing (FG-aware seams) is the next lever for beating OpenCV rather than matching it.
+
+### Full corpus (run `20261105-040053-full-auto-v2`, 97/97, metric v2)
+
+- All 97 outputs are ASP's own (88 OpenCV poses, 9 ASP poses). 55 GT cases: ASP 0 unscoreable, OpenCV 3.
+- vs OpenCV, SSIM on the shared region (n=52): mean −0.003, median −0.004, ahead 17, behind by >0.02 on 6. Per source A/B/C: −0.002 / −0.007 / −0.003.
+- vs OpenCV, SSIM×coverage: mean +0.076 (source B +0.17: OpenCV covers little), median −0.010; source A median −0.018. ASP crops tighter than OpenCV on many A cases.
+- vs Overmix SSIM +0.027 (28/46), vs Hugin +0.123 (8/8).
+- Before (main's ASP outputs from 2026-11-04, contrast harness, rescored v2): −0.057 vs OpenCV, ahead 8/47, 6 cases missing/unscoreable. Branch vs those: +0.051, better on 34/49.
+- Largest shared-region deficits: 54, 43 (ASP poses), 25, 42, 95, 04. asp_test34 crashed on a degenerate OpenCV draw (fixed `b20a1f5d2`, rerun into the same run).

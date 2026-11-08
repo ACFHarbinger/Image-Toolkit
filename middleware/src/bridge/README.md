@@ -44,7 +44,7 @@ validated by `events.validate_event`).
 
 ## Tests
 
-`middleware/test/bridge/` — targeted only (RESOURCE RULE). The
+`middleware/test/bridge/`. The
 jsonschema cross-check tests are `importorskip`-guarded like
 `contracts/test`, since jsonschema is a transitive, not declared,
 dependency.

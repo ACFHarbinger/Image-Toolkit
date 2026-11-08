@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- The ASP benchmark evaluator can keep a run only when asked, with a description and tags, and can compare that run with an earlier one on a chosen set of cases. Permanent subsets and extra case directories are stored under `~/Downloads/Data/Tests/asp-benchmark/evaluator/`. Stitch review views cover local SSIM, Lab delta-E, edge disagreement, a phase-correlation ghost residual, coverage gaps, Laplacian residual, seam energy, and band histogram intersection. The inspector Runs tab writes a note or an output snapshot only when asked, and its compare table follows the queue search or saved subset. Load subset, under Save subset, applies one of those subsets to the queue. Analyze tools follow the open case, including Coherence V2 when that case is not in its precomputed list.
 - The ASP, CRE, CSG, and HIE documentation is part of the main docs nav, including roadmaps, research, reports, and ADRs that used to live only on the separate project sites.
 - The documentation website serves those four projects at `/labs/asp`, `/labs/cre`, `/labs/csg`, and `/labs/hie`, with the original home, pipeline observatory, 3D hero, and document browser. The pipeline preview opens those pages instead of the old standalone sites.
 - ASP, CRE, CSG, and HIE documentation is filed in the main docs sections (`docs/guides`, `docs/adr`, `docs/moon`, `docs/tutorials`, `docs/sphinx`, and `docs/modules`). Structurizr workspaces are `docs/moon/architecture/structurizr-cel.dsl` and `structurizr-editor.dsl`. The docs dependency group includes the Sphinx packages those API configs need. Structurizr Lite and the Structurizr CLI remain Docker images because the CLI is not a Python package.
@@ -23,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Ctrl+D in the Merge gallery deselects all images, clearing their highlights and removing them from the canvas and queue. Ctrl+A also goes through the gallery selection.
+- The Extractor's Smart Extract (FFmpeg) method dropdown can always be opened. Before, it stayed disabled until the checkbox was ticked. Picking a method now turns Smart Extract on.
 - Optional fields, including Convert's Output Directory and Filename and Similarity's Target extensions, use the same translucent glass as other inputs when a background image is selected.
 - Lanczos3-dering upscales default to a cached separable float kernel and a 6×6 OpenCV clamp. `quality=exact` and downscales keep the masked kernel. Opaque frames on the fast path skip the alpha filter.
 - Cancelling a Sampler resample no longer aborts the app. The worker thread is kept until it has left `run()`, so Qt does not destroy a running `QThread`.

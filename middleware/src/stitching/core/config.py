@@ -99,15 +99,16 @@ _CONFIG_SCHEMA: dict[str, tuple] = {
         "to the frozen registration-risk rule (clean metrics -> uncertain review, "
         "never silent low-risk)",
     ),
-    "ASP_DISABLE_PANORAMA_FALLBACK": (
-        int, 0, 1,
-        "Default-off: skip the OpenCV PANORAMA fallback, go straight to SCANS",
+    "ASP_REGISTRATION": (
+        str, None, None,
+        "Pose source: auto (OpenCV SCANS unless ASP's poses are clearly more "
+        "consistent) | opencv | asp; either feeds ASP's own render stages",
     ),
     "ASP_BA_F_SCALE": (float, 0.0, None, "Cauchy loss f_scale (px) in bundle adjustment"),
     "ASP_GNC_OUTER": (int, 1, 32, "GNC outer continuation iterations in BA"),
     "ASP_WAVE_CORRECT": (int, 0, 1, "EXPERIMENTAL, default-off: 2D translation-domain wave correction (chain-drift straightening) on the BA output, the analog of OpenCV detail::waveCorrect; does not change the rejection path"),
     "ASP_WAVE_CORRECT_KIND": (str, None, None, "Wave-correction dominant axis: auto | horizontal | vertical"),
-    "ASP_DY_CV_MAX": (float, 0.0, None, "dy_cv gate: SCANS fallback above this step-CV (0=off)"),
+    "ASP_DY_CV_MAX": (float, 0.0, None, "dy_cv gate: seam renderer above this step-CV (0=off)"),
     # ── Foreground registration (Stage 8.5) ─────────────────────────────
     "ASP_FG_REGISTER": (int, 0, 1, "Enable Stage 8.5 foreground pose registration"),
     "ASP_FLOW_ENGINE": (str, None, None, "Dense flow engine: searaft | dis"),
@@ -121,7 +122,7 @@ _CONFIG_SCHEMA: dict[str, tuple] = {
     "ASP_ADAPTIVE_RENDER_GAIN": (int, 0, 1, "Adaptive gain clamp in sequential render normalisation"),
     "ASP_GAIN_DRIFT_MAX": (float, 0.0, None, "Max cumulative gain fold-change before reset (0=off)"),
     "ASP_GPU_MEDIAN": (int, 0, 1, "GPU temporal median via base (UMat)"),
-    "ASP_COV_MIN_MULTI_PCT": (float, 0.0, 1.0, "Min multi-frame canvas coverage before SCANS fallback"),
+    "ASP_COV_MIN_MULTI_PCT": (float, 0.0, 1.0, "Min multi-frame canvas coverage before switching to the seam renderer"),
     # ── Compositing (Stage 11) ───────────────────────────────────────────
     "ASP_PHASE_COMPOSITE": (int, 0, 1, "§2.3 phase-consistent compositing: never midpoint-warp across an animation-phase boundary, escalate to single-pose instead (default OFF pending A/B)"),
     "ASP_COHERENCE_V2": (int, 0, 1, "M3 default-off §9.2 Stage 2 compositor candidate: one pose per foreground overlap region; not wired into the live seam loop"),
@@ -360,6 +361,7 @@ _DUMP_SECTIONS: dict[str, list[str]] = {
     "alignment": [
         "ASP_MATCH_SPREAD_CEIL", "ASP_LOFTR_BG_RATIO_MIN", "ASP_SIMILARITY_MODE",
         "ASP_ALIGN_GATE_DX", "ASP_CLEANCP_RESOLVE", "ASP_BA_F_SCALE", "ASP_GNC_OUTER", "ASP_DY_CV_MAX",
+        "ASP_REGISTRATION",
     ],
     "fg_register": [
         "ASP_FG_REGISTER", "ASP_FLOW_ENGINE", "ASP_ARAP_PUSH", "ASP_FG_MAX_RESIDUAL",

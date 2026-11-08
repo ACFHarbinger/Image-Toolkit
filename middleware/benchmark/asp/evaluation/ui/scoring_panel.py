@@ -436,8 +436,29 @@ class ScoringPanel(QWidget):
         self._emit_changed()
 
     def toggle_defect(self, key: str) -> None:
-        severity = self._entry.severity(self._severity_image, key)
-        self.set_defect_severity(key, 0 if severity else 1)
+        """Defect button / digit key: tag every coherence-rated output.
+
+        On, it adds a trace (1) to each output that has a coherence score;
+        off, it clears the defect from every output. With no coherence score
+        yet it falls back to the "Grade output" one. Per-output grades still
+        go through the severity rows below.
+        """
+        if key in self._entry.defects:
+            graded = [img for img, per in self._entry.defect_severity.items() if key in per]
+            for image in graded:
+                self._entry.set_severity(image, key, 0)
+            # a legacy test-level tag with no per-output grade
+            self._entry.defects = [tag for tag in self._entry.defects if tag != key]
+        else:
+            rated = [
+                img for img in self.blocks
+                if self._entry.score(img, DIM_COHERENCE) is not None
+            ]
+            for image in rated or [self._severity_image]:
+                self._entry.set_severity(image, key, 1)
+        self._sync_defect_buttons()
+        self._sync_severity_rows()
+        self._emit_changed()
 
     def set_defect_severity(self, key: str, severity: int) -> None:
         self._entry.set_severity(self._severity_image, key, severity)

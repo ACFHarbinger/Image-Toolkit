@@ -69,6 +69,10 @@ class EvaluationSession:
         # Working entries for tests that have been opened but have no user
         # input yet. Kept out of `evaluations` so they can never be persisted.
         self._pending: dict[str, RatingEntry] = {}
+        # Cases Next / Skip walk (the queue's selected subset); None = all.
+        # Navigation still runs in `order`, so jumping to a case outside the
+        # subset and pressing Next resumes at the next subset case after it.
+        self.scope: set[str] | None = None
 
         start = self.order[0] if self.order else None
         if not redo:
@@ -193,6 +197,12 @@ class EvaluationSession:
 
     # -- navigation ----------------------------------------------------------
 
+    def set_scope(self, names: set[str] | list[str] | None) -> None:
+        self.scope = None if names is None else set(names)
+
+    def _in_scope(self, name: str) -> bool:
+        return self.scope is None or name in self.scope
+
     def go_to(self, name: str, record_history: bool = True) -> str | None:
         """Move to ``name``, committing the test being left behind.
 
@@ -228,7 +238,7 @@ class EvaluationSession:
         total = len(self.order)
         for offset in range(1, total + 1):
             candidate = self.order[(start + offset) % total]
-            if not self.is_rated(candidate):
+            if self._in_scope(candidate) and not self.is_rated(candidate):
                 return candidate
         return None
 
@@ -253,7 +263,9 @@ class EvaluationSession:
             # again" — both want the literal next test. Asking next_unrated()
             # here is what dead-ended the old tool in redo mode, since in that
             # mode there is by definition nothing unrated left to find.
-            target = self.order[index + 1] if index + 1 < len(self.order) else None
+            target = next(
+                (n for n in self.order[index + 1 :] if self._in_scope(n)), None
+            )
         else:
             target = self.next_unrated(from_index=index)
         if target is None:

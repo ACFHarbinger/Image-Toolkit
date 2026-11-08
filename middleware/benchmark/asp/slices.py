@@ -137,7 +137,52 @@ STRUCTURAL_RED_SET_V1 = DevelopmentSlice(
     },
 )
 
+# The three corpus sources (different shows/encoders) are kept balanced.
+CORPUS_SOURCES = {
+    "A": tuple([f"asp_test{n:02d}" for n in range(1, 43)] + ["asp_test97"]),
+    "B": tuple(f"asp_test{n:02d}" for n in range(43, 73)),
+    "C": tuple(f"asp_test{n:02d}" for n in range(73, 97)),
+}
+
+ASP_DEV_V1 = DevelopmentSlice(
+    name="asp_dev_v1",
+    version="0.1.0",
+    description=(
+        "ASP-vs-OpenCV iteration set (2026-11-05): ground-truth cases only, "
+        "balanced across the three corpus sources. Provisional until reviewed."
+    ),
+    case_ids=(
+        # Source A (1-42, 97)
+        "asp_test02", "asp_test04", "asp_test05", "asp_test14",
+        "asp_test15", "asp_test27", "asp_test37",
+        # Source B (43-72)
+        "asp_test46", "asp_test49", "asp_test54", "asp_test57",
+        "asp_test59", "asp_test72",
+        # Source C (73-96)
+        "asp_test80", "asp_test84", "asp_test88", "asp_test89",
+        "asp_test92", "asp_test95",
+    ),
+    target_failure_modes={
+        "large_asp_deficit": (
+            "asp_test15", "asp_test37", "asp_test54", "asp_test80", "asp_test84", "asp_test92",
+        ),
+        "moderate_asp_deficit": (
+            "asp_test04", "asp_test05", "asp_test27", "asp_test49", "asp_test88",
+        ),
+        "parity_or_asp_ahead": ("asp_test02", "asp_test46", "asp_test72", "asp_test89"),
+        "asp_fails": ("asp_test14", "asp_test57", "asp_test95"),
+        "opencv_fails": ("asp_test59",),
+    },
+    metadata={
+        "purpose": "asp_vs_opencv_iteration",
+        "requires_ground_truth": True,
+        "review": "~/Downloads/Data/Tests/asp-dev-subset-review/index.html",
+    },
+)
+
 CANONICAL_SLICES: dict[str, DevelopmentSlice] = {
+    ASP_DEV_V1.name: ASP_DEV_V1,
+    "dev": ASP_DEV_V1,
     SMOKE_SET_V1.name: SMOKE_SET_V1,
     "smoke": SMOKE_SET_V1,
     STRUCTURAL_RED_SET_V1.name: STRUCTURAL_RED_SET_V1,
@@ -147,9 +192,22 @@ CANONICAL_SLICES: dict[str, DevelopmentSlice] = {
 
 
 def get_slice(name: str) -> DevelopmentSlice:
-    """Retrieve a versioned slice by name or alias."""
+    """Retrieve a versioned slice by name or alias.
+
+    Canonical slices win. A user subset is consulted only on a miss. The
+    import is lazy because the library constructs ``DevelopmentSlice``, and
+    the class-name check accepts that slice when this file is also loaded
+    under a package alias (a second module object for the same class).
+    """
     key = name.strip().lower()
     if key not in CANONICAL_SLICES:
+        try:
+            from middleware.benchmark.asp.evaluation.other.case_library import user_slice
+        except ImportError:
+            user_slice = None
+        found = user_slice(name) if user_slice is not None else None
+        if isinstance(found, DevelopmentSlice) or type(found).__name__ == "DevelopmentSlice":
+            return found
         available = ", ".join(sorted(CANONICAL_SLICES.keys()))
         raise KeyError(f"Unknown benchmark slice {name!r}. Available: {available}")
     return CANONICAL_SLICES[key]

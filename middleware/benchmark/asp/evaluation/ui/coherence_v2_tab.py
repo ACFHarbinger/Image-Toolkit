@@ -43,6 +43,32 @@ def _slider(minimum: int, maximum: int, value: int) -> QSlider:
     return slider
 
 
+_LIVE_PAIRS = (
+    ("baseline", "p1_single_pose"),
+    ("asp", "asp_prev"),
+    ("asp", "simple"),
+)
+
+
+def _live_arms(images: dict) -> tuple[np.ndarray | None, np.ndarray | None, bool]:
+    """Pick the two arrays the inspector handed in. The bool is a missing second arm."""
+
+    def take(key: str) -> np.ndarray | None:
+        value = images.get(key)
+        return value if isinstance(value, np.ndarray) else None
+
+    for left_key, right_key in _LIVE_PAIRS:
+        left, right = take(left_key), take(right_key)
+        if left is not None and right is not None:
+            return left, right, False
+    found = [value for value in images.values() if isinstance(value, np.ndarray)]
+    if len(found) >= 2:
+        return found[0], found[1], False
+    if len(found) == 1:
+        return found[0], None, True
+    return None, None, False
+
+
 class CoherenceV2Tab(QWidget):
     """Coherence V2 single-pose vs baseline comparison tab."""
 
@@ -55,6 +81,9 @@ class CoherenceV2Tab(QWidget):
         self._current_case: Optional[Dict[str, Any]] = None
         self._img_default: Optional[np.ndarray] = None
         self._img_v2: Optional[np.ndarray] = None
+        self._context_name = ""
+        self._missing_arm = False
+        self._live_images: dict = {}
 
         self._load_datasets()
         self._setup_ui()
@@ -315,6 +344,10 @@ class CoherenceV2Tab(QWidget):
             self._refresh_view()
 
     def _on_case_selected(self, row: int) -> None:
+        self._context_name = ""
+        self._missing_arm = False
+        if row < 0:
+            return
         item = self.case_list.item(row)
         if not item:
             return
@@ -410,10 +443,28 @@ class CoherenceV2Tab(QWidget):
         """
         self.lbl_metrics_card.setText(html)
 
+    def _status_for(self, text: str) -> str:
+        name = self._context_name
+        if not name or name in text:
+            return text
+        return f"{text} · {name}" if text else name
+
+    def _show_missing_arm(self) -> bool:
+        if not self._missing_arm:
+            return False
+        shown = self._img_default if self._img_default is not None else self._img_v2
+        if shown is None:
+            return False
+        self.image_panel.set_image(shown)
+        self.lbl_status.setText(self._status_for("second arm is missing"))
+        return True
+
     def _refresh_view(self) -> None:
+        if self._show_missing_arm():
+            return
         if self._img_default is None and self._img_v2 is None:
             self.image_panel.set_image(None)
-            self.lbl_status.setText("No images found for current case.")
+            self.lbl_status.setText(self._status_for("No images found for current case."))
             return
 
         a = self._img_default
@@ -474,7 +525,7 @@ class CoherenceV2Tab(QWidget):
             status_text = f"Coherence V2 Stitch ({b.shape[1]}x{b.shape[0]})"
 
         self.image_panel.set_image(out_img)
-        self.lbl_status.setText(status_text)
+        self.lbl_status.setText(self._status_for(status_text))
 
     def _on_pixel_hovered(self, x: int, y: int, bgr) -> None:
         """Live x/y + RGB readout for whatever's currently rendered in the
@@ -489,13 +540,41 @@ class CoherenceV2Tab(QWidget):
         self.lbl_pixel.setText(f"({x}, {y})  R={r:3d} G={g:3d} B={b:3d}  #{r:02x}{g:02x}{b:02x}")
 
     def set_context(self, images: dict, metrics: dict, name: str) -> None:
-        """Called by main evaluator window when dataset changes."""
-        for i in range(self.case_list.count()):
-            item = self.case_list.item(i)
-            c = item.data(Qt.ItemDataRole.UserRole)
-            if c and c.get("name") == name:
-                self.case_list.setCurrentRow(i)
-                break
+        """Inspector case wins. A JSON-list name still selects that row."""
+        del metrics
+        self._live_images = dict(images or {})
+        matched = self._json_row(name)
+        if matched is not None:
+            self._context_name = ""
+            self._missing_arm = False
+            if self.case_list.currentRow() != matched:
+                self.case_list.setCurrentRow(matched)
+            return
+        self.case_list.blockSignals(True)
+        self.case_list.setCurrentRow(-1)
+        self.case_list.blockSignals(False)
+        self._context_name = name or ""
+        self._show_live_case()
+
+    def _json_row(self, name: str) -> int | None:
+        if not name:
+            return None
+        for index in range(self.case_list.count()):
+            item = self.case_list.item(index)
+            data = item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+            if isinstance(data, dict) and data.get("name") == name:
+                return index
+        return None
+
+    def _show_live_case(self) -> None:
+        default, newer, missing = _live_arms(self._live_images)
+        self._img_default = default
+        self._img_v2 = newer
+        self._missing_arm = missing
+        name = self._context_name
+        self._current_case = {"name": name} if name else None
+        self._update_metrics_display()
+        self._refresh_view()
 
 
 __all__ = ["CoherenceV2Tab"]
