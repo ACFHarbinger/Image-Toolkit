@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Ctrl+D in the Merge gallery deselects all images, clearing their highlights and removing them from the canvas and queue. Ctrl+A also goes through the gallery selection.
 - The Extractor's Smart Extract (FFmpeg) method dropdown can always be opened. Before, it stayed disabled until the checkbox was ticked. Picking a method now turns Smart Extract on.
 - Optional fields, including Convert's Output Directory and Filename and Similarity's Target extensions, use the same translucent glass as other inputs when a background image is selected.
 - Lanczos3-dering upscales default to a cached separable float kernel and a 6×6 OpenCV clamp. `quality=exact` and downscales keep the masked kernel. Opaque frames on the fast path skip the alpha filter.

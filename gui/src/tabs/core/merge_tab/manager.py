@@ -140,6 +140,17 @@ class MergeTab(
             return
         sm.select(self.gallery.model.index(row, 0), sm.SelectionFlag.Toggle)
 
+    @Slot()
+    def select_all_items(self):
+        """Ctrl+A: select through the gallery so canvas/queue follow."""
+        self.gallery.select_all()
+
+    @Slot()
+    def deselect_all_items(self):
+        """Ctrl+D: the base clears ``selected_files`` only, leaving the
+        gallery highlights, canvas and queue stale."""
+        self.gallery.clear_selection()
+
     def _sync_selection_from_gallery(self):
         """Mirror the gallery selection into ``selected_files`` and apply the
         canvas/queue side effects (delta-driven, so canvas removal of an
