@@ -90,7 +90,6 @@ class ExtractorDirectoryScanningController(TabBoundController):
 
         dir_set_layout.addWidget(self.line_edit_extract_dir)
         dir_set_layout.addWidget(self.btn_browse_extract)
-        dir_set_layout.addWidget(self.btn_send_to_train)
 
         self.main_layout.addWidget(dir_set_group)
 
