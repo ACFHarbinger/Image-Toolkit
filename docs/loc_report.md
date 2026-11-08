@@ -56,4 +56,4 @@
 | `middleware/src/csg/learning/curriculum.py` | 422 | 0 | 10 | 432 |
 | `middleware/src/stitching/rendering/compositing/_plate_compositor.py` | 420 | 43 | 54 | 517 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 418 | 27 | 20 | 465 |
-| **TOTALS** | **180708** | **9331** | **19841** | **209880** |
+| **TOTALS** | **180704** | **9331** | **19841** | **209876** |
