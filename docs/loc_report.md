@@ -7,7 +7,7 @@
 | Path | Code | Comments | Docstrings | Total |
 |---|---:|---:|---:|---:|
 | `middleware/src/csg/integrations/krita/pykrita/cel_shaded_generator/docker.py` | 1479 | 4 | 9 | 1492 |
-| `middleware/src/stitching/core/pipeline/run_stage.py` | 1063 | 144 | 62 | 1269 |
+| `middleware/src/stitching/core/pipeline/run_stage.py` | 1192 | 132 | 72 | 1396 |
 | `middleware/src/csg/project/service.py` | 856 | 0 | 83 | 939 |
 | `middleware/src/csg/integrations/krita/pykrita/cel_shaded_generator/color_docker.py` | 823 | 5 | 45 | 873 |
 | `middleware/src/services/media/gif_upscale/gpu_schedule.py` | 799 | 12 | 33 | 844 |
@@ -56,4 +56,4 @@
 | `middleware/src/csg/learning/curriculum.py` | 422 | 0 | 10 | 432 |
 | `middleware/src/stitching/rendering/compositing/_plate_compositor.py` | 420 | 43 | 54 | 517 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 418 | 27 | 20 | 465 |
-| **TOTALS** | **180228** | **9316** | **19767** | **209311** |
+| **TOTALS** | **180708** | **9331** | **19841** | **209880** |
