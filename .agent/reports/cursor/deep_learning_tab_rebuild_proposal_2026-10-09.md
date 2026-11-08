@@ -116,9 +116,7 @@ footer" would hide the moment the user opens Library.
 
 ### 1.3 Interaction model
 
-- **Handoffs, not copy-paste.** Extractor "Send frames to Train" publishes
-  `ImportPathsIntent(module_id="dl", paths=...)`. Library selection
-  publishes `SelectionChangedFact`; Train's dataset panel offers "Add
+- **Handoffs, not copy-paste.** Train's dataset panel offers "Add
   selected". Review "Open in editor" uses `InspectImageIntent`. Generate
   "Compare with previous" opens `ImageCompareWindow` and
   `register_window(..., role="dl.compare")` so background-hide and
