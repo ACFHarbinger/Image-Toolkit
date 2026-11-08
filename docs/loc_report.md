@@ -7,17 +7,18 @@
 | Path | Code | Comments | Docstrings | Total |
 |---|---:|---:|---:|---:|
 | `middleware/src/csg/integrations/krita/pykrita/cel_shaded_generator/docker.py` | 1479 | 4 | 9 | 1492 |
-| `middleware/src/stitching/core/pipeline/run_stage.py` | 1056 | 140 | 62 | 1258 |
-| `middleware/src/services/media/gif_upscale/pipeline.py` | 910 | 6 | 15 | 931 |
+| `middleware/src/stitching/core/pipeline/run_stage.py` | 1063 | 144 | 62 | 1269 |
 | `middleware/src/csg/project/service.py` | 856 | 0 | 83 | 939 |
 | `middleware/src/csg/integrations/krita/pykrita/cel_shaded_generator/color_docker.py` | 823 | 5 | 45 | 873 |
+| `middleware/src/services/media/gif_upscale/gpu_schedule.py` | 799 | 12 | 33 | 844 |
 | `gui/src/legacy/asp_gui/helpers/_progress_pipeline.py` | 789 | 39 | 43 | 871 |
-| `middleware/src/services/media/gif_upscale/gpu_schedule.py` | 708 | 10 | 25 | 743 |
+| `middleware/src/core/gpu_lease_arbiter.py` | 783 | 20 | 64 | 867 |
+| `middleware/src/services/media/gif_upscale/pipeline.py` | 747 | 6 | 15 | 768 |
 | `gui/src/legacy/csg_gui/tabs/reference_coloring_tab.py` | 677 | 0 | 146 | 823 |
-| `middleware/src/core/gpu_lease_arbiter.py` | 654 | 16 | 30 | 700 |
 | `middleware/src/csg/project/model.py` | 593 | 0 | 59 | 652 |
 | `middleware/src/sidecar/server.py` | 592 | 1 | 16 | 609 |
 | `middleware/src/csg/integrations/krita/pykrita/cel_shaded_generator/exercise.py` | 587 | 0 | 10 | 597 |
+| `middleware/src/services/media/gif_upscale/gpu_batch.py` | 570 | 21 | 46 | 637 |
 | `middleware/src/services/media/gif_upscale/classical/_resize.py` | 568 | 11 | 21 | 600 |
 | `middleware/src/stitching/alignment/bundle_adjust.py` | 543 | 24 | 61 | 628 |
 | `middleware/src/csg/learning/engine_protocol.py` | 523 | 0 | 3 | 526 |
@@ -49,11 +50,10 @@
 | `gui/src/tabs/models/dl_workspace_host.py` | 434 | 5 | 24 | 463 |
 | `gui/src/windows/settings/_reset_state.py` | 432 | 16 | 17 | 465 |
 | `gui/src/helpers/core/_queue_extraction_process.py` | 429 | 7 | 29 | 465 |
-| `middleware/src/services/media/gif_upscale/gpu_batch.py` | 428 | 7 | 22 | 457 |
 | `middleware/src/stitching/ingestion/masking.py` | 427 | 24 | 73 | 524 |
 | `gui/src/legacy/asp_gui/tabs/stencil/hybrid_stitch_panel.py` | 424 | 26 | 21 | 471 |
 | `gui/src/legacy/asp_gui/elements/_adjust_panel.py` | 423 | 18 | 6 | 447 |
 | `middleware/src/csg/learning/curriculum.py` | 422 | 0 | 10 | 432 |
 | `middleware/src/stitching/rendering/compositing/_plate_compositor.py` | 420 | 43 | 54 | 517 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 418 | 27 | 20 | 465 |
-| **TOTALS** | **179309** | **9289** | **19606** | **208204** |
+| **TOTALS** | **180228** | **9316** | **19767** | **209311** |
