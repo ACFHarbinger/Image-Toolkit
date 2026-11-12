@@ -77,15 +77,15 @@ numba-trial = [
 # new custom-node deps below need adding.
 comfyui = [
     # --- Core ComfyUI UI packages ---
-    "comfyui-frontend-package==1.45.20",
-    "comfyui-workflow-templates==0.11.2",
-    "comfyui-embedded-docs==0.5.6",
+    "comfyui-frontend-package==1.58.7",
+    "comfyui-workflow-templates==0.11.103",
+    "comfyui-embedded-docs==0.5.16",
     # --- ComfyUI native acceleration layers ---
-    "comfy-kitchen==0.2.16",
-    "comfy-aimdo==0.4.10",
+    "comfy-kitchen==0.2.41",
+    "comfy-aimdo==0.6.0",
     "comfy-angle",
     # --- ComfyUI-Manager ---
-    "comfyui_manager==4.2.2",
+    "comfyui_manager==4.3",
     # --- Transformer / tokeniser stack ---
     "einops",
     "transformers>=4.50.3",
