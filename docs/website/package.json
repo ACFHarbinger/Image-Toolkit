@@ -44,7 +44,7 @@
     "@typescript-eslint/eslint-plugin": "^8.71.0",
     "@typescript-eslint/parser": "^8.66.0",
     "@vitejs/plugin-react": "^6.1.2",
-    "astro": "^7.4.2",
+    "astro": "^7.4.7",
     "autoprefixer": "^10.6.1",
     "eslint": "^10.11.0",
     "globals": "^17.12.0",
